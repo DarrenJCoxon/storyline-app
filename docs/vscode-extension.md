@@ -1,6 +1,7 @@
 # Novel Writer — VS Code Extension Sketch
 
 _Status: design sketch. Not yet built._
+_Related: [compile-feature.md](compile-feature.md) (ebook/print PDF output), [engine-platform.md](engine-platform.md) (multi-engine architecture)._
 _Last updated: 2026-04-19_
 
 ## Why
