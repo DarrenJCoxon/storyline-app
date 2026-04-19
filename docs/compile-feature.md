@@ -143,10 +143,73 @@ Green checkmarks for everything valid, warnings for unusual omissions, errors fo
 
 This feature alone would be a meaningful reason to use the tool.
 
+## Preview — see the book before compiling
+
+One of Vellum's most-loved features is live preview: flip through the book as it'll look on Kindle, iPad, Kobo, or in print, before committing to a final compile. It kills the miserable "compile → upload → see it looks wrong → fix → recompile" cycle.
+
+Our architecture makes this easier than Vellum's does, because everything is CSS-based. Previews are nearly free once the compile pipeline exists — we're just rendering the same output to a webview instead of a file.
+
+### Three preview modes
+
+**1. Live chapter preview (while writing)**
+
+A side panel next to the TipTap editor showing the current chapter rendered in the selected theme on the selected device frame. Updates as you type, debounced to 500ms. Answers the moment-to-moment question "what does my prose actually look like when published?"
+
+**2. Full-book browser (before compile)**
+
+A dedicated preview panel that flips through the entire manuscript page-by-page in whichever format is being checked:
+
+- Print PDF layout — actual page breaks, running headers, page numbers, drop caps
+- EPUB on iPad / iPhone / Kindle Paperwhite / Kobo / Nook frames
+- Large-print edition
+- Web HTML (for non-fiction engines outputting to web)
+
+Writers use this to sanity-check the whole book before hitting compile.
+
+**3. Side-by-side comparison**
+
+Two frames showing the same content in different themes or different devices. The theme-picker UX: "Classic Serif vs Modern Sans on iPad, which looks right for my book?"
+
+### Where the previews come from architecturally
+
+- **Print preview is essentially free.** Paged.js renders paginated HTML as scrollable pages in a browser viewport — that IS the preview. The "generate PDF" step is just `page.pdf()` in Puppeteer over the same Paged.js output. Zero additional rendering work.
+- **EPUB preview is straightforward.** An EPUB is HTML+CSS in a zip. We render the same HTML+CSS in a webview iframe — no zip, no device download, just the rendered pages.
+- **Device frames are CSS.** An "iPad preview" is the same HTML inside a styled frame sized 820×1180px with Apple Books rendering quirks applied. A "Kindle Paperwhite preview" is the same content inside a frame sized 1264×1680px with Kindle's quirks approximated. We curate frame presets; writers pick one.
+- **Theme switching is instant.** Change the theme dropdown → the preview re-renders with new CSS. No compile step needed.
+
+### The Kindle fidelity limit
+
+Amazon's rendering engine is proprietary, quirky, and differs across devices (Paperwhite, Oasis, Fire, iOS Kindle app all render CSS differently). We can approximate Kindle via a curated CSS ruleset — good enough to catch obvious problems like broken drop caps or scene breaks swallowed by page transitions — but not pixel-accurate.
+
+For final Kindle verification, Amazon ships a free tool called **Kindle Previewer** that renders exactly as real Kindle devices would. We can't embed it, but we can add a "Open in Kindle Previewer" button that exports the current EPUB to a temp file and launches the tool. That's the accuracy escape hatch.
+
+Vellum does the same thing. Their Kindle preview is also an approximation, and serious indie authors always do a final pass through Kindle Previewer before uploading. We're matching a realistic bar, not a perfect one.
+
+### Performance notes
+
+Rendering 300 pages of Paged.js output on every keystroke would be slow. Solutions are standard:
+
+- Debounce preview updates (500ms after last edit)
+- Default to current-chapter-only live preview (instant, no full-book rendering during writing)
+- Full-book browser is an explicit user action (click "preview full manuscript" and wait 5-10 seconds)
+- Cache theme CSS and device frames — they rarely change
+
+### Why this matters
+
+Preview is fundamentally part of the compile story, not a separate feature. But it's what makes the tool *feel* complete to a writer. The compile → upload → check → fix cycle is what makes self-publishing anxious. If preview is continuous and the compiled file matches what was previewed, that anxiety disappears.
+
 ## Architecture, concretely
 
 **New VS Code extension commands:**
 
+Preview (non-destructive, opens a panel):
+- `Novel Writer: Preview → Current Chapter (live)`
+- `Novel Writer: Preview → Full Manuscript (print PDF layout)`
+- `Novel Writer: Preview → Full Manuscript (EPUB on [device])`
+- `Novel Writer: Preview → Compare Themes`
+- `Novel Writer: Open in Kindle Previewer` (exports temp EPUB, launches external tool)
+
+Compile (writes files to `output/compiled/`):
 - `Novel Writer: Compile → EPUB`
 - `Novel Writer: Compile → Print PDF (6x9)`
 - `Novel Writer: Compile → Print PDF (5x8)`
