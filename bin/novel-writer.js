@@ -195,8 +195,24 @@ program
       process.exit(1);
     }
 
-    // Merge data into state
-    state[stageId] = { ...state[stageId], ...data };
+    // Stages whose top-level shape is an array. The skill can pass either
+    // the array directly OR an object { <stageId>: [...] } — both are
+    // normalised to an array assignment here.
+    const ARRAY_STAGES = new Set(['characters', 'relationships', 'subplots', 'plotThreads', 'chapterOutline']);
+
+    if (ARRAY_STAGES.has(stageId)) {
+      if (Array.isArray(data)) {
+        state[stageId] = data;
+      } else if (data && Array.isArray(data[stageId])) {
+        state[stageId] = data[stageId];
+      } else {
+        console.error(chalk.red(`Stage "${stageId}" expects an array or { ${stageId}: [...] }. Got: ${JSON.stringify(data).slice(0, 100)}`));
+        process.exit(1);
+      }
+    } else {
+      // Object-shaped stage: merge new fields into existing state
+      state[stageId] = { ...state[stageId], ...data };
+    }
 
     // Mark stage complete
     if (!state.stages) state.stages = {};
