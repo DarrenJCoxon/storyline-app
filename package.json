@@ -1,0 +1,25 @@
+{
+  "name": "novel-writer",
+  "version": "1.0.0",
+  "description": "Save the Cat novel planning harness — interactive story planning with AI critique and co-writing support",
+  "type": "module",
+  "bin": {
+    "novel-writer": "./bin/novel-writer.js",
+    "nw": "./bin/novel-writer.js"
+  },
+  "scripts": {
+    "start": "node bin/novel-writer.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.6.1",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.16",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "vitest": "^1.4.0"
+  }
+}

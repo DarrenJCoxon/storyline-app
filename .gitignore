@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment (contains API keys — NEVER commit)
+.env
+.env.local
+.env.production
+
+# Generated output (root-level only — lib/output/ is source code)
+/output/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# State (per-project, don't commit)
+.novel-writer/
