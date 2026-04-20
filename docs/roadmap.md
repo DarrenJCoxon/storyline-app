@@ -18,14 +18,12 @@ _Last updated: 2026-04-19_
 ### Milestone 1 — Novel Writer harness proves itself on a real book
 **Pre-flight build work complete** (Stories 1.1-1.4: drift fixes, smoke tests, master-doc generation verified). **Gate open** — awaiting real-book planning (Story 1.5), which is writer work done outside build sessions. Reactive fixes (1.6-1.7) happen when the friction log surfaces something. Detail: [roadmap/milestone-01-harness-proves-itself.md](roadmap/milestone-01-harness-proves-itself.md)
 
-### ▶ Milestone 2 — VS Code extension MVP: rich-text writing feels right
-**Current milestone** (build work). A writer can open a chapter file in VS Code and write prose with formatting (bold, italic, headings, scene breaks rendered as `⁂`) — saved to disk as plain markdown. Word count in status bar. `/novel` harness runs in a side panel.
-**Prove-it gate:** Write a full chapter in the extension. Compare the experience to writing the same chapter in iA Writer. The extension must not feel worse. Detail: [roadmap/milestone-02-vscode-extension-mvp.md](roadmap/milestone-02-vscode-extension-mvp.md)
+### Milestone 2 — VS Code extension MVP: rich-text writing feels right
+**Build complete** (Stories 2.1-2.6 shipped: scaffold, TipTap webview, markdown round-trip, scene break node, custom editor registration, word count status bar; + the manuscript/ convention). **Gate open** — awaiting the real-chapter prove-it (Story 2.8, writer work). Reactive fixes land as friction surfaces. Detail: [roadmap/milestone-02-vscode-extension-mvp.md](roadmap/milestone-02-vscode-extension-mvp.md)
 
-### Milestone 3 — Compile to EPUB replaces the "upload and pray" step
-**Outcome:** A writer can compile their manuscript to a KDP-valid EPUB from inside the extension. One theme (Classic Serif). Basic pre-flight validation catches missing metadata, invalid chapter counts, etc.
-**Prove-it gate:** Take a real manuscript, compile it, open the EPUB on Apple Books and Kindle Previewer. It must look publishable without manual CSS tweaks.
-**Status:** Deferred. Detail written when current.
+### ▶ Milestone 3 — Compile to EPUB replaces the "upload and pray" step
+**Current milestone** (build work). A writer can compile their manuscript to a KDP-valid EPUB from inside the extension. One theme (Classic Serif). Basic pre-flight validation catches missing metadata, invalid chapter counts, etc.
+**Prove-it gate:** Take a real manuscript, compile it, open the EPUB on Apple Books and Kindle Previewer. It must look publishable without manual CSS tweaks. Detail: [roadmap/milestone-03-compile-epub.md](roadmap/milestone-03-compile-epub.md)
 
 ### Milestone 4 — Compile to Print PDF
 **Outcome:** A writer can compile to a press-ready PDF for KDP paperback (6x9 trim) with running headers, page numbers, drop caps, widow/orphan control, and bleed. Paged.js powers the layout.
@@ -56,6 +54,10 @@ _Last updated: 2026-04-19_
 
 ## Current work
 
-**Build:** Milestone 2 — VS Code extension MVP. See [milestone-02-vscode-extension-mvp.md](roadmap/milestone-02-vscode-extension-mvp.md).
+**Build:** Milestone 3 — Compile to EPUB. See [milestone-03-compile-epub.md](roadmap/milestone-03-compile-epub.md).
 
-**Pending user validation:** Milestone 1's gate (plan a real novel using the harness). This can happen any time in a dedicated `/novel` session; build work continues in parallel.
+**Pending user validation (gates open, running in parallel with build):**
+- Milestone 1 — plan a real novel using the harness
+- Milestone 2 — write a real 1,500-word chapter in the rich editor
+
+Both close whenever you do the writer work.
