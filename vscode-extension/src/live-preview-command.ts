@@ -57,17 +57,26 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
 
   panel.webview.html = buildWebviewHtml(themeCss);
 
-  // Track the "source of truth" document — the .md file currently visible
-  // in the editor column we're previewing. Changes as the writer switches
-  // between chapter files.
-  let sourceDoc: vscode.TextDocument | undefined;
+  // Track the "source of truth" URI — the .md file currently focused in
+  // VS Code, whether in the default text editor OR our custom TipTap
+  // editor. vscode.window.activeTextEditor doesn't see custom editors,
+  // so we use vscode.window.tabGroups which covers both.
+  let sourceUri: vscode.Uri | undefined;
+
+  const resolveActiveDoc = (): vscode.TextDocument | undefined => {
+    if (!sourceUri) return undefined;
+    return vscode.workspace.textDocuments.find(
+      d => d.uri.toString() === sourceUri!.toString(),
+    );
+  };
 
   const updatePreview = () => {
-    if (!sourceDoc) {
+    const doc = resolveActiveDoc();
+    if (!doc) {
       panel.webview.postMessage({ type: 'update', html: emptyStateHtml() });
       return;
     }
-    const markdown = sourceDoc.getText();
+    const markdown = doc.getText();
     const bodyHtml = md.render(markdown);
     // Mark first paragraph for drop cap styling (same transform the
     // compile theme phase applies).
@@ -75,7 +84,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     panel.webview.postMessage({
       type: 'update',
       html: withFirst,
-      fileName: vscode.workspace.asRelativePath(sourceDoc.uri),
+      fileName: vscode.workspace.asRelativePath(doc.uri),
     });
   };
 
@@ -86,30 +95,43 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     debounceTimer = setTimeout(updatePreview, DEBOUNCE_MS);
   };
 
-  const attachToActiveDoc = () => {
-    const active = vscode.window.activeTextEditor?.document;
-    if (active && isManuscriptMarkdown(active.uri, folder.uri)) {
-      sourceDoc = active;
-      updatePreview();
+  // Get the URI of the active tab, whether it's a text editor tab or a
+  // custom-editor tab. Returns undefined for terminal tabs, diff tabs,
+  // notebooks, webview panels (like our own preview!), etc.
+  const getActiveTabUri = (): vscode.Uri | undefined => {
+    const tab = vscode.window.tabGroups.activeTabGroup?.activeTab;
+    if (!tab) return undefined;
+    const input = tab.input;
+    if (input instanceof vscode.TabInputText) return input.uri;
+    if (input instanceof vscode.TabInputCustom) return input.uri;
+    return undefined;
+  };
+
+  const refreshSource = () => {
+    const uri = getActiveTabUri();
+    if (uri && isManuscriptMarkdown(uri, folder.uri)) {
+      const changed = !sourceUri || sourceUri.toString() !== uri.toString();
+      sourceUri = uri;
+      if (changed) updatePreview();
     }
+    // Deliberately don't clear sourceUri when focus moves to a non-
+    // manuscript tab (e.g. the preview panel itself!) — the writer
+    // expects the preview to keep showing the last chapter they were on.
   };
 
   // Initial content from whatever's active right now.
-  attachToActiveDoc();
+  refreshSource();
 
-  // React to active editor changes — writer flips between chapter files.
-  const activeChangeSubscription = vscode.window.onDidChangeActiveTextEditor(() => {
-    const active = vscode.window.activeTextEditor?.document;
-    if (active && isManuscriptMarkdown(active.uri, folder.uri)) {
-      sourceDoc = active;
-      updatePreview();
-    }
-  });
+  // React to tab changes — writer flips between chapter files, or
+  // switches between our custom editor and default editor. tabGroups
+  // events cover both cases; activeTextEditor does not.
+  const tabSubscription = vscode.window.tabGroups.onDidChangeTabs(refreshSource);
+  const tabGroupSubscription = vscode.window.tabGroups.onDidChangeTabGroups(refreshSource);
 
   // React to text edits — including edits via our custom editor, because
-  // those go through applyEdit which emits didChangeTextDocument too.
+  // applyEdit there emits onDidChangeTextDocument too.
   const textChangeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
-    if (sourceDoc && e.document.uri.toString() === sourceDoc.uri.toString()) {
+    if (sourceUri && e.document.uri.toString() === sourceUri.toString()) {
       scheduleUpdate();
     }
   });
@@ -122,7 +144,8 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   });
 
   panel.onDidDispose(() => {
-    activeChangeSubscription.dispose();
+    tabSubscription.dispose();
+    tabGroupSubscription.dispose();
     textChangeSubscription.dispose();
     if (debounceTimer) clearTimeout(debounceTimer);
   });
