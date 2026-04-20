@@ -18,7 +18,11 @@ import MarkdownIt from 'markdown-it';
 // Use "Open Preview" (full-book) for pagination/headers/page numbers.
 
 const CURLY_QUOTES = '\u201c\u201d\u2018\u2019';
-const DEBOUNCE_MS = 500;
+// The custom TipTap editor already debounces its content-changed messages
+// by 500ms before applyEdit fires onDidChangeTextDocument, so this is the
+// *second* debounce in the pipeline. Keep it short so the total typing →
+// preview latency stays under ~700ms (perceptibly "live").
+const DEBOUNCE_MS = 150;
 
 // Same markdown-it config as lib/compile/markdown-to-html.js — keeps
 // preview typography in sync with compile output.
@@ -130,8 +134,18 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   const tabGroupSubscription = vscode.window.tabGroups.onDidChangeTabGroups(refreshSource);
 
   // React to text edits — including edits via our custom editor, because
-  // applyEdit there emits onDidChangeTextDocument too.
+  // applyEdit there emits onDidChangeTextDocument too. If we haven't yet
+  // locked onto a source (e.g. the preview panel was opened before the
+  // writer clicked back into the manuscript tab), adopt the first
+  // manuscript-markdown change we see. This makes the preview robust even
+  // when the initial tab detection misses — any keystroke in a manuscript
+  // file will start the preview on that file.
   const textChangeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
+    if (!sourceUri && isManuscriptMarkdown(e.document.uri, folder.uri)) {
+      sourceUri = e.document.uri;
+      scheduleUpdate();
+      return;
+    }
     if (sourceUri && e.document.uri.toString() === sourceUri.toString()) {
       scheduleUpdate();
     }
