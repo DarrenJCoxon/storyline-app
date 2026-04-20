@@ -2,7 +2,7 @@
   "name": "novel-writer-vscode",
   "displayName": "Novel Writer",
   "description": "Rich-text writing surface for novel projects using the Novel Writer planning harness. Files stay markdown on disk.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
@@ -38,6 +38,10 @@
       {
         "command": "novelWriter.openEditor",
         "title": "Novel Writer: Open in Rich Editor"
+      },
+      {
+        "command": "novelWriter.showWordCountBreakdown",
+        "title": "Novel Writer: Show Word Count Breakdown"
       }
     ],
     "menus": {
