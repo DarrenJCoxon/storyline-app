@@ -24,14 +24,12 @@ _Last updated: 2026-04-19_
 ### Milestone 3 — Compile to EPUB replaces the "upload and pray" step
 **Build complete** (Stories 3.1-3.7 shipped: scaffold, assembly, markdown→HTML with typography, Classic Serif theme, EPUB packaging, preflight, VS Code command; plus auto-config and the Book Info form). **Gate open** — awaiting real-manuscript validation (Story 3.8, writer work: compile a real book, open in Apple Books + Kindle Previewer). Detail: [roadmap/milestone-03-compile-epub.md](roadmap/milestone-03-compile-epub.md)
 
-### ▶ Milestone 4 — Compile to Print PDF
-**Current milestone** (build work). A writer can compile to a press-ready PDF for KDP paperback (6x9 trim) with running headers, page numbers, drop caps, widow/orphan control, and bleed. Paged.js powers the layout, Puppeteer renders to PDF.
-**Prove-it gate:** Upload the compiled PDF to KDP's paperback interior checker. Pass on first try. Detail: [roadmap/milestone-04-compile-print-pdf.md](roadmap/milestone-04-compile-print-pdf.md)
+### Milestone 4 — Compile to Print PDF
+**Build complete** (Stories 4.1-4.6 shipped: scaffold, print theme, Paged.js HTML, Puppeteer→PDF, print-specific preflight, VS Code command + 0.8.1 running-header fix). **Gate open** — awaiting KDP Paperback interior-checker upload validation (Story 4.7, writer work). Detail: [roadmap/milestone-04-compile-print-pdf.md](roadmap/milestone-04-compile-print-pdf.md)
 
-### Milestone 5 — Preview panel (live + full-book)
-**Outcome:** Live chapter preview updates as the writer types, showing current theme on selected device frame. Full-book browser flips through the entire manuscript in compile layout before committing.
-**Prove-it gate:** Use preview on a real book and catch at least one formatting issue that would have required a re-compile cycle.
-**Status:** Deferred. Detail written when current.
+### ▶ Milestone 5 — Preview panel (full-book + live chapter)
+**Current milestone** (build work). Two preview modes: a full-book preview panel that loads Paged.js's paginated layout inside VS Code, and a live chapter preview that updates as the writer types. Kills the write → compile → check → fix cycle.
+**Prove-it gate:** Find at least one formatting issue via preview that would otherwise have required a full compile round-trip. Live preview responsiveness under 1 second. Detail: [roadmap/milestone-05-preview.md](roadmap/milestone-05-preview.md)
 
 ### Milestone 6 — Theme expansion and refinement
 **Outcome:** Second and third themes available (Modern Sans, Heritage). Theme override system lets writers customise chapter headings, scene break ornaments, fonts via `compile.config.json`.
@@ -52,11 +50,12 @@ _Last updated: 2026-04-19_
 
 ## Current work
 
-**Build:** Milestone 4 — Compile to Print PDF. See [milestone-04-compile-print-pdf.md](roadmap/milestone-04-compile-print-pdf.md).
+**Build:** Milestone 5 — Preview panel. See [milestone-05-preview.md](roadmap/milestone-05-preview.md).
 
 **Pending user validation (gates open, running in parallel with build):**
 - Milestone 1 — plan a real novel using the harness
 - Milestone 2 — write a real 1,500-word chapter in the rich editor
 - Milestone 3 — compile a real manuscript to EPUB, verify in Apple Books + Kindle Previewer
+- Milestone 4 — upload a compiled PDF to KDP Paperback interior checker
 
-All three close whenever you do the writer work.
+All four close whenever you do the writer work.
