@@ -81,6 +81,9 @@ export function registerInit(program) {
           chapterOutline: [],
           critique: { flaggedIssues: [], resolvedIssues: [] },
           masterDoc: {},
+          writing: {
+            manuscriptPath: 'manuscript',
+          },
         };
 
         writeFileSync(stateFile, JSON.stringify(initialState, null, 2));
@@ -101,11 +104,44 @@ export function registerInit(program) {
         console.log(chalk.dim(`  ✓ .env already exists`));
       }
 
-      // Step 4: Create output directory
+      // Step 4: Create output directory (harness-generated planning artefacts)
       const outputDir = resolve(targetDir, 'output');
       if (!existsSync(outputDir)) {
         mkdirSync(outputDir, { recursive: true });
-        console.log(chalk.dim(`  ✓ Created output/`));
+        console.log(chalk.dim(`  ✓ Created output/ (for harness-generated planning docs)`));
+      }
+
+      // Step 4b: Create manuscript directory (writer's prose lives here)
+      const manuscriptDir = resolve(targetDir, 'manuscript');
+      const manuscriptReadme = resolve(manuscriptDir, 'README.md');
+      if (!existsSync(manuscriptDir)) {
+        mkdirSync(manuscriptDir, { recursive: true });
+        const readmeContent = `# Manuscript
+
+Your novel's prose lives here. One \`.md\` file per chapter is the usual pattern:
+
+\`\`\`
+manuscript/
+├── ch01-opening.md
+├── ch02-the-arrival.md
+├── ch03-first-clue.md
+└── ...
+\`\`\`
+
+Word counts shown in the Novel Writer VS Code extension's status bar scan
+only this folder — so planning docs in \`output/\` and notes elsewhere don't
+inflate the total.
+
+If you prefer a different layout (e.g. \`chapters/\` or \`drafts/\`), edit
+\`.novel-writer/state.json\` and change \`writing.manuscriptPath\` to the
+folder you want scanned.
+
+Delete this README once you've got your first chapter file in here.
+`;
+        writeFileSync(manuscriptReadme, readmeContent);
+        console.log(chalk.dim(`  ✓ Created manuscript/ (writer's prose folder)`));
+      } else {
+        console.log(chalk.dim(`  ✓ manuscript/ already exists`));
       }
 
       // Step 5: Create CLAUDE.md if it doesn't exist
