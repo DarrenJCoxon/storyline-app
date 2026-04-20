@@ -1,7 +1,7 @@
 # Roadmap
 
 _Outcome-led milestones with "prove it" gates. Not a feature backlog._
-_Last updated: 2026-04-19_
+_Last updated: 2026-04-20_
 
 ## How this roadmap works
 
@@ -27,14 +27,12 @@ _Last updated: 2026-04-19_
 ### Milestone 4 — Compile to Print PDF
 **Build complete** (Stories 4.1-4.6 shipped: scaffold, print theme, Paged.js HTML, Puppeteer→PDF, print-specific preflight, VS Code command + 0.8.1 running-header fix). **Gate open** — awaiting KDP Paperback interior-checker upload validation (Story 4.7, writer work). Detail: [roadmap/milestone-04-compile-print-pdf.md](roadmap/milestone-04-compile-print-pdf.md)
 
-### ▶ Milestone 5 — Preview panel (full-book + live chapter)
-**Current milestone** (build work). Two preview modes: a full-book preview panel that loads Paged.js's paginated layout inside VS Code, and a live chapter preview that updates as the writer types. Kills the write → compile → check → fix cycle.
-**Prove-it gate:** Find at least one formatting issue via preview that would otherwise have required a full compile round-trip. Live preview responsiveness under 1 second. Detail: [roadmap/milestone-05-preview.md](roadmap/milestone-05-preview.md)
+### Milestone 5 — Preview panel (full-book + live chapter)
+**Build complete** (Stories 5.1-5.4 shipped: full-book preview, live chapter preview, device frames, theme + paragraph-style switcher). **Gate open** — awaiting preview-on-real-book validation (Story 5.5, writer work). Detail: [roadmap/milestone-05-preview.md](roadmap/milestone-05-preview.md)
 
-### Milestone 6 — Theme expansion and refinement
-**Outcome:** Second and third themes available (Modern Sans, Heritage). Theme override system lets writers customise chapter headings, scene break ornaments, fonts via `compile.config.json`.
-**Prove-it gate:** Switch a real book between all three themes in preview. Each must look intentionally designed, not generic.
-**Status:** Deferred. Detail written when current.
+### ▶ Milestone 6 — Theme expansion and refinement
+**Current milestone** (build work). Second and third themes (Modern Sans, Heritage) plus a small, curated override system in `compile.config.json` for body font, scene break ornament, chapter heading style. Live preview theme dropdown becomes functional.
+**Prove-it gate:** Writer picks a theme for their real book because one *looks right for it*, not because the others are broken. Detail: [roadmap/milestone-06-theme-expansion.md](roadmap/milestone-06-theme-expansion.md)
 
 ### Milestone 7 — Multi-engine refactor
 **Outcome:** Platform extracted from Novel Writer. Engine API formalised. Second engine (Non-Fiction Writer) built as proof that the abstraction works.
@@ -50,12 +48,13 @@ _Last updated: 2026-04-19_
 
 ## Current work
 
-**Build:** Milestone 5 — Preview panel. See [milestone-05-preview.md](roadmap/milestone-05-preview.md).
+**Build:** Milestone 6 — Theme expansion and refinement. See [milestone-06-theme-expansion.md](roadmap/milestone-06-theme-expansion.md).
 
 **Pending user validation (gates open, running in parallel with build):**
 - Milestone 1 — plan a real novel using the harness
 - Milestone 2 — write a real 1,500-word chapter in the rich editor
 - Milestone 3 — compile a real manuscript to EPUB, verify in Apple Books + Kindle Previewer
 - Milestone 4 — upload a compiled PDF to KDP Paperback interior checker
+- Milestone 5 — use preview on the real book, catch a formatting issue before compile
 
-All four close whenever you do the writer work.
+All five close whenever you do the writer work.
