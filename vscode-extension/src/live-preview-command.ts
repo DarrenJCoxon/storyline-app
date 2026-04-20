@@ -201,63 +201,99 @@ function buildWebviewHtml(themeCss: string): string {
     /* ─── Theme CSS (Classic Serif, shared with compile pipeline) ─── */
     ${themeCss}
 
-    /* ─── Live preview shell overrides ───────────────────────────── */
+    /* ─── Panel shell (chrome around the reading surface) ────────── */
     html, body {
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
       height: 100%;
-      overflow-y: auto;
+      margin: 0;
+      padding: 0;
     }
     body {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 32px 40px 120px;
+      overflow-y: auto;
+      font-family: var(--vscode-font-family);
     }
     .preview-header {
       position: sticky;
       top: 0;
       background: var(--vscode-editor-background);
-      padding: 8px 0 12px;
-      margin: 0 0 24px;
+      padding: 10px 16px 10px 16px;
       border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
-      font-family: var(--vscode-font-family);
       font-size: 11px;
       color: var(--vscode-descriptionForeground);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
+      z-index: 10;
     }
+    .preview-header .left { display: flex; align-items: center; gap: 12px; }
     .preview-header .label { letter-spacing: 0.08em; text-transform: uppercase; }
-    .preview-header .filename { font-family: var(--vscode-editor-font-family), monospace; }
+    .preview-header .filename {
+      font-family: var(--vscode-editor-font-family), monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 240px;
+    }
+    .preview-header select {
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+      border-radius: 3px;
+      padding: 3px 8px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
       color: var(--vscode-descriptionForeground);
-      font-family: var(--vscode-font-family);
     }
-    /* The theme CSS targets .ProseMirror for editor; we re-target .preview-content
-       so the same typography rules apply to the rendered chapter. */
-    .preview-content {
+
+    /* ─── Device surface (the "page" the content is rendered on) ─── */
+
+    .device-stage {
+      padding: 24px 16px 120px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .device-surface {
+      width: 100%;
+      max-width: 560px;
+      padding: 56px 64px;
+      border-radius: 0;
+      box-sizing: border-box;
+    }
+
+    /* Typography baseline (shared by all device frames). The compile
+       pipeline's theme targets .ProseMirror and raw elements; we
+       re-target under .device-surface so the same rules apply here. */
+    .device-surface {
       font-family: Georgia, "Times New Roman", Times, serif;
       font-size: 17px;
-      line-height: 1.7;
+      line-height: 1.6;
+      color: #111;
     }
-    .preview-content p {
+    .device-surface p {
       text-indent: 1.5em;
       margin: 0;
     }
-    .preview-content > p:first-child,
-    .preview-content h1 + p,
-    .preview-content h2 + p,
-    .preview-content h3 + p,
-    .preview-content hr.scene-break + p,
-    .preview-content li p,
-    .preview-content td p,
-    .preview-content th p,
-    .preview-content blockquote p {
+    .device-surface > p:first-child,
+    .device-surface h1 + p,
+    .device-surface h2 + p,
+    .device-surface h3 + p,
+    .device-surface hr.scene-break + p,
+    .device-surface li p,
+    .device-surface td p,
+    .device-surface th p,
+    .device-surface blockquote p {
       text-indent: 0;
     }
-    .preview-content h1 {
+    .device-surface h1 {
       font-family: Georgia, serif;
       font-style: italic;
       font-weight: normal;
@@ -265,61 +301,115 @@ function buildWebviewHtml(themeCss: string): string {
       text-align: center;
       margin: 2em 0 1em;
     }
-    .preview-content h2, .preview-content h3 {
-      font-weight: bold;
-      margin: 1.5em 0 0.4em;
-    }
-    .preview-content p.first::first-letter {
+    .device-surface h2, .device-surface h3 { font-weight: bold; margin: 1.5em 0 0.4em; }
+    .device-surface p.first::first-letter {
       float: left;
       font-size: 3.2em;
       line-height: 0.85;
       margin: 0.02em 0.08em 0 0;
       font-weight: bold;
     }
-    .preview-content hr.scene-break {
-      border: none;
-      text-align: center;
-      margin: 2em 0;
-    }
-    .preview-content hr.scene-break::before {
+    .device-surface hr.scene-break { border: none; text-align: center; margin: 2em 0; }
+    .device-surface hr.scene-break::before {
       content: "* * *";
       display: block;
       letter-spacing: 0.5em;
-      color: var(--vscode-descriptionForeground);
+      color: #666;
       opacity: 0.7;
     }
-    .preview-content table {
+    .device-surface table {
       border-collapse: collapse;
       width: 100%;
       margin: 1.2em 0;
       font-size: 0.95em;
     }
-    .preview-content th, .preview-content td {
-      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.35));
+    .device-surface th, .device-surface td {
+      border: 1px solid rgba(0,0,0,0.15);
       padding: 0.45em 0.75em;
       text-align: left;
     }
-    .preview-content th {
-      background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.12));
+    .device-surface th { background: rgba(0,0,0,0.04); }
+    .device-surface blockquote { margin: 1em 2em; font-style: italic; }
+
+    /* ─── Per-device frame styling ──────────────────────────────── */
+
+    /* Print 6×9 — white page, subtle shadow, tight margins.
+       Width mimics a 6" page at moderate zoom. */
+    body.device-print-6x9 .device-stage { background: #eceae4; }
+    body.device-print-6x9 .device-surface {
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.08);
+      max-width: 480px;
+      padding: 54px 56px;
     }
-    .preview-content blockquote {
-      margin: 1em 2em;
-      font-style: italic;
+
+    /* iPad (Apple Books) — warm cream background, slightly wider
+       page, rounded corners hint at reader-app chrome. */
+    body.device-ipad .device-stage { background: #1c1c1e; }
+    body.device-ipad .device-surface {
+      background: #f3ece2;
+      color: #1a1612;
+      max-width: 620px;
+      padding: 60px 72px;
+      border-radius: 2px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-family: "Palatino", Georgia, serif;
     }
+    body.device-ipad .device-surface p.first::first-letter { color: #1a1612; }
+
+    /* Kindle Paperwhite — soft off-white e-ink, no shadow (e-ink is
+       flat), slightly reduced contrast (e-ink grey-on-cream). */
+    body.device-kindle .device-stage { background: #3a3936; }
+    body.device-kindle .device-surface {
+      background: #e9e3d7;
+      color: #2a2824;
+      max-width: 500px;
+      padding: 50px 56px;
+      font-family: "Bookerly", Georgia, serif;
+    }
+    body.device-kindle .device-surface p.first::first-letter { color: #2a2824; }
+    body.device-kindle .device-surface hr.scene-break::before { color: #645f58; }
+
+    /* The filename colour on the selected device's stage needs to
+       stay readable — stage backgrounds vary from cream to near-black. */
   </style>
 </head>
-<body>
+<body class="device-print-6x9">
   <div class="preview-header">
-    <span class="label">Live Chapter Preview</span>
-    <span class="filename" id="filename">—</span>
+    <div class="left">
+      <span class="label">Live Chapter Preview</span>
+      <span class="filename" id="filename">—</span>
+    </div>
+    <select id="device-picker" title="Reading device">
+      <option value="device-print-6x9">Print 6×9</option>
+      <option value="device-ipad">iPad — Apple Books</option>
+      <option value="device-kindle">Kindle Paperwhite</option>
+    </select>
   </div>
-  <div class="preview-content" id="content">
-    <div class="empty-state"><p><em>Loading…</em></p></div>
+  <div class="device-stage">
+    <div class="device-surface" id="content">
+      <div class="empty-state"><p><em>Loading…</em></p></div>
+    </div>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
     const content = document.getElementById('content');
     const filename = document.getElementById('filename');
+    const picker = document.getElementById('device-picker');
+
+    // Restore previously-selected device.
+    const state = vscode.getState() || {};
+    if (state.device) {
+      picker.value = state.device;
+      document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
+      document.body.classList.add(state.device);
+    }
+
+    picker.addEventListener('change', () => {
+      document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
+      document.body.classList.add(picker.value);
+      vscode.setState({ ...vscode.getState(), device: picker.value });
+    });
 
     window.addEventListener('message', (event) => {
       const msg = event.data;
