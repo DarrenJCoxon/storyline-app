@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
+import { SceneBreak } from './extensions/SceneBreak';
 import { vscode } from './vscode';
 import { debounce } from './debounce';
 
@@ -25,7 +26,10 @@ export function Editor(): JSX.Element | null {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // Disable StarterKit's default horizontal rule — we replace it with
+      // our own SceneBreak node that renders as '⁂' and serialises to '* * *'.
+      StarterKit.configure({ horizontalRule: false }),
+      SceneBreak,
       Markdown.configure({
         html: false,
         tightLists: true,
@@ -129,6 +133,13 @@ export function Editor(): JSX.Element | null {
           title="Blockquote"
         >
           ”
+        </button>
+        <button
+          className="toolbar-btn"
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          title="Insert scene break (⁂)"
+        >
+          ⁂
         </button>
         <div className="toolbar-spacer" />
         <div className="toolbar-filename" title={fileName}>{fileName}</div>
