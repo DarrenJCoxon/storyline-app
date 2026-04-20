@@ -126,27 +126,33 @@ html, body {
 
 /* Paragraphs — indented, zero vertical margin (Scrivener / traditional
    novel convention). Prose flows continuously; the first-line indent
-   signals each new paragraph rather than a blank-line gap. */
-.ProseMirror p {
-  text-indent: 1.5em;
-  margin: 0;
+   signals each new paragraph rather than a blank-line gap.
+
+   Using !important on the core rule because VS Code's webview sometimes
+   injects default paragraph margins via its own stylesheet, and some
+   TipTap extensions apply inline margin-*. The writer's chosen prose
+   style should always win — it's not a case where contextual overrides
+   make sense. */
+.novel-editor .ProseMirror p {
+  text-indent: 1.5em !important;
+  margin: 0 !important;
 }
 
 /* No indent on: first paragraph of the document, first paragraph after
    a heading, first paragraph after a scene break. These are "start of
    something new" moments where the indent would look wrong. */
-.ProseMirror > p:first-child,
-.ProseMirror h1 + p,
-.ProseMirror h2 + p,
-.ProseMirror h3 + p,
-.ProseMirror hr.scene-break + p {
-  text-indent: 0;
+.novel-editor .ProseMirror > p:first-child,
+.novel-editor .ProseMirror h1 + p,
+.novel-editor .ProseMirror h2 + p,
+.novel-editor .ProseMirror h3 + p,
+.novel-editor .ProseMirror hr.scene-break + p {
+  text-indent: 0 !important;
 }
 
 /* Blockquote paragraphs aren't indented (the blockquote offset handles
    visual separation). */
-.ProseMirror blockquote p {
-  text-indent: 0;
+.novel-editor .ProseMirror blockquote p {
+  text-indent: 0 !important;
 }
 
 .ProseMirror h1,
