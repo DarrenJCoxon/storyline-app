@@ -217,3 +217,41 @@ html, body {
   font-size: 0.9em;
   line-height: 1.5;
 }
+
+/* Tables — GFM markdown tables rendered as proper grids in the editor.
+   Paragraphs inside cells get their prose indent/margin overridden back
+   to sensible cell defaults (no indent, no vertical gap). */
+.ProseMirror table.prose-table,
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+  padding: 0.45em 0.75em;
+  text-align: left;
+  vertical-align: top;
+  min-width: 4em;
+}
+
+.ProseMirror th {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.12));
+  font-weight: 600;
+}
+
+/* Table cell paragraphs — no first-line indent, no margin (cells own the spacing). */
+.ProseMirror th p,
+.ProseMirror td p {
+  text-indent: 0;
+  margin: 0;
+}
+
+/* Selected cell highlight (TipTap adds .selectedCell) */
+.ProseMirror .selectedCell {
+  background: var(--vscode-editor-selectionBackground, rgba(0, 120, 255, 0.15));
+}

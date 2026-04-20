@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
 import { Markdown } from 'tiptap-markdown';
 import { SceneBreak } from './extensions/SceneBreak';
 import { vscode } from './vscode';
@@ -30,6 +34,14 @@ export function Editor(): JSX.Element | null {
       // our own SceneBreak node that renders '* * *' in both editor and output.
       StarterKit.configure({ horizontalRule: false }),
       SceneBreak,
+      // GFM-style tables. markdown-it parses `| col | col |` + `|---|---|`
+      // rows; tiptap-markdown serialises the TipTap table nodes back to
+      // markdown on save. Non-resizable to keep the column widths stable
+      // and CSS-controlled.
+      Table.configure({ resizable: false, HTMLAttributes: { class: 'prose-table' } }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Markdown.configure({
         html: false,
         tightLists: true,

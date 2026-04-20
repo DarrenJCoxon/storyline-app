@@ -176,6 +176,39 @@ a {
   text-decoration: underline;
 }
 
+/* Tables — rare in fiction but common in non-fiction and worldbuilding
+   appendices. Kept simple for maximum Kindle compatibility (Kindle strips
+   fancy table styles aggressively; keep borders and padding sober). */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #aaa;
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+
+/* Cell paragraphs — reset prose defaults (no indent, no vertical margin,
+   left-aligned rather than justified). */
+th p, td p {
+  text-indent: 0;
+  margin: 0;
+  text-align: left;
+}
+
 /* Front matter — title page, copyright, dedication ─────────────────── */
 
 /* Front matter sections are less "bookish" — no drop caps, no first-line
