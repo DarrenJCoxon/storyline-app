@@ -124,8 +124,29 @@ html, body {
   min-height: 400px;
 }
 
+/* Paragraphs — indented, zero vertical margin (Scrivener / traditional
+   novel convention). Prose flows continuously; the first-line indent
+   signals each new paragraph rather than a blank-line gap. */
 .ProseMirror p {
-  margin: 0 0 1em 0;
+  text-indent: 1.5em;
+  margin: 0;
+}
+
+/* No indent on: first paragraph of the document, first paragraph after
+   a heading, first paragraph after a scene break. These are "start of
+   something new" moments where the indent would look wrong. */
+.ProseMirror > p:first-child,
+.ProseMirror h1 + p,
+.ProseMirror h2 + p,
+.ProseMirror h3 + p,
+.ProseMirror hr.scene-break + p {
+  text-indent: 0;
+}
+
+/* Blockquote paragraphs aren't indented (the blockquote offset handles
+   visual separation). */
+.ProseMirror blockquote p {
+  text-indent: 0;
 }
 
 .ProseMirror h1,
