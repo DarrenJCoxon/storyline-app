@@ -6,7 +6,7 @@ import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { compile } from '../../lib/compile/index.js';
 
-const SUPPORTED_FORMATS = ['epub']; // milestones 4+ add print-pdf, docx, etc.
+const SUPPORTED_FORMATS = ['epub', 'print-pdf']; // docx etc. in later milestones
 
 export function registerCompile(program) {
   program

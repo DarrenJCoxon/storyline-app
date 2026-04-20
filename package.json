@@ -19,7 +19,9 @@
     "fs-extra": "^11.2.0",
     "inquirer": "^9.2.16",
     "markdown-it": "^14.1.1",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "pagedjs": "^0.4.3",
+    "puppeteer": "^24.42.0"
   },
   "devDependencies": {
     "vitest": "^1.4.0"
