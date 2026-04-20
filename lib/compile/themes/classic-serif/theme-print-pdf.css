@@ -77,10 +77,21 @@
   }
 }
 
-/* Chapter first page: suppress running headers; page number stays. */
+/* Chapter first page: suppress running headers; page number stays.
+ * Named pages completely override position pseudos (@page :left/:right),
+ * so we must explicitly re-declare @bottom-center here — otherwise
+ * the first page of each chapter has no page number at all. */
 @page chapter-first {
   @top-left { content: none; }
   @top-right { content: none; }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
 }
 
 /* Blank pages (between front matter and chapter 1, etc.): nothing at all. */
@@ -90,30 +101,30 @@
   @bottom-center { content: none; }
 }
 
-/* Front matter pages use lower-roman numerals. */
+/* Front matter pages suppress running headers but keep the page number.
+ * Uses the default Arabic counter (continuous from page 1) — roman
+ * numerals for front matter are traditional but Paged.js's counter-scope
+ * handling makes them unreliable right now. Simple continuous numbering
+ * is stable and KDP-valid. Roman front matter can return in a later
+ * milestone as an opt-in compile.config.json setting. */
 @page front-matter-page {
-  @bottom-center {
-    content: counter(page, lower-roman);
-  }
   @top-left { content: none; }
   @top-right { content: none; }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
 }
 
-/* String setters — captured once, used by @page rules above ──────── */
-
-/* The book title is captured from a hidden element at the top of the
- * document (added by the print-pdf HTML scaffold in Story 4.3). */
-.book-title-marker {
-  string-set: book-title content();
-  /* Render hidden but keep in the flow so string-set fires. */
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-/* Each chapter's <h1> updates chapter-title for the recto header. */
+/* String setter for the recto header — captures each chapter's <h1>
+ * text into `chapter-title`. The verso header's book-title is set via
+ * an inline <style> block at compile time (see print-pdf.js) because
+ * that avoids a marker element that can interfere with first-page
+ * numbering. */
 section.chapter > h1 {
   string-set: chapter-title content();
 }
@@ -129,18 +140,20 @@ section.front-matter {
  * before if necessary. */
 section.chapter {
   break-before: recto;
-  page: chapter-first;  /* only the FIRST page of the chapter uses this */
 }
 
-/* After the chapter heading, subsequent pages use the default @page
- * rules (with running headers). Paged.js applies @page chapter-first
- * only to the page that begins the named-page element. */
-
-/* Reset page counter to 1 at chapter 1 so Arabic numerals start fresh
- * after the roman-numbered front matter. */
-section.chapter:first-of-type {
-  counter-reset: page 1;
+/* Only the first direct child of each chapter (the <h1>) gets the
+ * chapter-first named page. Subsequent elements revert to the default
+ * @page rules, so only the literal first page of each chapter
+ * suppresses the running headers. Applying `page` to the whole
+ * section.chapter would make EVERY page of the chapter use
+ * @page chapter-first, which would break page numbering. */
+section.chapter > *:first-child {
+  page: chapter-first;
 }
+
+/* Page counter is continuous from page 1 through the whole book.
+ * No per-chapter reset — simple and predictable. */
 
 /* Typography adjustments for fixed-size print ─────────────────────── */
 

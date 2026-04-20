@@ -2,21 +2,50 @@ import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import * as path from 'path';
 
-// "Novel Writer: Compile to EPUB" — shells out to `nw compile --format epub`
-// in the workspace root. Does NOT reimplement the compile pipeline; that
-// logic stays in the CLI so it's testable outside VS Code and usable from
-// any terminal.
+// Shell out to the CLI: `nw compile --format <format>`. Does NOT
+// reimplement the compile pipeline — that logic stays in the CLI so
+// it's testable outside VS Code and usable from any terminal.
 //
-// UX flow:
+// UX flow (same for all formats):
 //   1. Verify workspace has .novel-writer/state.json
-//   2. Show a blocking progress toast ("Compiling your novel to EPUB…")
+//   2. Show a blocking progress toast
 //   3. Stream stdout + stderr into the "Novel Writer" output channel
 //   4. On success: notification with [Reveal in Finder] + [Open] actions
 //   5. On failure: error notification with [View Log] action
 
-let outputChannel: vscode.OutputChannel | undefined;
+interface CompileConfig {
+  format: 'epub' | 'print-pdf';
+  formatLabel: string;        // e.g. "EPUB" or "Print PDF"
+  outputExtension: string;    // e.g. ".epub" or ".pdf"
+  hint?: string;              // optional "may take up to a minute" etc.
+}
+
+const EPUB: CompileConfig = {
+  format: 'epub',
+  formatLabel: 'EPUB',
+  outputExtension: '.epub',
+};
+
+const PRINT_PDF: CompileConfig = {
+  format: 'print-pdf',
+  formatLabel: 'Print PDF',
+  outputExtension: '.pdf',
+  hint: 'may take 10-30 seconds (Puppeteer + Paged.js)',
+};
 
 export async function compileToEpub(): Promise<void> {
+  return runCompileCommand(EPUB);
+}
+
+export async function compileToPrintPdf(): Promise<void> {
+  return runCompileCommand(PRINT_PDF);
+}
+
+// ── shared machinery ────────────────────────────────────────────
+
+let outputChannel: vscode.OutputChannel | undefined;
+
+async function runCompileCommand(config: CompileConfig): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
     vscode.window.showErrorMessage('Novel Writer: open a novel project folder first.');
@@ -39,8 +68,8 @@ export async function compileToEpub(): Promise<void> {
   out.show(true); // preserveFocus so the toast stays visible
 
   try {
-    const outputPath = await runCompile(folder.uri.fsPath, out);
-    await showSuccess(outputPath);
+    const outputPath = await runCompile(folder.uri.fsPath, out, config);
+    await showSuccess(outputPath, config);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const choice = await vscode.window.showErrorMessage(
@@ -53,12 +82,20 @@ export async function compileToEpub(): Promise<void> {
   }
 }
 
-function runCompile(cwd: string, out: vscode.OutputChannel): Promise<string | null> {
+function runCompile(
+  cwd: string,
+  out: vscode.OutputChannel,
+  config: CompileConfig,
+): Promise<string | null> {
+  const title = config.hint
+    ? `Compiling your novel to ${config.formatLabel}… (${config.hint})`
+    : `Compiling your novel to ${config.formatLabel}…`;
+
   return new Promise((resolve, reject) => {
     vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Compiling your novel to EPUB…',
+        title,
         cancellable: false,
       },
       () =>
@@ -67,7 +104,7 @@ function runCompile(cwd: string, out: vscode.OutputChannel): Promise<string | nu
           // (VS Code on macOS doesn't always inherit the shell profile's
           // PATH when launched from the GUI). The command is hardcoded,
           // not user-supplied, so there's no shell-injection concern.
-          const child = spawn('nw compile --format epub', {
+          const child = spawn(`nw compile --format ${config.format}`, {
             cwd,
             shell: true,
             env: { ...process.env, FORCE_COLOR: '0' },
@@ -97,8 +134,9 @@ function runCompile(cwd: string, out: vscode.OutputChannel): Promise<string | nu
 
           child.on('close', code => {
             if (code === 0) {
-              // The CLI prints "Output: /abs/path/to/file.epub" on success.
-              const match = stdoutBuf.match(/Output:\s*(\S+\.epub)/);
+              // The CLI prints "Output: /abs/path/to/file.<ext>" on success.
+              const extForRegex = config.outputExtension.replace('.', '\\.');
+              const match = stdoutBuf.match(new RegExp(`Output:\\s*(\\S+${extForRegex})`));
               const outputPath = match ? match[1].trim() : null;
               progressResolve();
               resolve(outputPath);
@@ -120,9 +158,9 @@ function runCompile(cwd: string, out: vscode.OutputChannel): Promise<string | nu
   });
 }
 
-async function showSuccess(outputPath: string | null): Promise<void> {
+async function showSuccess(outputPath: string | null, config: CompileConfig): Promise<void> {
   if (!outputPath) {
-    vscode.window.showInformationMessage('Novel Writer: compile complete.');
+    vscode.window.showInformationMessage(`Novel Writer: ${config.formatLabel} compile complete.`);
     return;
   }
 
@@ -137,8 +175,8 @@ async function showSuccess(outputPath: string | null): Promise<void> {
   if (choice === 'Reveal in Finder') {
     await vscode.commands.executeCommand('revealFileInOS', uri);
   } else if (choice === 'Open') {
-    // EPUB isn't something VS Code renders usefully; hand off to the OS
-    // (Books on macOS, default EPUB app elsewhere).
+    // EPUB and PDF aren't rendered usefully in VS Code; hand off to the OS
+    // (Books.app for EPUB on macOS, Preview.app for PDF, etc.).
     await vscode.env.openExternal(uri);
   }
 }
