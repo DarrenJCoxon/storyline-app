@@ -139,18 +139,19 @@ html, body {
 }
 
 /* No indent on: first paragraph of the document, first paragraph after
-   a heading, first paragraph after a scene break. These are "start of
-   something new" moments where the indent would look wrong. */
+   a heading, first paragraph after a scene break, paragraphs nested
+   inside list items, table cells, or blockquotes. These are either
+   "start of something new" moments, or containers that already provide
+   their own visual separation — prose indent rules don't belong here. */
 .novel-editor .ProseMirror > p:first-child,
 .novel-editor .ProseMirror h1 + p,
 .novel-editor .ProseMirror h2 + p,
 .novel-editor .ProseMirror h3 + p,
-.novel-editor .ProseMirror hr.scene-break + p {
-  text-indent: 0 !important;
-}
-
-/* Blockquote paragraphs aren't indented (the blockquote offset handles
-   visual separation). */
+.novel-editor .ProseMirror hr.scene-break + p,
+.novel-editor .ProseMirror li p,
+.novel-editor .ProseMirror li,
+.novel-editor .ProseMirror td p,
+.novel-editor .ProseMirror th p,
 .novel-editor .ProseMirror blockquote p {
   text-indent: 0 !important;
 }

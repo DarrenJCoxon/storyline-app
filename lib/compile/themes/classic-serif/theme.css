@@ -154,6 +154,13 @@ li {
   text-indent: 0;
 }
 
+/* Paragraphs nested inside list items — prose indent rules would put a
+   huge gap between the bullet and the text, so reset them. */
+li p {
+  text-indent: 0;
+  margin: 0;
+}
+
 /* Inline code + fenced blocks (for non-fiction or author notes) ─────── */
 
 code {
