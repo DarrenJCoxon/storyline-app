@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { WordCountStatusBar } from './status-bar';
 
 // CustomTextEditorProvider that owns .md files in novel projects. VS Code
 // hands us a TextDocument and a WebviewPanel; we render the TipTap editor
@@ -8,7 +9,10 @@ import * as vscode from 'vscode';
 export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'novelWriter.editor';
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly statusBar: WordCountStatusBar,
+  ) {}
 
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
@@ -21,6 +25,21 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
     };
 
     webviewPanel.webview.html = buildWebviewHtml(webviewPanel.webview, this.context.extensionUri);
+
+    // Tell the status bar when our editor has focus so the "File: X" count
+    // displays — VS Code's activeTextEditor is undefined for custom editors.
+    if (webviewPanel.active) {
+      this.statusBar.setActiveCustomEditor(document.uri);
+    }
+    const viewStateSubscription = webviewPanel.onDidChangeViewState(() => {
+      if (webviewPanel.active) {
+        this.statusBar.setActiveCustomEditor(document.uri);
+      } else {
+        // clearIfActive only clears if this URI is currently set — prevents
+        // us stepping on another custom-editor panel that just grabbed focus.
+        this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
+      }
+    });
 
     const pushContentToWebview = () => {
       webviewPanel.webview.postMessage({
@@ -48,6 +67,8 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.onDidDispose(() => {
       changeSubscription.dispose();
+      viewStateSubscription.dispose();
+      this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
     });
 
     webviewPanel.webview.onDidReceiveMessage(async (msg: { type: string; markdown?: string }) => {

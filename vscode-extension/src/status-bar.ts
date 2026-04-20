@@ -18,11 +18,31 @@ export class WordCountStatusBar {
   private perFile: Map<string, FileStats> = new Map(); // key: uri.toString()
   private total: number = 0;
   private target: number = 0;
+  // Active URI for the "File: X" portion of the display. Maintained
+  // separately from vscode.window.activeTextEditor because custom editors
+  // (our rich TipTap editor) are NOT text editors — activeTextEditor is
+  // undefined when focus is inside a custom editor webview. The custom
+  // editor provider calls setActiveCustomEditor() on focus changes.
+  private activeCustomEditorUri: vscode.Uri | undefined;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.item.command = 'novelWriter.showWordCountBreakdown';
     context.subscriptions.push(this.item);
+  }
+
+  setActiveCustomEditor(uri: vscode.Uri | undefined): void {
+    this.activeCustomEditorUri = uri;
+    this.updateDisplay();
+  }
+
+  // Clear only if the current active URI matches — so a panel losing
+  // focus doesn't clobber another panel that just took focus.
+  clearActiveCustomEditorIfMatches(uri: vscode.Uri): void {
+    if (this.activeCustomEditorUri?.toString() === uri.toString()) {
+      this.activeCustomEditorUri = undefined;
+      this.updateDisplay();
+    }
   }
 
   async start(): Promise<void> {
@@ -140,9 +160,15 @@ export class WordCountStatusBar {
   private updateDisplay(): void {
     const parts: string[] = [];
 
-    const activeDoc = vscode.window.activeTextEditor?.document;
-    if (activeDoc && isMarkdownDoc(activeDoc)) {
-      const current = this.perFile.get(activeDoc.uri.toString())?.count ?? countWords(activeDoc.getText());
+    // Prefer the custom editor's active file (set by the provider) —
+    // that's the case when the rich editor has focus. Fall back to
+    // VS Code's activeTextEditor for the raw-markdown case.
+    const activeUri = this.activeCustomEditorUri ?? vscode.window.activeTextEditor?.document.uri;
+    if (activeUri && isMarkdownUri(activeUri)) {
+      const cached = this.perFile.get(activeUri.toString())?.count;
+      const current = cached !== undefined
+        ? cached
+        : countWords(vscode.window.activeTextEditor?.document.getText() ?? '');
       parts.push(`File: ${formatWordCount(current)}`);
     }
 

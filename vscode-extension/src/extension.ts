@@ -6,22 +6,24 @@ import { WordCountStatusBar } from './status-bar';
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log('Novel Writer extension activated');
 
+  // Status bar word count — created first so the custom editor provider
+  // can notify it of focus changes (needed because custom editors aren't
+  // text editors and don't flip vscode.window.activeTextEditor).
+  const statusBar = new WordCountStatusBar(context);
+  await statusBar.start();
+
   // Custom editor for .md files. Only registered here so non-novel workspaces
   // (where extension doesn't activate) get VS Code's default markdown editor.
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
       NovelEditorProvider.viewType,
-      new NovelEditorProvider(context),
+      new NovelEditorProvider(context, statusBar),
       {
         webviewOptions: { retainContextWhenHidden: true },
         supportsMultipleEditorsPerDocument: false,
       },
     ),
   );
-
-  // Status bar word count.
-  const statusBar = new WordCountStatusBar(context);
-  await statusBar.start();
 
   context.subscriptions.push(
     vscode.commands.registerCommand('novelWriter.hello', () => {
