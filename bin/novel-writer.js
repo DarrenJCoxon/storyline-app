@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { loadState, printStatus, listStages, saveState, markStageComplete, markStageIncomplete } from '../lib/state/store.js';
 import { registerInit } from './commands/init.js';
+import { registerCompile } from './commands/compile.js';
 import { STAGE_ORDER, STAGE_BY_ID } from '../lib/state/project-state.js';
 import { deriveCurrentStage, calculateProgress, getMissingRequirements, checkStageGate, getDownstreamImpacts } from '../lib/state/transitions.js';
 import { getStageGuide, getAllStageGuides } from '../lib/ai/stage-guides.js';
@@ -25,6 +26,7 @@ program
   .version('1.0.0');
 
 registerInit(program);
+registerCompile(program);
 
 // ── start — show status and next action (NOT interactive) ──────
 program
