@@ -43,6 +43,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   }
 
   const themeCss = await loadThemeCss(context);
+  const initialConfig = await readCompileConfig(folder.uri);
   const md = createRenderer();
 
   const panel = vscode.window.createWebviewPanel(
@@ -55,7 +56,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     },
   );
 
-  panel.webview.html = buildWebviewHtml(themeCss);
+  panel.webview.html = buildWebviewHtml(themeCss, initialConfig);
 
   // Track the "source of truth" URI — the .md file currently focused in
   // VS Code, whether in the default text editor OR our custom TipTap
@@ -136,10 +137,25 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     }
   });
 
-  panel.webview.onDidReceiveMessage(msg => {
+  panel.webview.onDidReceiveMessage(async msg => {
     if (msg?.type === 'ready') {
       // Webview finished booting its inline script — push initial content.
       updatePreview();
+      return;
+    }
+    if (msg?.type === 'save-as-default') {
+      const { paragraphStyle, theme } = msg as { paragraphStyle?: string; theme?: string };
+      try {
+        await saveDefaultsToConfig(folder.uri, { paragraphStyle, theme });
+        vscode.window.setStatusBarMessage(
+          `Novel Writer: preview defaults saved to compile.config.json`,
+          3000,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Novel Writer: could not save defaults — ${message}`);
+      }
+      return;
     }
   });
 
@@ -152,6 +168,59 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
 }
 
 // ── private helpers ────────────────────────────────────────────
+
+interface LivePreviewConfig {
+  paragraphStyle: 'indented' | 'block';
+  theme: string;
+}
+
+// Reads compile.config.json to seed the preview dropdowns with the
+// writer's current project defaults. Preview overrides these live,
+// but we want to start with what their book will actually compile as.
+async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreviewConfig> {
+  const configPath = path.join(workspaceRoot.fsPath, 'compile.config.json');
+  const defaults: LivePreviewConfig = { paragraphStyle: 'indented', theme: 'classic-serif' };
+  try {
+    const raw = await fs.readFile(configPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const style = typeof parsed.paragraphStyle === 'string' && parsed.paragraphStyle.trim()
+      ? parsed.paragraphStyle.trim() : defaults.paragraphStyle;
+    const theme = typeof parsed.theme === 'string' && parsed.theme.trim()
+      ? parsed.theme.trim() : defaults.theme;
+    return {
+      paragraphStyle: style === 'block' ? 'block' : 'indented',
+      theme,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+// "Save as default" — rewrite compile.config.json with the preview
+// panel's current paragraphStyle and theme, preserving any other
+// fields the writer has set (metadata, isbn, etc.).
+async function saveDefaultsToConfig(
+  workspaceRoot: vscode.Uri,
+  { paragraphStyle, theme }: { paragraphStyle?: string; theme?: string },
+): Promise<void> {
+  const configPath = path.join(workspaceRoot.fsPath, 'compile.config.json');
+  let existing: Record<string, unknown> = {};
+  try {
+    const raw = await fs.readFile(configPath, 'utf-8');
+    existing = JSON.parse(raw);
+  } catch {
+    // File doesn't exist yet — write a minimal one. The compile pipeline
+    // self-heals this case on the next run if we miss anything.
+  }
+  const updated: Record<string, unknown> = { ...existing };
+  if (paragraphStyle === 'indented' || paragraphStyle === 'block') {
+    updated.paragraphStyle = paragraphStyle;
+  }
+  if (typeof theme === 'string' && theme.trim()) {
+    updated.theme = theme.trim();
+  }
+  await fs.writeFile(configPath, JSON.stringify(updated, null, 2) + '\n', 'utf-8');
+}
 
 async function loadThemeCss(context: vscode.ExtensionContext): Promise<string> {
   const cssPath = path.join(
@@ -190,7 +259,9 @@ function emptyStateHtml(): string {
   `;
 }
 
-function buildWebviewHtml(themeCss: string): string {
+function buildWebviewHtml(themeCss: string, initialConfig: LivePreviewConfig): string {
+  const initialParagraphStyle = initialConfig.paragraphStyle;
+  const initialTheme = initialConfig.theme || 'classic-serif';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -236,7 +307,8 @@ function buildWebviewHtml(themeCss: string): string {
       white-space: nowrap;
       max-width: 240px;
     }
-    .preview-header select {
+    .preview-header select,
+    .preview-header button {
       background: var(--vscode-input-background);
       color: var(--vscode-input-foreground);
       border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
@@ -245,6 +317,33 @@ function buildWebviewHtml(themeCss: string): string {
       font-family: inherit;
       font-size: 11px;
       cursor: pointer;
+    }
+    .preview-header .controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .preview-header .controls label {
+      color: var(--vscode-descriptionForeground);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-right: 2px;
+    }
+    .preview-header .save-btn {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border-color: transparent;
+      margin-left: 4px;
+    }
+    .preview-header .save-btn:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .preview-header .save-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
     }
 
     .empty-state {
@@ -377,19 +476,53 @@ function buildWebviewHtml(themeCss: string): string {
     }
     body.device-kindle .device-surface p.first::first-letter { color: #2a2824; }
     body.device-kindle .device-surface hr.scene-break::before { color: #645f58; }
+
+    /* ─── Paragraph style override (mirror compile/theme.js) ─────
+     * The preview's default is indented (first-line indent, no gap).
+     * When body.paragraphs-block is active, flip to the block style:
+     * no indent, vertical gap between paragraphs. This exactly
+     * mirrors what the compile pipeline does when paragraphStyle
+     * === "block" is set in compile.config.json. */
+
+    body.paragraphs-block .device-surface p {
+      text-indent: 0;
+      margin: 0 0 1em 0;
+    }
+    body.paragraphs-block .device-surface p.first {
+      text-indent: 0;
+      margin-top: 0;
+    }
+    body.paragraphs-block .device-surface hr.scene-break + p {
+      text-indent: 0;
+    }
   </style>
 </head>
-<body class="device-print-6x9">
+<body class="device-print-6x9 paragraphs-${initialParagraphStyle}">
   <div class="preview-header">
     <div class="left">
       <span class="label">Live Chapter Preview</span>
       <span class="filename" id="filename">—</span>
     </div>
-    <select id="device-picker" title="Reading device">
-      <option value="device-print-6x9">Print 6×9</option>
-      <option value="device-ipad">iPad — Apple Books</option>
-      <option value="device-kindle">Kindle Paperwhite</option>
-    </select>
+    <div class="controls">
+      <label for="device-picker">Device</label>
+      <select id="device-picker" title="Reading device">
+        <option value="device-print-6x9">Print 6×9</option>
+        <option value="device-ipad">iPad — Apple Books</option>
+        <option value="device-kindle">Kindle Paperwhite</option>
+      </select>
+      <label for="theme-picker">Theme</label>
+      <select id="theme-picker" title="Theme (more in Milestone 6)">
+        <option value="classic-serif">Classic Serif</option>
+      </select>
+      <label for="paragraph-picker">Paragraphs</label>
+      <select id="paragraph-picker" title="Paragraph style">
+        <option value="indented">Indented</option>
+        <option value="block">Block</option>
+      </select>
+      <button id="save-defaults" class="save-btn" title="Write these preview settings to compile.config.json">
+        Save as default
+      </button>
+    </div>
   </div>
   <div class="device-stage">
     <div class="device-surface" id="content">
@@ -400,20 +533,72 @@ function buildWebviewHtml(themeCss: string): string {
     const vscode = acquireVsCodeApi();
     const content = document.getElementById('content');
     const filename = document.getElementById('filename');
-    const picker = document.getElementById('device-picker');
+    const devicePicker = document.getElementById('device-picker');
+    const themePicker = document.getElementById('theme-picker');
+    const paragraphPicker = document.getElementById('paragraph-picker');
+    const saveBtn = document.getElementById('save-defaults');
 
-    // Restore previously-selected device.
+    const initialConfig = {
+      paragraphStyle: ${JSON.stringify(initialParagraphStyle)},
+      theme: ${JSON.stringify(initialTheme)},
+    };
+
+    // Seed dropdowns from saved state first, then from compile.config.json.
     const state = vscode.getState() || {};
-    if (state.device) {
-      picker.value = state.device;
+    const currentDevice = state.device || 'device-print-6x9';
+    const currentParagraphStyle = state.paragraphStyle || initialConfig.paragraphStyle;
+    const currentTheme = state.theme || initialConfig.theme;
+
+    devicePicker.value = currentDevice;
+    paragraphPicker.value = currentParagraphStyle;
+    themePicker.value = currentTheme;
+
+    applyDevice(currentDevice);
+    applyParagraphs(currentParagraphStyle);
+
+    function applyDevice(device) {
       document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
-      document.body.classList.add(state.device);
+      document.body.classList.add(device);
+    }
+    function applyParagraphs(style) {
+      document.body.classList.remove('paragraphs-indented', 'paragraphs-block');
+      document.body.classList.add('paragraphs-' + style);
+    }
+    function persist() {
+      vscode.setState({
+        device: devicePicker.value,
+        paragraphStyle: paragraphPicker.value,
+        theme: themePicker.value,
+      });
     }
 
-    picker.addEventListener('change', () => {
-      document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
-      document.body.classList.add(picker.value);
-      vscode.setState({ ...vscode.getState(), device: picker.value });
+    devicePicker.addEventListener('change', () => {
+      applyDevice(devicePicker.value);
+      persist();
+    });
+    paragraphPicker.addEventListener('change', () => {
+      applyParagraphs(paragraphPicker.value);
+      persist();
+    });
+    themePicker.addEventListener('change', () => {
+      // Theme swap is a no-op for now (only Classic Serif ships).
+      // Milestone 6 adds more themes and loads their CSS dynamically.
+      persist();
+    });
+
+    saveBtn.addEventListener('click', () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      vscode.postMessage({
+        type: 'save-as-default',
+        paragraphStyle: paragraphPicker.value,
+        theme: themePicker.value,
+      });
+      setTimeout(() => {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Saved ✓';
+        setTimeout(() => { saveBtn.textContent = 'Save as default'; }, 2000);
+      }, 400);
     });
 
     window.addEventListener('message', (event) => {
