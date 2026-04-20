@@ -5,6 +5,7 @@ import { WordCountStatusBar } from './status-bar';
 import { compileToEpub, compileToPrintPdf } from './compile-command';
 import { editBookInfo } from './book-info-command';
 import { openPreview } from './preview-command';
+import { openLivePreview } from './live-preview-command';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log('Novel Writer extension activated');
@@ -41,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('novelWriter.compileEpub', () => compileToEpub()),
     vscode.commands.registerCommand('novelWriter.compilePrintPdf', () => compileToPrintPdf()),
     vscode.commands.registerCommand('novelWriter.openPreview', () => openPreview()),
+    vscode.commands.registerCommand('novelWriter.openLivePreview', () => openLivePreview(context)),
     vscode.commands.registerCommand('novelWriter.editBookInfo', () => editBookInfo(context)),
     vscode.commands.registerCommand('novelWriter.showWordCountBreakdown', async () => {
       const breakdown = statusBar.getBreakdown();

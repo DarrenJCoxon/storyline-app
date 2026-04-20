@@ -1,0 +1,235 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Classic Serif — Print variant (loaded on top of theme.css for 6x9 PDF)
+ *
+ * Adds CSS Paged Media rules that Paged.js interprets to produce the
+ * print-ready layout:
+ *   - 6x9" trim size
+ *   - Asymmetric margins (inside wider than outside for binding)
+ *   - Running headers (book title on verso / chapter title on recto)
+ *   - Page numbers (roman for front matter, Arabic from chapter 1)
+ *   - Chapter first page suppresses header + page number (convention)
+ *   - Chapters start on a right page (recto)
+ *   - Widow/orphan control (no one-line fragments at page boundaries)
+ *
+ * Paged.js expects:
+ *   - <span class="book-title">…</span>  (first element, hidden visually)
+ *     for the verso running header — captured via `string-set`.
+ *   - An H1 in each chapter — captured via `string-set` for the recto.
+ *
+ * Story 4.3 adds the wrapping HTML that provides these elements.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Trim size + base margins ─────────────────────────────────────────── */
+
+/* Default margins (top/bottom) — left/right are overridden by :left / :right
+ * so the inside (gutter) margin is wider than the outside. */
+@page {
+  size: 6in 9in;
+  margin-top: 0.75in;
+  margin-bottom: 0.75in;
+  margin-outside: 0.625in;
+  margin-inside: 0.875in;
+}
+
+/* Left (verso) page: even page numbers */
+@page :left {
+  margin-left: 0.625in;   /* outside */
+  margin-right: 0.875in;  /* inside */
+
+  @top-left {
+    content: string(book-title);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 9pt;
+    font-style: italic;
+    color: #555;
+    padding-bottom: 0.15in;
+  }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Right (recto) page: odd page numbers */
+@page :right {
+  margin-left: 0.875in;   /* inside */
+  margin-right: 0.625in;  /* outside */
+
+  @top-right {
+    content: string(chapter-title);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 9pt;
+    font-style: italic;
+    color: #555;
+    padding-bottom: 0.15in;
+  }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Chapter first page: suppress running headers; page number stays.
+ * Named pages completely override position pseudos (@page :left/:right),
+ * so we must explicitly re-declare @bottom-center here — otherwise
+ * the first page of each chapter has no page number at all. */
+@page chapter-first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Blank pages (between front matter and chapter 1, etc.): nothing at all. */
+@page :blank {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center { content: none; }
+}
+
+/* Front matter pages suppress running headers but keep the page number.
+ * Uses the default Arabic counter (continuous from page 1) — roman
+ * numerals for front matter are traditional but Paged.js's counter-scope
+ * handling makes them unreliable right now. Simple continuous numbering
+ * is stable and KDP-valid. Roman front matter can return in a later
+ * milestone as an opt-in compile.config.json setting. */
+@page front-matter-page {
+  @top-left { content: none; }
+  @top-right { content: none; }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Running-header string setters.
+ *
+ * Book title → captured from a hidden marker <div> the HTML scaffold
+ * injects as the first child of <body>. Paged.js reads `content()`
+ * from the element into the `book-title` string, used by @page :left
+ * @top-left. The element is made invisible (but kept in flow) by
+ * zeroing its height and typography metrics — critical that we don't
+ * use `display: none`, which would remove it from Paged.js's tree
+ * before string-set can fire.
+ *
+ * Chapter title → captured from each chapter's <h1>. This only works
+ * if the writer's markdown uses `# Chapter Title` (producing an <h1>);
+ * bold-formatted titles like `**Chapter Title**` render as <p><strong>
+ * and won't update the recto header. */
+
+.book-title-marker {
+  string-set: book-title content();
+  display: block;
+  height: 0;
+  line-height: 0;
+  font-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+section.chapter > h1 {
+  string-set: chapter-title content();
+}
+
+/* Section placement ─────────────────────────────────────────────── */
+
+/* Front matter pages use roman numerals. */
+section.front-matter {
+  page: front-matter-page;
+}
+
+/* Chapters start on a right (recto) page — a blank verso is inserted
+ * before if necessary. */
+section.chapter {
+  break-before: recto;
+}
+
+/* Only the first direct child of each chapter (the <h1>) gets the
+ * chapter-first named page. Subsequent elements revert to the default
+ * @page rules, so only the literal first page of each chapter
+ * suppresses the running headers. Applying `page` to the whole
+ * section.chapter would make EVERY page of the chapter use
+ * @page chapter-first, which would break page numbering. */
+section.chapter > *:first-child {
+  page: chapter-first;
+}
+
+/* Page counter is continuous from page 1 through the whole book.
+ * No per-chapter reset — simple and predictable. */
+
+/* Typography adjustments for fixed-size print ─────────────────────── */
+
+body {
+  /* Slight reduction of base line-height for print; 1.5 is more common
+   * for paperback than the 1.55 we used for EPUB (which reflows on
+   * bigger screens). */
+  font-size: 11pt;
+  line-height: 1.45;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Chapter heading: more generous top margin on print — the first page
+ * of each chapter should feel like a fresh start, usually about
+ * one-third down the page. */
+h1 {
+  margin-top: 2.5in;
+  margin-bottom: 1in;
+  font-size: 18pt;
+  /* Suppress the base theme's page-break-before; we use break-before: recto
+   * on the section.chapter wrapper instead (more reliable in Paged.js). */
+  page-break-before: auto;
+  break-before: auto;
+}
+
+/* Drop cap: tuned for 11pt body text, 3 lines tall */
+p.first::first-letter {
+  float: left;
+  font-size: 3.5em;
+  line-height: 0.85;
+  margin: 0.02em 0.08em 0 0;
+  padding: 0;
+  font-weight: bold;
+  font-style: normal;
+}
+
+/* Scene break: a bit tighter than EPUB (print real-estate is precious) */
+hr.scene-break {
+  margin: 1.2em 0;
+}
+
+hr.scene-break::before {
+  font-size: 11pt;
+  color: #666;
+}
+
+/* Table adjustments for print: tables already avoid breaks; ensure cell
+ * contents don't break awkwardly. */
+table {
+  font-size: 10pt;
+}
+
+/* Prevent widowed chapter headings — never break a page right after h1 */
+h1 + p,
+h1 + p.first {
+  break-before: avoid;
+  break-after: avoid;
+}
