@@ -12,6 +12,9 @@ node_modules/
 # IDE
 .vscode/
 .idea/
+# But DO track the extension's launch config (used for F5 dev of vscode-extension/)
+!vscode-extension/.vscode/
+!vscode-extension/.vscode/**
 
 # OS
 .DS_Store

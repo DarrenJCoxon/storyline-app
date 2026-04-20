@@ -1,0 +1,37 @@
+{
+  "name": "novel-writer-vscode",
+  "displayName": "Novel Writer",
+  "description": "Rich-text writing surface for novel projects using the Novel Writer planning harness. Files stay markdown on disk.",
+  "version": "0.1.0",
+  "publisher": "darrenjcoxon",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:.novel-writer/state.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "novelWriter.hello",
+        "title": "Novel Writer: Hello (scaffold check)"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.3.0"
+  }
+}
