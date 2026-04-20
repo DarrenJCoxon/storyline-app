@@ -253,31 +253,25 @@ function buildWebviewHtml(themeCss: string): string {
       color: var(--vscode-descriptionForeground);
     }
 
-    /* ─── Device surface (the "page" the content is rendered on) ─── */
+    /* ─── Device stage (the "room" around the reading surface) ────
+     * Horizontal scroll if panel is narrower than the device width —
+     * fidelity over responsive shrink. Writers who want a full view
+     * resize the panel. */
 
     .device-stage {
       padding: 24px 16px 120px;
       display: flex;
       justify-content: center;
+      overflow-x: auto;
     }
 
     .device-surface {
-      width: 100%;
-      max-width: 560px;
-      padding: 56px 64px;
-      border-radius: 0;
       box-sizing: border-box;
-    }
-
-    /* Typography baseline (shared by all device frames). The compile
-       pipeline's theme targets .ProseMirror and raw elements; we
-       re-target under .device-surface so the same rules apply here. */
-    .device-surface {
-      font-family: Georgia, "Times New Roman", Times, serif;
-      font-size: 17px;
-      line-height: 1.6;
       color: #111;
     }
+
+    /* Structural rules applied regardless of device (typography
+       details are overridden per-device below). */
     .device-surface p {
       text-indent: 1.5em;
       margin: 0;
@@ -294,7 +288,6 @@ function buildWebviewHtml(themeCss: string): string {
       text-indent: 0;
     }
     .device-surface h1 {
-      font-family: Georgia, serif;
       font-style: italic;
       font-weight: normal;
       font-size: 1.6em;
@@ -331,47 +324,59 @@ function buildWebviewHtml(themeCss: string): string {
     .device-surface th { background: rgba(0,0,0,0.04); }
     .device-surface blockquote { margin: 1em 2em; font-style: italic; }
 
-    /* ─── Per-device frame styling ──────────────────────────────── */
+    /* ─── Per-device frame styling ──────────────────────────────── *
+     *
+     * Each device uses its actual page width and body font size.
+     *
+     *   Print 6×9 — 6" × 9" at 96 DPI = 576px wide. 0.75" margins
+     *     (72px) each side. 11pt body, 1.4 line-height — matches the
+     *     Classic Serif print theme exactly.
+     *   iPad — Apple Books single-page reading surface is roughly 720px
+     *     wide with ~80px margins. Palatino 17px, line-height 1.55 —
+     *     typical Books.app defaults.
+     *   Kindle Paperwhite — 6" display, ~560px wide in-app reading
+     *     area with ~60px side margins. Bookerly 16px, line-height
+     *     1.55. Slightly reduced text contrast (#2a2824) mimics
+     *     e-ink grey-on-cream appearance.
+     */
 
-    /* Print 6×9 — white page, subtle shadow, tight margins.
-       Width mimics a 6" page at moderate zoom. */
     body.device-print-6x9 .device-stage { background: #eceae4; }
     body.device-print-6x9 .device-surface {
+      width: 576px;
+      padding: 72px 96px;
       background: #ffffff;
       box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.08);
-      max-width: 480px;
-      padding: 54px 56px;
+      font-family: Georgia, "Times New Roman", Times, serif;
+      font-size: 11pt;
+      line-height: 1.4;
     }
 
-    /* iPad (Apple Books) — warm cream background, slightly wider
-       page, rounded corners hint at reader-app chrome. */
     body.device-ipad .device-stage { background: #1c1c1e; }
     body.device-ipad .device-surface {
+      width: 720px;
+      padding: 80px 96px;
       background: #f3ece2;
       color: #1a1612;
-      max-width: 620px;
-      padding: 60px 72px;
       border-radius: 2px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      font-family: "Palatino", Georgia, serif;
+      font-family: "Palatino", "Iowan Old Style", Georgia, serif;
+      font-size: 17px;
+      line-height: 1.55;
     }
     body.device-ipad .device-surface p.first::first-letter { color: #1a1612; }
 
-    /* Kindle Paperwhite — soft off-white e-ink, no shadow (e-ink is
-       flat), slightly reduced contrast (e-ink grey-on-cream). */
     body.device-kindle .device-stage { background: #3a3936; }
     body.device-kindle .device-surface {
+      width: 560px;
+      padding: 60px 72px;
       background: #e9e3d7;
       color: #2a2824;
-      max-width: 500px;
-      padding: 50px 56px;
       font-family: "Bookerly", Georgia, serif;
+      font-size: 16px;
+      line-height: 1.55;
     }
     body.device-kindle .device-surface p.first::first-letter { color: #2a2824; }
     body.device-kindle .device-surface hr.scene-break::before { color: #645f58; }
-
-    /* The filename colour on the selected device's stage needs to
-       stay readable — stage backgrounds vary from cream to near-black. */
   </style>
 </head>
 <body class="device-print-6x9">
