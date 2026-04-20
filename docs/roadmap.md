@@ -21,14 +21,12 @@ _Last updated: 2026-04-19_
 ### Milestone 2 — VS Code extension MVP: rich-text writing feels right
 **Build complete** (Stories 2.1-2.6 shipped: scaffold, TipTap webview, markdown round-trip, scene break node, custom editor registration, word count status bar; + the manuscript/ convention). **Gate open** — awaiting the real-chapter prove-it (Story 2.8, writer work). Reactive fixes land as friction surfaces. Detail: [roadmap/milestone-02-vscode-extension-mvp.md](roadmap/milestone-02-vscode-extension-mvp.md)
 
-### ▶ Milestone 3 — Compile to EPUB replaces the "upload and pray" step
-**Current milestone** (build work). A writer can compile their manuscript to a KDP-valid EPUB from inside the extension. One theme (Classic Serif). Basic pre-flight validation catches missing metadata, invalid chapter counts, etc.
-**Prove-it gate:** Take a real manuscript, compile it, open the EPUB on Apple Books and Kindle Previewer. It must look publishable without manual CSS tweaks. Detail: [roadmap/milestone-03-compile-epub.md](roadmap/milestone-03-compile-epub.md)
+### Milestone 3 — Compile to EPUB replaces the "upload and pray" step
+**Build complete** (Stories 3.1-3.7 shipped: scaffold, assembly, markdown→HTML with typography, Classic Serif theme, EPUB packaging, preflight, VS Code command; plus auto-config and the Book Info form). **Gate open** — awaiting real-manuscript validation (Story 3.8, writer work: compile a real book, open in Apple Books + Kindle Previewer). Detail: [roadmap/milestone-03-compile-epub.md](roadmap/milestone-03-compile-epub.md)
 
-### Milestone 4 — Compile to Print PDF
-**Outcome:** A writer can compile to a press-ready PDF for KDP paperback (6x9 trim) with running headers, page numbers, drop caps, widow/orphan control, and bleed. Paged.js powers the layout.
-**Prove-it gate:** Upload the compiled PDF to KDP's paperback interior checker. Pass on first try.
-**Status:** Deferred. Detail written when current.
+### ▶ Milestone 4 — Compile to Print PDF
+**Current milestone** (build work). A writer can compile to a press-ready PDF for KDP paperback (6x9 trim) with running headers, page numbers, drop caps, widow/orphan control, and bleed. Paged.js powers the layout, Puppeteer renders to PDF.
+**Prove-it gate:** Upload the compiled PDF to KDP's paperback interior checker. Pass on first try. Detail: [roadmap/milestone-04-compile-print-pdf.md](roadmap/milestone-04-compile-print-pdf.md)
 
 ### Milestone 5 — Preview panel (live + full-book)
 **Outcome:** Live chapter preview updates as the writer types, showing current theme on selected device frame. Full-book browser flips through the entire manuscript in compile layout before committing.
@@ -54,10 +52,11 @@ _Last updated: 2026-04-19_
 
 ## Current work
 
-**Build:** Milestone 3 — Compile to EPUB. See [milestone-03-compile-epub.md](roadmap/milestone-03-compile-epub.md).
+**Build:** Milestone 4 — Compile to Print PDF. See [milestone-04-compile-print-pdf.md](roadmap/milestone-04-compile-print-pdf.md).
 
 **Pending user validation (gates open, running in parallel with build):**
 - Milestone 1 — plan a real novel using the harness
 - Milestone 2 — write a real 1,500-word chapter in the rich editor
+- Milestone 3 — compile a real manuscript to EPUB, verify in Apple Books + Kindle Previewer
 
-Both close whenever you do the writer work.
+All three close whenever you do the writer work.
