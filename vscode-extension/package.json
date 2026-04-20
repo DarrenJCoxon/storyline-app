@@ -2,7 +2,7 @@
   "name": "novel-writer-vscode",
   "displayName": "Novel Writer",
   "description": "Rich-text writing surface for novel projects using the Novel Writer planning harness. Files stay markdown on disk.",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
@@ -52,6 +52,11 @@
         "command": "novelWriter.compilePrintPdf",
         "title": "Novel Writer: Compile to Print PDF",
         "icon": "$(file-pdf)"
+      },
+      {
+        "command": "novelWriter.openPreview",
+        "title": "Novel Writer: Open Preview",
+        "icon": "$(preview)"
       },
       {
         "command": "novelWriter.editBookInfo",
