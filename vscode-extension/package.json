@@ -22,9 +22,25 @@
       },
       {
         "command": "novelWriter.openEditor",
-        "title": "Novel Writer: Open Editor"
+        "title": "Novel Writer: Open in Rich Editor"
       }
-    ]
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "novelWriter.openEditor",
+          "when": "resourceExtname == .md",
+          "group": "navigation@99"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "novelWriter.openEditor",
+          "when": "resourceExtname == .md",
+          "group": "1_modification"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "npm run compile:host && npm run compile:webview",
@@ -41,7 +57,8 @@
     "@tiptap/react": "^2.1.0",
     "@tiptap/starter-kit": "^2.1.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "tiptap-markdown": "^0.9.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

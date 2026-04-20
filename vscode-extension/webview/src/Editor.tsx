@@ -1,38 +1,83 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { Markdown } from 'tiptap-markdown';
 import { vscode } from './vscode';
 import { debounce } from './debounce';
 
-const INITIAL_CONTENT = '<h1>Untitled Chapter</h1><p>Start writing. Formatting (bold, italic, headings) round-trips to markdown on save.</p>';
+type MarkdownStorage = { getMarkdown: () => string };
+
+function getMarkdown(editor: { storage: { markdown?: MarkdownStorage } } | null | undefined): string {
+  return editor?.storage.markdown?.getMarkdown() ?? '';
+}
 
 export function Editor(): JSX.Element | null {
+  const [fileLoaded, setFileLoaded] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [fileName, setFileName] = useState<string>('No file open');
+
   const sendContentChange = useMemo(
-    () => debounce((content: unknown) => {
-      vscode.postMessage({ type: 'content-changed', content });
+    () => debounce((markdown: string) => {
+      vscode.postMessage({ type: 'content-changed', markdown });
     }, 500),
     [],
   );
 
   const editor = useEditor({
-    extensions: [StarterKit],
-    content: INITIAL_CONTENT,
+    extensions: [
+      StarterKit,
+      Markdown.configure({
+        html: false,
+        tightLists: true,
+        linkify: true,
+        breaks: false,
+        transformPastedText: true,
+      }),
+    ],
+    content: '',
     onUpdate: ({ editor }) => {
-      sendContentChange(editor.getJSON());
+      if (!fileLoaded) return; // ignore the initial content set
+      setDirty(true);
+      sendContentChange(getMarkdown(editor));
     },
   });
 
+  const save = useMemo(() => () => {
+    if (!editor) return;
+    vscode.postMessage({ type: 'save', markdown: getMarkdown(editor) });
+    setDirty(false);
+  }, [editor]);
+
+  // Listen for messages from the extension host.
   useEffect(() => {
     const listener = (event: MessageEvent) => {
-      const msg = event.data as { type: string; content?: unknown };
-      if (msg.type === 'set-content' && editor && msg.content) {
-        editor.commands.setContent(msg.content as string);
+      const msg = event.data as { type: string; markdown?: string; fileName?: string };
+      if (msg.type === 'load-content' && editor && typeof msg.markdown === 'string') {
+        editor.commands.setContent(msg.markdown);
+        if (msg.fileName) setFileName(msg.fileName);
+        setFileLoaded(true);
+        setDirty(false);
+      }
+      if (msg.type === 'saved') {
+        setDirty(false);
       }
     };
     window.addEventListener('message', listener);
     vscode.postMessage({ type: 'ready' });
     return () => window.removeEventListener('message', listener);
   }, [editor]);
+
+  // Cmd/Ctrl+S saves.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        save();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [save]);
 
   if (!editor) return null;
 
@@ -85,8 +130,18 @@ export function Editor(): JSX.Element | null {
         >
           ”
         </button>
+        <div className="toolbar-spacer" />
+        <div className="toolbar-filename" title={fileName}>{fileName}</div>
+        <button
+          className={`toolbar-save${dirty ? ' dirty' : ''}`}
+          onClick={save}
+          title="Save (⌘S)"
+          disabled={!fileLoaded}
+        >
+          {dirty ? '● Save' : 'Saved'}
+        </button>
       </div>
-      <EditorContent editor={editor} className="editor-surface" />
+      <EditorContent editor={editor} />
     </div>
   );
 }

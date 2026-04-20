@@ -8,8 +8,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('novelWriter.hello', () => {
       vscode.window.showInformationMessage('Novel Writer — scaffold active');
     }),
-    vscode.commands.registerCommand('novelWriter.openEditor', () => {
-      openNovelEditor(context);
+    // Command palette: "Novel Writer: Open Editor" — picks a file or uses the
+    // currently active .md file. URI can also be passed directly (e.g. from
+    // a right-click handler, or when we register as a custom editor in 2.5).
+    vscode.commands.registerCommand('novelWriter.openEditor', (uri?: vscode.Uri) => {
+      return openNovelEditor(context, uri);
     }),
   );
 }

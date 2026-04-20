@@ -1,12 +1,29 @@
 import * as vscode from 'vscode';
 
-// Open the Novel Writer editor in a webview panel. For Story 2.2 this is a
-// standalone panel with empty content; the custom-editor-for-md-files wiring
-// arrives in Story 2.5.
-export function openNovelEditor(context: vscode.ExtensionContext): void {
+// Open the Novel Writer editor for a specific markdown file. Reads the file,
+// sends its content to the webview, receives save requests, writes back.
+// Custom-editor-for-.md-files (so VS Code auto-routes markdown opens here)
+// lands in Story 2.5. For now this is a command-driven flow.
+export async function openNovelEditor(
+  context: vscode.ExtensionContext,
+  fileUri?: vscode.Uri,
+): Promise<void> {
+  const uri = fileUri ?? (await pickMarkdownFile());
+  if (!uri) return; // user cancelled
+
+  let initialMarkdown: string;
+  try {
+    const buf = await vscode.workspace.fs.readFile(uri);
+    initialMarkdown = new TextDecoder('utf-8').decode(buf);
+  } catch (err) {
+    vscode.window.showErrorMessage(`Novel Writer: could not read ${uri.fsPath} — ${(err as Error).message}`);
+    return;
+  }
+
+  const relativePath = vscode.workspace.asRelativePath(uri);
   const panel = vscode.window.createWebviewPanel(
     'novelWriter.editor',
-    'Novel Writer Editor',
+    `Novel Writer — ${relativePath}`,
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -17,16 +34,56 @@ export function openNovelEditor(context: vscode.ExtensionContext): void {
 
   panel.webview.html = buildWebviewHtml(panel.webview, context.extensionUri);
 
+  // Track the latest content from the webview so we always save fresh bytes.
+  let latestMarkdown = initialMarkdown;
+
   panel.webview.onDidReceiveMessage(
-    (msg: { type: string; [k: string]: unknown }) => {
-      // Story 2.2 stub: just log messages from the webview so we can verify
-      // the channel works. Real message handling (load-file, save, etc.)
-      // arrives when markdown round-trip wiring lands in Story 2.3.
-      console.log('[novel-writer] webview message:', msg.type, msg);
+    async (msg: { type: string; markdown?: string }) => {
+      if (msg.type === 'ready') {
+        await panel.webview.postMessage({
+          type: 'load-content',
+          markdown: initialMarkdown,
+          fileName: relativePath,
+        });
+        return;
+      }
+      if (msg.type === 'content-changed' && typeof msg.markdown === 'string') {
+        latestMarkdown = msg.markdown;
+        return;
+      }
+      if (msg.type === 'save') {
+        const toWrite = typeof msg.markdown === 'string' ? msg.markdown : latestMarkdown;
+        try {
+          const buf = new TextEncoder().encode(toWrite);
+          await vscode.workspace.fs.writeFile(uri, buf);
+          latestMarkdown = toWrite;
+          await panel.webview.postMessage({ type: 'saved' });
+          vscode.window.setStatusBarMessage(`Novel Writer: saved ${relativePath}`, 3000);
+        } catch (err) {
+          vscode.window.showErrorMessage(`Novel Writer: save failed — ${(err as Error).message}`);
+        }
+        return;
+      }
     },
     undefined,
     context.subscriptions,
   );
+}
+
+async function pickMarkdownFile(): Promise<vscode.Uri | undefined> {
+  // Prefer the currently active .md file if the user has one open.
+  const active = vscode.window.activeTextEditor?.document;
+  if (active && active.uri.path.toLowerCase().endsWith('.md')) {
+    return active.uri;
+  }
+  const uris = await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: false,
+    filters: { Markdown: ['md', 'markdown'] },
+    title: 'Select a markdown file to open in Novel Writer',
+  });
+  return uris?.[0];
 }
 
 function buildWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
