@@ -1,13 +1,17 @@
 import * as vscode from 'vscode';
+import { openNovelEditor } from './webview-panel';
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('Novel Writer extension activated');
 
-  const hello = vscode.commands.registerCommand('novelWriter.hello', () => {
-    vscode.window.showInformationMessage('Novel Writer — scaffold active');
-  });
-
-  context.subscriptions.push(hello);
+  context.subscriptions.push(
+    vscode.commands.registerCommand('novelWriter.hello', () => {
+      vscode.window.showInformationMessage('Novel Writer — scaffold active');
+    }),
+    vscode.commands.registerCommand('novelWriter.openEditor', () => {
+      openNovelEditor(context);
+    }),
+  );
 }
 
 export function deactivate(): void {
