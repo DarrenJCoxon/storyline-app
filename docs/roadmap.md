@@ -15,13 +15,12 @@ _Last updated: 2026-04-19_
 
 ## The milestones
 
-### ▶ Milestone 1 — Novel Writer harness proves itself on a real book
-**Current milestone.** The planning harness (CLI + `/novel` skill) is mostly built but hasn't been battle-tested on a real novel. This milestone is about closing the gap between "the tool runs" and "the tool is actually useful for planning a novel someone will write." Detail: [roadmap/milestone-01-harness-proves-itself.md](roadmap/milestone-01-harness-proves-itself.md)
+### Milestone 1 — Novel Writer harness proves itself on a real book
+**Pre-flight build work complete** (Stories 1.1-1.4: drift fixes, smoke tests, master-doc generation verified). **Gate open** — awaiting real-book planning (Story 1.5), which is writer work done outside build sessions. Reactive fixes (1.6-1.7) happen when the friction log surfaces something. Detail: [roadmap/milestone-01-harness-proves-itself.md](roadmap/milestone-01-harness-proves-itself.md)
 
-### Milestone 2 — VS Code extension MVP: rich-text writing feels right
-**Outcome:** A writer can open a chapter file in VS Code and write prose with formatting (bold, italic, headings, scene breaks rendered as `⁂`) — saved to disk as plain markdown. Word count in status bar. `/novel` harness runs in a side panel.
-**Prove-it gate:** Write a full chapter in the extension. Compare the experience to writing the same chapter in iA Writer. The extension must not feel worse.
-**Status:** Deferred until Milestone 1 is proven. Detail written when this becomes current.
+### ▶ Milestone 2 — VS Code extension MVP: rich-text writing feels right
+**Current milestone** (build work). A writer can open a chapter file in VS Code and write prose with formatting (bold, italic, headings, scene breaks rendered as `⁂`) — saved to disk as plain markdown. Word count in status bar. `/novel` harness runs in a side panel.
+**Prove-it gate:** Write a full chapter in the extension. Compare the experience to writing the same chapter in iA Writer. The extension must not feel worse. Detail: [roadmap/milestone-02-vscode-extension-mvp.md](roadmap/milestone-02-vscode-extension-mvp.md)
 
 ### Milestone 3 — Compile to EPUB replaces the "upload and pray" step
 **Outcome:** A writer can compile their manuscript to a KDP-valid EPUB from inside the extension. One theme (Classic Serif). Basic pre-flight validation catches missing metadata, invalid chapter counts, etc.
@@ -50,11 +49,13 @@ _Last updated: 2026-04-19_
 
 ## Meta-rules for milestones
 
-1. **One milestone at a time.** If you feel pulled to start the next one before the current's prove-it gate is green, that's a signal the gate is weak, not that the current milestone is done.
+1. **One milestone at a time for build work.** If you feel pulled to start the next one before the current's build stories are complete, that's a signal the current milestone's scope is weak, not that it's done. **Exception:** when a milestone's prove-it gate requires user-validation (planning a real novel, writing a real chapter), build work on the next milestone can proceed in parallel — the gate closes independently whenever the writer does that work.
 2. **The prove-it gate must be observable.** "I think it works" is not a gate. "I used it on a real book and found it useful" is.
 3. **Cut lists matter as much as story lists.** Each milestone's detail file should state explicitly what it is NOT doing. Scope creep is the default; cut lists are the defence.
 4. **Deferred milestones stay as outcomes only.** If you find yourself writing stories for milestone 5 while milestone 2 is current, stop. The stories are probably wrong anyway — you'll learn things in milestones 2-4 that will change them.
 
 ## Current work
 
-Milestone 1 is active. See its detail file for the current story list.
+**Build:** Milestone 2 — VS Code extension MVP. See [milestone-02-vscode-extension-mvp.md](roadmap/milestone-02-vscode-extension-mvp.md).
+
+**Pending user validation:** Milestone 1's gate (plan a real novel using the harness). This can happen any time in a dedicated `/novel` session; build work continues in parallel.
