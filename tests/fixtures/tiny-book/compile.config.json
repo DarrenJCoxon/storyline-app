@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "title": "The Tiny Book",
+    "subtitle": null,
+    "author": "Jane Fixture",
+    "publisher": "Independent",
+    "language": "en",
+    "identifier": "urn:uuid:00000000-0000-0000-0000-000000000001",
+    "isbn": null,
+    "description": "A fixture manuscript used for automated compile tests.",
+    "genre": "thriller",
+    "subGenre": "psychological thriller"
+  },
+  "theme": "classic-serif",
+  "paragraphStyle": "indented"
+}

@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { deriveCurrentStage, calculateProgress, getMissingRequirements, checkGate, getDownstreamImpacts } from '../lib/state/transitions.js';
 import { runStoryTraps, formatTrapResults } from '../lib/ai/story-traps.js';
 import { getPersonaForStage, formatPersonaIntro, runQualityChecklist, getProbingQuestions } from '../lib/ai/coaching-personas.js';
-import { getWordCountAllocation } from '../lib/stages/scene-outline.js';
 
 // ─────────────────────────────────────────────────────────────
 // Stage Derivation
@@ -369,38 +368,6 @@ describe('runQualityChecklist', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────
-// Word Count Allocation
-// ─────────────────────────────────────────────────────────────
-
-describe('getWordCountAllocation', () => {
-  it('allocates word counts per beat for 80k target', () => {
-    const allocation = getWordCountAllocation(80000);
-    expect(allocation.beat01OpeningImage.words).toBe(2400); // 3% of 80k
-    expect(allocation.beat07FunAndGames.words).toBe(16000); // 20% of 80k
-    expect(allocation.beat13Finale.words).toBe(4800); // 6% of 80k
-  });
-
-  it('sums to approximately the target word count', () => {
-    const target = 80000;
-    const allocation = getWordCountAllocation(target);
-    const total = Object.values(allocation).reduce((sum, b) => sum + b.words, 0);
-    // Should be within 1% of target due to rounding
-    expect(Math.abs(total - target)).toBeLessThan(target * 0.01);
-  });
-
-  it('scales for different target word counts', () => {
-    const alloc50k = getWordCountAllocation(50000);
-    const alloc120k = getWordCountAllocation(120000);
-    expect(alloc50k.beat07FunAndGames.words).toBeLessThan(alloc120k.beat07FunAndGames.words);
-  });
-
-  it('every beat has a label, percentage, and word count', () => {
-    const allocation = getWordCountAllocation(80000);
-    for (const [beatId, info] of Object.entries(allocation)) {
-      expect(info.label).toBeTruthy();
-      expect(info.pct).toBeGreaterThan(0);
-      expect(info.words).toBeGreaterThan(0);
-    }
-  });
-});
+// Word-count allocation moved to tests/stage-drift.test.js — the
+// allocation data now lives as STAGE_GUIDES.sceneOutline.wordCountAllocation
+// rather than a function, and is naturally a structural-integrity check.
