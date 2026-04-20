@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { ensureCompileConfig } from '../../lib/config/compile-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -142,6 +143,16 @@ Delete this README once you've got your first chapter file in here.
         console.log(chalk.dim(`  ✓ Created manuscript/ (writer's prose folder)`));
       } else {
         console.log(chalk.dim(`  ✓ manuscript/ already exists`));
+      }
+
+      // Step 4c: Create compile.config.json with git-derived defaults so
+      // the writer never has to hand-craft JSON for a first compile.
+      const compileConfigResult = await ensureCompileConfig(targetDir);
+      if (compileConfigResult.created) {
+        const author = compileConfigResult.config?.metadata?.author || '(not set)';
+        console.log(chalk.dim(`  ✓ Created compile.config.json (author: ${author})`));
+      } else {
+        console.log(chalk.dim(`  ✓ compile.config.json already exists`));
       }
 
       // Step 5: Create CLAUDE.md if it doesn't exist
