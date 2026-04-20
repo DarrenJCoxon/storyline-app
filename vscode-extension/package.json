@@ -2,7 +2,7 @@
   "name": "novel-writer-vscode",
   "displayName": "Novel Writer",
   "description": "Rich-text writing surface for novel projects using the Novel Writer planning harness. Files stay markdown on disk.",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
@@ -13,7 +13,7 @@
   "activationEvents": [
     "workspaceContains:.novel-writer/state.json"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "customEditors": [
       {
