@@ -58,16 +58,19 @@ export function Editor(): JSX.Element | null {
     },
   });
 
+  // Sends the current markdown to the host for saving. We DON'T clear the
+  // dirty state here — we wait for the host to confirm success via the
+  // 'saved' message. If the save fails, the dirty indicator stays on and
+  // an error toast appears.
   const save = useMemo(() => () => {
     if (!editor) return;
     vscode.postMessage({ type: 'save', markdown: getMarkdown(editor) });
-    setDirty(false);
   }, [editor]);
 
   // Listen for messages from the extension host.
   useEffect(() => {
     const listener = (event: MessageEvent) => {
-      const msg = event.data as { type: string; markdown?: string; fileName?: string };
+      const msg = event.data as { type: string; markdown?: string; fileName?: string; error?: string };
       if (msg.type === 'load-content' && editor && typeof msg.markdown === 'string') {
         editor.commands.setContent(msg.markdown);
         if (msg.fileName) setFileName(msg.fileName);
@@ -76,6 +79,10 @@ export function Editor(): JSX.Element | null {
       }
       if (msg.type === 'saved') {
         setDirty(false);
+      }
+      if (msg.type === 'save-failed') {
+        // Host already showed an error toast; keep the dirty indicator lit.
+        setDirty(true);
       }
     };
     window.addEventListener('message', listener);

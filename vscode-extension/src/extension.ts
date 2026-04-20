@@ -3,6 +3,7 @@ import { openNovelEditor } from './webview-panel';
 import { NovelEditorProvider } from './novel-editor-provider';
 import { WordCountStatusBar } from './status-bar';
 import { compileToEpub } from './compile-command';
+import { editBookInfo } from './book-info-command';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log('Novel Writer extension activated');
@@ -37,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return openNovelEditor(context);
     }),
     vscode.commands.registerCommand('novelWriter.compileEpub', () => compileToEpub()),
+    vscode.commands.registerCommand('novelWriter.editBookInfo', () => editBookInfo(context)),
     vscode.commands.registerCommand('novelWriter.showWordCountBreakdown', async () => {
       const breakdown = statusBar.getBreakdown();
       if (!breakdown.length) {

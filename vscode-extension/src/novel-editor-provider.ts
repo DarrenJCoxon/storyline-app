@@ -95,18 +95,37 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
         // User clicked the toolbar save button — sync (if the webview
         // hasn't pushed its latest content yet, msg.markdown carries it)
         // and then save via VS Code's native flow.
-        if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
-          const edit = new vscode.WorkspaceEdit();
-          edit.replace(
-            document.uri,
-            new vscode.Range(0, 0, document.lineCount, 0),
-            msg.markdown,
+        try {
+          if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+              document.uri,
+              new vscode.Range(0, 0, document.lineCount, 0),
+              msg.markdown,
+            );
+            suppressNextDocChange = true;
+            const applied = await vscode.workspace.applyEdit(edit);
+            if (!applied) {
+              throw new Error('Failed to apply webview edit to document');
+            }
+          }
+
+          const saved = await document.save();
+          // document.save() returns false when nothing needed saving
+          // (e.g. document was already clean), which is NOT an error.
+          // Only treat as a failure if the document is still dirty after save.
+          if (!saved && document.isDirty) {
+            throw new Error('document.save() reported failure while document is still dirty');
+          }
+
+          webviewPanel.webview.postMessage({ type: 'saved' });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(
+            `Novel Writer: save failed — ${message}`,
           );
-          suppressNextDocChange = true;
-          await vscode.workspace.applyEdit(edit);
+          webviewPanel.webview.postMessage({ type: 'save-failed', error: message });
         }
-        await document.save();
-        webviewPanel.webview.postMessage({ type: 'saved' });
         return;
       }
     });
