@@ -120,11 +120,31 @@
   }
 }
 
-/* String setter for the recto header — captures each chapter's <h1>
- * text into `chapter-title`. The verso header's book-title is set via
- * an inline <style> block at compile time (see print-pdf.js) because
- * that avoids a marker element that can interfere with first-page
- * numbering. */
+/* Running-header string setters.
+ *
+ * Book title → captured from a hidden marker <div> the HTML scaffold
+ * injects as the first child of <body>. Paged.js reads `content()`
+ * from the element into the `book-title` string, used by @page :left
+ * @top-left. The element is made invisible (but kept in flow) by
+ * zeroing its height and typography metrics — critical that we don't
+ * use `display: none`, which would remove it from Paged.js's tree
+ * before string-set can fire.
+ *
+ * Chapter title → captured from each chapter's <h1>. This only works
+ * if the writer's markdown uses `# Chapter Title` (producing an <h1>);
+ * bold-formatted titles like `**Chapter Title**` render as <p><strong>
+ * and won't update the recto header. */
+
+.book-title-marker {
+  string-set: book-title content();
+  display: block;
+  height: 0;
+  line-height: 0;
+  font-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
 section.chapter > h1 {
   string-set: chapter-title content();
 }
