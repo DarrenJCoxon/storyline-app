@@ -7,7 +7,7 @@ _Last updated: 2026-04-19_
 
 ## Outcome
 
-A writer can open a chapter file (`*.md`) inside a novel project in VS Code and write prose with WYSIWYG formatting (bold, italic, headings, scene breaks rendered as `⁂`) — saved to disk as clean markdown. Word count appears in the status bar. The `/novel` planning harness continues to run in a side panel, unchanged.
+A writer can open a chapter file (`*.md`) inside a novel project in VS Code and write prose with WYSIWYG formatting (bold, italic, headings, scene breaks rendered as `* * *`) — saved to disk as clean markdown. Word count appears in the status bar. The `/novel` planning harness continues to run in a side panel, unchanged.
 
 ## Why this milestone exists
 
@@ -75,12 +75,12 @@ Integrate `tiptap-markdown` (or equivalent) so:
 ### 2.4 — Scene break custom node
 
 The scene break is the first and most important novel-specific TipTap extension:
-- Markdown source: `* * *` on its own line (standard) or `⁂` 
-- Rendered: centred `⁂` with generous vertical spacing
+- Markdown source: `* * *` on its own line (standard) or `* * *` 
+- Rendered: centred `* * *` with generous vertical spacing
 - Writer inserts via menu, slash command, or typing `***` + Enter
 - Persists correctly through round-trip
 
-**Done when:** Inserting a scene break in TipTap, saving, and reopening shows the `⁂` rendered correctly; the file on disk contains `* * *`; committing the file to git shows a clean diff.
+**Done when:** Inserting a scene break in TipTap, saving, and reopening shows the `* * *` rendered correctly; the file on disk contains `* * *`; committing the file to git shows a clean diff.
 
 **Estimate:** Half day.
 

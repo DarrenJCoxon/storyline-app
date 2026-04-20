@@ -27,7 +27,7 @@ export function Editor(): JSX.Element | null {
   const editor = useEditor({
     extensions: [
       // Disable StarterKit's default horizontal rule — we replace it with
-      // our own SceneBreak node that renders as '⁂' and serialises to '* * *'.
+      // our own SceneBreak node that renders '* * *' in both editor and output.
       StarterKit.configure({ horizontalRule: false }),
       SceneBreak,
       Markdown.configure({
@@ -135,11 +135,11 @@ export function Editor(): JSX.Element | null {
           ”
         </button>
         <button
-          className="toolbar-btn"
+          className="toolbar-btn toolbar-btn-scene-break"
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          title="Insert scene break (⁂)"
+          title="Insert scene break"
         >
-          ⁂
+          * * *
         </button>
         <div className="toolbar-spacer" />
         <div className="toolbar-filename" title={fileName}>{fileName}</div>

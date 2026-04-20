@@ -79,7 +79,7 @@ The difference between "technically valid EPUB" and "professional book" is typog
 ### EPUB specifics
 
 - Smart quotes, em-dashes, ellipses (preserve from markdown, don't mangle)
-- Scene break ornaments (`⁂` or custom SVG) with consistent spacing
+- Scene break ornaments (`* * *` or custom SVG) with consistent spacing
 - Chapter numbering (Arabic / Roman / word-form, configurable)
 - Proper TOC with navPoints so readers can jump chapters
 - Metadata: ISBN, title, author, publisher, cover, language
@@ -234,7 +234,7 @@ Compile (writes files to `output/compiled/`):
   },
   "themeOverrides": {
     "chapterHeading.fontFamily": "Playfair Display",
-    "sceneBreak.ornament": "⁂"
+    "sceneBreak.ornament": "* * *"
   }
 }
 ```

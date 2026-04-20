@@ -11,7 +11,7 @@ A writer can run a single command ("Novel Writer: Compile to EPUB" in VS Code, o
 
 - Opens correctly in Apple Books (iPad), Kindle Previewer, and Calibre
 - Passes EPUBCheck validation
-- Uses one curated theme (Classic Serif) with proper typography — drop caps on chapter openings, centred `⁂` for scene breaks, consistent chapter numbering, correct front/back matter
+- Uses one curated theme (Classic Serif) with proper typography — drop caps on chapter openings, centred `* * *` for scene breaks, consistent chapter numbering, correct front/back matter
 - Is built from the writer's `manuscript/*.md` files with metadata pulled from `.novel-writer/state.json`
 
 ## Why this milestone exists
@@ -128,7 +128,7 @@ Metadata comes from `.novel-writer/state.json` (title, author derived from `_met
 
 Key CSS concerns:
 - Drop cap on first paragraph of each chapter (`p.first::first-letter`)
-- Centred `⁂` for `hr.scene-break`
+- Centred `* * *` for `hr.scene-break`
 - Chapter heading style (generous margin-top, smaller than title)
 - Correct inheritance through EPUB reader quirks (don't use modern CSS that Kindle chokes on)
 
@@ -188,7 +188,7 @@ The extension does NOT reimplement the compile logic — it wraps the CLI. This 
 You, the writer. Take a manuscript (even with placeholder prose — 3+ chapters is enough), compile it, drag into Apple Books and Kindle Previewer, spot-check:
 
 - Chapters navigable via TOC
-- Scene breaks render as `⁂`
+- Scene breaks render as `* * *`
 - Drop cap appears at chapter starts
 - No weird CSS artefacts
 - Metadata (title, author) shows in the book info

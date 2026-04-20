@@ -62,6 +62,14 @@ html, body {
   border-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
 }
 
+/* Scene break button: slightly wider to accommodate the '* * *' label
+   without cramping, letter-spacing matches the rendered ornament. */
+.toolbar-btn-scene-break {
+  letter-spacing: 0.15em;
+  min-width: 44px;
+  font-family: var(--editor-font, Georgia, serif);
+}
+
 .toolbar-divider {
   width: 1px;
   height: 20px;
@@ -141,8 +149,8 @@ html, body {
   font-style: italic;
 }
 
-/* Scene break — renders '<hr class="scene-break">' as a centred ⁂ ornament.
-   The underlying markdown is `* * *`. */
+/* Scene break — renders '<hr class="scene-break">' as centred '* * *'.
+   The underlying markdown is also `* * *`, so source and rendering match. */
 .ProseMirror hr.scene-break {
   border: none;
   height: auto;
@@ -153,10 +161,10 @@ html, body {
 }
 
 .ProseMirror hr.scene-break::before {
-  content: '⁂';
+  content: '* * *';
   display: block;
-  font-size: 1.4em;
-  letter-spacing: 0.3em;
+  font-size: 1.15em;
+  letter-spacing: 0.6em;
   color: var(--vscode-descriptionForeground);
   opacity: 0.75;
 }

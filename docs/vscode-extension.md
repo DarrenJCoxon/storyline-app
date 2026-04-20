@@ -24,7 +24,7 @@ The bet: you can get 90% of Scrivener's writing experience without owning a desk
 Writer opens VS Code in their novel project. They see:
 
 - **Left sidebar:** their novel project — `chapters/`, `notes/`, `.novel-writer/state.json`
-- **Centre:** a clean writing surface when they open `chapters/ch01.md`. Bold shows as bold. Italic as italic. Scene breaks render as a centred `⁂`. No raw markdown tags.
+- **Centre:** a clean writing surface when they open `chapters/ch01.md`. Bold shows as bold. Italic as italic. Scene breaks render as a centred `* * *`. No raw markdown tags.
 - **Right panel:** the `/novel` chat — unchanged, runs exactly as it does today
 - **Bottom status bar:** word count for the current chapter, total manuscript, % of target
 
@@ -50,7 +50,7 @@ The smallest thing that proves the concept works:
 1. **A VS Code extension** that registers a custom editor for `.md` files inside a novel project (detected by presence of `.novel-writer/state.json`)
 2. **TipTap WYSIWYG editor** in the custom editor webview
 3. **Markdown ↔ TipTap round-trip** using `tiptap-markdown`
-4. **One custom node:** scene break (`* * *` in markdown, rendered as centred `⁂`)
+4. **One custom node:** scene break (`* * *` in markdown, rendered as centred `* * *`)
 5. **Word count** in status bar (current file + project total)
 6. **The `/novel` harness** continues to work unchanged in a side chat panel
 
@@ -126,7 +126,7 @@ What round-trips cleanly (safe for v1):
 - Horizontal rules (`---`)
 
 What needs a custom node:
-- **Scene breaks** — markdown source `* * *`, rendered as centred `⁂`. Not a default TipTap node. Small custom node to define.
+- **Scene breaks** — markdown source `* * *`, rendered as centred `* * *`. Not a default TipTap node. Small custom node to define.
 
 What gets tricky (defer past MVP):
 - Footnotes — markdown has them, TipTap doesn't natively. Skip for v1.

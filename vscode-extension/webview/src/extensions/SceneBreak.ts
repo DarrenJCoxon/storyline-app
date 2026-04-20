@@ -1,6 +1,6 @@
 // Scene break — the first novel-specific TipTap extension.
 //
-// Renders as a centred '⁂' ornament between paragraphs. On disk it's
+// Renders as a centred '* * *' ornament between paragraphs. On disk it's
 // serialised as `* * *` (the traditional novel-manuscript convention).
 // Markdown parsing inherits from HorizontalRule, so `* * *`, `***`, and
 // `---` all round-trip through this node.
