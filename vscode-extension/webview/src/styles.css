@@ -115,17 +115,8 @@ html, body {
 }
 
 .toolbar-status--failed {
-  color: var(--vscode-editor-background, #fff);
-  background: var(--vscode-errorForeground, #d13438);
-  padding: 4px 12px;
-  border-radius: 3px;
-  font-weight: 600;
+  color: var(--vscode-errorForeground, #d13438);
   cursor: help;
-  animation: nw-save-fail-pulse 1.2s ease-in-out infinite;
-}
-@keyframes nw-save-fail-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
 }
 
 .ProseMirror {

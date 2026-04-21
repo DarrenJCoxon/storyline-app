@@ -3,20 +3,19 @@ import type { WordCountStatusBar } from './status-bar';
 
 // CustomTextEditorProvider that owns .md files in novel projects.
 //
-// Save model: autosave-with-verification. Every content change the webview
-// posts applies to the TextDocument immediately via a serialized edit queue
-// that checks applyEdit's return value; a debounced background save flushes
-// to disk and then reads the file back to verify the bytes actually landed.
-// If any step fails — applyEdit rejected, save() returned false, on-disk
-// bytes don't match what we asked to save — the document is kept DIRTY and
-// an error status is posted to the webview. That way VS Code's native
-// close-prompt still fires and the writer is warned.
+// Save model: autosave on idle. Every content change the webview posts
+// applies to the TextDocument immediately; a debounced background save
+// flushes to disk ~1.5s after the writer stops typing. Cmd+S is also
+// wired (via the webview's 'save' message) as a "save right now" hook
+// for power users who want explicit control.
 //
-// This is deliberately more paranoid than a normal CustomTextEditor. Silent
-// data loss during writing is the single worst failure mode; the cost of
-// extra verification is milliseconds, which is invisible during drafting.
+// The previous manual save button approach created a brittle surface
+// where a user could click Save during a race condition and see a
+// cryptic error toast. Autosave sidesteps the entire class: users see
+// VS Code's native tab-dirty dot while a save is pending, and the
+// webview shows a simple Saved / Saving… status indicator.
 
-const AUTOSAVE_IDLE_MS = 800;  // tightened from 1500ms — less work at risk
+const AUTOSAVE_IDLE_MS = 1500;
 
 export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'novelWriter.editor';
@@ -38,6 +37,9 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.webview.html = buildWebviewHtml(webviewPanel.webview, this.context.extensionUri);
 
+    // Status bar word count — custom editors aren't text editors, so
+    // vscode.window.activeTextEditor is always undefined for us. We
+    // notify the status bar explicitly when we gain/lose focus.
     if (webviewPanel.active) {
       this.statusBar.setActiveCustomEditor(document.uri);
     }
@@ -57,102 +59,53 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       });
     };
 
-    // Content-based sync guard — see comment history in commit log. Track
-    // the markdown we last applied; ignore onDidChangeTextDocument events
-    // whose resulting text matches (modulo trailing whitespace) that
-    // expectation, since they're either our own echo or save-normalisation.
+    // Content-based sync guard.
+    //
+    // The webview IS the source of truth while the writer is editing.
+    // `expectedContent` tracks the markdown we most recently asked the
+    // TextDocument to hold (via applyEdit) — the last state the webview
+    // and document were known-aligned.
+    //
+    // On any onDidChangeTextDocument, if the document's current text
+    // matches expectedContent (modulo trailing whitespace / newlines —
+    // the touch points of files.insertFinalNewline and
+    // files.trimTrailingWhitespace), the change is one we caused or a
+    // save-time normalisation. Either way, the webview doesn't need
+    // re-syncing — pushing would replace the user's in-flight typing.
+    //
+    // If the document diverges materially (git pull, another editor,
+    // external tool modified the file), we push — the webview's content
+    // is genuinely stale and needs refreshing.
+    //
+    // This replaces the earlier timing-based guards (suppressNextDocChange
+    // + saveInFlight) which worked most of the time but could miss edge
+    // cases where VS Code fired the normalisation event on a tick where
+    // both flags had flipped back to false.
     let expectedContent: string | null = null;
     const normaliseForCompare = (s: string) => s.replace(/\s+$/, '');
 
-    // ── Serialized applyEdit queue ─────────────────────────────────
-    //
-    // Multiple content-changed messages arriving in rapid succession
-    // could previously race — each would compute Range(0,0, document.
-    // lineCount, 0) against whatever state the document was in AT THAT
-    // MOMENT, which for concurrent calls might be stale. The stale edit
-    // then silently overwrote the newer one. This is the primary data-
-    // loss vector the user reported.
-    //
-    // Fix: serialize all edits through a single promise chain. Coalesce
-    // to the latest target (rapid typing = one final edit, not N racing
-    // edits). Check applyEdit's return value; on false, keep the target
-    // as pending so the next keystroke retries.
-    let pendingTargetMarkdown: string | null = null;
-    let editQueue: Promise<void> = Promise.resolve();
+    // Autosave timer — scheduled after every content-changed applyEdit;
+    // cancelled if a new edit arrives before it fires (so fast typists
+    // get exactly one save at the end of their burst, not one per edit).
+    let autoSaveTimer: NodeJS.Timeout | undefined;
+    // Guard against overlapping saves when an autosave flush is already
+    // in flight and Cmd+S or another autosave fires. If a save is in
+    // flight, callers set rerunAfterSave so we re-fire once the current
+    // one completes.
+    let saveInFlight = false;
+    let rerunAfterSave = false;
 
-    const applyContent = (target: string): Promise<boolean> => {
-      pendingTargetMarkdown = target;
-      const runNow = editQueue.then(async () => {
-        if (pendingTargetMarkdown === null) return true;
-        const toApply = pendingTargetMarkdown;
-        pendingTargetMarkdown = null;  // claim before applying
-        if (toApply === document.getText()) return true;
-
-        const edit = new vscode.WorkspaceEdit();
-        edit.replace(
-          document.uri,
-          new vscode.Range(0, 0, document.lineCount, 0),
-          toApply,
-        );
-        expectedContent = toApply;  // set before applyEdit fires the change event
-        const applied = await vscode.workspace.applyEdit(edit);
-        if (!applied) {
-          // Edit was rejected. Keep the target pending so the next edit
-          // attempt retries — but also surface this as a save-failed
-          // status so the writer knows something's wrong.
-          console.error('[Novel Writer] applyEdit rejected — content not written to document buffer');
-          pendingTargetMarkdown = toApply;
-          webviewPanel.webview.postMessage({
-            type: 'save-failed',
-            error: 'VS Code rejected the edit. Your text is still in the editor buffer — try saving again or reopening the file.',
-          });
-          return false;
-        }
-        return true;
-      });
-      editQueue = runNow.then(() => {}, () => {});  // never let the queue get stuck
-      return runNow;
-    };
-
-    // ── Change subscription — push external changes to the webview ──
     const changeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
       if (e.document.uri.toString() !== document.uri.toString()) return;
       if (expectedContent !== null
           && normaliseForCompare(document.getText()) === normaliseForCompare(expectedContent)) {
+        // Either our own applyEdit's echo or a save-time normalisation.
+        // Webview already has this content (or a trivially different
+        // whitespace variant of it) — do not clobber in-flight typing.
         return;
       }
       pushContentToWebview();
     });
-
-    // ── Save machinery ─────────────────────────────────────────────
-    let autoSaveTimer: NodeJS.Timeout | undefined;
-    let saveInFlight = false;
-    let rerunAfterSave = false;
-
-    // Verify that the bytes on disk match what the webview has, AFTER
-    // the save. The only truth that matters: the file on disk contains
-    // the writer's prose. Trim trailing whitespace/newlines on both
-    // sides because VS Code's save pipeline may add a final newline
-    // (files.insertFinalNewline).
-    const verifyOnDisk = async (): Promise<{ ok: true } | { ok: false; reason: string }> => {
-      try {
-        const bytes = await vscode.workspace.fs.readFile(document.uri);
-        const onDisk = new TextDecoder('utf-8').decode(bytes);
-        const expected = expectedContent ?? document.getText();
-        if (normaliseForCompare(onDisk) === normaliseForCompare(expected)) {
-          return { ok: true };
-        }
-        return {
-          ok: false,
-          reason: `On-disk content differs from expected (disk: ${onDisk.length} chars, expected: ${expected.length} chars).`,
-        };
-      } catch (err) {
-        return {
-          ok: false,
-          reason: `Could not read back saved file: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
-    };
 
     const runSave = async (): Promise<void> => {
       if (saveInFlight) {
@@ -162,58 +115,38 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       saveInFlight = true;
       webviewPanel.webview.postMessage({ type: 'saving' });
       try {
-        // 1. Flush any pending edit BEFORE saving, so the document
-        //    buffer is fully in sync with the webview.
-        await editQueue;
-        if (pendingTargetMarkdown !== null) {
-          const ok = await applyContent(pendingTargetMarkdown);
-          if (!ok) {
-            throw new Error('Could not apply pending edit before save — edit was rejected.');
+        // document.save() returns false in several benign cases:
+        //   - autoSave (VS Code's own) fired first, doc is already clean
+        //   - the save was coalesced into one already in flight
+        //   - filesystem (iCloud / Dropbox / Time Machine) lagged
+        // A real failure is: returned false AND the doc is still dirty
+        // after a beat. Retry once before reporting it.
+        let saved = await document.save();
+        if (!saved && document.isDirty) {
+          await new Promise(resolve => setTimeout(resolve, 80));
+          if (!document.isDirty) {
+            saved = true;
+          } else {
+            saved = await document.save();
           }
         }
-
-        // 2. Save the document buffer to disk.
-        const saved = await document.save();
-
-        // 3. Verify. document.save() returning true is not enough —
-        //    cloud-sync / format-on-save / external processes can make
-        //    the final bytes differ from what we asked to save. Read
-        //    the file back and compare.
-        const verification = await verifyOnDisk();
-        if (!verification.ok) {
-          // Leave document.isDirty untouched — if the buffer was
-          // actually saved but the bytes differ, VS Code will have
-          // cleared dirty. Surface an error either way.
-          throw new Error(`Save verification failed: ${verification.reason}`);
-        }
-
         if (!saved && document.isDirty) {
-          // Save reported failure AND document still dirty — real
-          // problem. (The !saved && !isDirty path is gone — we no
-          // longer pretend "autoSave caught up" because that lied.)
-          throw new Error('document.save() returned false and the document is still dirty.');
+          throw new Error(
+            'document.save() failed twice — the file may be read-only, ' +
+            'locked by another process, or on a cloud-synced folder ' +
+            'with sync conflicts.',
+          );
         }
-
         webviewPanel.webview.postMessage({ type: 'saved' });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        // Critical: also show a modal-adjacent warning to the writer.
-        // The status bar indicator alone was missed — the user closed
-        // the tab thinking autosave worked. An error toast is harder
-        // to miss.
-        vscode.window.showWarningMessage(
-          `Novel Writer: save failed — ${message}`,
-          'Open Dev Tools',
-        ).then(action => {
-          if (action === 'Open Dev Tools') {
-            vscode.commands.executeCommand('workbench.action.toggleDevTools');
-          }
-        });
         webviewPanel.webview.postMessage({ type: 'save-failed', error: message });
       } finally {
         saveInFlight = false;
         if (rerunAfterSave) {
           rerunAfterSave = false;
+          // Run the queued save on a fresh tick so we don't re-enter
+          // the `saveInFlight` guard synchronously.
           setTimeout(() => runSave(), 0);
         }
       }
@@ -223,76 +156,66 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
       autoSaveTimer = setTimeout(() => {
         autoSaveTimer = undefined;
-        if (document.isDirty || pendingTargetMarkdown !== null) {
-          void runSave();
-        }
+        // Don't save a clean doc. If the user typed and undid before
+        // the timer fired, VS Code already cleared isDirty and there's
+        // nothing to flush.
+        if (document.isDirty) void runSave();
       }, AUTOSAVE_IDLE_MS);
     };
 
-    // ── Dispose: last-chance flush ─────────────────────────────────
-    //
-    // If the webview is torn down (tab closed, window closed, reload)
-    // while we still have pending content or an unfired autosave, we
-    // MUST flush. VS Code gives us synchronous dispose only; we can
-    // kick off the save and rely on VS Code's own dirty-prompt as a
-    // second line of defence.
     webviewPanel.onDidDispose(() => {
       changeSubscription.dispose();
       viewStateSubscription.dispose();
       this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
-      if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = undefined; }
-
-      // Flush any pending edit + save in the background. If the file is
-      // still dirty, VS Code's own close-dirty-prompt catches the rest.
-      const hasPending = pendingTargetMarkdown !== null || document.isDirty;
-      if (hasPending) {
-        (async () => {
-          try {
-            await editQueue;
-            if (pendingTargetMarkdown !== null) {
-              await applyContent(pendingTargetMarkdown);
-            }
-            if (document.isDirty) {
-              await document.save();
-            }
-          } catch (err) {
-            console.error('[Novel Writer] emergency dispose-flush failed:', err);
-          }
-        })();
-      }
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
     });
 
-    // ── Inbound message handlers ───────────────────────────────────
     webviewPanel.webview.onDidReceiveMessage(async (msg: { type: string; markdown?: string }) => {
       if (msg.type === 'ready') {
+        // Anchor the content-based guard at whatever the document holds
+        // at mount time. The webview is about to render this exact text,
+        // so subsequent change events that still match it (e.g. the
+        // opening load itself) won't trigger a redundant push.
         expectedContent = document.getText();
         pushContentToWebview();
         return;
       }
 
       if (msg.type === 'content-changed' && typeof msg.markdown === 'string') {
-        if (msg.markdown === document.getText()) return;
-        void applyContent(msg.markdown).then(ok => {
-          if (ok) scheduleAutoSave();
-        });
-        return;
-      }
-
-      if (msg.type === 'flush-now' && typeof msg.markdown === 'string') {
-        // Webview is about to lose state (tab blur, visibility hidden,
-        // beforeunload). Flush synchronously, bypass autosave debounce.
-        if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = undefined; }
-        if (msg.markdown !== document.getText()) {
-          await applyContent(msg.markdown);
-        }
-        void runSave();
+        if (msg.markdown === document.getText()) return; // no-op
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+          document.uri,
+          new vscode.Range(0, 0, document.lineCount, 0),
+          msg.markdown,
+        );
+        // Set BEFORE applyEdit so the change event (fired synchronously
+        // inside applyEdit on some VS Code versions) sees the updated
+        // expectation. If applyEdit reports failure we'd still have
+        // moved expectedContent forward — but applyEdit failures are
+        // vanishingly rare and at worst cost us one redundant push.
+        expectedContent = msg.markdown;
+        await vscode.workspace.applyEdit(edit);
+        scheduleAutoSave();
         return;
       }
 
       if (msg.type === 'save') {
-        if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = undefined; }
+        // Explicit save request (Cmd+S power-user shortcut). Cancel any
+        // pending autosave, sync any late content, save now.
+        if (autoSaveTimer) {
+          clearTimeout(autoSaveTimer);
+          autoSaveTimer = undefined;
+        }
         if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
-          await applyContent(msg.markdown);
+          const edit = new vscode.WorkspaceEdit();
+          edit.replace(
+            document.uri,
+            new vscode.Range(0, 0, document.lineCount, 0),
+            msg.markdown,
+          );
+          expectedContent = msg.markdown;
+          await vscode.workspace.applyEdit(edit);
         }
         void runSave();
         return;

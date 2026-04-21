@@ -45,30 +45,12 @@ export function Editor(): JSX.Element | null {
   // a no-op setContent echo from the host won't re-dirty the indicator.
   const lastSavedMarkdownRef = useRef<string>('');
 
-  // Tight debounce so rapid-typed content reaches the host within a
-  // keystroke of pausing. Combined with the flush-on-close handlers
-  // below, the maximum data-at-risk window is ~250ms of unpaused typing.
   const sendContentChange = useMemo(
     () => debounce((markdown: string) => {
       vscode.postMessage({ type: 'content-changed', markdown });
-    }, 250),
+    }, 500),
     [],
   );
-
-  // Flush pending content IMMEDIATELY to the host, bypassing the debounce.
-  // Posts a `flush-now` message which the host treats as "save right now"
-  // (cancels autosave timer, applies edit, saves, verifies on disk).
-  const flushNow = useRef<() => void>(() => {});
-  useEffect(() => {
-    flushNow.current = () => {
-      if (!editor || !fileLoadedRef.current) return;
-      const md = getMarkdown(editor);
-      if (md === lastSavedMarkdownRef.current) return;
-      // Cancel any pending debounced send so we don't post twice.
-      sendContentChange.cancel();
-      vscode.postMessage({ type: 'flush-now', markdown: md });
-    };
-  }, [editor, sendContentChange]);
 
   const editor = useEditor({
     extensions: [
@@ -182,38 +164,6 @@ export function Editor(): JSX.Element | null {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [saveNow]);
-
-  // ── Flush-on-close safety net ──────────────────────────────────
-  //
-  // The single worst failure mode is silent data loss when the writer
-  // closes a tab thinking autosave has them covered. These listeners
-  // catch every event where the webview is about to lose its running
-  // state, and bypass the debounce to push pending content to the host
-  // immediately. The host's `flush-now` handler then applies + saves +
-  // verifies on disk synchronously.
-  //
-  //   - visibilitychange → hidden: VS Code switched tabs / minimised /
-  //     moved focus away. Any of these can precede a close without
-  //     further beforeunload.
-  //   - beforeunload / unload: webview is being disposed (tab closed,
-  //     window closed, reload).
-  //   - blur on window: focus left the webview — conservative flush
-  //     (same rationale as onBlur in form fields).
-  useEffect(() => {
-    const onVis = () => { if (document.visibilityState === 'hidden') flushNow.current(); };
-    const onBefore = () => flushNow.current();
-    const onBlur = () => flushNow.current();
-    document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('beforeunload', onBefore);
-    window.addEventListener('pagehide', onBefore);
-    window.addEventListener('blur', onBlur);
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('beforeunload', onBefore);
-      window.removeEventListener('pagehide', onBefore);
-      window.removeEventListener('blur', onBlur);
-    };
-  }, []);
 
   if (!editor) return null;
 
