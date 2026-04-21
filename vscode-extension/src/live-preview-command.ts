@@ -186,9 +186,19 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       return;
     }
     if (msg?.type === 'save-as-default') {
-      const { paragraphStyle, theme } = msg as { paragraphStyle?: string; theme?: string };
+      const { paragraphStyle, theme, bodyFont, sceneBreakOrnament } = msg as {
+        paragraphStyle?: string;
+        theme?: string;
+        bodyFont?: string;
+        sceneBreakOrnament?: string;
+      };
       try {
-        await saveDefaultsToConfig(folder.uri, { paragraphStyle, theme });
+        await saveDefaultsToConfig(folder.uri, {
+          paragraphStyle,
+          theme,
+          bodyFont,
+          sceneBreakOrnament,
+        });
         vscode.window.setStatusBarMessage(
           `Novel Writer: preview defaults saved to compile.config.json`,
           3000,
@@ -214,6 +224,11 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
 interface LivePreviewConfig {
   paragraphStyle: 'indented' | 'block';
   theme: string;
+  // Preview mirrors compile.config.json's themeOverrides for the two
+  // keys the preview's dropdowns control. bodyFont/sceneBreakOrnament
+  // empty-string means "theme default" (no override).
+  bodyFont: string;
+  sceneBreakOrnament: string;
 }
 
 // Reads compile.config.json to seed the preview dropdowns with the
@@ -221,7 +236,12 @@ interface LivePreviewConfig {
 // but we want to start with what their book will actually compile as.
 async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreviewConfig> {
   const configPath = path.join(workspaceRoot.fsPath, 'compile.config.json');
-  const defaults: LivePreviewConfig = { paragraphStyle: 'indented', theme: 'classic-serif' };
+  const defaults: LivePreviewConfig = {
+    paragraphStyle: 'indented',
+    theme: 'classic-serif',
+    bodyFont: '',
+    sceneBreakOrnament: '',
+  };
   try {
     const raw = await fs.readFile(configPath, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -229,9 +249,16 @@ async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreview
       ? parsed.paragraphStyle.trim() : defaults.paragraphStyle;
     const theme = typeof parsed.theme === 'string' && parsed.theme.trim()
       ? parsed.theme.trim() : defaults.theme;
+    const overrides = (parsed.themeOverrides && typeof parsed.themeOverrides === 'object')
+      ? parsed.themeOverrides as Record<string, unknown> : {};
+    const bodyFont = typeof overrides.bodyFont === 'string' ? overrides.bodyFont : '';
+    const sceneBreakOrnament = typeof overrides.sceneBreakOrnament === 'string'
+      ? overrides.sceneBreakOrnament : '';
     return {
       paragraphStyle: style === 'block' ? 'block' : 'indented',
       theme,
+      bodyFont,
+      sceneBreakOrnament,
     };
   } catch {
     return defaults;
@@ -239,11 +266,21 @@ async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreview
 }
 
 // "Save as default" — rewrite compile.config.json with the preview
-// panel's current paragraphStyle and theme, preserving any other
-// fields the writer has set (metadata, isbn, etc.).
+// panel's current paragraphStyle, theme, and themeOverrides (bodyFont +
+// sceneBreakOrnament). Preserves every other field the writer has set.
 async function saveDefaultsToConfig(
   workspaceRoot: vscode.Uri,
-  { paragraphStyle, theme }: { paragraphStyle?: string; theme?: string },
+  {
+    paragraphStyle,
+    theme,
+    bodyFont,
+    sceneBreakOrnament,
+  }: {
+    paragraphStyle?: string;
+    theme?: string;
+    bodyFont?: string;
+    sceneBreakOrnament?: string;
+  },
 ): Promise<void> {
   const configPath = path.join(workspaceRoot.fsPath, 'compile.config.json');
   let existing: Record<string, unknown> = {};
@@ -261,6 +298,28 @@ async function saveDefaultsToConfig(
   if (typeof theme === 'string' && theme.trim()) {
     updated.theme = theme.trim();
   }
+
+  // themeOverrides — merge into the existing block rather than replacing
+  // it. Empty-string = "Theme default" = remove the override. Unspecified
+  // (undefined) = leave whatever was there.
+  if (bodyFont !== undefined || sceneBreakOrnament !== undefined) {
+    const overrides: Record<string, unknown> = (existing.themeOverrides && typeof existing.themeOverrides === 'object')
+      ? { ...existing.themeOverrides as Record<string, unknown> }
+      : {};
+    if (bodyFont !== undefined) {
+      if (bodyFont === '') delete overrides.bodyFont;
+      else overrides.bodyFont = bodyFont;
+    }
+    if (sceneBreakOrnament !== undefined) {
+      if (sceneBreakOrnament === '') delete overrides.sceneBreakOrnament;
+      else overrides.sceneBreakOrnament = sceneBreakOrnament;
+    }
+    if (Object.keys(overrides).length > 0) {
+      updated.themeOverrides = overrides;
+    } else {
+      delete updated.themeOverrides;
+    }
+  }
   await fs.writeFile(configPath, JSON.stringify(updated, null, 2) + '\n', 'utf-8');
 }
 
@@ -271,41 +330,54 @@ interface ThemeDescriptor {
 
 // Scan resources/themes/ for every theme the compile pipeline ships
 // (copied at build time by scripts/copy-theme-assets.mjs). Each
-// directory with a theme.json becomes a dropdown entry. The name
-// shown in the UI comes from theme.json's `name` field.
+// directory with a valid theme.json becomes a dropdown entry. The
+// name shown in the UI comes from theme.json's `name` field.
+//
+// Logs diagnostic info to the extension host's console — visible via
+// Help → Toggle Developer Tools → Console, filter "Novel Writer". Read
+// errors don't abort discovery; a single broken theme shouldn't hide
+// the other two.
 async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDescriptor[]> {
   const themesRoot = path.join(context.extensionPath, 'resources', 'themes');
+  let entries: string[];
   try {
-    const entries = await fs.readdir(themesRoot, { withFileTypes: true });
-    const themes: ThemeDescriptor[] = [];
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const metaPath = path.join(themesRoot, entry.name, 'theme.json');
-      try {
-        const raw = await fs.readFile(metaPath, 'utf-8');
-        const meta = JSON.parse(raw) as { id?: string; name?: string };
-        themes.push({
-          id: typeof meta.id === 'string' && meta.id.trim() ? meta.id.trim() : entry.name,
-          name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : entry.name,
-        });
-      } catch {
-        // Skip directories without a valid theme.json — they're in-
-        // progress or unrelated files. The compile pipeline enforces
-        // the shape; the preview is tolerant.
-      }
-    }
-    // Stable ordering: classic-serif first (the default), then alphabetical
-    // by display name. Writers open the preview and see their current
-    // default selected and familiar themes adjacent.
-    themes.sort((a, b) => {
-      if (a.id === 'classic-serif') return -1;
-      if (b.id === 'classic-serif') return 1;
-      return a.name.localeCompare(b.name);
-    });
-    if (themes.length > 0) return themes;
-  } catch {
-    // Resources directory missing — fall through to the minimal fallback.
+    entries = await fs.readdir(themesRoot);
+  } catch (err) {
+    console.warn('[Novel Writer] theme discovery: cannot read', themesRoot, err);
+    return [{ id: 'classic-serif', name: 'Classic Serif' }];
   }
+
+  const themes: ThemeDescriptor[] = [];
+  for (const name of entries) {
+    const themeDir = path.join(themesRoot, name);
+    try {
+      const stat = await fs.stat(themeDir);
+      if (!stat.isDirectory()) continue;
+      const metaPath = path.join(themeDir, 'theme.json');
+      const raw = await fs.readFile(metaPath, 'utf-8');
+      const meta = JSON.parse(raw) as { id?: string; name?: string };
+      themes.push({
+        id: typeof meta.id === 'string' && meta.id.trim() ? meta.id.trim() : name,
+        name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : name,
+      });
+    } catch (err) {
+      console.warn(`[Novel Writer] theme discovery: skipping "${name}"`, err);
+    }
+  }
+
+  // Stable ordering: classic-serif first (the default), then alphabetical
+  // by display name. Writers open the preview and see their current
+  // default selected and familiar themes adjacent.
+  themes.sort((a, b) => {
+    if (a.id === 'classic-serif') return -1;
+    if (b.id === 'classic-serif') return 1;
+    return a.name.localeCompare(b.name);
+  });
+  if (themes.length > 0) {
+    console.log(`[Novel Writer] theme discovery: ${themes.map(t => t.id).join(', ')}`);
+    return themes;
+  }
+  console.warn('[Novel Writer] theme discovery: found no themes — falling back to classic-serif');
   return [{ id: 'classic-serif', name: 'Classic Serif' }];
 }
 
@@ -373,6 +445,10 @@ function buildWebviewHtml(
   <style id="theme-css">
     /* ─── Theme CSS (swapped live when Theme dropdown changes) ─── */
     ${themeCss}
+  </style>
+  <style id="overrides">
+    /* ─── Override layer — Font + Scene Break pickers write :root
+     *     custom properties here; the theme CSS reads them via var(). */
 
     /* ─── Panel shell (chrome around the reading surface) ────────── */
     html, body {
@@ -505,7 +581,10 @@ function buildWebviewHtml(
     }
     .device-surface hr.scene-break { border: none; text-align: center; margin: 2em 0; }
     .device-surface hr.scene-break::before {
-      content: "* * *";
+      /* Falls through to the theme default ("* * *" / "· · ·" / "❦")
+       * when no override is set; the Scene Break dropdown below writes
+       * --nw-scene-break-ornament to flip live. */
+      content: var(--nw-scene-break-ornament, "* * *");
       display: block;
       letter-spacing: 0.5em;
       color: #666;
@@ -541,38 +620,60 @@ function buildWebviewHtml(
      *     e-ink grey-on-cream appearance.
      */
 
+    /* Print 6×9 surface — dimensions must match theme-print-pdf.css:
+     *   6in × 9in trim at 96 DPI → 576px × 864px total page
+     *   0.75in margins all sides → 72px padding
+     *   Text block: 432px wide (4.5in) × 720px tall (7.5in)
+     *   Body: 11pt / 1.45 line-height / serif stack (overridable via
+     *         --nw-body-font, which the bodyFont override writes)
+     *
+     * Asymmetric verso/recto margins in the real PDF (0.875in inside,
+     * 0.625in outside for binding) average to the symmetric 0.75in used
+     * here — the text block width is identical, which is what drives
+     * line length and character counts per line. */
     body.device-print-6x9 .device-stage { background: #eceae4; }
     body.device-print-6x9 .device-surface {
       width: 576px;
-      padding: 72px 96px;
+      min-height: 864px;
+      padding: 72px;
       background: #ffffff;
       box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.08);
-      font-family: Georgia, "Times New Roman", Times, serif;
+      font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
       font-size: 11pt;
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
-    body.device-ipad .device-stage { background: #1c1c1e; }
+    /* iPad (Apple Books) — 3:4 aspect (768pt × 1024pt device). The reading
+     * surface at standard Books.app zoom is ~720px × 960px inside the
+     * device chrome. The outer box-shadow fakes a black bezel so it's
+     * instantly recognisable versus the flat Kindle frame. */
+    body.device-ipad .device-stage { background: #1c1c1e; padding-top: 40px; padding-bottom: 140px; }
     body.device-ipad .device-surface {
       width: 720px;
+      min-height: 960px;
       padding: 80px 96px;
       background: #f3ece2;
       color: #1a1612;
-      border-radius: 2px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      font-family: "Palatino", "Iowan Old Style", Georgia, serif;
+      border-radius: 4px;
+      box-shadow: 0 0 0 10px #2c2c2e, 0 12px 28px rgba(0,0,0,0.45);
+      font-family: var(--nw-body-font, "Palatino", "Iowan Old Style", Georgia, serif);
       font-size: 17px;
       line-height: 1.55;
     }
     body.device-ipad .device-surface p.first::first-letter { color: #1a1612; }
 
-    body.device-kindle .device-stage { background: #3a3936; }
+    /* Kindle Paperwhite — 6" e-ink. The reading area is roughly 560×760
+     * inside the device's grey bezel; the surrounding shadow mimics the
+     * matte plastic shell so it doesn't read as iPad-with-smaller-body. */
+    body.device-kindle .device-stage { background: #2e2d2a; padding-top: 40px; padding-bottom: 140px; }
     body.device-kindle .device-surface {
       width: 560px;
+      min-height: 760px;
       padding: 60px 72px;
       background: #e9e3d7;
       color: #2a2824;
-      font-family: "Bookerly", Georgia, serif;
+      box-shadow: 0 0 0 22px #6b6458, 0 10px 22px rgba(0,0,0,0.4);
+      font-family: var(--nw-body-font, "Bookerly", Georgia, serif);
       font-size: 16px;
       line-height: 1.55;
     }
@@ -616,6 +717,28 @@ function buildWebviewHtml(
       <select id="theme-picker" title="Theme">
         ${themeOptions}
       </select>
+      <label for="font-picker">Font</label>
+      <select id="font-picker" title="Body font (compile.config.json → themeOverrides.bodyFont)">
+        <option value="">Theme default</option>
+        <option value='Georgia, "Times New Roman", Times, serif'>Georgia</option>
+        <option value='"Iowan Old Style", Palatino, Garamond, serif'>Iowan Old Style</option>
+        <option value='"Palatino Linotype", Palatino, Georgia, serif'>Palatino</option>
+        <option value='Garamond, "Times New Roman", serif'>Garamond</option>
+        <option value='"Book Antiqua", Palatino, serif'>Book Antiqua</option>
+        <option value='Baskerville, "Baskerville Old Face", serif'>Baskerville</option>
+        <option value='"Inter", "Helvetica Neue", Arial, sans-serif'>Inter</option>
+        <option value='"Helvetica Neue", Helvetica, Arial, sans-serif'>Helvetica</option>
+      </select>
+      <label for="ornament-picker">Scene Break</label>
+      <select id="ornament-picker" title="Scene break ornament (compile.config.json → themeOverrides.sceneBreakOrnament)">
+        <option value="">Theme default</option>
+        <option value="* * *">* * *</option>
+        <option value="· · ·">· · ·</option>
+        <option value="❦">❦ (fleuron)</option>
+        <option value="§">§</option>
+        <option value="✦ ✦ ✦">✦ ✦ ✦</option>
+        <option value="— — —">— — —</option>
+      </select>
       <label for="paragraph-picker">Paragraphs</label>
       <select id="paragraph-picker" title="Paragraph style">
         <option value="indented">Indented</option>
@@ -637,8 +760,11 @@ function buildWebviewHtml(
     const filename = document.getElementById('filename');
     const devicePicker = document.getElementById('device-picker');
     const themePicker = document.getElementById('theme-picker');
+    const fontPicker = document.getElementById('font-picker');
+    const ornamentPicker = document.getElementById('ornament-picker');
     const paragraphPicker = document.getElementById('paragraph-picker');
     const saveBtn = document.getElementById('save-defaults');
+    const overridesStyle = document.getElementById('overrides');
 
     const initialConfig = {
       paragraphStyle: ${JSON.stringify(initialParagraphStyle)},
@@ -650,23 +776,26 @@ function buildWebviewHtml(
     const currentDevice = state.device || 'device-print-6x9';
     const currentParagraphStyle = state.paragraphStyle || initialConfig.paragraphStyle;
     const currentTheme = state.theme || initialConfig.theme;
+    const currentFont = state.bodyFont ?? (initialConfig.bodyFont || '');
+    const currentOrnament = state.sceneBreakOrnament ?? (initialConfig.sceneBreakOrnament || '');
 
     devicePicker.value = currentDevice;
     paragraphPicker.value = currentParagraphStyle;
-    // Only adopt a restored theme if the dropdown actually lists it.
-    // Otherwise the picker silently mismatches the stylesheet.
     if (Array.from(themePicker.options).some(o => o.value === currentTheme)) {
       themePicker.value = currentTheme;
     } else {
       themePicker.value = initialConfig.theme;
     }
+    // Font and ornament pickers tolerate "" (= Theme default) cleanly.
+    // If the restored value isn't a listed option, the select silently
+    // falls back to the first option ("Theme default"), which is correct.
+    fontPicker.value = currentFont;
+    ornamentPicker.value = currentOrnament;
 
     applyDevice(currentDevice);
     applyParagraphs(currentParagraphStyle);
+    applyOverrides();
 
-    // If vscode.setState restored a theme different from the one the
-    // host inlined at build time, request its CSS now so the panel's
-    // stylesheet matches the dropdown selection.
     if (themePicker.value !== initialConfig.theme) {
       vscode.postMessage({ type: 'load-theme', theme: themePicker.value });
     }
@@ -679,11 +808,36 @@ function buildWebviewHtml(
       document.body.classList.remove('paragraphs-indented', 'paragraphs-block');
       document.body.classList.add('paragraphs-' + style);
     }
+    function applyOverrides() {
+      // Emit a :root stylesheet setting --nw-body-font and
+      // --nw-scene-break-ornament from the current picker values.
+      // Empty string = "Theme default", meaning skip that variable so
+      // the theme's own fallback (in its var() call) applies.
+      const rules = [];
+      if (fontPicker.value) {
+        rules.push('--nw-body-font: ' + fontPicker.value + ';');
+      }
+      if (ornamentPicker.value) {
+        // The content: property takes a quoted string — escape the
+        // two characters that would break the outer CSS quoting.
+        const bs = String.fromCharCode(92);  // literal backslash
+        const q  = String.fromCharCode(34);  // literal double quote
+        const safe = ornamentPicker.value
+          .split(bs).join(bs + bs)
+          .split(q).join(bs + q);
+        rules.push('--nw-scene-break-ornament: "' + safe + '";');
+      }
+      overridesStyle.textContent = rules.length
+        ? ':root { ' + rules.join(' ') + ' }'
+        : '';
+    }
     function persist() {
       vscode.setState({
         device: devicePicker.value,
         paragraphStyle: paragraphPicker.value,
         theme: themePicker.value,
+        bodyFont: fontPicker.value,
+        sceneBreakOrnament: ornamentPicker.value,
       });
     }
 
@@ -697,10 +851,15 @@ function buildWebviewHtml(
     });
     themePicker.addEventListener('change', () => {
       persist();
-      // Ask the host for the selected theme's CSS; it posts back a
-      // 'theme-css' message that we apply below. No page reload — we
-      // just swap the contents of <style id="theme-css">.
       vscode.postMessage({ type: 'load-theme', theme: themePicker.value });
+    });
+    fontPicker.addEventListener('change', () => {
+      applyOverrides();
+      persist();
+    });
+    ornamentPicker.addEventListener('change', () => {
+      applyOverrides();
+      persist();
     });
 
     saveBtn.addEventListener('click', () => {
@@ -710,6 +869,8 @@ function buildWebviewHtml(
         type: 'save-as-default',
         paragraphStyle: paragraphPicker.value,
         theme: themePicker.value,
+        bodyFont: fontPicker.value,
+        sceneBreakOrnament: ornamentPicker.value,
       });
       setTimeout(() => {
         saveBtn.disabled = false;
