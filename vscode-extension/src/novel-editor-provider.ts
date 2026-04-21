@@ -59,9 +59,31 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       });
     };
 
-    // State used by the change subscription below AND by the save
-    // handler. Declared together so both closures share the same refs.
-    let suppressNextDocChange = false;
+    // Content-based sync guard.
+    //
+    // The webview IS the source of truth while the writer is editing.
+    // `expectedContent` tracks the markdown we most recently asked the
+    // TextDocument to hold (via applyEdit) — the last state the webview
+    // and document were known-aligned.
+    //
+    // On any onDidChangeTextDocument, if the document's current text
+    // matches expectedContent (modulo trailing whitespace / newlines —
+    // the touch points of files.insertFinalNewline and
+    // files.trimTrailingWhitespace), the change is one we caused or a
+    // save-time normalisation. Either way, the webview doesn't need
+    // re-syncing — pushing would replace the user's in-flight typing.
+    //
+    // If the document diverges materially (git pull, another editor,
+    // external tool modified the file), we push — the webview's content
+    // is genuinely stale and needs refreshing.
+    //
+    // This replaces the earlier timing-based guards (suppressNextDocChange
+    // + saveInFlight) which worked most of the time but could miss edge
+    // cases where VS Code fired the normalisation event on a tick where
+    // both flags had flipped back to false.
+    let expectedContent: string | null = null;
+    const normaliseForCompare = (s: string) => s.replace(/\s+$/, '');
+
     // Autosave timer — scheduled after every content-changed applyEdit;
     // cancelled if a new edit arrives before it fires (so fast typists
     // get exactly one save at the end of their burst, not one per edit).
@@ -73,27 +95,15 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
     let saveInFlight = false;
     let rerunAfterSave = false;
 
-    // Keep the webview in sync if the document changes externally (git
-    // pull, another editor, find/replace). Two cases we specifically do
-    // NOT push back to the webview:
-    //   1. Our own applyEdit fired the event — suppressNextDocChange
-    //      is set immediately before the call and cleared here.
-    //   2. A save is in flight. VS Code's on-save normalisation
-    //      (files.insertFinalNewline, files.trimTrailingWhitespace,
-    //      "format on save" extensions) fires onDidChangeTextDocument
-    //      after document.save() commits. If we pushed that back to
-    //      the webview, editor.commands.setContent would clobber
-    //      whatever the user has typed since the save was scheduled —
-    //      losing their last ~2 seconds of work. The webview is the
-    //      source of truth during the save window; the next content-
-    //      changed it posts will re-sync cleanly.
     const changeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
       if (e.document.uri.toString() !== document.uri.toString()) return;
-      if (suppressNextDocChange) {
-        suppressNextDocChange = false;
+      if (expectedContent !== null
+          && normaliseForCompare(document.getText()) === normaliseForCompare(expectedContent)) {
+        // Either our own applyEdit's echo or a save-time normalisation.
+        // Webview already has this content (or a trivially different
+        // whitespace variant of it) — do not clobber in-flight typing.
         return;
       }
-      if (saveInFlight) return;
       pushContentToWebview();
     });
 
@@ -162,6 +172,11 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.webview.onDidReceiveMessage(async (msg: { type: string; markdown?: string }) => {
       if (msg.type === 'ready') {
+        // Anchor the content-based guard at whatever the document holds
+        // at mount time. The webview is about to render this exact text,
+        // so subsequent change events that still match it (e.g. the
+        // opening load itself) won't trigger a redundant push.
+        expectedContent = document.getText();
         pushContentToWebview();
         return;
       }
@@ -174,7 +189,12 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
           new vscode.Range(0, 0, document.lineCount, 0),
           msg.markdown,
         );
-        suppressNextDocChange = true;
+        // Set BEFORE applyEdit so the change event (fired synchronously
+        // inside applyEdit on some VS Code versions) sees the updated
+        // expectation. If applyEdit reports failure we'd still have
+        // moved expectedContent forward — but applyEdit failures are
+        // vanishingly rare and at worst cost us one redundant push.
+        expectedContent = msg.markdown;
         await vscode.workspace.applyEdit(edit);
         scheduleAutoSave();
         return;
@@ -194,7 +214,7 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
             new vscode.Range(0, 0, document.lineCount, 0),
             msg.markdown,
           );
-          suppressNextDocChange = true;
+          expectedContent = msg.markdown;
           await vscode.workspace.applyEdit(edit);
         }
         void runSave();
