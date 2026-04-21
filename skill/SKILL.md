@@ -170,7 +170,32 @@ nw save protagonist '{"name":"Jane","want":"Make partner","need":"Accept I\'m en
 
 # Save beat sheet (pipe JSON via stdin)
 echo '{"genreVariant":"standard","beats":{...}}' | nw save beatSheet
+
+# Stage 12 — chapterOutline (array-shaped; can pipe via stdin for large payloads)
+#   Must be an array of { chapterNumber, chapterTitle, beat?, estimatedWords?,
+#   scenes: [{ sceneNumber, pov, location?, timeOfDay?, summary, purpose?,
+#             conflict, whatChanges, beats?, notes? }] }
+echo '[
+  {"chapterNumber":1, "chapterTitle":"Opening",
+   "scenes":[{"sceneNumber":1,"pov":"Jane","summary":"...","conflict":"...","whatChanges":"..."}]},
+  ...
+]' | nw save chapterOutline
+
+# Stage 13 — critique (captures flagged issues + pacing / arc / beat notes)
+nw save critique '{
+  "flaggedIssues":[{"check":"midpoint","message":"...","severity":"note","resolution":"accepted"}],
+  "pacingAnalysis":"Acts proportioned correctly...",
+  "characterConsistency":"Want/need arc holds...",
+  "beatSheetValidation":"All 15 beats doing their job..."
+}'
+
+# Stage 14 — masterDoc is GENERATED, not hand-saved. Run:
+nw generate
+# which assembles the final planning document and writes masterDoc.generatedAt
+# + masterDoc.markdown into state.json.
 ```
+
+**Critical invariant — stages 12 / 13 / 14 must use `nw save` or `nw generate`, not just prose writing.** If you only write a narrative markdown file (e.g. into `docs/` or elsewhere) without calling the corresponding `nw save`, the state file stays stuck at stage 11 and the project will appear unfinished on the next `/novel` activation — the writer loses their place, and memory for those stages never reaches odd-flow. The save-and-sync step is the durable commit; the prose doc alone is not.
 
 ### What `nw save` does automatically (MANDATORY — do not skip)
 
@@ -231,6 +256,24 @@ nw memory status
 ```
 
 Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `nw memory sync` and push them before moving on.
+
+### Stage-closure protocol (run after EVERY completed stage — non-negotiable)
+
+After the writer signs off on a stage and before you transition to the next, run these three checks **in order** and **do not proceed** unless all three pass:
+
+```bash
+nw status            # must show the stage you just completed as ✓
+nw memory status     # pendingEntries must be 0
+nw doctor            # must report "no drift"
+```
+
+What each confirms:
+
+- **`nw status`** — the deriver advanced. If the stage still shows as the current stage (`→`), your `nw save` either failed or you skipped it. Halt and resolve before moving on.
+- **`nw memory status`** — the durable log made it to odd-flow MCP. If `pendingEntries > 0`, push them (`nw memory sync` → `mcp__odd-flow__memory_store` for each → `nw memory mark-synced <ids>`) before proceeding.
+- **`nw doctor`** — no orphan artefacts. Specifically catches: prose docs in `docs/` with no matching `nw save`; output/stages/ files whose stage slot in state.json is empty; memory entries logged but not synced.
+
+This was added after a real regression where stages 12, 13, 14 generated large narrative markdown files into `docs/` but the structured data never reached `state.json` — the project appeared unfinished on the next session and none of the chapter-flesh-out memory was in odd-flow. **The closure protocol exists to make that class of failure impossible to ship.**
 
 ### Why this design
 

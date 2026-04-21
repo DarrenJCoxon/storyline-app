@@ -362,6 +362,37 @@ program
     console.log(JSON.stringify({ stage: stageId, checks: results }, null, 2));
   });
 
+// ── doctor — cross-surface drift detection ─────────────────────
+program
+  .command('doctor')
+  .description('Check state.json / output/ / docs/ / memory for drift. Run at every stage closure.')
+  .option('--json', 'Output machine-readable JSON instead of the human summary')
+  .action(async (opts) => {
+    const state = loadState();
+    if (!state) {
+      const err = { error: 'No project found', action: 'init' };
+      if (opts.json) console.log(JSON.stringify(err, null, 2));
+      else console.error(chalk.yellow('No project found. Run `nw init` first.'));
+      process.exit(1);
+    }
+    const { runDoctor, formatDoctorReport } = await import('../lib/doctor.js');
+    const report = await runDoctor(state);
+    if (opts.json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      const text = formatDoctorReport(report);
+      if (report.ok && !report.drift) {
+        console.log(chalk.green(`✓ ${text}`));
+      } else if (report.ok) {
+        console.log(chalk.yellow(text));
+      } else {
+        console.log(chalk.red(text));
+      }
+    }
+    // Non-zero exit on hard drift so scripts / skill can gate on it.
+    process.exit(report.ok ? 0 : 1);
+  });
+
 // ── next — show what to do next (for /novel skill) ──────────────
 program
   .command('next')
