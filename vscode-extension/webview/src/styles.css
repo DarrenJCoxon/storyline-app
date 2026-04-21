@@ -125,6 +125,15 @@ html, body {
   font-size: var(--editor-font-size);
   line-height: var(--editor-line-height);
   min-height: 400px;
+  /* Typewriter-scroll padding — enough empty space below the last
+   * paragraph that the caret can always be scrolled to the vertical
+   * middle of the viewport even on the final line of the chapter.
+   * Without this, document-end would bottom out and the caret would
+   * sit at the screen edge (the behaviour the writer flagged).
+   * A tiny top padding gives the first paragraph visual headroom
+   * without pulling the first keystroke awkwardly low. */
+  padding-top: 8vh;
+  padding-bottom: 55vh;
 }
 
 /* Paragraphs — indented, zero vertical margin (Scrivener / traditional

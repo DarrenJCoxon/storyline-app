@@ -80,6 +80,35 @@ export function Editor(): JSX.Element | null {
       setSaveError(null);
       sendContentChange(md);
     },
+    // Typewriter scroll — whenever the caret moves (user typed a
+    // character, arrow-keyed, clicked to reposition), scroll so the
+    // caret sits near the vertical middle of the viewport. Writers
+    // never end up typing at the bottom of the screen; the line
+    // they're on stays in the comfortable reading zone. Scrivener /
+    // Ulysses / iA Writer all ship this by default.
+    //
+    // Implementation: take the caret's y-coordinate via ProseMirror's
+    // coordsAtPos, then scrollBy so that coordinate lands at 45% of
+    // viewport height (slightly above centre — natural reading eye-
+    // line). Uses scrollTo with behavior: 'instant' — smooth would
+    // lag behind rapid typing and feel sluggish.
+    onSelectionUpdate: ({ editor }) => {
+      const { from } = editor.state.selection;
+      // Yielding to the next frame lets ProseMirror finish laying out
+      // the just-inserted character before we measure coordinates.
+      requestAnimationFrame(() => {
+        try {
+          const coords = editor.view.coordsAtPos(from);
+          const target = window.innerHeight * 0.45;
+          const delta = coords.top - target;
+          if (Math.abs(delta) > 2) {
+            window.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
+          }
+        } catch {
+          // coordsAtPos can throw transiently during setContent; ignore.
+        }
+      });
+    },
   });
 
   // Cmd/Ctrl+S — power-user "save right now" shortcut. Host cancels
