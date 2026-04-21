@@ -94,16 +94,26 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       return;
     }
     const markdown = doc.getText();
-    // Soft section breaks — blank paragraphs in the editor source
-    // (3+ consecutive newlines in markdown) render as visible vertical
-    // gap with no ornament, and the next paragraph drops its first-
-    // line indent. This lets writers use plain blank lines for
-    // section shifts without reaching for `---`, which inserts the
-    // ornamental `* * *` break.
-    const chunks = markdown.split(/\n{3,}/).filter(c => c.trim().length > 0);
-    const chunkHtml = chunks.length > 0
-      ? chunks.map(c => md.render(c)).join('<hr class="scene-break scene-break--soft" />\n')
+    // Soft section breaks — a blank paragraph in the editor source
+    // renders as visible vertical gap with no ornament, and the next
+    // paragraph drops its first-line indent. Writers get a section
+    // shift from just pressing Enter twice, without reaching for `---`
+    // (which inserts the ornamental `* * *` break).
+    //
+    // Detection has two layers because tiptap-markdown's serialization
+    // of empty paragraphs varies:
+    //   1) Pre-render split: any "blank line between paragraphs"
+    //      pattern — two or more paragraph breaks separated only by
+    //      whitespace — splits the markdown. Matches \n\n\n+,
+    //      \n\n \n\n, \n \n\n, etc.
+    //   2) Post-render cleanup: an empty <p></p> that markdown-it
+    //      happened to emit gets rewritten as the same soft-break HR.
+    const SOFT_BREAK = '<hr class="scene-break scene-break--soft" />\n';
+    const chunks = markdown.split(/\n[\s\n]*\n[\s\n]*\n/).filter(c => c.trim().length > 0);
+    let chunkHtml = chunks.length > 1
+      ? chunks.map(c => md.render(c)).join(SOFT_BREAK)
       : md.render(markdown);
+    chunkHtml = chunkHtml.replace(/<p>\s*<\/p>\s*/g, SOFT_BREAK);
     // Mark first paragraph for drop cap styling (same transform the
     // compile theme phase applies).
     const withFirst = chunkHtml.replace('<p>', '<p class="first">');
@@ -608,6 +618,11 @@ function buildWebviewHtml(
       color: #666;
       opacity: 0.7;
     }
+    /* Soft section break — blank paragraph in the editor. No glyph,
+     * just vertical space; the existing "hr.scene-break + p" rule
+     * drops the first-line indent on the following paragraph. */
+    .device-surface hr.scene-break--soft { margin: 1.6em 0; }
+    .device-surface hr.scene-break--soft::before { content: none; }
     .device-surface table {
       border-collapse: collapse;
       width: 100%;
