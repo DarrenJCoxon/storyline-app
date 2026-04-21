@@ -5,6 +5,10 @@
   --editor-max-width: 720px;
 }
 
+/* Editor-role visual distinction moved below the html,body rule so
+ * its `background` override actually wins specificity. See bottom of
+ * this file for the actual rules. */
+
 * {
   box-sizing: border-box;
 }
@@ -79,6 +83,29 @@ html, body {
 
 .toolbar-spacer {
   flex: 1;
+}
+
+/* Typewriter-mode checkbox — sits left of the filename in the toolbar.
+ * Compact and muted so it doesn't compete with the prose for attention;
+ * label is clickable alongside the checkbox itself. */
+.toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  user-select: none;
+  margin-right: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.toolbar-checkbox:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.12));
+}
+.toolbar-checkbox input {
+  margin: 0;
+  cursor: pointer;
 }
 
 .toolbar-filename {
@@ -273,4 +300,57 @@ html, body {
 /* Selected cell highlight (TipTap adds .selectedCell) */
 .ProseMirror .selectedCell {
   background: var(--vscode-editor-selectionBackground, rgba(0, 120, 255, 0.15));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * Manuscript surface tint.
+ *
+ * ONLY the manuscript editor gets a tint — it's the writer's primary
+ * writing surface and the subtle colour distinguishes it from every
+ * other pane. Supporting docs (when opened as editor tabs, which is
+ * rare now that the Inspector view handles them) use VS Code's
+ * default background. The Inspector itself uses the sideBar theme
+ * colour — also untinted.
+ *
+ * Theme-aware values:
+ *   Light theme:  #f3f3f3  (pale neutral, matches Claude panel tone)
+ *   Dark theme:   #2b2a28  (warm-leaning dark grey — distinct from
+ *                           the cooler #1e1e1e VS Code default)
+ *   High-contrast: no tint (accessibility — defer to VS Code's bg)
+ * ══════════════════════════════════════════════════════════════════ */
+
+html.nw-manuscript,
+body.nw-manuscript {
+  background: #f3f3f3 !important;
+  min-height: 100vh;
+}
+body.nw-manuscript.vscode-dark,
+html.nw-manuscript:has(body.vscode-dark) {
+  background: #2b2a28 !important;
+}
+body.nw-manuscript.vscode-high-contrast {
+  background: var(--vscode-editor-background) !important;
+}
+
+body.nw-manuscript .toolbar { background: #f3f3f3; }
+body.nw-manuscript.vscode-dark .toolbar { background: #2b2a28; }
+body.nw-manuscript.vscode-high-contrast .toolbar {
+  background: var(--vscode-editor-background);
+}
+
+/* Role badge — small muted pill. Shown on both roles so the writer
+ * can see which kind of doc is in front of them, though supporting
+ * docs-as-editor are rare now that the Inspector handles them. */
+.nw-role-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 2px;
+  margin-right: 8px;
+  color: var(--vscode-editor-foreground);
+  opacity: 0.55;
+  border: 1px solid currentColor;
 }

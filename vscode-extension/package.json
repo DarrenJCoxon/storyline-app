@@ -2,7 +2,7 @@
   "name": "novel-writer-vscode",
   "displayName": "Novel Writer",
   "description": "Rich-text writing surface for novel projects using the Novel Writer planning harness. Files stay markdown on disk.",
-  "version": "0.15.2",
+  "version": "0.17.0",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
@@ -40,6 +40,11 @@
         "title": "Novel Writer: Open in Rich Editor"
       },
       {
+        "command": "novelWriter.openToSide",
+        "title": "Novel Writer: Open to the Side",
+        "icon": "$(split-horizontal)"
+      },
+      {
         "command": "novelWriter.showWordCountBreakdown",
         "title": "Novel Writer: Show Word Count Breakdown"
       },
@@ -75,6 +80,11 @@
           "command": "novelWriter.openEditor",
           "when": "resourceExtname == .md",
           "group": "navigation@99"
+        },
+        {
+          "command": "novelWriter.openToSide",
+          "when": "resourceExtname == .md",
+          "group": "navigation@100"
         }
       ],
       "editor/title/context": [
@@ -82,9 +92,22 @@
           "command": "novelWriter.openEditor",
           "when": "resourceExtname == .md",
           "group": "1_modification"
+        },
+        {
+          "command": "novelWriter.openToSide",
+          "when": "resourceExtname == .md",
+          "group": "1_modification"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "novelWriter.openToSide",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "filesExplorerFocus && resourceExtname == .md"
+      }
+    ]
   },
   "scripts": {
     "compile": "npm run copy-assets && npm run compile:host && npm run compile:webview",

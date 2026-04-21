@@ -50,7 +50,8 @@ export async function editBookInfo(context: vscode.ExtensionContext): Promise<vo
   const panel = vscode.window.createWebviewPanel(
     'novelWriter.bookInfo',
     'Book Info',
-    vscode.ViewColumn.Active,
+    // Beside the active editor — VS Code handles column placement.
+    vscode.ViewColumn.Beside,
     {
       enableScripts: true,
       retainContextWhenHidden: true,

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { WordCountStatusBar } from './status-bar';
+import { classifyDocumentRole } from './manuscript-path';
 
 // CustomTextEditorProvider that owns .md files in novel projects.
 //
@@ -34,6 +35,14 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist')],
     };
+
+    // Classify the document so the webview can render the role badge
+    // ("Manuscript" vs "Supporting") in its toolbar. No routing happens
+    // here — VS Code places the tab wherever the open command targeted.
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const editorRole: 'manuscript' | 'supporting' = workspaceRoot
+      ? await classifyDocumentRole(document.uri, workspaceRoot)
+      : 'supporting';
 
     webviewPanel.webview.html = buildWebviewHtml(webviewPanel.webview, this.context.extensionUri);
 
@@ -178,6 +187,10 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
         // opening load itself) won't trigger a redundant push.
         expectedContent = document.getText();
         pushContentToWebview();
+        // Post the editor-role AFTER the webview is ready — not during
+        // resolveCustomTextEditor, because at that point the webview's
+        // message listener isn't mounted yet and the message is dropped.
+        webviewPanel.webview.postMessage({ type: 'editor-role', role: editorRole });
         return;
       }
 
@@ -208,6 +221,30 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
           autoSaveTimer = undefined;
         }
         if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
+          const edit = new vscode.WorkspaceEdit();
+          edit.replace(
+            document.uri,
+            new vscode.Range(0, 0, document.lineCount, 0),
+            msg.markdown,
+          );
+          expectedContent = msg.markdown;
+          await vscode.workspace.applyEdit(edit);
+        }
+        void runSave();
+        return;
+      }
+
+      if (msg.type === 'flush-save' && typeof msg.markdown === 'string') {
+        // Webview is about to lose state (tab close, window hidden,
+        // pagehide). Apply the pending content and route through
+        // runSave() — which posts 'saving' → 'saved' so the webview's
+        // status indicator stays accurate and doesn't hang on "Saving…"
+        // after a tab-switch-triggered flush.
+        if (autoSaveTimer) {
+          clearTimeout(autoSaveTimer);
+          autoSaveTimer = undefined;
+        }
+        if (msg.markdown !== document.getText()) {
           const edit = new vscode.WorkspaceEdit();
           edit.replace(
             document.uri,

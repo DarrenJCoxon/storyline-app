@@ -61,6 +61,9 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   const panel = vscode.window.createWebviewPanel(
     'novelWriter.livePreview',
     'Live Chapter Preview',
+    // Beside the active editor — VS Code handles column creation
+    // naturally. The Inspector view (not an editor column) is the
+    // fixed "supporting content" region now.
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,
@@ -143,9 +146,9 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     return undefined;
   };
 
-  const refreshSource = () => {
+  const refreshSource = async () => {
     const uri = getActiveTabUri();
-    if (uri && isManuscriptMarkdown(uri, folder.uri)) {
+    if (uri && (await isManuscriptMarkdown(uri, folder.uri))) {
       const changed = !sourceUri || sourceUri.toString() !== uri.toString();
       sourceUri = uri;
       if (changed) updatePreview();
@@ -171,8 +174,8 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   // manuscript-markdown change we see. This makes the preview robust even
   // when the initial tab detection misses — any keystroke in a manuscript
   // file will start the preview on that file.
-  const textChangeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
-    if (!sourceUri && isManuscriptMarkdown(e.document.uri, folder.uri)) {
+  const textChangeSubscription = vscode.workspace.onDidChangeTextDocument(async e => {
+    if (!sourceUri && (await isManuscriptMarkdown(e.document.uri, folder.uri))) {
       sourceUri = e.document.uri;
       scheduleUpdate();
       return;
@@ -427,12 +430,33 @@ async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): 
   }
 }
 
-function isManuscriptMarkdown(uri: vscode.Uri, workspaceRoot: vscode.Uri): boolean {
+// Reads writing.manuscriptPath from state.json so the preview follows
+// the project's actual manuscript dir (e.g. 'output/manuscript/',
+// 'chapters/', 'prose/'). Hardcoding 'manuscript/' broke preview for
+// projects with non-default layouts. Cached per-session so we don't
+// re-read the state file on every keystroke.
+let cachedManuscriptPath: string | null = null;
+async function getManuscriptPath(workspaceRoot: vscode.Uri): Promise<string> {
+  if (cachedManuscriptPath !== null) return cachedManuscriptPath;
+  try {
+    const statePath = path.join(workspaceRoot.fsPath, '.novel-writer', 'state.json');
+    const raw = await fs.readFile(statePath, 'utf-8');
+    const state = JSON.parse(raw);
+    const p = state?.writing?.manuscriptPath;
+    if (typeof p === 'string' && p.trim()) {
+      cachedManuscriptPath = p.trim();
+      return cachedManuscriptPath;
+    }
+  } catch { /* fall through */ }
+  cachedManuscriptPath = 'manuscript';
+  return cachedManuscriptPath;
+}
+
+async function isManuscriptMarkdown(uri: vscode.Uri, workspaceRoot: vscode.Uri): Promise<boolean> {
   const rel = path.relative(workspaceRoot.fsPath, uri.fsPath);
-  // Any .md or .markdown file under manuscript/ is a candidate. We don't
-  // require a specific subpath — writers may use `manuscript/chapters/ch01.md`
-  // or just `manuscript/ch01.md`.
-  return /\.(md|markdown)$/i.test(rel) && rel.startsWith('manuscript' + path.sep);
+  if (!/\.(md|markdown)$/i.test(rel)) return false;
+  const msPath = await getManuscriptPath(workspaceRoot);
+  return rel.startsWith(msPath + path.sep) || rel === msPath;
 }
 
 function emptyStateHtml(): string {

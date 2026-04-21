@@ -52,6 +52,7 @@ export async function openPreview(): Promise<void> {
   const panel = vscode.window.createWebviewPanel(
     'novelWriter.preview',
     `Print Preview — ${path.basename(previewPath, '-print-preview.html')}`,
+    // Beside the active editor — VS Code handles column placement.
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,

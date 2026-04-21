@@ -408,16 +408,26 @@ manuscript
   .description('List <inline notes> in the manuscript (writer\'s bracketed TBDs / research stubs)')
   .option('--json', 'Output machine-readable JSON')
   .option('--sync', 'Also write each note as a pending memory entry in memory.jsonl')
+  .option('--file <path>', 'Scan a single file (e.g. manuscript/scene-1.md) instead of the whole manuscript directory')
   .action(async (opts) => {
     const state = loadState();
     if (!state) {
       console.error(chalk.red('No project found.'));
       process.exit(1);
     }
-    const { scanManuscriptNotes, buildNotesMemoryEntries, formatNotesReport } = await import('../lib/manuscript/notes.js');
-    const notes = await scanManuscriptNotes(process.cwd(), {
-      manuscriptPath: state?.writing?.manuscriptPath || 'manuscript',
-    });
+    const { scanManuscriptNotes, scanFileNotes, buildNotesMemoryEntries, formatNotesReport } = await import('../lib/manuscript/notes.js');
+    const manuscriptPath = state?.writing?.manuscriptPath || 'manuscript';
+    let notes;
+    if (opts.file) {
+      try {
+        notes = await scanFileNotes(process.cwd(), opts.file, { manuscriptPath });
+      } catch (err) {
+        console.error(chalk.red(err.message));
+        process.exit(1);
+      }
+    } else {
+      notes = await scanManuscriptNotes(process.cwd(), { manuscriptPath });
+    }
     let memoryResult = null;
     if (opts.sync) {
       const { appendMemoryLog } = await import('../lib/memory/stage-memory.js');

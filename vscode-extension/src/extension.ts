@@ -39,6 +39,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
       return openNovelEditor(context);
     }),
+    // Open a file in the right-hand editor column (ViewColumn.Beside).
+    // Writers use this to pin a supporting doc next to their manuscript
+    // without affecting the Explorer sidebar. VS Code creates column 2
+    // the first time and persists the layout per-workspace — no
+    // extension-side enforcement required. Replaces the failed
+    // Inspector-view approach from v0.16.x.
+    vscode.commands.registerCommand('novelWriter.openToSide', async (uri?: vscode.Uri) => {
+      let target = uri;
+      if (!target) {
+        const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
+        const input = activeTab?.input;
+        if (input instanceof vscode.TabInputText) target = input.uri;
+        else if (input instanceof vscode.TabInputCustom) target = input.uri;
+      }
+      if (!target) {
+        vscode.window.showInformationMessage(
+          'Novel Writer: select a .md file in the explorer or focus one in the editor first.',
+        );
+        return;
+      }
+      await vscode.commands.executeCommand(
+        'vscode.openWith',
+        target,
+        NovelEditorProvider.viewType,
+        vscode.ViewColumn.Beside,
+      );
+    }),
     vscode.commands.registerCommand('novelWriter.compileEpub', () => compileToEpub()),
     vscode.commands.registerCommand('novelWriter.compilePrintPdf', () => compileToPrintPdf()),
     vscode.commands.registerCommand('novelWriter.openPreview', () => openPreview()),
