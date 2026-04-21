@@ -39,6 +39,16 @@ _Last updated: 2026-04-20_
 **Prove-it gate:** Plan an actual non-fiction book using the second engine. The extension must host both engines cleanly; Storyline work must not regress.
 **Status:** Deferred until at least Milestone 4 is shipped. Do not start early. See `engine-platform.md` for the warning on premature generalisation.
 
+### Milestone 8 — Hybrid local / frontier AI routing (exploratory)
+**Outcome:** Per-token AI cost drops 60–80% on a full planning run by routing cheap scaffolding work to a local Ollama model (Gemma 4 26B MoE as current candidate) while keeping critique stages on the frontier API. Zero quality regression where it counts.
+**Prove-it gate:** Blind-pairing test on Stage 7 + Stage 13 critique — hybrid must be indistinguishable from frontier-only. Measured cost reduction ≥60%. Silent fallback to API when Ollama is absent.
+**Status:** Exploratory — logged for a future phase. Blocked on M7 (router belongs at the platform layer, not inside the Storyline engine). Do not start early. Detail: [roadmap/milestone-08-hybrid-ai-routing.md](roadmap/milestone-08-hybrid-ai-routing.md)
+
+### Milestone 9 — Scrivener manuscript import (exploratory)
+**Outcome:** A writer runs `storyline import scrivener <path-to-.scriv>` and their prose lands in `manuscript/` as markdown with part/chapter/section order preserved via filename prefixes. Everything non-manuscript (Research, Notes, synopses, keywords, snapshots, compile settings) is dropped by design, with an honest report of what was skipped.
+**Prove-it gate:** A real Scrivener project imports and compiles to a valid EPUB via the existing pipeline, in the same binder order. The "what was dropped" report is accurate and non-alarming.
+**Status:** Exploratory — logged for a future phase. Should land after M6 (compile pipeline stable); not blocked on M7. Detail: [roadmap/milestone-09-scrivener-import.md](roadmap/milestone-09-scrivener-import.md)
+
 ## Meta-rules for milestones
 
 1. **One milestone at a time for build work.** If you feel pulled to start the next one before the current's build stories are complete, that's a signal the current milestone's scope is weak, not that it's done. **Exception:** when a milestone's prove-it gate requires user-validation (planning a real novel, writing a real chapter), build work on the next milestone can proceed in parallel — the gate closes independently whenever the writer does that work.

@@ -22,7 +22,7 @@ const program = new Command();
 program
   .name('storyline')
   .description('Storyline — plan and write your novel using Save the Cat. Use /storyline inside Claude Code for the planning conversation.')
-  .version('1.0.0');
+  .version('1.1.3');
 
 registerInit(program);
 registerCompile(program);
@@ -444,6 +444,53 @@ manuscript
       if (memoryResult) {
         console.log(chalk.dim(`  ↳ ${memoryResult.entriesWithIds.length} memory entries appended to ${memoryResult.logPath}`));
       }
+    }
+  });
+
+manuscript
+  .command('migrate-markers')
+  .description('Rewrite legacy <angle> and &lt;encoded&gt; note markers to the current {{curly}} format. Preview-first unless --yes is passed.')
+  .option('--yes', 'Apply the rewrite without an approval preview')
+  .option('--json', 'Machine-readable JSON output')
+  .action(async (opts) => {
+    const state = loadState();
+    if (!state) {
+      console.error(chalk.red('No project found. Run `storyline init` first.'));
+      process.exit(1);
+    }
+    const { migrateManuscriptMarkers } = await import('../lib/manuscript/notes.js');
+    const manuscriptPath = state?.writing?.manuscriptPath || 'manuscript';
+
+    // Always preview first; only persist if --yes was passed.
+    const result = await migrateManuscriptMarkers(process.cwd(), {
+      manuscriptPath,
+      preview: !opts.yes,
+    });
+
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (result.totalMigrations === 0) {
+      console.log(chalk.green(`No legacy markers found in ${manuscriptPath}/. Nothing to migrate.`));
+      return;
+    }
+
+    console.log(chalk.bold(`\n${opts.yes ? 'Migrating' : 'Would migrate'} ${result.totalMigrations} legacy marker${result.totalMigrations === 1 ? '' : 's'} across ${result.filesAffected} file${result.filesAffected === 1 ? '' : 's'}:\n`));
+    for (const file of result.files) {
+      console.log(chalk.cyan(file.path));
+      for (const m of file.migrations) {
+        const tag = m.style === 'angle-encoded' ? chalk.dim('(encoded)') : chalk.dim('(angle)');
+        console.log(`  L${m.line}  ${chalk.yellow(m.from)}  →  ${chalk.green(m.to)}  ${tag}`);
+      }
+      console.log();
+    }
+
+    if (opts.yes) {
+      console.log(chalk.green(`✓ Applied ${result.totalMigrations} migration${result.totalMigrations === 1 ? '' : 's'}.`));
+    } else {
+      console.log(chalk.dim(`Re-run with ${chalk.white('--yes')} to apply the rewrite.`));
     }
   });
 

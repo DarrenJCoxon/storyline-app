@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { WordCountStatusBar } from './status-bar';
+import type { ActiveFileTracker } from './active-file-tracker';
 import { classifyDocumentRole } from './manuscript-path';
 
 // CustomTextEditorProvider that owns .md files in novel projects.
@@ -24,6 +25,7 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly statusBar: WordCountStatusBar,
+    private readonly activeFileTracker: ActiveFileTracker,
   ) {}
 
   public async resolveCustomTextEditor(
@@ -49,12 +51,22 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
     // Status bar word count — custom editors aren't text editors, so
     // vscode.window.activeTextEditor is always undefined for us. We
     // notify the status bar explicitly when we gain/lose focus.
+    // Breadcrumb write fires on every resolve (including window restore,
+    // when webviewPanel.active can be false even though the writer is
+    // about to see this tab). Writing a stale breadcrumb for an inactive
+    // editor is harmless — /follow-up just reads whichever file was most
+    // recently focused, and the common case is that the restored tab IS
+    // the one the writer wants. The active-based branch below still
+    // updates it on real focus changes.
+    this.activeFileTracker.setActive(document.uri);
+
     if (webviewPanel.active) {
       this.statusBar.setActiveCustomEditor(document.uri);
     }
     const viewStateSubscription = webviewPanel.onDidChangeViewState(() => {
       if (webviewPanel.active) {
         this.statusBar.setActiveCustomEditor(document.uri);
+        this.activeFileTracker.setActive(document.uri);
       } else {
         this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
       }
@@ -191,6 +203,10 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
         // resolveCustomTextEditor, because at that point the webview's
         // message listener isn't mounted yet and the message is dropped.
         webviewPanel.webview.postMessage({ type: 'editor-role', role: editorRole });
+        // The webview has now rendered and the writer is looking at this
+        // chapter — refresh the breadcrumb so /follow-up picks the
+        // freshest target.
+        this.activeFileTracker.setActive(document.uri);
         return;
       }
 

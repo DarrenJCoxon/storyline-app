@@ -209,7 +209,7 @@ Keep a friction log as before.
 
 **Font licensing and bundling.** Embedding fonts in EPUB requires proper licensing. EB Garamond and Crimson Pro are both SIL OFL-licensed — safe to bundle. Commercial serif fonts (Sabon, Minion, Caslon) are not. We restrict to open-source fonts or rely on reader-supplied fonts.
 
-**CLI shelling from VS Code cross-platform.** `spawn('nw', ...)` assumes `storyline` is on PATH. On macOS with npm link, yes. On Windows with fresh install, may not be. Use `npx storyline compile` as the spawn target to route through Node's module resolution. Verify in Story 3.7.
+**CLI shelling from VS Code cross-platform.** `spawn('nw', ...)` assumes `storyline` is on PATH. On macOS with npm link, yes. On Windows with fresh install, may not be. Use `npx storyline-cli compile` as the spawn target to route through Node's module resolution. Verify in Story 3.7.
 
 **The compile pipeline is new surface area.** Adding a major feature means maintaining more tests and docs. Keep the pipeline engine-agnostic where possible (see compile-feature.md) so the multi-engine refactor in Milestone 7 is cleaner.
 

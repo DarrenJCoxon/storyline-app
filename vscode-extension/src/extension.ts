@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { openNovelEditor } from './webview-panel';
 import { StorylineEditorProvider } from './storyline-editor-provider';
 import { WordCountStatusBar } from './status-bar';
+import { ActiveFileTracker } from './active-file-tracker';
 import { compileToEpub, compileToPrintPdf } from './compile-command';
 import { editBookInfo } from './book-info-command';
 import { openPreview } from './preview-command';
@@ -16,12 +17,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const statusBar = new WordCountStatusBar(context);
   await statusBar.start();
 
+  // Active-file breadcrumb — writes .storyline/active-file.txt on focus
+  // change so the /follow-up skill (running in a separate Claude Code
+  // process) can scope its scan to the chapter the writer is actually
+  // looking at. Raw-text-editor path handled here; custom-editor path
+  // handled in StorylineEditorProvider.
+  const activeFileTracker = new ActiveFileTracker();
+  activeFileTracker.attachTextEditorListener(context);
+
   // Custom editor for .md files. Only registered here so non-novel workspaces
   // (where extension doesn't activate) get VS Code's default markdown editor.
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
       StorylineEditorProvider.viewType,
-      new StorylineEditorProvider(context, statusBar),
+      new StorylineEditorProvider(context, statusBar, activeFileTracker),
       {
         webviewOptions: { retainContextWhenHidden: true },
         supportsMultipleEditorsPerDocument: false,

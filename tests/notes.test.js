@@ -8,7 +8,7 @@
 // and the false-positive filters.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { resolve, join } from 'path';
 import { DEFAULT_STATE } from '../lib/state/project-state.js';
@@ -18,6 +18,8 @@ import {
   scanManuscriptNotes,
   buildNotesMemoryEntries,
   formatNotesReport,
+  migrateNoteMarkers,
+  migrateManuscriptMarkers,
 } from '../lib/manuscript/notes.js';
 
 describe('isProseNote — positives', () => {
@@ -67,8 +69,49 @@ describe('isProseNote — false-positive guards', () => {
   });
 });
 
-describe('findNotesInBody', () => {
-  it('finds one note with line + column', () => {
+describe('findNotesInBody — {{curly}} format (primary)', () => {
+  it('finds a {{curly}} note and marks its style', () => {
+    const body = 'She opened the laptop — {{need to research the specs}} — and typed.';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].note).toBe('need to research the specs');
+    expect(notes[0].raw).toBe('{{need to research the specs}}');
+    expect(notes[0].style).toBe('curly');
+  });
+
+  it('accepts short or unusual notes without the isProseNote filter', () => {
+    // Curly markers bypass the prose filter entirely — collision risk is
+    // near zero so we trust the writer.
+    const body = '{{x}} and {{!!}} and {{a=b}} and {{https://ex.com}}';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(4);
+    expect(notes.map(n => n.note)).toEqual(['x', '!!', 'a=b', 'https://ex.com']);
+  });
+
+  it('handles multiple {{...}} on the same line', () => {
+    const body = '{{check A}} and also {{verify B}}';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(2);
+    expect(notes[0].note).toBe('check A');
+    expect(notes[1].note).toBe('verify B');
+  });
+
+  it('does not match {{...}} spanning newlines', () => {
+    const body = 'She thought {{about this\nfor a long time}}.';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(0);
+  });
+
+  it('rejects empty {{}} markers', () => {
+    const body = 'Nothing here: {{}} and then {{real note}}.';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].note).toBe('real note');
+  });
+});
+
+describe('findNotesInBody — <angle> format (legacy)', () => {
+  it('finds one note with line + column and marks its style', () => {
     const body = '# Ch 1\n\nShe opened the laptop — <need to research the specs> — and typed.\n';
     const notes = findNotesInBody(body);
     expect(notes).toHaveLength(1);
@@ -76,6 +119,7 @@ describe('findNotesInBody', () => {
     expect(notes[0].column).toBeGreaterThan(1);
     expect(notes[0].note).toBe('need to research the specs');
     expect(notes[0].raw).toBe('<need to research the specs>');
+    expect(notes[0].style).toBe('angle-literal');
   });
 
   it('finds multiple notes across lines', () => {
@@ -120,6 +164,49 @@ describe('findNotesInBody', () => {
     expect(notes).toHaveLength(2);
     expect(notes[0].note).toBe('check a');
     expect(notes[1].note).toBe('verify b');
+  });
+});
+
+describe('findNotesInBody — &lt;encoded&gt; format (legacy, from rich-text editors)', () => {
+  it('finds an HTML-encoded note and marks its style', () => {
+    const body = 'She opened the laptop — &lt;need to research the specs&gt; — and typed.';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].note).toBe('need to research the specs');
+    expect(notes[0].raw).toBe('&lt;need to research the specs&gt;');
+    expect(notes[0].style).toBe('angle-encoded');
+  });
+
+  it('decodes &amp; in encoded note content', () => {
+    const body = '&lt;check A &amp; B timing&gt;';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].note).toBe('check A & B timing');
+  });
+
+  it('applies the isProseNote filter after decoding', () => {
+    // Decoded form is "p" — filtered out as HTML-like.
+    const body = 'No match: &lt;p&gt;. Match: &lt;check the British Museum hours&gt;.';
+    const notes = findNotesInBody(body);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].note).toContain('British Museum');
+  });
+});
+
+describe('findNotesInBody — mixed formats', () => {
+  it('returns notes in reading order regardless of format', () => {
+    const body = [
+      'Line 1 has {{first curly}}.',
+      'Line 2 has &lt;second encoded&gt;.',
+      'Line 3 has <third literal angle>.',
+    ].join('\n');
+    const notes = findNotesInBody(body);
+    expect(notes.map(n => n.note)).toEqual([
+      'first curly',
+      'second encoded',
+      'third literal angle',
+    ]);
+    expect(notes.map(n => n.style)).toEqual(['curly', 'angle-encoded', 'angle-literal']);
   });
 });
 
@@ -214,5 +301,117 @@ describe('formatNotesReport', () => {
     expect(text).toContain('check A');
     expect(text).toContain('check C');
     expect(text).toContain('paused.');
+  });
+});
+
+describe('migrateNoteMarkers', () => {
+  it('returns the body unchanged when there is nothing to migrate', () => {
+    const body = 'Clean prose with {{already curly}} and no legacy markers.';
+    const { body: out, migrations } = migrateNoteMarkers(body);
+    expect(out).toBe(body);
+    expect(migrations).toHaveLength(0);
+  });
+
+  it('rewrites <angle> markers to {{curly}}', () => {
+    const body = 'She opened the laptop — <need to research the specs> — and typed.';
+    const { body: out, migrations } = migrateNoteMarkers(body);
+    expect(out).toBe('She opened the laptop — {{need to research the specs}} — and typed.');
+    expect(migrations).toHaveLength(1);
+    expect(migrations[0]).toMatchObject({
+      line: 1,
+      from: '<need to research the specs>',
+      to: '{{need to research the specs}}',
+      style: 'angle-literal',
+    });
+  });
+
+  it('rewrites &lt;encoded&gt; markers to {{curly}} and decodes entities', () => {
+    const body = 'Check &lt;A &amp; B timing&gt; please.';
+    const { body: out, migrations } = migrateNoteMarkers(body);
+    expect(out).toBe('Check {{A & B timing}} please.');
+    expect(migrations[0].style).toBe('angle-encoded');
+  });
+
+  it('leaves existing {{curly}} markers untouched', () => {
+    const body = '{{keep me}} and <convert me>';
+    const { body: out } = migrateNoteMarkers(body);
+    expect(out).toBe('{{keep me}} and {{convert me}}');
+  });
+
+  it('preserves line-level offsets when migrating multiple markers on one line', () => {
+    const body = '<check first thing> and also <verify second thing>';
+    const { body: out, migrations } = migrateNoteMarkers(body);
+    expect(out).toBe('{{check first thing}} and also {{verify second thing}}');
+    expect(migrations).toHaveLength(2);
+    expect(migrations[0].line).toBe(1);
+    expect(migrations[1].line).toBe(1);
+  });
+
+  it('preserves content across mixed formats in one body', () => {
+    const body = [
+      'Line with <check the museum hours> legacy.',
+      'Line with &lt;verify the train schedule&gt; encoded.',
+      'Line with {{already curly}} that stays.',
+    ].join('\n');
+    const { body: out, migrations } = migrateNoteMarkers(body);
+    expect(out).toContain('{{check the museum hours}}');
+    expect(out).toContain('{{verify the train schedule}}');
+    expect(out).toContain('{{already curly}}');
+    expect(migrations).toHaveLength(2);
+  });
+});
+
+describe('migrateManuscriptMarkers', () => {
+  let tmp;
+  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'nw-migrate-')); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+
+  function writeChapter(name, body) {
+    const dir = resolve(tmp, 'manuscript');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(resolve(dir, name), body);
+  }
+
+  it('in preview mode does not write files but reports what would change', async () => {
+    writeChapter('ch01.md', '# Ch 1\n\nShe saw <check laptop specs> on the desk.\n');
+    writeChapter('ch02.md', '# Ch 2\n\nThe &lt;verify museum hours&gt; detail.\n');
+    const result = await migrateManuscriptMarkers(tmp, { preview: true });
+    expect(result.applied).toBe(false);
+    expect(result.filesAffected).toBe(2);
+    expect(result.totalMigrations).toBe(2);
+    // Files on disk unchanged.
+    const ch01 = readFileSync(resolve(tmp, 'manuscript/ch01.md'), 'utf-8');
+    expect(ch01).toContain('<check laptop specs>');
+    expect(ch01).not.toContain('{{check laptop specs}}');
+  });
+
+  it('applies migrations when preview: false', async () => {
+    writeChapter('ch01.md', 'She saw <check laptop specs> on the desk.\n');
+    const result = await migrateManuscriptMarkers(tmp, { preview: false });
+    expect(result.applied).toBe(true);
+    expect(result.totalMigrations).toBe(1);
+    const ch01 = readFileSync(resolve(tmp, 'manuscript/ch01.md'), 'utf-8');
+    expect(ch01).toContain('{{check laptop specs}}');
+    expect(ch01).not.toContain('<check laptop specs>');
+  });
+
+  it('respects a custom manuscriptPath', async () => {
+    const dir = resolve(tmp, 'output/manuscript');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(resolve(dir, 'scene-1.md'), 'A &lt;check the specs&gt; moment.\n');
+    const result = await migrateManuscriptMarkers(tmp, {
+      manuscriptPath: 'output/manuscript',
+      preview: false,
+    });
+    expect(result.totalMigrations).toBe(1);
+    const out = readFileSync(resolve(dir, 'scene-1.md'), 'utf-8');
+    expect(out).toContain('{{check the specs}}');
+  });
+
+  it('leaves files with only {{curly}} markers untouched', async () => {
+    writeChapter('ch01.md', 'Already modern: {{check the specs}}.\n');
+    const result = await migrateManuscriptMarkers(tmp, { preview: false });
+    expect(result.totalMigrations).toBe(0);
+    expect(result.filesAffected).toBe(0);
   });
 });

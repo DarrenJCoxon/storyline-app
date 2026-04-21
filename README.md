@@ -6,7 +6,7 @@ Storyline combines a conversational Save-the-Cat planning harness (powered by Cl
 
 It does not write your novel for you. It helps you plan it, structure it, and draft it.
 
----
+* * *
 
 ## Who this is for
 
@@ -16,7 +16,7 @@ It does not write your novel for you. It helps you plan it, structure it, and dr
 
 If you don't have a terminal open right now and the word "npx" doesn't mean anything to you, don't panic. This guide walks you through everything assuming zero prior knowledge.
 
----
+* * *
 
 ## What you'll need
 
@@ -26,7 +26,7 @@ Three free pieces of software. You install each one once; Storyline then coordin
 
 VS Code is a free editor made by Microsoft. Normally it's used for code, but Storyline configures it to behave like a dedicated writing app: three columns (file tree, manuscript, supporting docs), a clean writing surface, no developer chrome in your face.
 
-Download: <https://code.visualstudio.com/>
+Download: https://code.visualstudio.com/
 
 Install it like any Mac or Windows app (drag to Applications on Mac, run the installer on Windows).
 
@@ -34,64 +34,83 @@ Install it like any Mac or Windows app (drag to Applications on Mac, run the ins
 
 Node.js is a background program that lets you run JavaScript tools on your computer. Storyline uses it. You don't interact with it directly — you just need it installed.
 
-Download the **LTS (Long-Term Support)** version from <https://nodejs.org/>
+Download the **LTS (Long-Term Support)** version from https://nodejs.org/
 
 Install it. On Mac, this adds a command called `node` to your terminal. On Windows, the installer does this automatically.
 
-### 3. Claude Code — the AI collaborator
+### 3. An AI coding agent — your planning collaborator
 
-Claude Code is Anthropic's AI coding/writing assistant. Storyline's `/storyline` command runs inside Claude Code to guide you through the 14 planning stages.
+Storyline works with three different AI coding agents. Pick whichever you already use or prefer:
 
-Download: <https://claude.com/product/claude-code>
+- **Claude Code** (recommended for best results) — Anthropic's CLI. Download: https://claude.com/product/claude-code. Needs an Anthropic Pro account.
+- **OpenCode** — open-source terminal AI agent, bring your own model provider. Works well with cloud-hosted frontier models (Anthropic, OpenAI, DeepSeek, Qwen, etc.). https://opencode.ai/
+- **Codex** — OpenAI's CLI. https://openai.com/codex/. Needs an OpenAI account.
 
-Sign in with your Anthropic account (you'll need one — free tier is enough to try Storyline).
+You can use more than one, and Storyline will configure all of them at install time. If you have no preference, Claude Code is the path of least resistance.
 
----
+* * *
 
 ## Install Storyline
 
-Open your terminal.
+The simplest path — which avoids the usual "`code` command not found" trap on fresh Macs — is to do the whole thing from *inside* VS Code, using its built-in terminal.
 
-- **Mac**: press `Cmd+Space`, type "Terminal", press Enter.
-- **Windows**: press `Windows key`, type "PowerShell", press Enter.
+### 1. Create an empty folder for your novel
 
-You'll see a blinking cursor. Type (or copy-paste) the following, one line at a time, pressing Enter after each:
+Using Finder (Mac) or File Explorer (Windows), create a new empty folder wherever you keep your projects. Call it whatever you want your novel to be called — for example `my-novel`.
+
+### 2. Open that folder in VS Code
+
+Launch VS Code. Then choose **File → Open Folder…** and select the empty folder you just created. VS Code will open with an empty file tree on the left. Or you can choose **File** **→ New Window and drag the empty folder into the main window in VS Code.**
+
+### 3. Open VS Code's integrated terminal
+
+From the menu bar, choose **View → Terminal** **→ New Terminal** (or press `` Ctrl+` `` — that's the backtick key, above Tab). A terminal panel appears at the bottom of VS Code, already sitting inside your new folder.
+
+### 4. Run the init command
+
+In that terminal, type (or copy-paste) the following and press Enter:
 
 ```bash
-npx storyline init my-novel
-cd my-novel
-code .
+npx storyline-cli init
 ```
 
-What each line does:
+This downloads Storyline and sets up the current folder as a novel project. It takes 20-30 seconds the first time as npm fetches the package.
 
-1. `npx storyline init my-novel` downloads Storyline and creates a new folder called `my-novel/` in your current directory, pre-configured as a novel project. This takes 30–60 seconds the first time as npm fetches the package.
-2. `cd my-novel` moves into that folder.
-3. `code .` opens VS Code with that folder loaded.
+During setup, Storyline will:
 
-VS Code should now open, with a tree of files on the left (your project) and a welcome document in the middle.
+- Create the project scaffolding (`manuscript/`, `docs/`, `.storyline/`, etc.)
+- Detect which AI coding agents you have installed (Claude Code, OpenCode, Codex) and configure each one that's present
+- Install the Storyline VS Code extension (the rich editor, compile commands, live preview)
+- Register the `odd-flow` MCP server for durable memory across sessions
 
-### If `code .` doesn't work
+Because you're running this from VS Code's own terminal, the `code` CLI is always available here — so the extension installs cleanly without any PATH fiddling.
 
-Some Mac users see `command not found: code`. That's because VS Code's terminal command isn't on your PATH yet. To fix it, open VS Code manually, then:
+**To force a specific agent** (instead of auto-detect), pass `--agent`:
 
-1. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows).
-2. Type "shell command" and choose **"Install 'code' command in PATH"**.
-3. Close and reopen your terminal, then try `code .` again.
+```bash
+npx storyline-cli init --agent claude-code   # Claude Code only
+npx storyline-cli init --agent opencode      # OpenCode only
+npx storyline-cli init --agent codex         # Codex only
+npx storyline-cli init --agent all           # all three
+```
 
-Alternatively, just skip that step and open VS Code manually, then use **File → Open Folder** and pick your `my-novel` folder.
+### 5. Reload the VS Code window
+
+Once `init` finishes, press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows), type **"Reload Window"**, and press Enter. This activates the newly installed Storyline extension.
+
+When the window comes back, you should see the welcome document in the middle column and a "Storyline" indicator in the bottom-right of VS Code. You're ready to plan.
 
 ### If you see an extension-install warning
 
 Storyline comes with a VS Code extension that provides the rich-text writing surface, the compile commands, and the three-column layout. The `init` command tries to install this extension automatically. If it can't (VS Code CLI not on PATH yet), you'll see a yellow message with fallback instructions. Follow them — it's a one-time step.
 
----
+* * *
 
 ## Your first five minutes
 
 ### Open the welcome document
 
-With the `my-novel/` folder open in VS Code, double-click `docs/welcome.md` in the file tree on the left. It opens in the middle of the screen — this is the Storyline rich-text editor.
+With the `my-novel/` folder open in VS Code, click `docs/welcome.md` in the file tree on the left. It opens in the middle of the screen — this is the Storyline rich-text editor.
 
 It looks like a normal writing surface: no code, no syntax highlighting, just prose. You can start typing.
 
@@ -109,21 +128,25 @@ You now have three columns visible at once:
 
 ### Start planning with `/storyline`
 
-Open Claude Code. In the chat box, type:
+Open your AI coding agent, then start a planning session. How you do this depends on which agent you use:
 
-```
-/storyline
-```
+**In Claude Code:** type `/storyline` in the chat box and press Enter.
 
-and press Enter.
+**In OpenCode:** type `/storyline` (same slash-command, different agent).
 
-Claude Code recognises the command, reads your project, notices it's a fresh novel, and starts the planning conversation. The first thing it asks about is your genre — because different genres (thriller, romance, fantasy) have different structural expectations.
+**In Codex:** type `$storyline`, or just say `use storyline` / `start storyline` / `plan my novel` — Codex recognises these phrases because `AGENTS.md` in your project primes it.
+
+The first time you do this, your agent will ask you to approve the **odd-flow** MCP server — approve it. Storyline uses it for durable memory across sessions.
+
+Then the agent reads your project, notices it's a fresh novel, and starts the planning conversation. The first thing it asks about is your genre — because different genres (thriller, romance, fantasy) have different structural expectations.
 
 Answer naturally. There's no form to fill in. The harness adapts to what you say, saves progress automatically, and flags issues the way a thoughtful editor would.
 
 At any point you can switch to VS Code and write prose in the chapter you have open. Storyline auto-saves every 1.5 seconds; you'll never lose work.
 
----
+**Resolving research notes:** while drafting, wrap research questions in double curly braces — e.g. `{{check British Museum opening times}}`. When you're ready, type `/follow-up` (Claude Code / OpenCode) or `$follow-up` (Codex) and your agent will scan the manuscript for every `{{…}}`, research each one, and show you proposed replacements for your approval.
+
+* * *
 
 ## How Storyline is organised
 
@@ -131,35 +154,42 @@ Your project folder looks like this:
 
 ```
 my-novel/
-├── .storyline/               # Storyline's state (planning progress, never edit by hand)
-├── .claude/skills/storyline/ # The /storyline skill — powers the planning conversation
-├── manuscript/               # Your prose. One .md file per chapter.
+├── .storyline/                   # Storyline's state (planning progress, never edit by hand)
+├── .claude/skills/storyline/     # /storyline skill — Claude Code (if installed)
+├── .opencode/commands/           # /storyline + /follow-up commands — OpenCode (if installed)
+├── plugins/storyline/            # Codex plugin with the same skill bodies (if installed)
+├── manuscript/                   # Your prose. One .md file per chapter.
 │   ├── chapter-01.md
 │   └── chapter-02.md
-├── docs/                     # Planning notes, character sheets, research
+├── docs/                         # Planning notes, character sheets, research
 │   └── welcome.md
-├── output/                   # Compiled EPUB / PDF / planning documents land here
-├── CLAUDE.md                 # Project-level instructions for Claude
-└── compile.config.json       # Book metadata (title, author, cover)
+├── output/                       # Compiled EPUB / PDF / planning documents land here
+├── .mcp.json                     # odd-flow MCP config (Claude Code)
+├── opencode.json                 # odd-flow MCP config (OpenCode, if installed)
+├── CLAUDE.md                     # Project-level instructions for Claude
+├── AGENTS.md                     # Vendor-neutral agent primer (Codex, etc. — if installed)
+└── compile.config.json           # Book metadata (title, author, cover)
 ```
+
+Only the directories for AI agents you actually installed will be present — a Claude-Code-only install doesn't get `.opencode/` or `plugins/storyline/`.
 
 You work primarily in `manuscript/` (prose) and `docs/` (supporting material). Storyline handles the rest.
 
----
+* * *
 
 ## The 14 planning stages
 
 Storyline walks you through a full Save-the-Cat planning arc. You can go at any pace — one stage an evening, three stages in a weekend, or one stage every few months.
 
-1. **Genre & Foundations** — what kind of book is this?
-2. **Story Seed & Premise** — the one-sentence hook
-3. **Protagonist Deep Dive** — their want, need, flaw, and arc
-4. **Supporting Cast** — the people around them
-5. **Relationship Web** — who affects whom, and how
-6. **Logline Refinement** — the elevator pitch
-7. **Beat Sheet** — the 15 Save-the-Cat beats
-8. **B Story** — the subplot that carries the theme
-9. **Subplots** — secondary threads
+ 1. **Genre & Foundations** — what kind of book is this?
+ 2. **Story Seed & Premise** — the one-sentence hook
+ 3. **Protagonist Deep Dive** — their want, need, flaw, and arc
+ 4. **Supporting Cast** — the people around them
+ 5. **Relationship Web** — who affects whom, and how
+ 6. **Logline Refinement** — the elevator pitch
+ 7. **Beat Sheet** — the 15 Save-the-Cat beats
+ 8. **B Story** — the subplot that carries the theme
+ 9. **Subplots** — secondary threads
 10. **Scene Outline** — the shape of the whole book, at a chapter level
 11. **Plot Thread Registry** — tracking every thread so nothing gets dropped
 12. **Chapter Flesh-Out** — one pass per chapter, filling in detail
@@ -168,7 +198,7 @@ Storyline walks you through a full Save-the-Cat planning arc. You can go at any 
 
 You don't write prose in the harness. You plan in the harness, then write prose in the VS Code editor. The two stay in sync — the harness knows which chapter you're on; the editor shows you the relevant planning context.
 
----
+* * *
 
 ## Writing prose
 
@@ -182,7 +212,30 @@ Once you've planned a beat (say, the Opening Image), you can go write it. Open t
 
 The file on disk is plain Markdown. You own it. If you ever want to export your manuscript out of Storyline and edit it in Word, Scrivener, or anything else, it's just `.md` files in a folder.
 
----
+* * *
+
+## Leaving research notes as you write — `/follow-up`
+
+When you hit something you need to research but don't want to break flow, wrap it in **double curly braces**:
+
+```
+She opened the laptop — {{what specs would a 2019 MacBook Pro have?}} — and typed.
+
+They met outside the museum. {{check British Museum opening times}} The doors were locked.
+```
+
+Keep writing. Later — at the end of a session, or whenever you're ready — type `/follow-up` in Claude Code. Storyline will:
+
+1. Find the chapter you most recently had open in VS Code.
+2. Scan it for every `{{…}}` marker.
+3. Classify each one (research question, plot-consistency check, or decision for you) and resolve the research ones via web search.
+4. Show you each finding with a proposed replacement.
+5. On your approval, edit the manuscript file in place.
+6. Log what was researched, so next session can look up "what did we find out about the British Museum?" directly.
+
+The point: you never have to break flow to research. Leave the `{{question}}`, keep writing, handle research in a dedicated pass.
+
+* * *
 
 ## Compiling to EPUB or PDF
 
@@ -193,7 +246,7 @@ When your manuscript is ready, open the Command Palette (`Cmd+Shift+P` on Mac, `
 
 Output lands in `output/`. Book metadata (title, author, cover) lives in `compile.config.json` — you edit that via **"Storyline: Edit Book Info"**.
 
----
+* * *
 
 ## Live preview
 
@@ -203,37 +256,30 @@ While you're writing, you can see how the book will render in its final form:
 
 Useful for catching formatting issues early — for example, a scene break that sits awkwardly at the bottom of a page, or a chapter heading that clashes with the theme.
 
----
+* * *
 
 ## Troubleshooting
 
-**"npx: command not found"**
-You haven't installed Node.js, or the install didn't update your PATH. Re-install Node from <https://nodejs.org/> and restart your terminal.
+**"npx: command not found**"You haven't installed Node.js, or the install didn't update your PATH. Re-install Node from https://nodejs.org/ and restart your terminal.
 
-**"code: command not found"**
-VS Code's terminal command isn't on your PATH. See the "If `code .` doesn't work" section above.
+**"code: command not found**"You've tried to run `code .` from a system terminal before enabling VS Code's shell command. You don't need to — follow the install instructions above, which run `npx storyline-cli init` from VS Code's own integrated terminal instead. That path always works.
 
-**Claude Code doesn't recognise `/storyline`**
-The skill wasn't installed correctly. Check that `.claude/skills/storyline/` exists inside your project folder. If it doesn't, run `npx storyline init .` again from inside that folder to repair it.
+**Claude Code doesn't recognise** `/storyline` **or** `/follow-up`The skills weren't installed correctly. Check that `.claude/skills/storyline/` and `.claude/skills/follow-up/` exist inside your project folder. If one is missing, run `npx storyline-cli@latest init .` again from inside that folder to repair it, then reload the Claude Code window.
 
-**The VS Code extension isn't active**
-Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.17.0.vsix`.
+**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.20.0.vsix`.
 
-**Autosave isn't working**
-Storyline uses its own autosave (every 1.5 seconds after you stop typing). VS Code's separate auto-save feature should be OFF to avoid fighting with it. Check **Code → Preferences → Settings**, search "auto save", and set "Files: Auto Save" to `off`.
+**Autosave isn't working**Storyline uses its own autosave (every 1.5 seconds after you stop typing). VS Code's separate auto-save feature should be OFF to avoid fighting with it. Check **Code → Preferences → Settings**, search "auto save", and set "Files: Auto Save" to `off`.
 
-**The three-column layout has collapsed to one column**
-Drag a tab to the right edge of the editor area — VS Code will create a second column. Then use **"Storyline: Open to the Side"** or `Cmd+Enter` / `Ctrl+Enter` on a file to re-establish the pattern.
+**The three-column layout has collapsed to one column**Drag a tab to the right edge of the editor area — VS Code will create a second column. Then use **"Storyline: Open to the Side"** or `Cmd+Enter` / `Ctrl+Enter` on a file to re-establish the pattern.
 
-**Something else went wrong**
-File an issue at <https://github.com/DarrenJCoxon/storyline/issues> with:
+**Something else went wrong**File an issue at https://github.com/DarrenJCoxon/storyline/issues with:
 
 - What you tried to do
 - What happened instead
 - What you see in the bottom-right of VS Code
 - Your OS and VS Code version
 
----
+* * *
 
 ## Feedback
 
@@ -241,19 +287,19 @@ Storyline is in free beta. If you use it to plan or draft a novel — even one c
 
 Email: via the issue tracker above, or through the contact form on the project page.
 
----
+* * *
 
 ## Licence
 
-MIT — see [LICENCE](LICENCE) in this repository. Free for personal and commercial use. No warranty, no guarantees — this is beta software.
+MIT — see LICENCE in this repository. Free for personal and commercial use. No warranty, no guarantees — this is beta software.
 
----
+* * *
 
 ## Roadmap
 
 Storyline's direction of travel is captured in two short docs:
 
-- [docs/distribution-phase-0.md](docs/distribution-phase-0.md) — the current free beta (what you're using)
-- [docs/distribution-phase-1.md](docs/distribution-phase-1.md) — the paid v1 DMG, planned for late 2026
+- docs/distribution-phase-0.md — the current free beta (what you're using)
+- docs/distribution-phase-1.md — the paid v1 DMG, planned for late 2026
 
 The core product (editor + harness + compile + preview) is feature-complete for the beta. Future work is on packaging, polish, and audience reach.

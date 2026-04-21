@@ -4,12 +4,16 @@
 
 When `/storyline` is activated, this protocol runs first. Nothing else happens until startup is complete.
 
+## CLI invocation note
+
+Storyline is distributed via npm under the package name **`storyline-cli`**. Users install it with `npx storyline-cli init` and do **not** get a global `storyline` binary on their PATH. Every CLI call you make in this skill must therefore go through `npx storyline-cli <subcommand>` — never bare `storyline ...`. The first call in a session may pause briefly while npm warms its cache; subsequent calls are instant.
+
 ## Step 1: Check Project State
 
-Run `storyline next` to get the current project state as JSON.
+Run `npx storyline-cli next` to get the current project state as JSON.
 
 ```bash
-storyline next
+npx storyline-cli next
 ```
 
 Returns:
@@ -22,8 +26,8 @@ Returns:
 ### New Project
 If `action: "init"`:
 
-1. Run `storyline init` to create `.storyline/` and `state.json`
-2. Run `storyline next` again to confirm
+1. Run `npx storyline-cli init` to create `.storyline/` and `state.json`
+2. Run `npx storyline-cli next` again to confirm
 3. Display:
 
 ```
@@ -39,7 +43,7 @@ Starting fresh — let's build your novel.
 ### Returning Project
 If `currentStage` is returned:
 
-1. Run `storyline status` for the full stage breakdown
+1. Run `npx storyline-cli status` for the full stage breakdown
 2. Display:
 
 ```
@@ -60,7 +64,7 @@ Current Stage: [Stage Name]
 If `complete: true`:
 
 ```
-All planning stages complete! Run `storyline generate` to create your master document.
+All planning stages complete! Run `npx storyline-cli generate` to create your master document.
 ```
 
 ## Step 3: Check Environment
@@ -96,23 +100,25 @@ For new projects → Start Stage 1: Genre & Foundations
 
 For returning projects → Continue from the current stage
 
-The conversation is driven by you (the /storyline skill), not by the CLI. Use `storyline stage-info <stageId>` to get conversation guides, and `storyline save <stageId> '<json>'` to persist data.
+The conversation is driven by you (the /storyline skill), not by the CLI. Use `npx storyline-cli stage-info <stageId>` to get conversation guides, and `npx storyline-cli save <stageId> '<json>'` to persist data.
 
 ## CLI Commands Reference
 
+All commands are invoked as `npx storyline-cli <subcommand>`.
+
 | Command | Purpose |
 |---------|---------|
-| `storyline init` | Set up `.storyline/` in current directory |
-| `storyline start` | Show current status and next action |
-| `storyline status` | Show progress and next recommended action |
-| `storyline stages` | List all 14 stages with completion status |
-| `storyline next` | Return next stage info as JSON (for skill) |
-| `storyline stage-info <stage>` | Return stage conversation guide as JSON |
-| `storyline save <stage> [json]` | Save stage data to state |
-| `storyline traps` | Run story trap detection |
-| `storyline checklist <stage>` | Run quality checklist for a stage |
-| `storyline revise <stage>` | Show downstream impacts for revision |
-| `storyline generate` | Output the master planning document |
+| `npx storyline-cli init` | Set up `.storyline/` in current directory |
+| `npx storyline-cli start` | Show current status and next action |
+| `npx storyline-cli status` | Show progress and next recommended action |
+| `npx storyline-cli stages` | List all 14 stages with completion status |
+| `npx storyline-cli next` | Return next stage info as JSON (for skill) |
+| `npx storyline-cli stage-info <stage>` | Return stage conversation guide as JSON |
+| `npx storyline-cli save <stage> [json]` | Save stage data to state |
+| `npx storyline-cli traps` | Run story trap detection |
+| `npx storyline-cli checklist <stage>` | Run quality checklist for a stage |
+| `npx storyline-cli revise <stage>` | Show downstream impacts for revision |
+| `npx storyline-cli generate` | Output the master planning document |
 
 ## Startup Complete
 

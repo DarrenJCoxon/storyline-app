@@ -1,4 +1,4 @@
-# Distribution — Phase 0: free beta via `npx storyline init`
+# Distribution — Phase 0: free beta via `npx storyline-cli init`
 
 _Last updated: 2026-04-21_
 
@@ -6,7 +6,7 @@ _Last updated: 2026-04-21_
 
 Phase 0 is the free, technical-user beta. Audience: writers who already use VS Code and have Node installed — or are willing to follow two written steps. The goal is to get the current product (harness + VS Code extension + Claude Code skill) into the hands of real beta testers with the lowest-possible setup friction that doesn't require us to build a bespoke installer.
 
-"Done" means: a tester can go from `npx storyline init my-novel` to a running three-pane novel-writing environment inside VS Code — manuscript open, skill loaded, extension active, sample beat sheet visible — in under 90 seconds, without any further manual steps.
+"Done" means: a tester can go from `npx storyline-cli init my-novel` to a running three-pane novel-writing environment inside VS Code — manuscript open, skill loaded, extension active, sample beat sheet visible — in under 90 seconds, without any further manual steps.
 
 No rebranding. No signed installers. No VSCodium fork. Those belong to [Phase 1](distribution-phase-1.md).
 
@@ -15,7 +15,7 @@ No rebranding. No signed installers. No VSCodium fork. Those belong to [Phase 1]
 1. Writer visits the landing page, reads two lines of setup ("needs VS Code + Node 20+").
 2. Runs in their terminal:
    ```
-   npx storyline init my-novel
+   npx storyline-cli init my-novel
    cd my-novel
    code .
    ```
@@ -25,7 +25,7 @@ No rebranding. No signed installers. No VSCodium fork. Those belong to [Phase 1]
 
 If the writer doesn't have the `code` CLI on PATH, step 2 substitutes: they open VS Code manually and use File > Open Folder. The `init` command prints this fallback if it can't find `code`.
 
-## What `npx storyline init <name>` creates
+## What `npx storyline-cli init <name>` creates
 
 New subcommand on the existing `bin/storyline.js`. It scaffolds a project directory with:
 
@@ -54,14 +54,14 @@ The scaffold is built from a `templates/` directory shipped inside the npm packa
 
 ## Extension install
 
-The `.vsix` is bundled inside the npm package at `vscode-extension/storyline-vscode-0.17.0.vsix` (already built). After scaffolding, `init`:
+The `.vsix` is bundled inside the npm package at `vscode-extension/storyline-vscode-0.20.0.vsix` (already built). After scaffolding, `init`:
 
 1. Runs `code --install-extension <absolute path to bundled .vsix>` in a subprocess.
 2. On success: prints "Extension installed — run `code .` in this folder to open Storyline."
 3. On failure (no `code` CLI on PATH): prints the fallback instruction:
    > The VS Code CLI isn't on your PATH. Open VS Code, then:
    > - Run "Extensions: Install from VSIX..." from the Command Palette
-   > - Choose: `<absolute path>/storyline-vscode-0.17.0.vsix`
+   > - Choose: `<absolute path>/storyline-vscode-0.20.0.vsix`
 
 Detection: try `which code` / `where.exe code`. Don't shell out to `code` without first confirming it exists — a failing subprocess is confusing.
 
@@ -82,7 +82,7 @@ For testers who don't have Node installed (or don't want to install it), ship a 
 ```
 storyline-starter-v1.0.0.zip
 ├── my-novel/                      # Exact contents of what `npx init` would produce
-├── storyline-vscode-0.17.0.vsix
+├── storyline-vscode-0.20.0.vsix
 └── README.txt                     # 5-line install guide
 ```
 
@@ -103,10 +103,9 @@ Changes needed to the root `package.json`:
 
 ```jsonc
 {
-  "name": "storyline",
+  "name": "storyline-cli",
   "version": "1.0.0",             // Bump from current
   "bin": {
-    "storyline": "./bin/storyline.js",
     "storyline": "./bin/storyline.js"
   },
   "files": [                       // Whitelist — replaces .npmignore guessing
@@ -136,8 +135,8 @@ Before the first publish:
 ```bash
 npm test                                            # 255/255 passing already
 cd vscode-extension && npm run package && cd ..     # Rebuild the .vsix
-npm pack                                            # Produces storyline-1.0.0.tgz
-npx ./storyline-1.0.0.tgz init /tmp/test-novel   # Install from the tarball
+npm pack                                            # Produces storyline-cli-1.0.0.tgz
+npx ./storyline-cli-1.0.0.tgz init /tmp/test-novel  # Install from the tarball
 cd /tmp/test-novel && code .                        # Should open with extension active
 ```
 
@@ -147,7 +146,7 @@ If the whole flow works end-to-end from a clean tarball, publish.
 
 Following the [roadmap](roadmap.md) convention of outcome-led milestones: Phase 0 is not "done" when the code works. It's done when:
 
-- 3 external beta testers have run `npx storyline init`
+- 3 external beta testers have run `npx storyline-cli init`
 - All 3 have opened the project in VS Code, written at least one chapter, and compiled to EPUB
 - Feedback has been collected on the install flow specifically (where did it break, where was the friction)
 
