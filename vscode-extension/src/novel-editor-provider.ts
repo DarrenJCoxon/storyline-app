@@ -1,11 +1,22 @@
 import * as vscode from 'vscode';
 import type { WordCountStatusBar } from './status-bar';
 
-// CustomTextEditorProvider that owns .md files in novel projects. VS Code
-// hands us a TextDocument and a WebviewPanel; we render the TipTap editor
-// in the panel and keep the document synced with webview edits. VS Code's
-// native save flow (Ctrl/Cmd+S, dirty dot on tab, close-prompt) works
-// because we write changes back to the document via WorkspaceEdit.
+// CustomTextEditorProvider that owns .md files in novel projects.
+//
+// Save model: autosave on idle. Every content change the webview posts
+// applies to the TextDocument immediately; a debounced background save
+// flushes to disk ~1.5s after the writer stops typing. Cmd+S is also
+// wired (via the webview's 'save' message) as a "save right now" hook
+// for power users who want explicit control.
+//
+// The previous manual save button approach created a brittle surface
+// where a user could click Save during a race condition and see a
+// cryptic error toast. Autosave sidesteps the entire class: users see
+// VS Code's native tab-dirty dot while a save is pending, and the
+// webview shows a simple Saved / Saving… status indicator.
+
+const AUTOSAVE_IDLE_MS = 1500;
+
 export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'novelWriter.editor';
 
@@ -26,8 +37,9 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.webview.html = buildWebviewHtml(webviewPanel.webview, this.context.extensionUri);
 
-    // Tell the status bar when our editor has focus so the "File: X" count
-    // displays — VS Code's activeTextEditor is undefined for custom editors.
+    // Status bar word count — custom editors aren't text editors, so
+    // vscode.window.activeTextEditor is always undefined for us. We
+    // notify the status bar explicitly when we gain/lose focus.
     if (webviewPanel.active) {
       this.statusBar.setActiveCustomEditor(document.uri);
     }
@@ -35,8 +47,6 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       if (webviewPanel.active) {
         this.statusBar.setActiveCustomEditor(document.uri);
       } else {
-        // clearIfActive only clears if this URI is currently set — prevents
-        // us stepping on another custom-editor panel that just grabbed focus.
         this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
       }
     });
@@ -50,10 +60,8 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
     };
 
     // Keep the webview in sync if the document changes externally (git
-    // pull, another editor, find/replace). Only push if the webview
-    // isn't the source of the change — applyEdit below fires this event
-    // too, which would create an echo loop. We suppress by tracking
-    // whether we initiated the most recent edit.
+    // pull, another editor, find/replace). Suppress the echo when
+    // applyEdit below initiated the change itself.
     let suppressNextDocChange = false;
 
     const changeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
@@ -65,10 +73,78 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       pushContentToWebview();
     });
 
+    // Autosave timer — scheduled after every content-changed applyEdit;
+    // cancelled if a new edit arrives before it fires (so fast typists
+    // get exactly one save at the end of their burst, not one per edit).
+    let autoSaveTimer: NodeJS.Timeout | undefined;
+    // Guard against overlapping saves when an autosave flush is already
+    // in flight and Cmd+S or another autosave fires. If a save is in
+    // flight, callers set rerunAfterSave so we re-fire once the current
+    // one completes.
+    let saveInFlight = false;
+    let rerunAfterSave = false;
+
+    const runSave = async (): Promise<void> => {
+      if (saveInFlight) {
+        rerunAfterSave = true;
+        return;
+      }
+      saveInFlight = true;
+      webviewPanel.webview.postMessage({ type: 'saving' });
+      try {
+        // document.save() returns false in several benign cases:
+        //   - autoSave (VS Code's own) fired first, doc is already clean
+        //   - the save was coalesced into one already in flight
+        //   - filesystem (iCloud / Dropbox / Time Machine) lagged
+        // A real failure is: returned false AND the doc is still dirty
+        // after a beat. Retry once before reporting it.
+        let saved = await document.save();
+        if (!saved && document.isDirty) {
+          await new Promise(resolve => setTimeout(resolve, 80));
+          if (!document.isDirty) {
+            saved = true;
+          } else {
+            saved = await document.save();
+          }
+        }
+        if (!saved && document.isDirty) {
+          throw new Error(
+            'document.save() failed twice — the file may be read-only, ' +
+            'locked by another process, or on a cloud-synced folder ' +
+            'with sync conflicts.',
+          );
+        }
+        webviewPanel.webview.postMessage({ type: 'saved' });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        webviewPanel.webview.postMessage({ type: 'save-failed', error: message });
+      } finally {
+        saveInFlight = false;
+        if (rerunAfterSave) {
+          rerunAfterSave = false;
+          // Run the queued save on a fresh tick so we don't re-enter
+          // the `saveInFlight` guard synchronously.
+          setTimeout(() => runSave(), 0);
+        }
+      }
+    };
+
+    const scheduleAutoSave = () => {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        autoSaveTimer = undefined;
+        // Don't save a clean doc. If the user typed and undid before
+        // the timer fired, VS Code already cleared isDirty and there's
+        // nothing to flush.
+        if (document.isDirty) void runSave();
+      }, AUTOSAVE_IDLE_MS);
+    };
+
     webviewPanel.onDidDispose(() => {
       changeSubscription.dispose();
       viewStateSubscription.dispose();
       this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
     });
 
     webviewPanel.webview.onDidReceiveMessage(async (msg: { type: string; markdown?: string }) => {
@@ -79,7 +155,6 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
 
       if (msg.type === 'content-changed' && typeof msg.markdown === 'string') {
         if (msg.markdown === document.getText()) return; // no-op
-
         const edit = new vscode.WorkspaceEdit();
         edit.replace(
           document.uri,
@@ -88,62 +163,28 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
         );
         suppressNextDocChange = true;
         await vscode.workspace.applyEdit(edit);
+        scheduleAutoSave();
         return;
       }
 
       if (msg.type === 'save') {
-        // User clicked the toolbar save button — sync (if the webview
-        // hasn't pushed its latest content yet, msg.markdown carries it)
-        // and then save via VS Code's native flow.
-        try {
-          if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
-            const edit = new vscode.WorkspaceEdit();
-            edit.replace(
-              document.uri,
-              new vscode.Range(0, 0, document.lineCount, 0),
-              msg.markdown,
-            );
-            suppressNextDocChange = true;
-            const applied = await vscode.workspace.applyEdit(edit);
-            if (!applied) {
-              throw new Error('Failed to apply webview edit to document');
-            }
-          }
-
-          // document.save() returns false in several benign cases:
-          //   - VS Code's autoSave fired first and the doc is already clean
-          //   - A queued save from applyEdit's onDidChangeTextDocument is
-          //     still in flight and VS Code coalesces ours into it
-          //   - Filesystem is iCloud / Dropbox / Time Machine managed and
-          //     reported a sync lag back to VS Code
-          // A real failure is: save returned false AND after a short
-          // beat the document is STILL dirty. Retry once before erroring.
-          let saved = await document.save();
-          if (!saved && document.isDirty) {
-            await new Promise(resolve => setTimeout(resolve, 80));
-            // If the document is now clean, autoSave caught up — success.
-            if (!document.isDirty) {
-              saved = true;
-            } else {
-              saved = await document.save();
-            }
-          }
-          if (!saved && document.isDirty) {
-            throw new Error(
-              'document.save() failed twice — the file may be read-only, ' +
-              'locked by another process, or on a cloud-synced folder ' +
-              'with sync conflicts. Check the file in Finder/Explorer.',
-            );
-          }
-
-          webviewPanel.webview.postMessage({ type: 'saved' });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage(
-            `Novel Writer: save failed — ${message}`,
-          );
-          webviewPanel.webview.postMessage({ type: 'save-failed', error: message });
+        // Explicit save request (Cmd+S power-user shortcut). Cancel any
+        // pending autosave, sync any late content, save now.
+        if (autoSaveTimer) {
+          clearTimeout(autoSaveTimer);
+          autoSaveTimer = undefined;
         }
+        if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
+          const edit = new vscode.WorkspaceEdit();
+          edit.replace(
+            document.uri,
+            new vscode.Range(0, 0, document.lineCount, 0),
+            msg.markdown,
+          );
+          suppressNextDocChange = true;
+          await vscode.workspace.applyEdit(edit);
+        }
+        void runSave();
         return;
       }
     });

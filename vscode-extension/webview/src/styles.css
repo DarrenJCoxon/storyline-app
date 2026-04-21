@@ -91,29 +91,32 @@ html, body {
   white-space: nowrap;
 }
 
-.toolbar-save {
-  background: transparent;
-  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
-  color: var(--vscode-editor-foreground);
-  padding: 4px 14px;
-  cursor: pointer;
+/* Autosave status indicator — passive (not a button). Sits where the
+ * manual Save button used to live. Minimal chrome so it recedes; colour
+ * shifts to flag problems without being loud. */
+.toolbar-status {
+  font-size: 12px;
   font-family: inherit;
-  font-size: 13px;
-  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  padding: 4px 10px;
+  min-width: 72px;
+  text-align: right;
+  user-select: none;
 }
 
-.toolbar-save:hover:not(:disabled) {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+.toolbar-status--saved {
+  color: var(--vscode-descriptionForeground);
 }
 
-.toolbar-save:disabled {
-  opacity: 0.5;
-  cursor: default;
+.toolbar-status--pending,
+.toolbar-status--saving {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.8;
 }
 
-.toolbar-save.dirty {
-  border-color: var(--vscode-inputValidation-warningBorder, #b89500);
-  color: var(--vscode-inputValidation-warningBorder, #b89500);
+.toolbar-status--failed {
+  color: var(--vscode-errorForeground, #d13438);
+  cursor: help;
 }
 
 .ProseMirror {

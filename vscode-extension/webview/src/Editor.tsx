@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Table from '@tiptap/extension-table';
@@ -10,6 +10,21 @@ import { SceneBreak } from './extensions/SceneBreak';
 import { vscode } from './vscode';
 import { debounce } from './debounce';
 
+// Save model: autosave on idle (host debounces to ~1.5s after the last
+// content-changed). The UI here is passive — no Save button. Cmd/Ctrl+S
+// still triggers an immediate save for writers who want explicit control.
+//
+// Status indicator states, driven by host messages:
+//   'saved'        — on disk, nothing pending
+//   'pending'      — edits buffered, autosave scheduled (the webview
+//                    inferred this from onUpdate; no host round-trip
+//                    needed to light it up)
+//   'saving'       — save is in flight
+//   'failed:<msg>' — save attempt errored; VS Code native save still
+//                    available as a fallback
+
+type SaveStatus = 'saved' | 'pending' | 'saving' | 'failed';
+
 type MarkdownStorage = { getMarkdown: () => string };
 
 function getMarkdown(editor: { storage: { markdown?: MarkdownStorage } } | null | undefined): string {
@@ -18,8 +33,17 @@ function getMarkdown(editor: { storage: { markdown?: MarkdownStorage } } | null 
 
 export function Editor(): JSX.Element | null {
   const [fileLoaded, setFileLoaded] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>('saved');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('No file open');
+
+  // Guard refs — stable across re-renders so the TipTap onUpdate closure
+  // can see current state without being re-created.
+  const fileLoadedRef = useRef(false);
+  // Last markdown the host acknowledged as "on disk" (initial load or
+  // post-save). onUpdate compares against this before marking pending —
+  // a no-op setContent echo from the host won't re-dirty the indicator.
+  const lastSavedMarkdownRef = useRef<string>('');
 
   const sendContentChange = useMemo(
     () => debounce((markdown: string) => {
@@ -30,14 +54,8 @@ export function Editor(): JSX.Element | null {
 
   const editor = useEditor({
     extensions: [
-      // Disable StarterKit's default horizontal rule — we replace it with
-      // our own SceneBreak node that renders '* * *' in both editor and output.
       StarterKit.configure({ horizontalRule: false }),
       SceneBreak,
-      // GFM-style tables. markdown-it parses `| col | col |` + `|---|---|`
-      // rows; tiptap-markdown serialises the TipTap table nodes back to
-      // markdown on save. Non-resizable to keep the column widths stable
-      // and CSS-controlled.
       Table.configure({ resizable: false, HTMLAttributes: { class: 'prose-table' } }),
       TableRow,
       TableHeader,
@@ -52,37 +70,54 @@ export function Editor(): JSX.Element | null {
     ],
     content: '',
     onUpdate: ({ editor }) => {
-      if (!fileLoaded) return; // ignore the initial content set
-      setDirty(true);
-      sendContentChange(getMarkdown(editor));
+      if (!fileLoadedRef.current) return;
+      const md = getMarkdown(editor);
+      // Ignore spurious updates that match the last-saved content
+      // (happens when the host echoes load-content, or TipTap normalises
+      // whitespace on parse).
+      if (md === lastSavedMarkdownRef.current) return;
+      setStatus('pending');
+      setSaveError(null);
+      sendContentChange(md);
     },
   });
 
-  // Sends the current markdown to the host for saving. We DON'T clear the
-  // dirty state here — we wait for the host to confirm success via the
-  // 'saved' message. If the save fails, the dirty indicator stays on and
-  // an error toast appears.
-  const save = useMemo(() => () => {
+  // Cmd/Ctrl+S — power-user "save right now" shortcut. Host cancels
+  // the pending autosave timer and saves immediately.
+  const saveNow = useMemo(() => () => {
     if (!editor) return;
     vscode.postMessage({ type: 'save', markdown: getMarkdown(editor) });
   }, [editor]);
 
-  // Listen for messages from the extension host.
   useEffect(() => {
     const listener = (event: MessageEvent) => {
       const msg = event.data as { type: string; markdown?: string; fileName?: string; error?: string };
+
       if (msg.type === 'load-content' && editor && typeof msg.markdown === 'string') {
-        editor.commands.setContent(msg.markdown);
+        // Skip the re-apply if the editor already has this exact content.
+        // Prevents TipTap firing onUpdate in response to a no-op setContent,
+        // which used to flip the status back to 'pending' after a save.
+        if (getMarkdown(editor) !== msg.markdown) {
+          editor.commands.setContent(msg.markdown);
+        }
         if (msg.fileName) setFileName(msg.fileName);
         setFileLoaded(true);
-        setDirty(false);
+        fileLoadedRef.current = true;
+        lastSavedMarkdownRef.current = msg.markdown;
+        setStatus('saved');
+        setSaveError(null);
       }
-      if (msg.type === 'saved') {
-        setDirty(false);
+      if (msg.type === 'saving') {
+        setStatus('saving');
+      }
+      if (msg.type === 'saved' && editor) {
+        lastSavedMarkdownRef.current = getMarkdown(editor);
+        setStatus('saved');
+        setSaveError(null);
       }
       if (msg.type === 'save-failed') {
-        // Host already showed an error toast; keep the dirty indicator lit.
-        setDirty(true);
+        setStatus('failed');
+        setSaveError(typeof msg.error === 'string' ? msg.error : 'save failed');
       }
     };
     window.addEventListener('message', listener);
@@ -90,21 +125,31 @@ export function Editor(): JSX.Element | null {
     return () => window.removeEventListener('message', listener);
   }, [editor]);
 
-  // Cmd/Ctrl+S saves.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        save();
+        saveNow();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [save]);
+  }, [saveNow]);
 
   if (!editor) return null;
 
   const btn = (active: boolean) => ({ className: `toolbar-btn${active ? ' active' : ''}` });
+
+  const statusLabel = (() => {
+    if (!fileLoaded) return '';
+    switch (status) {
+      case 'saving':  return 'Saving\u2026';
+      case 'pending': return 'Saving\u2026';   // writer sees "unsaved" as in-flight
+      case 'failed':  return 'Save failed';
+      case 'saved':
+      default:        return 'Saved';
+    }
+  })();
 
   return (
     <div className="novel-editor">
@@ -162,14 +207,12 @@ export function Editor(): JSX.Element | null {
         </button>
         <div className="toolbar-spacer" />
         <div className="toolbar-filename" title={fileName}>{fileName}</div>
-        <button
-          className={`toolbar-save${dirty ? ' dirty' : ''}`}
-          onClick={save}
-          title="Save (⌘S)"
-          disabled={!fileLoaded}
+        <div
+          className={`toolbar-status toolbar-status--${status}`}
+          title={saveError ? `Save error: ${saveError}` : 'Autosaves 1.5s after you stop typing. ⌘S to save now.'}
         >
-          {dirty ? '● Save' : 'Saved'}
-        </button>
+          {statusLabel}
+        </div>
       </div>
       <EditorContent editor={editor} />
     </div>
