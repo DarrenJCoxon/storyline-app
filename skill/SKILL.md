@@ -257,6 +257,52 @@ nw memory status
 
 Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `nw memory sync` and push them before moving on.
 
+### Writing-session protocol (manuscript memory — runs after drafting prose)
+
+Once the plan is complete and the writer begins drafting chapters into
+`manuscript/`, the plan is no longer the whole picture. The manuscript
+itself becomes a second authoritative surface — and it will drift from
+the plan as the novel takes shape in prose. Both surfaces must be in
+odd-flow memory, tagged distinctly, so a future session can compare.
+
+**After any writing session (or before closing the VS Code editor on a
+manuscript file):**
+
+```bash
+nw manuscript sync      # snapshot prose → memory.jsonl with `draft:*` keys
+nw memory sync          # push the new entries to odd-flow MCP
+nw memory mark-synced   # as before
+nw manuscript compare   # plan vs draft — review any drift findings
+```
+
+What `nw manuscript sync` captures per chapter: title, word count,
+scene count (detected from `---`, `* * *`, or blank-paragraph breaks),
+POV (first-/third-person heuristic), opening sentence, closing
+sentence. Manuscript-level: total word count, chapter count, progress
+versus `genre.targetWordCount`.
+
+Keys live under `draft:*` to disambiguate from the plan's `chapter:*`
+memories — both coexist in the same `novel:<slug>` namespace.
+
+**`nw manuscript compare` reports drift** along these axes:
+
+- `chapter-count-mismatch` — more or fewer drafted chapters than planned
+- `unplanned-chapter` — a chapter file exists with no plan counterpart
+- `chapter-scene-drift` — drafted scene count differs from plan
+- `chapter-word-drift` — chapter word count deviates ≥35% from planned
+- `chapter-pov-drift` — drafted POV contradicts plan's stated POV
+- `target-exceeded` — total words blow past 120% of target
+
+The compare report does not auto-update the plan. When drift is real
+(the writer has chosen a new direction), the writer decides: either
+update the plan to match (new `nw save chapterOutline` / `nw save
+critique`) or steer the draft back. Both actions re-sync their
+respective memory.
+
+**`nw doctor` folds manuscript drift into its report** — the stage-
+closure protocol below catches both plan/memory misalignment AND
+plan/draft divergence in one call.
+
 ### Stage-closure protocol (run after EVERY completed stage — non-negotiable)
 
 After the writer signs off on a stage and before you transition to the next, run these three checks **in order** and **do not proceed** unless all three pass:

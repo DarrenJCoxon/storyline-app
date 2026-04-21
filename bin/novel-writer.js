@@ -362,6 +362,67 @@ program
     console.log(JSON.stringify({ stage: stageId, checks: results }, null, 2));
   });
 
+// ── manuscript — snapshot prose into odd-flow memory + compare to plan ──
+const manuscript = program.command('manuscript').description('Manuscript snapshot + plan-comparison commands');
+
+manuscript
+  .command('sync')
+  .description('Snapshot manuscript/ prose into memory.jsonl so odd-flow MCP holds a current draft state')
+  .option('--json', 'Output machine-readable JSON')
+  .action(async (opts) => {
+    const state = loadState();
+    if (!state) {
+      console.error(chalk.red('No project found. Run `nw init` first.'));
+      process.exit(1);
+    }
+    const { snapshotManuscript, buildManuscriptMemoryEntries } = await import('../lib/manuscript/snapshot.js');
+    const { appendMemoryLog } = await import('../lib/memory/stage-memory.js');
+
+    const snapshot = await snapshotManuscript(process.cwd(), {
+      manuscriptPath: state?.writing?.manuscriptPath || 'manuscript',
+    });
+    const entries = buildManuscriptMemoryEntries(snapshot, state);
+    const { logPath, entriesWithIds } = await appendMemoryLog(entries);
+
+    const summary = {
+      synced: true,
+      chapterCount: snapshot.chapterCount,
+      totalWords: snapshot.totalWords,
+      memoryEntries: entriesWithIds,
+      memoryLogPath: logPath,
+    };
+
+    if (opts.json) {
+      console.log(JSON.stringify(summary, null, 2));
+    } else {
+      console.log(chalk.green(`Snapshot: ${snapshot.chapterCount} chapter${snapshot.chapterCount === 1 ? '' : 's'}, ${snapshot.totalWords.toLocaleString()} words.`));
+      console.log(chalk.dim(`  ↳ ${entriesWithIds.length} memory entries appended to ${logPath}`));
+      console.log(chalk.dim(`    Push via mcp__odd-flow__memory_store then nw memory mark-synced <ids>.`));
+      // Skill-consumable JSON last so piped tooling works:
+      console.log(JSON.stringify(summary));
+    }
+  });
+
+manuscript
+  .command('compare')
+  .description('Compare draft manuscript against the canonical plan, reporting drift per chapter')
+  .option('--json', 'Output machine-readable JSON')
+  .action(async (opts) => {
+    const state = loadState();
+    if (!state) {
+      console.error(chalk.red('No project found.'));
+      process.exit(1);
+    }
+    const { compareManuscriptToPlan, formatCompareReport } = await import('../lib/manuscript/compare.js');
+    const report = await compareManuscriptToPlan(state, process.cwd());
+    if (opts.json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      const text = formatCompareReport(report);
+      console.log(report.drift ? chalk.yellow(text) : chalk.green(text));
+    }
+  });
+
 // ── doctor — cross-surface drift detection ─────────────────────
 program
   .command('doctor')
