@@ -26,7 +26,7 @@ export class WordCountStatusBar {
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    this.item.command = 'novelWriter.showWordCountBreakdown';
+    this.item.command = 'storyline.showWordCountBreakdown';
     context.subscriptions.push(this.item);
   }
 
@@ -72,7 +72,7 @@ export class WordCountStatusBar {
   }
 
   // Read both the target word count and the manuscript path from state.json.
-  // Manuscript path defaults to 'manuscript' — set up by `nw init`. Writers
+  // Manuscript path defaults to 'manuscript' — set up by `storyline init`. Writers
   // can override by editing state.json's writing.manuscriptPath field.
   private async loadProjectConfig(): Promise<void> {
     const folder = vscode.workspace.workspaceFolders?.[0];
@@ -82,7 +82,7 @@ export class WordCountStatusBar {
       return;
     }
     try {
-      const stateFile = vscode.Uri.joinPath(folder.uri, '.novel-writer', 'state.json');
+      const stateFile = vscode.Uri.joinPath(folder.uri, '.storyline', 'state.json');
       const buf = await vscode.workspace.fs.readFile(stateFile);
       const state = JSON.parse(new TextDecoder().decode(buf));
       this.target = Number(state?.genre?.targetWordCount) || 0;
@@ -147,7 +147,7 @@ export class WordCountStatusBar {
   private async handleDocSaved(doc: vscode.TextDocument): Promise<void> {
     // When state.json is edited, target OR manuscriptPath might have changed.
     // Reload config; if the manuscript path changed, rescan everything.
-    if (doc.uri.fsPath.endsWith('state.json') && doc.uri.fsPath.includes('.novel-writer')) {
+    if (doc.uri.fsPath.endsWith('state.json') && doc.uri.fsPath.includes('.storyline')) {
       const prevPath = this.manuscriptPath;
       await this.loadProjectConfig();
       if (this.manuscriptPath !== prevPath) {
@@ -222,7 +222,7 @@ export class WordCountStatusBar {
 }
 
 function buildTooltip(total: number, target: number, manuscriptPath: string, fileCount: number): string {
-  const lines: string[] = ['Novel Writer — word count'];
+  const lines: string[] = ['Storyline — word count'];
   lines.push(`Book total: ${total.toLocaleString()} words across ${fileCount} file${fileCount === 1 ? '' : 's'}`);
   if (target > 0) {
     const pct = Math.round((total / target) * 100);
@@ -238,12 +238,12 @@ function buildTooltip(total: number, target: number, manuscriptPath: string, fil
 
 function buildEmptyTooltip(manuscriptPath: string): string {
   return [
-    'Novel Writer — word count',
+    'Storyline — word count',
     '',
     `No markdown files found in ${manuscriptPath}/`,
     '',
     'Create chapter files there (e.g. manuscript/ch01.md) to start',
-    'tracking word count, or edit .novel-writer/state.json to point',
+    'tracking word count, or edit .storyline/state.json to point',
     'writing.manuscriptPath at a different folder.',
   ].join('\n');
 }

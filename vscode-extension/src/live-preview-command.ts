@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import MarkdownIt from 'markdown-it';
 
-// "Novel Writer: Open Live Chapter Preview" — side panel that renders
+// "Storyline: Open Live Chapter Preview" — side panel that renders
 // the active chapter (markdown) with theme CSS applied, and updates
 // 500ms after the writer stops typing. Sister command to Open Preview
 // (full-book paginated) but trades pagination for typing responsiveness.
@@ -42,7 +42,7 @@ function createRenderer(): MarkdownIt {
 export async function openLivePreview(context: vscode.ExtensionContext): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
-    vscode.window.showErrorMessage('Novel Writer: open a novel project folder first.');
+    vscode.window.showErrorMessage('Storyline: open a novel project folder first.');
     return;
   }
 
@@ -59,7 +59,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   const md = createRenderer();
 
   const panel = vscode.window.createWebviewPanel(
-    'novelWriter.livePreview',
+    'storyline.livePreview',
     'Live Chapter Preview',
     // Beside the active editor — VS Code handles column creation
     // naturally. The Inspector view (not an editor column) is the
@@ -202,7 +202,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(
-          `Novel Writer: could not load theme "${id}" — ${message}`,
+          `Storyline: could not load theme "${id}" — ${message}`,
         );
       }
       return;
@@ -222,12 +222,12 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
           sceneBreakOrnament,
         });
         vscode.window.setStatusBarMessage(
-          `Novel Writer: preview defaults saved to compile.config.json`,
+          `Storyline: preview defaults saved to compile.config.json`,
           3000,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Novel Writer: could not save defaults — ${message}`);
+        vscode.window.showErrorMessage(`Storyline: could not save defaults — ${message}`);
       }
       return;
     }
@@ -356,7 +356,7 @@ interface ThemeDescriptor {
 // name shown in the UI comes from theme.json's `name` field.
 //
 // Logs diagnostic info to the extension host's console — visible via
-// Help → Toggle Developer Tools → Console, filter "Novel Writer". Read
+// Help → Toggle Developer Tools → Console, filter "Storyline". Read
 // errors don't abort discovery; a single broken theme shouldn't hide
 // the other two.
 async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDescriptor[]> {
@@ -365,7 +365,7 @@ async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDe
   try {
     entries = await fs.readdir(themesRoot);
   } catch (err) {
-    console.warn('[Novel Writer] theme discovery: cannot read', themesRoot, err);
+    console.warn('[Storyline] theme discovery: cannot read', themesRoot, err);
     return [{ id: 'classic-serif', name: 'Classic Serif' }];
   }
 
@@ -383,7 +383,7 @@ async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDe
         name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : name,
       });
     } catch (err) {
-      console.warn(`[Novel Writer] theme discovery: skipping "${name}"`, err);
+      console.warn(`[Storyline] theme discovery: skipping "${name}"`, err);
     }
   }
 
@@ -396,10 +396,10 @@ async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDe
     return a.name.localeCompare(b.name);
   });
   if (themes.length > 0) {
-    console.log(`[Novel Writer] theme discovery: ${themes.map(t => t.id).join(', ')}`);
+    console.log(`[Storyline] theme discovery: ${themes.map(t => t.id).join(', ')}`);
     return themes;
   }
-  console.warn('[Novel Writer] theme discovery: found no themes — falling back to classic-serif');
+  console.warn('[Storyline] theme discovery: found no themes — falling back to classic-serif');
   return [{ id: 'classic-serif', name: 'Classic Serif' }];
 }
 
@@ -439,7 +439,7 @@ let cachedManuscriptPath: string | null = null;
 async function getManuscriptPath(workspaceRoot: vscode.Uri): Promise<string> {
   if (cachedManuscriptPath !== null) return cachedManuscriptPath;
   try {
-    const statePath = path.join(workspaceRoot.fsPath, '.novel-writer', 'state.json');
+    const statePath = path.join(workspaceRoot.fsPath, '.storyline', 'state.json');
     const raw = await fs.readFile(statePath, 'utf-8');
     const state = JSON.parse(raw);
     const p = state?.writing?.manuscriptPath;

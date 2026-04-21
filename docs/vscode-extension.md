@@ -1,4 +1,4 @@
-# Novel Writer — VS Code Extension Sketch
+# Storyline — VS Code Extension Sketch
 
 _Status: design sketch. Not yet built._
 _Related: [compile-feature.md](compile-feature.md) (ebook/print PDF output), [engine-platform.md](engine-platform.md) (multi-engine architecture)._
@@ -6,14 +6,14 @@ _Last updated: 2026-04-19_
 
 ## Why
 
-The `/novel` harness plans novels brilliantly but planning is half the job. Writers still need a place to actually write the prose — and that place is currently "open a markdown file and type raw syntax." That's a developer workflow, not a writer workflow.
+The `/storyline` harness plans novels brilliantly but planning is half the job. Writers still need a place to actually write the prose — and that place is currently "open a markdown file and type raw syntax." That's a developer workflow, not a writer workflow.
 
 Scrivener solves the writer side beautifully (rich text, scene-by-scene organisation, composition mode, word count tracking) but has no AI harness. Google Docs has good editing but no structural planning. Nothing combines both.
 
 A VS Code extension gives us the best-of-both without building a desktop app from scratch. Writers already in VS Code (or Cursor) get:
 
 - Scrivener-quality rich-text writing via TipTap
-- The `/novel` planning harness in a side panel
+- The `/storyline` planning harness in a side panel
 - Markdown files on disk (git-friendly, portable, future-proof)
 - Word count, scene breaks, and all the small writer-tools they expect
 
@@ -23,14 +23,14 @@ The bet: you can get 90% of Scrivener's writing experience without owning a desk
 
 Writer opens VS Code in their novel project. They see:
 
-- **Left sidebar:** their novel project — `chapters/`, `notes/`, `.novel-writer/state.json`
+- **Left sidebar:** their novel project — `chapters/`, `notes/`, `.storyline/state.json`
 - **Centre:** a clean writing surface when they open `chapters/ch01.md`. Bold shows as bold. Italic as italic. Scene breaks render as a centred `* * *`. No raw markdown tags.
-- **Right panel:** the `/novel` chat — unchanged, runs exactly as it does today
+- **Right panel:** the `/storyline` chat — unchanged, runs exactly as it does today
 - **Bottom status bar:** word count for the current chapter, total manuscript, % of target
 
 They write. When they save, the file on disk is clean markdown — nothing proprietary. If they open the same file in Obsidian, GitHub, or any text editor, it reads as normal markdown. They can git-commit, diff, and collaborate with anyone.
 
-If they ask `/novel` a question about structure, the harness reads from `state.json` and the markdown files to answer. Planning and writing share the same source of truth.
+If they ask `/storyline` a question about structure, the harness reads from `state.json` and the markdown files to answer. Planning and writing share the same source of truth.
 
 ## File format philosophy
 
@@ -38,7 +38,7 @@ If they ask `/novel` a question about structure, the harness reads from `state.j
 
 - Markdown is portable. If this extension dies, your manuscript is still readable in any editor.
 - Markdown diffs cleanly in git. You can actually see what changed chapter-to-chapter.
-- Markdown is what the `/novel` harness already uses for `output/stages/*.md` and `output/master-document.md`.
+- Markdown is what the `/storyline` harness already uses for `output/stages/*.md` and `output/master-document.md`.
 - Everything else (scene breaks, comments, annotations) is either standard markdown or a convention the extension understands.
 
 The extension never writes proprietary format. If you uninstall it, your work is intact.
@@ -47,12 +47,12 @@ The extension never writes proprietary format. If you uninstall it, your work is
 
 The smallest thing that proves the concept works:
 
-1. **A VS Code extension** that registers a custom editor for `.md` files inside a novel project (detected by presence of `.novel-writer/state.json`)
+1. **A VS Code extension** that registers a custom editor for `.md` files inside a novel project (detected by presence of `.storyline/state.json`)
 2. **TipTap WYSIWYG editor** in the custom editor webview
 3. **Markdown ↔ TipTap round-trip** using `tiptap-markdown`
 4. **One custom node:** scene break (`* * *` in markdown, rendered as centred `* * *`)
 5. **Word count** in status bar (current file + project total)
-6. **The `/novel` harness** continues to work unchanged in a side chat panel
+6. **The `/storyline` harness** continues to work unchanged in a side chat panel
 
 That's it. No binder, no composition mode, no comments, no research panel. The goal is to answer: does the writing surface feel right?
 
@@ -71,11 +71,11 @@ Three layers:
 - Registers the custom editor provider for `.md` files
 - Reads markdown from disk on file open, sends it to the webview
 - Receives TipTap JSON from webview on save, serialises to markdown, writes to disk
-- Watches `.novel-writer/state.json` and pushes updates to the webview (for word-count targets, chapter metadata, etc)
+- Watches `.storyline/state.json` and pushes updates to the webview (for word-count targets, chapter metadata, etc)
 
-**3. Existing `/novel` harness (unchanged)**
+**3. Existing `/storyline` harness (unchanged)**
 - Runs in a Claude Code chat panel as it does today
-- Reads/writes `.novel-writer/state.json`, `output/stages/*.md`, `.novel-writer/memory.jsonl`
+- Reads/writes `.storyline/state.json`, `output/stages/*.md`, `.storyline/memory.jsonl`
 - Does not need to know about the extension at all — they coexist by sharing the file system
 
 ```
@@ -94,7 +94,7 @@ Three layers:
 │                    └──────────┬───────────────┘ │
 │                               │ postMessage     │
 │  ┌─────────────────┐  ┌───────▼────────────────┐│
-│  │ /novel chat     │  │ Extension host (Node)  ││
+│  │ /storyline chat     │  │ Extension host (Node)  ││
 │  │ (Claude Code)   │  │  - custom editor       ││
 │  │                 │  │  - md ↔ tiptap JSON    ││
 │  └────────┬────────┘  │  - file watcher        ││
@@ -106,8 +106,8 @@ Three layers:
    ┌──────────────────────────────────────┐
    │ Disk                                 │
    │  chapters/ch01.md  (plain markdown)  │
-   │  .novel-writer/state.json            │
-   │  .novel-writer/memory.jsonl          │
+   │  .storyline/state.json            │
+   │  .storyline/memory.jsonl          │
    │  output/stages/*.md                  │
    └──────────────────────────────────────┘
 ```
@@ -139,12 +139,12 @@ What we explicitly *don't* support:
 
 ## Harness panel integration
 
-The `/novel` harness keeps running as a Claude Code chat in the side panel. No integration work needed for v1 — they coexist on the shared file system.
+The `/storyline` harness keeps running as a Claude Code chat in the side panel. No integration work needed for v1 — they coexist on the shared file system.
 
 Later (phase 2), we can add extension-side affordances:
-- Click a chapter heading in TipTap → `/novel` gets a "you are now in chapter 2" context signal
-- Selection in TipTap + right-click → "ask /novel about this passage"
-- When `/novel` writes a new stage doc, a toast in VS Code offers to open it
+- Click a chapter heading in TipTap → `/storyline` gets a "you are now in chapter 2" context signal
+- Selection in TipTap + right-click → "ask /storyline about this passage"
+- When `/storyline` writes a new stage doc, a toast in VS Code offers to open it
 
 None of that is required for the prototype.
 
@@ -152,7 +152,7 @@ None of that is required for the prototype.
 
 Scrivener's real moat isn't the editor — it's the **binder**: a draggable tree of scenes/chapters/research notes, reorderable, viewable at multiple granularities.
 
-VS Code's file tree is flat and alphabetical. To replicate the binder, we build a custom tree view (VS Code's `TreeDataProvider` API) that sits alongside the file explorer. It reads chapter/scene metadata from `.novel-writer/state.json` and presents the manuscript grouped by act → chapter → scene.
+VS Code's file tree is flat and alphabetical. To replicate the binder, we build a custom tree view (VS Code's `TreeDataProvider` API) that sits alongside the file explorer. It reads chapter/scene metadata from `.storyline/state.json` and presents the manuscript grouped by act → chapter → scene.
 
 Drag-to-reorder in a custom tree view is supported but non-trivial — it means updating chapter metadata in state.json AND renaming/reordering files on disk. This is the real feature work, and it's why I'd prove the editor feels right before investing.
 
@@ -175,7 +175,7 @@ Phase 2 scope (rough):
 
 **Two cursors (VS Code's text cursor vs TipTap's).** Custom editors replace VS Code's text cursor entirely with whatever the webview provides. Find/replace, go-to-line, and multi-cursor all stop working on that file. For prose, that's fine — writers don't multi-cursor a novel. But it's a thing to know.
 
-**AI harness integration boundary.** The harness currently runs as a Claude Code chat. If we later want an in-editor "ask AI about this paragraph" feature, we need to decide whether the extension calls Claude directly or delegates to the `/novel` harness. Punt until we see what writers actually ask for.
+**AI harness integration boundary.** The harness currently runs as a Claude Code chat. If we later want an in-editor "ask AI about this paragraph" feature, we need to decide whether the extension calls Claude directly or delegates to the `/storyline` harness. Punt until we see what writers actually ask for.
 
 ## Next steps
 

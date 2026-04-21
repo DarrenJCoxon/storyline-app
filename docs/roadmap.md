@@ -15,7 +15,7 @@ _Last updated: 2026-04-20_
 
 ## The milestones
 
-### Milestone 1 — Novel Writer harness proves itself on a real book
+### Milestone 1 — Storyline harness proves itself on a real book
 **Pre-flight build work complete** (Stories 1.1-1.4: drift fixes, smoke tests, master-doc generation verified). **Gate open** — awaiting real-book planning (Story 1.5), which is writer work done outside build sessions. Reactive fixes (1.6-1.7) happen when the friction log surfaces something. Detail: [roadmap/milestone-01-harness-proves-itself.md](roadmap/milestone-01-harness-proves-itself.md)
 
 ### Milestone 2 — VS Code extension MVP: rich-text writing feels right
@@ -35,8 +35,8 @@ _Last updated: 2026-04-20_
 **Prove-it gate:** Writer picks a theme for their real book because one *looks right for it*, not because the others are broken. Detail: [roadmap/milestone-06-theme-expansion.md](roadmap/milestone-06-theme-expansion.md)
 
 ### Milestone 7 — Multi-engine refactor
-**Outcome:** Platform extracted from Novel Writer. Engine API formalised. Second engine (Non-Fiction Writer) built as proof that the abstraction works.
-**Prove-it gate:** Plan an actual non-fiction book using the second engine. The extension must host both engines cleanly; Novel Writer work must not regress.
+**Outcome:** Platform extracted from Storyline. Engine API formalised. Second engine (Non-Fiction Writer) built as proof that the abstraction works.
+**Prove-it gate:** Plan an actual non-fiction book using the second engine. The extension must host both engines cleanly; Storyline work must not regress.
 **Status:** Deferred until at least Milestone 4 is shipped. Do not start early. See `engine-platform.md` for the warning on premature generalisation.
 
 ## Meta-rules for milestones

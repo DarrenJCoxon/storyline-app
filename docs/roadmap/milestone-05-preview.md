@@ -33,7 +33,7 @@ Both must be true:
 VS Code extension                      Preview panel (webview)
 ──────────────                        ───────────────────────
 
-"Novel Writer: Open Preview"  ──→   Loads print-preview.html via
+"Storyline: Open Preview"  ──→   Loads print-preview.html via
        command                       file:// URL in a webview.
                                      Chromium + Paged.js paginate
                                      as in Story 4.3.
@@ -53,7 +53,7 @@ Two preview modes share the same underlying components — theme CSS, HTML rende
 
 ### 5.1 — Full-book preview panel (command + webview)
 
-`Novel Writer: Open Preview` command opens a VS Code webview panel. The panel loads the most recent `output/compiled/<slug>-print-preview.html` (produced by any print-pdf compile) via file:// URL. Paged.js auto-runs in the webview, paginating the book.
+`Storyline: Open Preview` command opens a VS Code webview panel. The panel loads the most recent `output/compiled/<slug>-print-preview.html` (produced by any print-pdf compile) via file:// URL. Paged.js auto-runs in the webview, paginating the book.
 
 If no preview HTML exists yet, the command runs a print-pdf compile first (which generates the HTML as a side effect), then loads the result.
 
@@ -68,7 +68,7 @@ Panel features:
 
 ### 5.2 — Live chapter preview
 
-New command `Novel Writer: Open Live Chapter Preview` opens a side panel that:
+New command `Storyline: Open Live Chapter Preview` opens a side panel that:
 1. Watches the active chapter file (`manuscript/*.md`)
 2. Runs the markdown → HTML → theme pipeline on JUST that file (no assembly, no Paged.js — just rendered prose with theme styling)
 3. Updates the preview every 500ms after the writer stops typing

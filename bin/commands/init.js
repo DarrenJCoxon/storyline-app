@@ -1,4 +1,4 @@
-// novel-writer init command — installs /novel skill into current directory
+// storyline init command — installs /storyline skill into current directory
 import chalk from 'chalk';
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -12,7 +12,7 @@ const PACKAGE_ROOT = resolve(__dirname, '../..');
 export function registerInit(program) {
   program
     .command('init [project-name]')
-    .description('Install /novel skill into current directory and configure for novel writing')
+    .description('Install /storyline skill into current directory and configure for novel writing')
     .option('--yes', 'Accept all defaults without prompting')
     .action(async (projectName, options) => {
       const targetDir = projectName ? resolve(process.cwd(), projectName) : process.cwd();
@@ -32,18 +32,18 @@ export function registerInit(program) {
         }
       }
 
-      console.log(chalk.bold(`\n✏️  Novel Writer — Initializing\n`));
+      console.log(chalk.bold(`\n✏️  Storyline — Initializing\n`));
       console.log(chalk.dim(`  Project: ${chalk.cyan(resolvedName)}\n`));
 
-      // Step 1: Create .novel-writer directory
-      const novelWriterDir = resolve(targetDir, '.novel-writer');
-      const stateFile = resolve(novelWriterDir, 'state.json');
+      // Step 1: Create .storyline directory
+      const storylineDir = resolve(targetDir, '.storyline');
+      const stateFile = resolve(storylineDir, 'state.json');
 
-      if (!existsSync(novelWriterDir)) {
-        mkdirSync(novelWriterDir, { recursive: true });
-        console.log(chalk.dim(`  ✓ Created .novel-writer/`));
+      if (!existsSync(storylineDir)) {
+        mkdirSync(storylineDir, { recursive: true });
+        console.log(chalk.dim(`  ✓ Created .storyline/`));
       } else {
-        console.log(chalk.dim(`  ✓ .novel-writer/ already exists`));
+        console.log(chalk.dim(`  ✓ .storyline/ already exists`));
       }
 
       // Step 2: Create initial state if it doesn't exist
@@ -129,12 +129,12 @@ manuscript/
 └── ...
 \`\`\`
 
-Word counts shown in the Novel Writer VS Code extension's status bar scan
+Word counts shown in the Storyline VS Code extension's status bar scan
 only this folder — so planning docs in \`output/\` and notes elsewhere don't
 inflate the total.
 
 If you prefer a different layout (e.g. \`chapters/\` or \`drafts/\`), edit
-\`.novel-writer/state.json\` and change \`writing.manuscriptPath\` to the
+\`.storyline/state.json\` and change \`writing.manuscriptPath\` to the
 folder you want scanned.
 
 Delete this README once you've got your first chapter file in here.
@@ -166,6 +166,6 @@ Delete this README once you've got your first chapter file in here.
       }
 
       console.log(chalk.bold(`\n✅ Initialized: ${chalk.cyan(resolvedName)}\n`));
-      console.log(chalk.dim(`  Run ${chalk.white('nw start')} to begin planning\n`));
+      console.log(chalk.dim(`  Run ${chalk.white('storyline start')} to begin planning\n`));
     });
 }

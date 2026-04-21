@@ -32,7 +32,7 @@ The first two are commodity tech. The third is labour we can do over time. The f
 chapter files (.md)
   │
   │  1. Assembly
-  │     - Read chapters in order from .novel-writer/state.json
+  │     - Read chapters in order from .storyline/state.json
   │     - Concatenate with front matter (title page, copyright, dedication)
   │     - Concatenate back matter (acknowledgements, about the author)
   │     - Generate TOC from chapter titles
@@ -64,7 +64,7 @@ The compile pipeline is engine-agnostic. Each engine defines what outputs make s
 
 | Engine | Typical outputs |
 |--------|-----------------|
-| Novel Writer | EPUB, print PDF (5x8, 5.5x8.5, 6x9, large print), Word docx (for agents/editors) |
+| Storyline | EPUB, print PDF (5x8, 5.5x8.5, 6x9, large print), Word docx (for agents/editors) |
 | Essay Writer | Word docx (academic submission), PDF (print), APA/MLA formatted variants |
 | Non-Fiction Writer | EPUB, print PDF, companion-materials PDF (workbooks, exercises), web HTML |
 | Screenplay Writer | PDF in industry format (Courier 12pt, 55 lines/page), Final Draft `.fdx` |
@@ -203,19 +203,19 @@ Preview is fundamentally part of the compile story, not a separate feature. But 
 **New VS Code extension commands:**
 
 Preview (non-destructive, opens a panel):
-- `Novel Writer: Preview → Current Chapter (live)`
-- `Novel Writer: Preview → Full Manuscript (print PDF layout)`
-- `Novel Writer: Preview → Full Manuscript (EPUB on [device])`
-- `Novel Writer: Preview → Compare Themes`
-- `Novel Writer: Open in Kindle Previewer` (exports temp EPUB, launches external tool)
+- `Storyline: Preview → Current Chapter (live)`
+- `Storyline: Preview → Full Manuscript (print PDF layout)`
+- `Storyline: Preview → Full Manuscript (EPUB on [device])`
+- `Storyline: Preview → Compare Themes`
+- `Storyline: Open in Kindle Previewer` (exports temp EPUB, launches external tool)
 
 Compile (writes files to `output/compiled/`):
-- `Novel Writer: Compile → EPUB`
-- `Novel Writer: Compile → Print PDF (6x9)`
-- `Novel Writer: Compile → Print PDF (5x8)`
-- `Novel Writer: Compile → Word docx (for agents)`
-- `Novel Writer: Compile → All (everything at once)`
-- `Novel Writer: Compile → Pre-flight check`
+- `Storyline: Compile → EPUB`
+- `Storyline: Compile → Print PDF (6x9)`
+- `Storyline: Compile → Print PDF (5x8)`
+- `Storyline: Compile → Word docx (for agents)`
+- `Storyline: Compile → All (everything at once)`
+- `Storyline: Compile → Pre-flight check`
 
 **Project configuration: `compile.config.json`**
 
@@ -266,7 +266,7 @@ Everything goes in `output/compiled/` which is already gitignored at root level.
 This is a multi-month feature, not weekend work. The smallest valuable first slice:
 
 **Phase 1: EPUB with one theme**
-- Assembly pipeline from `.novel-writer/state.json` chapter order
+- Assembly pipeline from `.storyline/state.json` chapter order
 - One theme (Classic Serif)
 - Metadata from a project config file
 - Output valid `.epub` that opens in Apple Books and Kindle Previewer

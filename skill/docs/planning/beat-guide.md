@@ -1,4 +1,4 @@
-# Novel Writer — Beat-by-Beat Guide
+# Storyline — Beat-by-Beat Guide
 
 Quick reference for the 15 Save the Cat beats. Use this when you need deeper explanation of a specific beat during planning.
 

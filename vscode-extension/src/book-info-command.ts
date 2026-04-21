@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { resolve } from 'path';
 
-// "Novel Writer: Edit Book Info" — opens a simple form webview where the
+// "Storyline: Edit Book Info" — opens a simple form webview where the
 // writer can edit their book's metadata (title, author, publisher, ISBN,
 // genre, theme, paragraph style). Writes to compile.config.json on save.
 // No JSON editing, no terminal, no VS Code settings dive.
@@ -30,16 +30,16 @@ interface BookConfig {
 export async function editBookInfo(context: vscode.ExtensionContext): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
-    vscode.window.showErrorMessage('Novel Writer: open a novel project folder first.');
+    vscode.window.showErrorMessage('Storyline: open a novel project folder first.');
     return;
   }
 
-  const stateFile = vscode.Uri.joinPath(folder.uri, '.novel-writer', 'state.json');
+  const stateFile = vscode.Uri.joinPath(folder.uri, '.storyline', 'state.json');
   try {
     await vscode.workspace.fs.stat(stateFile);
   } catch {
     vscode.window.showErrorMessage(
-      'Novel Writer: no .novel-writer/state.json found. Run `nw init` first.',
+      'Storyline: no .storyline/state.json found. Run `storyline init` first.',
     );
     return;
   }
@@ -48,7 +48,7 @@ export async function editBookInfo(context: vscode.ExtensionContext): Promise<vo
   const config = await loadOrDefaultConfig(configPath);
 
   const panel = vscode.window.createWebviewPanel(
-    'novelWriter.bookInfo',
+    'storyline.bookInfo',
     'Book Info',
     // Beside the active editor — VS Code handles column placement.
     vscode.ViewColumn.Beside,
@@ -69,7 +69,7 @@ export async function editBookInfo(context: vscode.ExtensionContext): Promise<vo
         panel.dispose();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Novel Writer: failed to save book info — ${message}`);
+        vscode.window.showErrorMessage(`Storyline: failed to save book info — ${message}`);
       }
     } else if (msg.type === 'cancel') {
       panel.dispose();

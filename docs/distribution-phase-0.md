@@ -1,4 +1,4 @@
-# Distribution — Phase 0: free beta via `npx novel-writer init`
+# Distribution — Phase 0: free beta via `npx storyline init`
 
 _Last updated: 2026-04-21_
 
@@ -6,7 +6,7 @@ _Last updated: 2026-04-21_
 
 Phase 0 is the free, technical-user beta. Audience: writers who already use VS Code and have Node installed — or are willing to follow two written steps. The goal is to get the current product (harness + VS Code extension + Claude Code skill) into the hands of real beta testers with the lowest-possible setup friction that doesn't require us to build a bespoke installer.
 
-"Done" means: a tester can go from `npx novel-writer init my-novel` to a running three-pane novel-writing environment inside VS Code — manuscript open, skill loaded, extension active, sample beat sheet visible — in under 90 seconds, without any further manual steps.
+"Done" means: a tester can go from `npx storyline init my-novel` to a running three-pane novel-writing environment inside VS Code — manuscript open, skill loaded, extension active, sample beat sheet visible — in under 90 seconds, without any further manual steps.
 
 No rebranding. No signed installers. No VSCodium fork. Those belong to [Phase 1](distribution-phase-1.md).
 
@@ -15,23 +15,23 @@ No rebranding. No signed installers. No VSCodium fork. Those belong to [Phase 1]
 1. Writer visits the landing page, reads two lines of setup ("needs VS Code + Node 20+").
 2. Runs in their terminal:
    ```
-   npx novel-writer init my-novel
+   npx storyline init my-novel
    cd my-novel
    code .
    ```
-3. VS Code opens. The Novel Writer extension activates (triggered by `.novel-writer/state.json`). The three-pane layout is pre-set: Explorer on the left, the sample opening chapter in the middle editor, a supporting doc (`docs/welcome.md`) opened to the side via the new `openToSide` command.
-4. Writer types `/novel` in Claude Code — the skill is already present in `.claude/skills/novel/`, so the harness responds immediately with the Save the Cat onboarding flow.
+3. VS Code opens. The Storyline extension activates (triggered by `.storyline/state.json`). The three-pane layout is pre-set: Explorer on the left, the sample opening chapter in the middle editor, a supporting doc (`docs/welcome.md`) opened to the side via the new `openToSide` command.
+4. Writer types `/storyline` in Claude Code — the skill is already present in `.claude/skills/storyline/`, so the harness responds immediately with the Save the Cat onboarding flow.
 5. Writer starts planning, or opens the sample chapter and starts writing.
 
 If the writer doesn't have the `code` CLI on PATH, step 2 substitutes: they open VS Code manually and use File > Open Folder. The `init` command prints this fallback if it can't find `code`.
 
-## What `npx novel-writer init <name>` creates
+## What `npx storyline init <name>` creates
 
-New subcommand on the existing `bin/novel-writer.js`. It scaffolds a project directory with:
+New subcommand on the existing `bin/storyline.js`. It scaffolds a project directory with:
 
 ```
 my-novel/
-├── .novel-writer/
+├── .storyline/
 │   └── state.json                 # Seed state — empty beat sheet, no genre chosen
 ├── .claude/
 │   └── skills/
@@ -39,9 +39,9 @@ my-novel/
 │           ├── SKILL.md
 │           └── docs/...
 ├── .vscode/
-│   ├── extensions.json            # Recommends darrenjcoxon.novel-writer-vscode
+│   ├── extensions.json            # Recommends darrenjcoxon.storyline-vscode
 │   └── settings.json              # files.autoSave=off (we do our own), editor.wordWrap=on
-├── CLAUDE.md                      # Project-scoped Claude instructions (the /novel command)
+├── CLAUDE.md                      # Project-scoped Claude instructions (the /storyline command)
 ├── manuscript/
 │   └── chapter-01.md              # Placeholder so the editor has something to open
 ├── docs/
@@ -54,35 +54,35 @@ The scaffold is built from a `templates/` directory shipped inside the npm packa
 
 ## Extension install
 
-The `.vsix` is bundled inside the npm package at `vscode-extension/novel-writer-vscode-0.17.0.vsix` (already built). After scaffolding, `init`:
+The `.vsix` is bundled inside the npm package at `vscode-extension/storyline-vscode-0.17.0.vsix` (already built). After scaffolding, `init`:
 
 1. Runs `code --install-extension <absolute path to bundled .vsix>` in a subprocess.
-2. On success: prints "Extension installed — run `code .` in this folder to open Novel Writer."
+2. On success: prints "Extension installed — run `code .` in this folder to open Storyline."
 3. On failure (no `code` CLI on PATH): prints the fallback instruction:
    > The VS Code CLI isn't on your PATH. Open VS Code, then:
    > - Run "Extensions: Install from VSIX..." from the Command Palette
-   > - Choose: `<absolute path>/novel-writer-vscode-0.17.0.vsix`
+   > - Choose: `<absolute path>/storyline-vscode-0.17.0.vsix`
 
 Detection: try `which code` / `where.exe code`. Don't shell out to `code` without first confirming it exists — a failing subprocess is confusing.
 
 ## Claude Code skill install
 
-The skill is copied into the scaffolded project's `.claude/skills/novel/` on init, not into the user's home. Scoped-per-project means:
+The skill is copied into the scaffolded project's `.claude/skills/storyline/` on init, not into the user's home. Scoped-per-project means:
 
 - Beta testers can run multiple novel projects without cross-contamination.
 - If the skill changes between releases, each new project gets the current version.
 - No permissions weirdness writing to `~/.claude/` on behalf of the user.
 
-Source: the `skill/` directory at the root of the npm package. Destination: `my-novel/.claude/skills/novel/`. Straight recursive copy.
+Source: the `skill/` directory at the root of the npm package. Destination: `my-novel/.claude/skills/storyline/`. Straight recursive copy.
 
 ## Zip fallback for non-Node users
 
 For testers who don't have Node installed (or don't want to install it), ship a zip at each release:
 
 ```
-novel-writer-starter-v1.0.0.zip
+storyline-starter-v1.0.0.zip
 ├── my-novel/                      # Exact contents of what `npx init` would produce
-├── novel-writer-vscode-0.17.0.vsix
+├── storyline-vscode-0.17.0.vsix
 └── README.txt                     # 5-line install guide
 ```
 
@@ -92,7 +92,7 @@ The README.txt:
 2. Open VS Code.
 3. Extensions panel → "..." menu → "Install from VSIX..." → select the .vsix file.
 4. File → Open Folder → select the "my-novel" folder.
-5. Start writing. Claude Code users: /novel in chat to begin planning.
+5. Start writing. Claude Code users: /storyline in chat to begin planning.
 ```
 
 The zip is built as part of the release pipeline — a single `scripts/build-starter-zip.mjs` that runs after `npm run package` inside the extension and packages both artefacts.
@@ -103,24 +103,24 @@ Changes needed to the root `package.json`:
 
 ```jsonc
 {
-  "name": "novel-writer",
+  "name": "storyline",
   "version": "1.0.0",             // Bump from current
   "bin": {
-    "novel-writer": "./bin/novel-writer.js",
-    "nw": "./bin/novel-writer.js"
+    "storyline": "./bin/storyline.js",
+    "storyline": "./bin/storyline.js"
   },
   "files": [                       // Whitelist — replaces .npmignore guessing
     "bin/",
     "lib/",
     "skill/",
     "templates/",                  // New directory for scaffold assets
-    "vscode-extension/novel-writer-vscode-*.vsix"  // Bundled extension
+    "vscode-extension/storyline-vscode-*.vsix"  // Bundled extension
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/darrenjcoxon/novel-writer"
+    "url": "https://github.com/DarrenJCoxon/storyline"
   },
-  "homepage": "https://github.com/darrenjcoxon/novel-writer#readme",
+  "homepage": "https://github.com/DarrenJCoxon/storyline#readme",
   "keywords": ["novel", "writing", "save-the-cat", "claude", "vscode"],
   "license": "MIT",
   "engines": { "node": ">=20" }
@@ -136,8 +136,8 @@ Before the first publish:
 ```bash
 npm test                                            # 255/255 passing already
 cd vscode-extension && npm run package && cd ..     # Rebuild the .vsix
-npm pack                                            # Produces novel-writer-1.0.0.tgz
-npx ./novel-writer-1.0.0.tgz init /tmp/test-novel   # Install from the tarball
+npm pack                                            # Produces storyline-1.0.0.tgz
+npx ./storyline-1.0.0.tgz init /tmp/test-novel   # Install from the tarball
 cd /tmp/test-novel && code .                        # Should open with extension active
 ```
 
@@ -147,7 +147,7 @@ If the whole flow works end-to-end from a clean tarball, publish.
 
 Following the [roadmap](roadmap.md) convention of outcome-led milestones: Phase 0 is not "done" when the code works. It's done when:
 
-- 3 external beta testers have run `npx novel-writer init`
+- 3 external beta testers have run `npx storyline init`
 - All 3 have opened the project in VS Code, written at least one chapter, and compiled to EPUB
 - Feedback has been collected on the install flow specifically (where did it break, where was the friction)
 

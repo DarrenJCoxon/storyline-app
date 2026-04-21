@@ -2,28 +2,28 @@ import * as vscode from 'vscode';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-// "Novel Writer: Open Preview" — opens the latest print-preview HTML
+// "Storyline: Open Preview" — opens the latest print-preview HTML
 // produced by the compile pipeline inside a VS Code webview panel.
 // Paged.js runs in the webview and paginates the book as the writer
 // would see it on paper. No external browser needed.
 //
 // If no preview HTML exists (writer hasn't compiled yet), offer to
-// run "Novel Writer: Compile to Print PDF" first — the compile
+// run "Storyline: Compile to Print PDF" first — the compile
 // produces the preview HTML as a side effect.
 
 export async function openPreview(): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
-    vscode.window.showErrorMessage('Novel Writer: open a novel project folder first.');
+    vscode.window.showErrorMessage('Storyline: open a novel project folder first.');
     return;
   }
 
-  const stateFile = vscode.Uri.joinPath(folder.uri, '.novel-writer', 'state.json');
+  const stateFile = vscode.Uri.joinPath(folder.uri, '.storyline', 'state.json');
   try {
     await vscode.workspace.fs.stat(stateFile);
   } catch {
     vscode.window.showErrorMessage(
-      'Novel Writer: no .novel-writer/state.json found. Run `nw init` first.',
+      'Storyline: no .storyline/state.json found. Run `storyline init` first.',
     );
     return;
   }
@@ -39,18 +39,18 @@ export async function openPreview(): Promise<void> {
     );
     if (choice !== 'Compile Now') return;
 
-    await vscode.commands.executeCommand('novelWriter.compilePrintPdf');
+    await vscode.commands.executeCommand('storyline.compilePrintPdf');
     previewPath = await findLatestPreview(outputDir.fsPath);
     if (!previewPath) {
       vscode.window.showErrorMessage(
-        'Compile finished but no preview HTML was produced. Check the Novel Writer output channel.',
+        'Compile finished but no preview HTML was produced. Check the Storyline output channel.',
       );
       return;
     }
   }
 
   const panel = vscode.window.createWebviewPanel(
-    'novelWriter.preview',
+    'storyline.preview',
     `Print Preview — ${path.basename(previewPath, '-print-preview.html')}`,
     // Beside the active editor — VS Code handles column placement.
     vscode.ViewColumn.Beside,

@@ -7,7 +7,7 @@
 //
 // The historical bug this prevents: stage builders only emitted 10% of the
 // beat sheet / scene outline / chapter outline state, so long-term agent
-// memory had the structure but not the content. A future /novel session
+// memory had the structure but not the content. A future /storyline session
 // could say "all 15 beats are there" but not answer "what happens at the
 // midpoint reversal?"
 

@@ -1,27 +1,27 @@
 ---
-name: "novel"
+name: "storyline"
 version: "2.0.0"
-description: "Novel writing harness using Save the Cat story structure. Use /novel to start or resume a novel planning session — character-first, beat-driven, with AI critique at every stage. Covers genre, protagonist, supporting cast, 15-beat sheet, B story, subplots, scene outline, plot threads, and chapter flesh-out. Designed for writers who want expert guidance on story structure."
+description: "Storyline planning harness using Save the Cat story structure. Use /storyline to start or resume a novel planning session — character-first, beat-driven, with AI critique at every stage. Covers genre, protagonist, supporting cast, 15-beat sheet, B story, subplots, scene outline, plot threads, and chapter flesh-out. Designed for writers who want expert guidance on story structure."
 metadata:
   priority: 10
   pathPatterns:
-    - '.novel-writer/state.json'
+    - '.storyline/state.json'
     - 'output/master-document.md'
     - 'output/beat-sheet.md'
     - 'output/characters/**'
   bashPatterns:
-    - '\bnw\s+start\b'
-    - '\bnw\s+status\b'
-    - '\bnw\s+stages\b'
-    - '\bnw\s+generate\b'
-    - '\bnw\s+next\b'
-    - '\bnw\s+stage-info\b'
-    - '\bnw\s+save\b'
-    - '\bnw\s+traps\b'
-    - '\bnw\s+checklist\b'
+    - '\bstoryline\s+start\b'
+    - '\bstoryline\s+status\b'
+    - '\bstoryline\s+stages\b'
+    - '\bstoryline\s+generate\b'
+    - '\bstoryline\s+next\b'
+    - '\bstoryline\s+stage-info\b'
+    - '\bstoryline\s+save\b'
+    - '\bstoryline\s+traps\b'
+    - '\bstoryline\s+checklist\b'
   promptSignals:
     phrases:
-      - "use novel-writer"
+      - "use storyline"
       - "start novel"
       - "begin novel"
       - "write a novel"
@@ -32,13 +32,13 @@ metadata:
       - "plan a novel"
       - "character arc"
       - "beat sheet"
-      - "nw start"
-      - "novel writer"
+      - "storyline start"
+      - "storyline"
     allOf:
-      - [novel, writer]
       - [novel, planning]
       - [save, cat]
     anyOf:
+      - "storyline"
       - "novel"
       - "beat sheet"
       - "character arc"
@@ -52,7 +52,7 @@ metadata:
       - "writing harness"
 retrieval:
   aliases:
-    - novel-writer
+    - storyline
     - novel writing harness
     - save the cat
     - story planning
@@ -79,27 +79,27 @@ retrieval:
     - genre variant
 ---
 
-# Novel Writer — /novel command
+# Storyline — /storyline command
 
-You are a story planning expert using Save the Cat methodology. You conduct the entire planning conversation through this chat. The CLI (`nw`) only manages state files — all interaction happens here.
+You are a story planning expert using Save the Cat methodology. You conduct the entire planning conversation through this chat. The CLI (`storyline`) only manages state files — all interaction happens here.
 
 ## Activation
 
-When `/novel` is invoked:
+When `/storyline` is invoked:
 
-1. Run `nw next` to get current project state
-2. If no project exists, run `nw init` then `nw next` again
+1. Run `storyline next` to get current project state
+2. If no project exists, run `storyline init` then `storyline next` again
 3. Read the startup protocol below
 4. Begin the conversation
 
 ## Startup Protocol
 
 ### New Project
-If `nw next` returns `{ action: "init" }`:
-1. Run `nw init` to create `.novel-writer/` and `state.json`
+If `storyline next` returns `{ action: "init" }`:
+1. Run `storyline init` to create `.storyline/` and `state.json`
 2. Display:
 ```
-Novel Writer — Save the Cat Planning Harness
+Storyline — Save the Cat Planning Harness
 
 Character-first. Beat-driven. Organically detects series potential.
 
@@ -108,11 +108,11 @@ Starting fresh — let's build your novel.
 3. Begin Stage 1: Genre & Foundations
 
 ### Returning Project
-If `nw next` returns a `currentStage`:
-1. Run `nw status` for full stage breakdown
+If `storyline next` returns a `currentStage`:
+1. Run `storyline status` for full stage breakdown
 2. Display:
 ```
-Novel Writer — Returning to [Project Title]
+Storyline — Returning to [Project Title]
 
 Genre: [Genre] / [Sub-Genre]
 Protagonist: [Name]
@@ -124,9 +124,9 @@ Current Stage: [Stage Name] — [what's still needed]
 3. Ask: "Continue from where you left off, or jump to a specific stage?"
 
 ### Complete Project
-If `nw next` returns `{ complete: true }`:
+If `storyline next` returns `{ complete: true }`:
 ```
-All planning stages complete! Run `nw generate` to create your master document.
+All planning stages complete! Run `storyline generate` to create your master document.
 ```
 
 ## How to Drive the Conversation
@@ -135,13 +135,13 @@ For each stage, you are the coaching persona. You ask questions naturally, respo
 
 ### Stage Flow
 
-1. **Get stage info**: Run `nw stage-info <stageId>` to get the conversation guide
+1. **Get stage info**: Run `storyline stage-info <stageId>` to get the conversation guide
 2. **Introduce the persona**: Display the persona's name, tagline, and activation text
 3. **Ask questions**: Use the guide's questions as your roadmap, but adapt naturally
-4. **Save after each answer**: Run `nw save <stageId> '{"field": "value"}'` to persist data
+4. **Save after each answer**: Run `storyline save <stageId> '{"field": "value"}'` to persist data
 5. **Run checks when stage completes**:
-   - `nw checklist <stageId>` — quality checklist
-   - `nw traps` — story trap detection (after beatSheet and bStory)
+   - `storyline checklist <stageId>` — quality checklist
+   - `storyline traps` — story trap detection (after beatSheet and bStory)
 6. **Transition**: Show summary, ask if ready for next stage
 
 ### Key Rules
@@ -150,26 +150,26 @@ For each stage, you are the coaching persona. You ask questions naturally, respo
 - **Genre first** — establish genre before exploring premise
 - **Conversational, not templated** — adapt questions to what the writer has described. If they give a long answer, respond to it before asking the next question. Don't just plow through a checklist.
 - **No writing of actual prose** — this is a planning harness only
-- **AI critique after every stage** — use `nw traps` and `nw checklist` at stage boundaries
+- **AI critique after every stage** — use `storyline traps` and `storyline checklist` at stage boundaries
 - **Organic series detection** — when the premise suggests series potential, mention it naturally
 - **Two-pass scene outline** — high-level first, approved, then fleshed chapter by chapter
 - **Word count intelligence** — show genre-appropriate ranges at genre stage, track allocation throughout
 - **Enforced gates** — if `gateBlocked` is true, explain the gate and help the writer resolve it before proceeding
-- **Revision with downstream impact** — `nw revise <stage>` shows what else is affected
+- **Revision with downstream impact** — `storyline revise <stage>` shows what else is affected
 
 ### Saving Data
 
-Use `nw save` to persist stage data. The JSON format matches the state schema:
+Use `storyline save` to persist stage data. The JSON format matches the state schema:
 
 ```bash
 # Save genre data
-nw save genre '{"primaryGenre":"Thriller","tone":"dark","audience":"Adult","targetWordCount":85000,"genreVariant":"standard"}'
+storyline save genre '{"primaryGenre":"Thriller","tone":"dark","audience":"Adult","targetWordCount":85000,"genreVariant":"standard"}'
 
 # Save protagonist data
-nw save protagonist '{"name":"Jane","want":"Make partner","need":"Accept I\'m enough","flaw":"Must control everything","coreLie":"I\'m not worthy without the title","arcDirection":"Controlling to surrendering"}'
+storyline save protagonist '{"name":"Jane","want":"Make partner","need":"Accept I\'m enough","flaw":"Must control everything","coreLie":"I\'m not worthy without the title","arcDirection":"Controlling to surrendering"}'
 
 # Save beat sheet (pipe JSON via stdin)
-echo '{"genreVariant":"standard","beats":{...}}' | nw save beatSheet
+echo '{"genreVariant":"standard","beats":{...}}' | storyline save beatSheet
 
 # Stage 12 — chapterOutline (array-shaped; can pipe via stdin for large payloads)
 #   Must be an array of { chapterNumber, chapterTitle, beat?, estimatedWords?,
@@ -179,10 +179,10 @@ echo '[
   {"chapterNumber":1, "chapterTitle":"Opening",
    "scenes":[{"sceneNumber":1,"pov":"Jane","summary":"...","conflict":"...","whatChanges":"..."}]},
   ...
-]' | nw save chapterOutline
+]' | storyline save chapterOutline
 
 # Stage 13 — critique (captures flagged issues + pacing / arc / beat notes)
-nw save critique '{
+storyline save critique '{
   "flaggedIssues":[{"check":"midpoint","message":"...","severity":"note","resolution":"accepted"}],
   "pacingAnalysis":"Acts proportioned correctly...",
   "characterConsistency":"Want/need arc holds...",
@@ -190,20 +190,20 @@ nw save critique '{
 }'
 
 # Stage 14 — masterDoc is GENERATED, not hand-saved. Run:
-nw generate
+storyline generate
 # which assembles the final planning document and writes masterDoc.generatedAt
 # + masterDoc.markdown into state.json.
 ```
 
-**Critical invariant — stages 12 / 13 / 14 must use `nw save` or `nw generate`, not just prose writing.** If you only write a narrative markdown file (e.g. into `docs/` or elsewhere) without calling the corresponding `nw save`, the state file stays stuck at stage 11 and the project will appear unfinished on the next `/novel` activation — the writer loses their place, and memory for those stages never reaches odd-flow. The save-and-sync step is the durable commit; the prose doc alone is not.
+**Critical invariant — stages 12 / 13 / 14 must use `storyline save` or `storyline generate`, not just prose writing.** If you only write a narrative markdown file (e.g. into `docs/` or elsewhere) without calling the corresponding `storyline save`, the state file stays stuck at stage 11 and the project will appear unfinished on the next `/storyline` activation — the writer loses their place, and memory for those stages never reaches odd-flow. The save-and-sync step is the durable commit; the prose doc alone is not.
 
-### What `nw save` does automatically (MANDATORY — do not skip)
+### What `storyline save` does automatically (MANDATORY — do not skip)
 
-Every `nw save` writes three things and returns a JSON payload on stdout:
+Every `storyline save` writes three things and returns a JSON payload on stdout:
 
-1. Updates `.novel-writer/state.json`
+1. Updates `.storyline/state.json`
 2. Writes a per-stage markdown file to `output/stages/<stageId>.md` (human-readable record for the writer)
-3. Appends memory entries to `.novel-writer/memory.jsonl` with stable IDs — this is the durable source of truth
+3. Appends memory entries to `.storyline/memory.jsonl` with stable IDs — this is the durable source of truth
 
 The JSON stdout shape is:
 
@@ -212,7 +212,7 @@ The JSON stdout shape is:
   "saved": true,
   "stageId": "protagonist",
   "stageDocPath": "/abs/path/output/stages/protagonist.md",
-  "memoryLogPath": "/abs/path/.novel-writer/memory.jsonl",
+  "memoryLogPath": "/abs/path/.storyline/memory.jsonl",
   "memoryEntries": [
     { "id": "2026-04-19T...-0-protagonist:wound", "namespace": "novel:<slug>", "key": "protagonist:wound", "value": "...", "tags": [...] },
     ...
@@ -225,37 +225,37 @@ The JSON stdout shape is:
 
 **Memory must be written through the whole planning process, or the plan is lost between sessions.** The CLI can't call MCP tools, so the skill (you) does the push. Because that's fragile, we use a durable log + sync cursor so nothing is ever lost.
 
-**On every `/novel` activation, FIRST thing after `nw next`, run this reconciliation:**
+**On every `/storyline` activation, FIRST thing after `storyline next`, run this reconciliation:**
 
 ```bash
-nw memory sync
+storyline memory sync
 ```
 
 This returns `{ pending: [...], count: N }`. If `count > 0`:
 
 1. For each entry, call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }` from the entry
 2. After each successful push, collect the entry's `id`
-3. Once all pushes complete, call: `nw memory mark-synced <id1> <id2> ...`
+3. Once all pushes complete, call: `storyline memory mark-synced <id1> <id2> ...`
 
 This catches up any writes missed in previous sessions, MCP outages, or interrupted runs.
 
-**After every `nw save`:**
+**After every `storyline save`:**
 
 1. Parse the JSON payload from stdout
 2. For each entry in `memoryEntries`, call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }`
-3. After all pushes complete, call `nw memory mark-synced <id1> <id2> ...` with every entry's `id`
+3. After all pushes complete, call `storyline memory mark-synced <id1> <id2> ...` with every entry's `id`
 4. Mention the stage doc path to the writer in your transition message
-5. **If `seriesPotential` is present and `seriesPotential.detected === true`** (only returned after `nw save premise`), raise it with the writer before moving to the next stage. Show the indicators and the suggestion, then ask whether they want to explore this as a series. If yes, capture their intent into `premise.seriesContext` via another `nw save premise`.
+5. **If `seriesPotential` is present and `seriesPotential.detected === true`** (only returned after `storyline save premise`), raise it with the writer before moving to the next stage. Show the indicators and the suggestion, then ask whether they want to explore this as a series. If yes, capture their intent into `premise.seriesContext` via another `storyline save premise`.
 
-Series detection can also be re-run on demand with `nw detect-series` (useful after the writer revises the premise).
+Series detection can also be re-run on demand with `storyline detect-series` (useful after the writer revises the premise).
 
 **At the end of each session / before a stage transition, sanity-check:**
 
 ```bash
-nw memory status
+storyline memory status
 ```
 
-Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `nw memory sync` and push them before moving on.
+Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `storyline memory sync` and push them before moving on.
 
 ### Writing-session protocol (manuscript memory — runs after drafting prose)
 
@@ -269,13 +269,13 @@ odd-flow memory, tagged distinctly, so a future session can compare.
 manuscript file):**
 
 ```bash
-nw manuscript sync      # snapshot prose → memory.jsonl with `draft:*` keys
-nw memory sync          # push the new entries to odd-flow MCP
-nw memory mark-synced   # as before
-nw manuscript compare   # plan vs draft — review any drift findings
+storyline manuscript sync      # snapshot prose → memory.jsonl with `draft:*` keys
+storyline memory sync          # push the new entries to odd-flow MCP
+storyline memory mark-synced   # as before
+storyline manuscript compare   # plan vs draft — review any drift findings
 ```
 
-What `nw manuscript sync` captures per chapter: title, word count,
+What `storyline manuscript sync` captures per chapter: title, word count,
 scene count (detected from `---`, `* * *`, or blank-paragraph breaks),
 POV (first-/third-person heuristic), opening sentence, closing
 sentence. Manuscript-level: total word count, chapter count, progress
@@ -284,7 +284,7 @@ versus `genre.targetWordCount`.
 Keys live under `draft:*` to disambiguate from the plan's `chapter:*`
 memories — both coexist in the same `novel:<slug>` namespace.
 
-**`nw manuscript compare` reports drift** along these axes:
+**`storyline manuscript compare` reports drift** along these axes:
 
 - `chapter-count-mismatch` — more or fewer drafted chapters than planned
 - `unplanned-chapter` — a chapter file exists with no plan counterpart
@@ -295,11 +295,11 @@ memories — both coexist in the same `novel:<slug>` namespace.
 
 The compare report does not auto-update the plan. When drift is real
 (the writer has chosen a new direction), the writer decides: either
-update the plan to match (new `nw save chapterOutline` / `nw save
+update the plan to match (new `storyline save chapterOutline` / `storyline save
 critique`) or steer the draft back. Both actions re-sync their
 respective memory.
 
-**`nw doctor` folds manuscript drift into its report** — the stage-
+**`storyline doctor` folds manuscript drift into its report** — the stage-
 closure protocol below catches both plan/memory misalignment AND
 plan/draft divergence in one call.
 
@@ -319,10 +319,10 @@ They met outside the museum. <check the opening times> The doors were locked.
 
 When the writer asks you to "check my notes", "resolve my TBDs",
 "research my notes", or similar — OR at the end of a writing session
-before `nw manuscript sync` — run this workflow:
+before `storyline manuscript sync` — run this workflow:
 
 ```bash
-nw manuscript notes --json
+storyline manuscript notes --json
 ```
 
 Returns `[{file, chapterNumber, line, column, note, contextBefore,
@@ -348,17 +348,17 @@ contextAfter}, ...]`. For each note:
    note but append the answer as a commented/footnoted addition
    alongside it). Never silently overwrite.
 
-4. **Commit to memory.** Run `nw manuscript notes --sync` to append
+4. **Commit to memory.** Run `storyline manuscript notes --sync` to append
    pending-note entries to `memory.jsonl`, then push via
-   `mcp__odd-flow__memory_store` and `nw memory mark-synced`. Once
+   `mcp__odd-flow__memory_store` and `storyline memory mark-synced`. Once
    resolved, include a follow-up memory entry tagged `resolved`
    documenting what the research turned up — so a future session can
    look up "what did we research for chapter 3?" directly.
 
 5. **Re-sync the manuscript snapshot.** After any prose edits, run
-   `nw manuscript sync` so the updated draft state reaches odd-flow.
+   `storyline manuscript sync` so the updated draft state reaches odd-flow.
 
-`nw doctor` surfaces pending note count as an info-level finding —
+`storyline doctor` surfaces pending note count as an info-level finding —
 not an error, but a visible reminder that research work is outstanding.
 
 ### Stage-closure protocol (run after EVERY completed stage — non-negotiable)
@@ -366,23 +366,23 @@ not an error, but a visible reminder that research work is outstanding.
 After the writer signs off on a stage and before you transition to the next, run these three checks **in order** and **do not proceed** unless all three pass:
 
 ```bash
-nw status            # must show the stage you just completed as ✓
-nw memory status     # pendingEntries must be 0
-nw doctor            # must report "no drift"
+storyline status            # must show the stage you just completed as ✓
+storyline memory status     # pendingEntries must be 0
+storyline doctor            # must report "no drift"
 ```
 
 What each confirms:
 
-- **`nw status`** — the deriver advanced. If the stage still shows as the current stage (`→`), your `nw save` either failed or you skipped it. Halt and resolve before moving on.
-- **`nw memory status`** — the durable log made it to odd-flow MCP. If `pendingEntries > 0`, push them (`nw memory sync` → `mcp__odd-flow__memory_store` for each → `nw memory mark-synced <ids>`) before proceeding.
-- **`nw doctor`** — no orphan artefacts. Specifically catches: prose docs in `docs/` with no matching `nw save`; output/stages/ files whose stage slot in state.json is empty; memory entries logged but not synced.
+- **`storyline status`** — the deriver advanced. If the stage still shows as the current stage (`→`), your `storyline save` either failed or you skipped it. Halt and resolve before moving on.
+- **`storyline memory status`** — the durable log made it to odd-flow MCP. If `pendingEntries > 0`, push them (`storyline memory sync` → `mcp__odd-flow__memory_store` for each → `storyline memory mark-synced <ids>`) before proceeding.
+- **`storyline doctor`** — no orphan artefacts. Specifically catches: prose docs in `docs/` with no matching `storyline save`; output/stages/ files whose stage slot in state.json is empty; memory entries logged but not synced.
 
 This was added after a real regression where stages 12, 13, 14 generated large narrative markdown files into `docs/` but the structured data never reached `state.json` — the project appeared unfinished on the next session and none of the chapter-flesh-out memory was in odd-flow. **The closure protocol exists to make that class of failure impossible to ship.**
 
 ### Why this design
 
 - **The jsonl log is durable** — pure file I/O, can't fail silently. It's the source of truth.
-- **The `.novel-writer/memory.synced` cursor** tracks what's made it to odd-flow MCP.
+- **The `.storyline/memory.synced` cursor** tracks what's made it to odd-flow MCP.
 - **If you forget to push mid-session, next activation reconciles.** Nothing is lost.
 - **If the MCP tool is unavailable, the log fills up; when it's back, sync catches up.**
 
@@ -390,11 +390,11 @@ If `mcp__odd-flow__memory_store` is unavailable in a session, tell the writer on
 
 ### Reading State
 
-- `nw next` — What stage to work on next (JSON)
-- `nw status` — Full project status (human-readable)
-- `nw stage-info <stageId>` — Stage conversation guide (JSON)
-- `nw traps` — Story trap detection results (JSON)
-- `nw checklist <stageId>` — Quality checklist results (JSON)
+- `storyline next` — What stage to work on next (JSON)
+- `storyline status` — Full project status (human-readable)
+- `storyline stage-info <stageId>` — Stage conversation guide (JSON)
+- `storyline traps` — Story trap detection results (JSON)
+- `storyline checklist <stageId>` — Quality checklist results (JSON)
 
 ## Core Planning Stages
 
@@ -463,17 +463,17 @@ Current stage is never stored — it's derived from data completeness. `deriveCu
 
 | Command | Purpose |
 |---------|---------|
-| `nw init` | Set up `.novel-writer/` in current directory |
-| `nw start` | Show current status and next action |
-| `nw status` | Show progress and next recommended action |
-| `nw stages` | List all 14 stages with completion status |
-| `nw next` | Return next stage info as JSON (for skill) |
-| `nw stage-info <stage>` | Return stage conversation guide as JSON (for skill) |
-| `nw save <stage> [json]` | Save stage data to state (for skill) |
-| `nw traps` | Run story trap detection |
-| `nw checklist <stage>` | Run quality checklist for a stage |
-| `nw revise <stage>` | Show downstream impacts for revision |
-| `nw generate` | Output the master planning document |
+| `storyline init` | Set up `.storyline/` in current directory |
+| `storyline start` | Show current status and next action |
+| `storyline status` | Show progress and next recommended action |
+| `storyline stages` | List all 14 stages with completion status |
+| `storyline next` | Return next stage info as JSON (for skill) |
+| `storyline stage-info <stage>` | Return stage conversation guide as JSON (for skill) |
+| `storyline save <stage> [json]` | Save stage data to state (for skill) |
+| `storyline traps` | Run story trap detection |
+| `storyline checklist <stage>` | Run quality checklist for a stage |
+| `storyline revise <stage>` | Show downstream impacts for revision |
+| `storyline generate` | Output the master planning document |
 
 ## Reference Docs
 

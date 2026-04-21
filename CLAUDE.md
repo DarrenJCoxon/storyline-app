@@ -1,13 +1,13 @@
-# Novel Writer — Claude Code Configuration
+# Storyline — Claude Code Configuration
 # Powered by Save the Cat story planning methodology
 
 ## Project Context
 
-This is a novel writing harness — a conversational planning tool that guides writers through the Save the Cat story structure. It is NOT a writing tool; it plans novels, it doesn't write them. Writers use it to develop characters, beat sheets, scene outlines, and chapter flesh-outs before writing prose.
+Storyline is a planning and writing environment for novelists. It combines a conversational Save the Cat planning harness (run in Claude Code via the `/storyline` skill) with a rich-text VS Code writing surface, a draft→EPUB/PDF compile pipeline, and live preview. Writers use it to plan a book end-to-end, then draft the prose inside the same environment — the AI helps with structure and critique, not prose generation.
 
 ## Command
 
-Use `/novel` to activate the novel writing harness.
+Use `/storyline` to activate the planning harness inside Claude Code.
 
 ## Activating the Harness
 
@@ -15,16 +15,16 @@ When the user says anything about:
 - Writing, planning, or plotting a novel
 - Character arcs, beat sheets, scene outlines
 - Story structure, Save the Cat
-- Using "novel-writer" or "nw"
+- Using "storyline"
 
-Route to `/novel` using the skill system.
+Route to `/storyline` using the skill system.
 
-## Novel Writer Commands
+## Storyline Commands
 
-- `nw start` — Start new project or continue existing
-- `nw status` — Show current project state
-- `nw stages` — List all 14 planning stages
-- `nw generate` — Output master planning document
+- `storyline start` — Start new project or continue existing
+- `storyline status` — Show current project state
+- `storyline stages` — List all 14 planning stages
+- `storyline generate` — Output master planning document
 
 ## Core Behaviour
 
@@ -38,7 +38,7 @@ Route to `/novel` using the skill system.
 
 ## State Files
 
-- `.novel-writer/state.json` — Full project state with all 14 planning stages
+- `.storyline/state.json` — Full project state with all 14 planning stages
 - `output/master-document.md` — Generated planning document when complete
 
 ## Save the Cat Beat Reference
@@ -83,7 +83,7 @@ Standard, Puppy Love, Buddy Love, Whydunit, Fool Again, Out of the Box, Traps, G
 
 ## Key Files
 
-- `skill/SKILL.md` — The /novel command skill definition
+- `skill/SKILL.md` — The /storyline command skill definition
 - `skill/docs/startup/startup-protocol.md` — Startup routing
 - `lib/state/project-state.js` — Full state schema
 - `lib/ai/narrative-voice.js` — Save the Cat knowledge

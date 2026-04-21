@@ -7,12 +7,12 @@ _Last updated: 2026-04-20_
 
 ## Outcome
 
-A writer can run a single command ("Novel Writer: Compile to EPUB" in VS Code, or `nw compile --format epub` in the terminal) and get a valid `.epub` file that:
+A writer can run a single command ("Storyline: Compile to EPUB" in VS Code, or `storyline compile --format epub` in the terminal) and get a valid `.epub` file that:
 
 - Opens correctly in Apple Books (iPad), Kindle Previewer, and Calibre
 - Passes EPUBCheck validation
 - Uses one curated theme (Classic Serif) with proper typography — drop caps on chapter openings, centred `* * *` for scene breaks, consistent chapter numbering, correct front/back matter
-- Is built from the writer's `manuscript/*.md` files with metadata pulled from `.novel-writer/state.json`
+- Is built from the writer's `manuscript/*.md` files with metadata pulled from `.storyline/state.json`
 
 ## Why this milestone exists
 
@@ -31,15 +31,15 @@ All four must be true:
 
 ## Architecture
 
-The compile pipeline lives in `lib/compile/` in the novel-writer CLI and is exposed via:
-- `nw compile --format epub` — primary interface, works from any terminal
-- `Novel Writer: Compile to EPUB` VS Code command — shells out to `nw compile` and reports back
+The compile pipeline lives in `lib/compile/` in the storyline CLI and is exposed via:
+- `storyline compile --format epub` — primary interface, works from any terminal
+- `Storyline: Compile to EPUB` VS Code command — shells out to `storyline compile` and reports back
 
-This matches the engine-platform direction (see [../engine-platform.md](../engine-platform.md)) — compile logic will eventually be extracted as platform code when we add a second engine, but for now it lives in the novel-writer repo.
+This matches the engine-platform direction (see [../engine-platform.md](../engine-platform.md)) — compile logic will eventually be extracted as platform code when we add a second engine, but for now it lives in the storyline repo.
 
 ```
 manuscript/*.md
-  + .novel-writer/state.json (metadata)
+  + .storyline/state.json (metadata)
   + compile.config.json (overrides)
         │
         ▼
@@ -78,11 +78,11 @@ manuscript/*.md
 
 ### 3.1 — Scaffold `lib/compile/` with orchestrator + CLI command
 
-Create the module boundary. `lib/compile/index.js` exports a single `compile({ format, projectPath })` function that stitches the pipeline. `bin/commands/compile.js` adds the `nw compile` CLI wrapper.
+Create the module boundary. `lib/compile/index.js` exports a single `compile({ format, projectPath })` function that stitches the pipeline. `bin/commands/compile.js` adds the `storyline compile` CLI wrapper.
 
-For Story 3.1 the orchestrator is a stub that logs each phase — no real work yet. The goal is proving the CLI wiring: `nw compile --format epub` runs and reports "phase 1: preflight", "phase 2: assembly", etc.
+For Story 3.1 the orchestrator is a stub that logs each phase — no real work yet. The goal is proving the CLI wiring: `storyline compile --format epub` runs and reports "phase 1: preflight", "phase 2: assembly", etc.
 
-**Done when:** `nw compile --format epub` runs from any novel project's directory without errors, prints the phase sequence, exits cleanly.
+**Done when:** `storyline compile --format epub` runs from any novel project's directory without errors, prints the phase sequence, exits cleanly.
 
 **Estimate:** Half day.
 
@@ -100,9 +100,9 @@ Returns a structured object:
 }
 ```
 
-Metadata comes from `.novel-writer/state.json` (title, author derived from `_meta` and `premise`, language defaults to `en`). Overrides from an optional `compile.config.json` at project root.
+Metadata comes from `.storyline/state.json` (title, author derived from `_meta` and `premise`, language defaults to `en`). Overrides from an optional `compile.config.json` at project root.
 
-**Done when:** `nw compile --format epub` on a test project with 3 chapter files produces the assembled object (dump to console for now). Chapter order is correct. Metadata is populated.
+**Done when:** `storyline compile --format epub` on a test project with 3 chapter files produces the assembled object (dump to console for now). Chapter order is correct. Metadata is populated.
 
 **Estimate:** 1 day.
 
@@ -162,7 +162,7 @@ Output: `output/compiled/manuscript.epub` with proper EPUB 3 structure (OPF, NCX
 - Word count: warn if less than the genre's minimum (via `genre.targetWordCount` and the stage-guides word count guidance)
 - EPUB identifier present (generate a UUID if missing)
 
-Returns `{ errors: [], warnings: [] }`. `nw compile` aborts with non-zero exit if errors. Warnings are printed but don't block.
+Returns `{ errors: [], warnings: [] }`. `storyline compile` aborts with non-zero exit if errors. Warnings are printed but don't block.
 
 **Done when:** Running compile on a project missing metadata shows a clear error and refuses to produce the EPUB. Running with warnings-only (e.g. short word count) produces the EPUB but surfaces the warning.
 
@@ -170,9 +170,9 @@ Returns `{ errors: [], warnings: [] }`. `nw compile` aborts with non-zero exit i
 
 ### 3.7 — VS Code command integration
 
-Add `Novel Writer: Compile to EPUB` command to the extension. When invoked:
+Add `Storyline: Compile to EPUB` command to the extension. When invoked:
 
-1. Shell out to `nw compile --format epub` in the workspace root
+1. Shell out to `storyline compile --format epub` in the workspace root
 2. Show a progress toast ("Compiling your novel to EPUB…")
 3. On success: status bar message, reveal the output file in the explorer, offer to open it
 4. On failure: show the error output in a notification with "View Details" that opens the compile log
@@ -209,7 +209,7 @@ Keep a friction log as before.
 
 **Font licensing and bundling.** Embedding fonts in EPUB requires proper licensing. EB Garamond and Crimson Pro are both SIL OFL-licensed — safe to bundle. Commercial serif fonts (Sabon, Minion, Caslon) are not. We restrict to open-source fonts or rely on reader-supplied fonts.
 
-**CLI shelling from VS Code cross-platform.** `spawn('nw', ...)` assumes `nw` is on PATH. On macOS with npm link, yes. On Windows with fresh install, may not be. Use `npx nw compile` as the spawn target to route through Node's module resolution. Verify in Story 3.7.
+**CLI shelling from VS Code cross-platform.** `spawn('nw', ...)` assumes `storyline` is on PATH. On macOS with npm link, yes. On Windows with fresh install, may not be. Use `npx storyline compile` as the spawn target to route through Node's module resolution. Verify in Story 3.7.
 
 **The compile pipeline is new surface area.** Adding a major feature means maintaining more tests and docs. Keep the pipeline engine-agnostic where possible (see compile-feature.md) so the multi-engine refactor in Milestone 7 is cleaner.
 
@@ -230,7 +230,7 @@ Keep a friction log as before.
 ## Definition of done
 
 - All four prove-it criteria met
-- `nw compile --format epub` works from any terminal inside a novel project
+- `storyline compile --format epub` works from any terminal inside a novel project
 - VS Code command invokes the CLI and handles success/failure cleanly
 - Output EPUB opens in Apple Books and renders correctly
 - EPUBCheck reports zero errors

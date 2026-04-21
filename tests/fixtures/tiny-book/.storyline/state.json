@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "projectPath": "/tests/fixtures/tiny-book",
+    "projectTitle": "The Tiny Book",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "genre": {
+    "primaryGenre": "thriller",
+    "subGenre": "psychological thriller",
+    "targetWordCount": 80000,
+    "tone": "dark",
+    "audience": "adult",
+    "genreVariant": "standard"
+  },
+  "writing": {
+    "manuscriptPath": "manuscript"
+  }
+}

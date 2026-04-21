@@ -18,8 +18,8 @@ import { classifyDocumentRole } from './manuscript-path';
 
 const AUTOSAVE_IDLE_MS = 1500;
 
-export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
-  public static readonly viewType = 'novelWriter.editor';
+export class StorylineEditorProvider implements vscode.CustomTextEditorProvider {
+  public static readonly viewType = 'storyline.editor';
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -280,7 +280,7 @@ function buildWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): st
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="${styleUri}">
-  <title>Novel Writer</title>
+  <title>Storyline</title>
 </head>
 <body>
   <div id="root"></div>

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-// Open the Novel Writer editor for a specific markdown file. Reads the file,
+// Open the Storyline editor for a specific markdown file. Reads the file,
 // sends its content to the webview, receives save requests, writes back.
 // Custom-editor-for-.md-files (so VS Code auto-routes markdown opens here)
 // lands in Story 2.5. For now this is a command-driven flow.
@@ -16,14 +16,14 @@ export async function openNovelEditor(
     const buf = await vscode.workspace.fs.readFile(uri);
     initialMarkdown = new TextDecoder('utf-8').decode(buf);
   } catch (err) {
-    vscode.window.showErrorMessage(`Novel Writer: could not read ${uri.fsPath} — ${(err as Error).message}`);
+    vscode.window.showErrorMessage(`Storyline: could not read ${uri.fsPath} — ${(err as Error).message}`);
     return;
   }
 
   const relativePath = vscode.workspace.asRelativePath(uri);
   const panel = vscode.window.createWebviewPanel(
-    'novelWriter.editor',
-    `Novel Writer — ${relativePath}`,
+    'storyline.editor',
+    `Storyline — ${relativePath}`,
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -58,9 +58,9 @@ export async function openNovelEditor(
           await vscode.workspace.fs.writeFile(uri, buf);
           latestMarkdown = toWrite;
           await panel.webview.postMessage({ type: 'saved' });
-          vscode.window.setStatusBarMessage(`Novel Writer: saved ${relativePath}`, 3000);
+          vscode.window.setStatusBarMessage(`Storyline: saved ${relativePath}`, 3000);
         } catch (err) {
-          vscode.window.showErrorMessage(`Novel Writer: save failed — ${(err as Error).message}`);
+          vscode.window.showErrorMessage(`Storyline: save failed — ${(err as Error).message}`);
         }
         return;
       }
@@ -81,7 +81,7 @@ async function pickMarkdownFile(): Promise<vscode.Uri | undefined> {
     canSelectFolders: false,
     canSelectMany: false,
     filters: { Markdown: ['md', 'markdown'] },
-    title: 'Select a markdown file to open in Novel Writer',
+    title: 'Select a markdown file to open in Storyline',
   });
   return uris?.[0];
 }
@@ -105,7 +105,7 @@ function buildWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): st
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="${styleUri}">
-  <title>Novel Writer</title>
+  <title>Storyline</title>
 </head>
 <body>
   <div id="root"></div>

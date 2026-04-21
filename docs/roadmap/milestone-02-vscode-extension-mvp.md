@@ -7,7 +7,7 @@ _Last updated: 2026-04-19_
 
 ## Outcome
 
-A writer can open a chapter file (`*.md`) inside a novel project in VS Code and write prose with WYSIWYG formatting (bold, italic, headings, scene breaks rendered as `* * *`) — saved to disk as clean markdown. Word count appears in the status bar. The `/novel` planning harness continues to run in a side panel, unchanged.
+A writer can open a chapter file (`*.md`) inside a novel project in VS Code and write prose with WYSIWYG formatting (bold, italic, headings, scene breaks rendered as `* * *`) — saved to disk as clean markdown. Word count appears in the status bar. The `/storyline` planning harness continues to run in a side panel, unchanged.
 
 ## Why this milestone exists
 
@@ -21,14 +21,14 @@ All three must be true:
 
 1. **A chapter exists, written in the extension.** At least 1,500 words of real prose (not lorem ipsum) in a `chapters/chXX.md` file, written using the TipTap editor, saved, reopened, and still intact.
 2. **The experience is not worse than iA Writer.** Writing the same passage in the extension vs iA Writer — the extension must not feel slower, clunkier, or more error-prone. Formatting (bold/italic/scene breaks) must round-trip to markdown without breaking.
-3. **The `/novel` harness still works.** Opening the `/novel` side panel and saving a stage must behave identically to how it does today. No regressions.
+3. **The `/storyline` harness still works.** Opening the `/storyline` side panel and saving a stage must behave identically to how it does today. No regressions.
 
 ## Architecture snapshot
 
 From [vscode-extension.md](../vscode-extension.md):
 
-- **Monorepo structure** — the extension lives in `vscode-extension/` within the existing novel-writer repo. Shared git history, shared docs, minimal ceremony.
-- **Extension host** — TypeScript, VS Code Extension API. Registers a custom editor for `.md` files when a `.novel-writer/` directory is detected.
+- **Monorepo structure** — the extension lives in `vscode-extension/` within the existing storyline repo. Shared git history, shared docs, minimal ceremony.
+- **Extension host** — TypeScript, VS Code Extension API. Registers a custom editor for `.md` files when a `.storyline/` directory is detected.
 - **Webview** — React + TipTap + `tiptap-markdown`, bundled to a single JS file via esbuild. Runs in a Chromium iframe inside VS Code.
 - **Communication** — webview ↔ extension host via `postMessage`. Extension host is the only component that touches disk.
 - **File format on disk** — markdown, always. TipTap is a display layer.
@@ -44,7 +44,7 @@ Create `vscode-extension/` with:
 - `.vscodeignore` for packaging
 - Build tooling: esbuild for webview bundle, tsc for extension host
 
-**Done when:** `npm run compile` in `vscode-extension/` produces no errors, and loading the extension via VS Code's "Extension Development Host" (F5) shows a "Novel Writer extension activated" message in the Extension Host log.
+**Done when:** `npm run compile` in `vscode-extension/` produces no errors, and loading the extension via VS Code's "Extension Development Host" (F5) shows a "Storyline extension activated" message in the Extension Host log.
 
 **Estimate:** Half day.
 
@@ -87,7 +87,7 @@ The scene break is the first and most important novel-specific TipTap extension:
 ### 2.5 — Register as custom editor for .md files in novel projects
 
 The extension should only take over `.md` files when inside a novel project:
-- Detect novel projects by presence of `.novel-writer/state.json`
+- Detect novel projects by presence of `.storyline/state.json`
 - Register the custom editor only for those projects (so editing a random markdown file elsewhere still uses VS Code's default editor)
 - Respect VS Code's "reopen editor with..." command so writers can switch to raw markdown if needed
 
@@ -99,7 +99,7 @@ The extension should only take over `.md` files when inside a novel project:
 
 A VS Code status bar item shows:
 - Current file: `Ch 1 — 2,340 words`
-- Project total: `Book — 18,200 / 80,000 (23%)` (reads target from `.novel-writer/state.json` `genre.targetWordCount`)
+- Project total: `Book — 18,200 / 80,000 (23%)` (reads target from `.storyline/state.json` `genre.targetWordCount`)
 
 Clicking the item opens a quick pick showing per-chapter breakdown.
 
@@ -109,8 +109,8 @@ Clicking the item opens a quick pick showing per-chapter breakdown.
 
 ### 2.7 — Package as .vsix and install locally
 
-- `vsce package` produces `novel-writer-0.1.0.vsix`
-- `code --install-extension ./novel-writer-0.1.0.vsix` installs it cleanly into the real VS Code (not just Extension Host)
+- `vsce package` produces `storyline-0.1.0.vsix`
+- `code --install-extension ./storyline-writer-0.1.0.vsix` installs it cleanly into the real VS Code (not just Extension Host)
 - Extension remains installed across VS Code restarts
 
 **Done when:** The extension is usable in the regular VS Code (not Development Host), opens a novel project's markdown files in the TipTap editor, and survives a VS Code restart.
@@ -133,7 +133,7 @@ You, the writer. Open a real novel project in VS Code with the extension install
 
 **Bundle size and webview startup latency.** TipTap + React + markdown parser can be 500KB+ compressed. Webview cold-start adds visible delay when opening a chapter. Mitigation: aggressive tree-shaking, ship only the TipTap extensions we use, measure startup in Story 2.7.
 
-**The `/novel` harness running alongside.** The harness runs as a Claude Code chat panel. It doesn't touch the extension directly — they coexist on the filesystem. But worth verifying in Story 2.8 that opening a chapter in TipTap and having `/novel` save a stage doc to `output/stages/` doesn't cause file-lock conflicts or stale-read issues.
+**The `/storyline` harness running alongside.** The harness runs as a Claude Code chat panel. It doesn't touch the extension directly — they coexist on the filesystem. But worth verifying in Story 2.8 that opening a chapter in TipTap and having `/storyline` save a stage doc to `output/stages/` doesn't cause file-lock conflicts or stale-read issues.
 
 **esbuild + TypeScript + webview bundling can get fiddly.** The first time setting up a dual-build (extension host code separate from webview code) is where most time gets spent. Budget extra time in Story 2.1 if the scaffold takes longer than expected.
 

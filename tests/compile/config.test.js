@@ -32,8 +32,8 @@ describe('buildDefaultConfig', () => {
   });
 
   it('prefers state.json projectTitle over directory name', async () => {
-    mkdirSync(resolve(tmp, '.novel-writer'), { recursive: true });
-    writeFileSync(resolve(tmp, '.novel-writer', 'state.json'), JSON.stringify({
+    mkdirSync(resolve(tmp, '.storyline'), { recursive: true });
+    writeFileSync(resolve(tmp, '.storyline', 'state.json'), JSON.stringify({
       _meta: { projectTitle: 'The Real Title' },
       genre: { primaryGenre: 'thriller' },
     }));
@@ -42,8 +42,8 @@ describe('buildDefaultConfig', () => {
   });
 
   it('reads genre from state.json', async () => {
-    mkdirSync(resolve(tmp, '.novel-writer'), { recursive: true });
-    writeFileSync(resolve(tmp, '.novel-writer', 'state.json'), JSON.stringify({
+    mkdirSync(resolve(tmp, '.storyline'), { recursive: true });
+    writeFileSync(resolve(tmp, '.storyline', 'state.json'), JSON.stringify({
       genre: { primaryGenre: 'fantasy', subGenre: 'epic fantasy' },
     }));
     const config = await buildDefaultConfig(tmp);
@@ -52,8 +52,8 @@ describe('buildDefaultConfig', () => {
   });
 
   it('survives corrupt state.json (falls back to directory name)', async () => {
-    mkdirSync(resolve(tmp, '.novel-writer'), { recursive: true });
-    writeFileSync(resolve(tmp, '.novel-writer', 'state.json'), '{ not json');
+    mkdirSync(resolve(tmp, '.storyline'), { recursive: true });
+    writeFileSync(resolve(tmp, '.storyline', 'state.json'), '{ not json');
     const config = await buildDefaultConfig(tmp);
     expect(config.metadata.title).toBeTypeOf('string');
     expect(config.metadata.genre).toBeNull();

@@ -5,9 +5,9 @@ _Status: direction of travel. Not a build spec. Activated when [Phase 0](distrib
 
 ## Context & goal
 
-Phase 1 is the paid v1 product. Target: writers who want a finished writing app, not a developer tool to configure. Price anchor: **£79 one-time purchase**. Zero-terminal experience: the user downloads a file, double-clicks, and the full Novel Writer environment opens — manuscript, planning harness, AI integration, three-pane layout — with no Node, no VS Code install, no extension marketplace, no `.vsix` files, no command line.
+Phase 1 is the paid v1 product. Target: writers who want a finished writing app, not a developer tool to configure. Price anchor: **£79 one-time purchase**. Zero-terminal experience: the user downloads a file, double-clicks, and the full Storyline environment opens — manuscript, planning harness, AI integration, three-pane layout — with no Node, no VS Code install, no extension marketplace, no `.vsix` files, no command line.
 
-The headline decision for Phase 1 is architectural: **ship a fork of [VSCodium](https://vscodium.com/)** (the MIT-licensed open-source build of VS Code), pre-bundled with the Novel Writer extension, skill, default layout, and first-run configuration. Microsoft's own VS Code licence forbids redistribution; VSCodium exists specifically to be forked and rebundled. Cursor, Windsurf, and several other commercial editors take this same path.
+The headline decision for Phase 1 is architectural: **ship a fork of [VSCodium](https://vscodium.com/)** (the MIT-licensed open-source build of VS Code), pre-bundled with the Storyline extension, skill, default layout, and first-run configuration. Microsoft's own VS Code licence forbids redistribution; VSCodium exists specifically to be forked and rebundled. Cursor, Windsurf, and several other commercial editors take this same path.
 
 ## The strategic bet: hide, don't repaint
 
@@ -21,11 +21,11 @@ The bet: **a calm three-pane manuscript editor with zero developer cruft feels l
 
 ## The product shape
 
-**Download flow.** Writer buys on a simple storefront → receives a link to `novel-writer-macos-1.0.0.dmg` → double-clicks → drags Novel Writer.app into Applications → opens it → a Welcome screen appears offering "Start a new novel" or "Open existing novel". No further setup.
+**Download flow.** Writer buys on a simple storefront → receives a link to `storyline-macos-1.0.0.dmg` → double-clicks → drags Storyline.app into Applications → opens it → a Welcome screen appears offering "Start a new novel" or "Open existing novel". No further setup.
 
-**What's in the app**: VSCodium binary, pre-installed Novel Writer extension, pre-installed `/novel` skill, pre-configured default layout (three-pane, tinted manuscript surface, typewriter scroll available), sample starter novel on first run.
+**What's in the app**: VSCodium binary, pre-installed Storyline extension, pre-installed `/storyline` skill, pre-configured default layout (three-pane, tinted manuscript surface, typewriter scroll available), sample starter novel on first run.
 
-**What the writer sees**: An app called Novel Writer, with its own icon in the Dock and the macOS menu bar. The top-level menu reads "File > New Novel / Open Novel / New Chapter…" — not "File > New Text File". The left column is called "Manuscript", not "Explorer". The middle pane is the editor they already know from Phase 0. The right pane hosts supporting docs or the AI chat.
+**What the writer sees**: An app called Storyline, with its own icon in the Dock and the macOS menu bar. The top-level menu reads "File > New Novel / Open Novel / New Chapter…" — not "File > New Text File". The left column is called "Manuscript", not "Explorer". The middle pane is the editor they already know from Phase 0. The right pane hosts supporting docs or the AI chat.
 
 ## What gets hidden in v1
 
@@ -54,8 +54,8 @@ These disappear entirely from the default UI (writers who enable them via a hidd
 
 Chrome-level only, not pixel-level:
 
-- App name: **Novel Writer**
-- App icon: bespoke Novel Writer icon (commissioned artwork)
+- App name: **Storyline**
+- App icon: bespoke Storyline icon (commissioned artwork)
 - Window title
 - macOS menu bar name
 - First-run Welcome screen (custom content, VSCodium-compatible styling)
@@ -65,18 +65,18 @@ Chrome-level only, not pixel-level:
 What we *don't* do in v1 (deferred to Phase 2):
 - Custom title bar rendering
 - Custom font stack or typography system
-- Custom colour palette beyond what the Novel Writer extension already provides
+- Custom colour palette beyond what the Storyline extension already provides
 - Marketing-grade onboarding animation
 
 ## Claude integration — open decision
 
 One architectural question to answer when Phase 1 work starts, not now:
 
-**Option A: Bundle as prerequisite.** The Novel Writer app detects whether Claude Code is installed on the user's machine. If not, the first-run flow guides them through installing it (linking to Anthropic's installer, returning to Novel Writer when done). Novel Writer itself never sees the API; all AI interaction flows through Claude Code as today.
+**Option A: Bundle as prerequisite.** The Storyline app detects whether Claude Code is installed on the user's machine. If not, the first-run flow guides them through installing it (linking to Anthropic's installer, returning to Storyline when done). Storyline itself never sees the API; all AI interaction flows through Claude Code as today.
 - Pro: Separation of concerns. We don't handle billing, rate limits, or Anthropic API support for our users.
 - Con: Extra install step breaks the "one file, double-click, done" promise.
 
-**Option B: Embed via Anthropic API.** Build the planning chat UI directly into Novel Writer. Use the user's own Anthropic API key (entered once in Preferences). The `/novel` harness runs in-process against the API.
+**Option B: Embed via Anthropic API.** Build the planning chat UI directly into Storyline. Use the user's own Anthropic API key (entered once in Preferences). The `/storyline` harness runs in-process against the API.
 - Pro: Zero external dependencies. True one-download experience.
 - Con: We own the billing/support surface. Users without an Anthropic account need one. We handle API errors, rate limits, model changes.
 

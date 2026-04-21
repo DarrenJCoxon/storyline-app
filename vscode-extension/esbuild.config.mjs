@@ -40,7 +40,7 @@ const hostConfig = {
   platform: 'node',
   target: ['node18'],
   // `vscode` is provided by VS Code at runtime; never try to bundle it.
-  // Puppeteer is only invoked by the CLI (nw compile), never imported
+  // Puppeteer is only invoked by the CLI (storyline compile), never imported
   // by the extension host, so it doesn't need to be external here.
   external: ['vscode'],
   minify: !watch,

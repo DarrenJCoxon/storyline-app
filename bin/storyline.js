@@ -20,9 +20,8 @@ import { runQualityChecklist, getPersonaForStage } from '../lib/ai/coaching-pers
 const program = new Command();
 
 program
-  .name('novel-writer')
-  .alias('nw')
-  .description('Save the Cat novel planning harness — use /novel inside Claude Code for the planning conversation')
+  .name('storyline')
+  .description('Storyline — plan and write your novel using Save the Cat. Use /storyline inside Claude Code for the planning conversation.')
   .version('1.0.0');
 
 registerInit(program);
@@ -35,7 +34,7 @@ program
   .action(async () => {
     const state = loadState();
     if (!state) {
-      console.log(chalk.yellow('\nNo project found. Run `nw init` to begin, then use /novel to start planning.\n'));
+      console.log(chalk.yellow('\nNo project found. Run `storyline init` to begin, then use /storyline to start planning.\n'));
       return;
     }
 
@@ -51,9 +50,9 @@ program
         console.log(chalk.dim(`  Fix the requirements above before proceeding.\n`));
       }
 
-      console.log(chalk.bold(`\n  Use /novel in Claude Code to continue planning.\n`));
+      console.log(chalk.bold(`\n  Use /storyline in Claude Code to continue planning.\n`));
     } else {
-      console.log(chalk.green('\n  All stages complete! Run `nw generate` to create the master document.\n'));
+      console.log(chalk.green('\n  All stages complete! Run `storyline generate` to create the master document.\n'));
     }
   });
 
@@ -64,7 +63,7 @@ program
   .action(async () => {
     const state = loadState();
     if (!state) {
-      console.log(chalk.yellow('No project found. Run `nw init` to begin.'));
+      console.log(chalk.yellow('No project found. Run `storyline init` to begin.'));
       return;
     }
     printStatus(state);
@@ -86,7 +85,7 @@ program
   .action(async (stageId) => {
     const state = loadState();
     if (!state) {
-      console.log(chalk.yellow('No project found. Run `nw init` first.'));
+      console.log(chalk.yellow('No project found. Run `storyline init` first.'));
       return;
     }
 
@@ -115,7 +114,7 @@ program
       console.log();
     }
 
-    console.log(chalk.dim('Use /novel in Claude Code to revise this stage.\n'));
+    console.log(chalk.dim('Use /storyline in Claude Code to revise this stage.\n'));
   });
 
 // ── generate — output master document ──────────────────────────
@@ -125,7 +124,7 @@ program
   .action(async () => {
     const state = loadState();
     if (!state) {
-      console.log(chalk.yellow('No project found. Run `nw init` first.'));
+      console.log(chalk.yellow('No project found. Run `storyline init` first.'));
       return;
     }
     const { generateMasterDocument } = await import('../lib/output/master-doc.js');
@@ -133,10 +132,10 @@ program
     console.log(chalk.green(`\n Master document generated: ${result.path}\n`));
   });
 
-// ── stage-info — output stage guide as JSON (for /novel skill) ──
+// ── stage-info — output stage guide as JSON (for /storyline skill) ──
 program
   .command('stage-info')
-  .description('Output stage conversation guide as JSON (used by /novel skill)')
+  .description('Output stage conversation guide as JSON (used by /storyline skill)')
   .argument('<stage>', 'Stage ID')
   .action(async (stageId) => {
     const guide = getStageGuide(stageId);
@@ -162,7 +161,7 @@ program
     console.log(JSON.stringify(output, null, 2));
   });
 
-// ── save — save stage data to state (for /novel skill) ──────────
+// ── save — save stage data to state (for /storyline skill) ──────────
 program
   .command('save')
   .description('Save stage data to project state')
@@ -193,7 +192,7 @@ program
 
     const state = loadState();
     if (!state) {
-      console.error(chalk.red('No project found. Run `nw init` first.'));
+      console.error(chalk.red('No project found. Run `storyline init` first.'));
       process.exit(1);
     }
 
@@ -242,7 +241,7 @@ program
     }
 
     // Auto-run series detection after premise save. Result flows into
-    // the JSON payload so the /novel skill can raise it with the writer.
+    // the JSON payload so the /storyline skill can raise it with the writer.
     if (stageId === 'premise') {
       try {
         const { detectSeriesPotential } = await import('../lib/ai/series-detector.js');
@@ -263,7 +262,7 @@ program
       warnings.push(`memory: ${err.message}`);
     }
 
-    // Emit structured JSON so the /novel skill can push memoryEntries to
+    // Emit structured JSON so the /storyline skill can push memoryEntries to
     // mcp__odd-flow__memory_store. Human-readable status goes to stderr.
     console.error(chalk.green(`Saved ${stageId} data`));
     if (stageDocPath) console.error(chalk.dim(`  ↳ stage doc: ${stageDocPath}`));
@@ -284,11 +283,11 @@ program
 // ── detect-series — run series detection on current premise ───
 program
   .command('detect-series')
-  .description('Run series-potential detection on current premise/genre. Also runs automatically after `nw save premise`.')
+  .description('Run series-potential detection on current premise/genre. Also runs automatically after `storyline save premise`.')
   .action(async () => {
     const state = loadState();
     if (!state) {
-      console.error(chalk.red('No project found. Run `nw init` first.'));
+      console.error(chalk.red('No project found. Run `storyline init` first.'));
       process.exit(1);
     }
     const { detectSeriesPotential } = await import('../lib/ai/series-detector.js');
@@ -297,7 +296,7 @@ program
   });
 
 // ── memory — sync status & reconciliation with odd-flow MCP ────
-const memory = program.command('memory').description('Memory sync commands (used by /novel skill)');
+const memory = program.command('memory').description('Memory sync commands (used by /storyline skill)');
 
 memory
   .command('sync')
@@ -372,7 +371,7 @@ manuscript
   .action(async (opts) => {
     const state = loadState();
     if (!state) {
-      console.error(chalk.red('No project found. Run `nw init` first.'));
+      console.error(chalk.red('No project found. Run `storyline init` first.'));
       process.exit(1);
     }
     const { snapshotManuscript, buildManuscriptMemoryEntries } = await import('../lib/manuscript/snapshot.js');
@@ -397,7 +396,7 @@ manuscript
     } else {
       console.log(chalk.green(`Snapshot: ${snapshot.chapterCount} chapter${snapshot.chapterCount === 1 ? '' : 's'}, ${snapshot.totalWords.toLocaleString()} words.`));
       console.log(chalk.dim(`  ↳ ${entriesWithIds.length} memory entries appended to ${logPath}`));
-      console.log(chalk.dim(`    Push via mcp__odd-flow__memory_store then nw memory mark-synced <ids>.`));
+      console.log(chalk.dim(`    Push via mcp__odd-flow__memory_store then storyline memory mark-synced <ids>.`));
       // Skill-consumable JSON last so piped tooling works:
       console.log(JSON.stringify(summary));
     }
@@ -478,7 +477,7 @@ program
     if (!state) {
       const err = { error: 'No project found', action: 'init' };
       if (opts.json) console.log(JSON.stringify(err, null, 2));
-      else console.error(chalk.yellow('No project found. Run `nw init` first.'));
+      else console.error(chalk.yellow('No project found. Run `storyline init` first.'));
       process.exit(1);
     }
     const { runDoctor, formatDoctorReport } = await import('../lib/doctor.js');
@@ -499,7 +498,7 @@ program
     process.exit(report.ok ? 0 : 1);
   });
 
-// ── next — show what to do next (for /novel skill) ──────────────
+// ── next — show what to do next (for /storyline skill) ──────────────
 program
   .command('next')
   .description('Show next stage and current status as JSON')
@@ -518,7 +517,7 @@ program
         complete: true,
         progress,
         action: 'generate',
-        message: 'All stages complete — run nw generate',
+        message: 'All stages complete — run storyline generate',
       }, null, 2));
       return;
     }

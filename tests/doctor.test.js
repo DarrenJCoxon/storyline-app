@@ -1,9 +1,9 @@
-// nw doctor — cross-surface drift detection.
+// storyline doctor — cross-surface drift detection.
 //
 // Verifies the exact bug class that triggered this feature: stages 12/13/14
 // generating prose artefacts on disk while state.json stayed stuck at
 // stage 11. The doctor must catch that as an 'orphan-artefact' error so
-// the /novel skill's stage-closure protocol halts on it.
+// the /storyline skill's stage-closure protocol halts on it.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
@@ -45,7 +45,7 @@ function stateCompleteThrough(stageId) {
   return s;
 }
 
-describe('nw doctor — orphan artefact detection', () => {
+describe('storyline doctor — orphan artefact detection', () => {
   let tmp;
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'nw-doctor-')); });
   afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
@@ -70,7 +70,7 @@ describe('nw doctor — orphan artefact detection', () => {
     expect(orphans).toHaveLength(1);
     expect(orphans[0].stageId).toBe('chapterOutline');
     expect(orphans[0].artefacts).toContain('docs/13-chapter-flesh-out.md');
-    expect(orphans[0].fix).toContain('nw save chapterOutline');
+    expect(orphans[0].fix).toContain('storyline save chapterOutline');
   });
 
   it('flags docs/14-consistency-critique.md as orphan when critique is empty on a chapterless project', async () => {
@@ -135,7 +135,7 @@ describe('nw doctor — orphan artefact detection', () => {
   });
 });
 
-describe('nw doctor — stale completion marker', () => {
+describe('storyline doctor — stale completion marker', () => {
   let tmp;
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'nw-doctor-')); });
   afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
@@ -177,12 +177,12 @@ describe('formatDoctorReport', () => {
         stageName: 'Chapter Flesh-Out',
         message: 'Artefact on disk but not in state.',
         artefacts: ['docs/13-chapter-flesh-out.md'],
-        fix: 'nw save chapterOutline ...',
+        fix: 'storyline save chapterOutline ...',
       }],
     });
     expect(text).toContain('DRIFT');
     expect(text).toContain('orphan-artefact:chapterOutline');
     expect(text).toContain('docs/13-chapter-flesh-out.md');
-    expect(text).toContain('fix: nw save chapterOutline');
+    expect(text).toContain('fix: storyline save chapterOutline');
   });
 });

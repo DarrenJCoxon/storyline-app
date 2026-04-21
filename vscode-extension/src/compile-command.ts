@@ -2,14 +2,14 @@ import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import * as path from 'path';
 
-// Shell out to the CLI: `nw compile --format <format>`. Does NOT
+// Shell out to the CLI: `storyline compile --format <format>`. Does NOT
 // reimplement the compile pipeline — that logic stays in the CLI so
 // it's testable outside VS Code and usable from any terminal.
 //
 // UX flow (same for all formats):
-//   1. Verify workspace has .novel-writer/state.json
+//   1. Verify workspace has .storyline/state.json
 //   2. Show a blocking progress toast
-//   3. Stream stdout + stderr into the "Novel Writer" output channel
+//   3. Stream stdout + stderr into the "Storyline" output channel
 //   4. On success: notification with [Reveal in Finder] + [Open] actions
 //   5. On failure: error notification with [View Log] action
 
@@ -48,17 +48,17 @@ let outputChannel: vscode.OutputChannel | undefined;
 async function runCompileCommand(config: CompileConfig): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
-    vscode.window.showErrorMessage('Novel Writer: open a novel project folder first.');
+    vscode.window.showErrorMessage('Storyline: open a novel project folder first.');
     return;
   }
 
-  const stateFile = vscode.Uri.joinPath(folder.uri, '.novel-writer', 'state.json');
+  const stateFile = vscode.Uri.joinPath(folder.uri, '.storyline', 'state.json');
   try {
     await vscode.workspace.fs.stat(stateFile);
   } catch {
     vscode.window.showErrorMessage(
-      'Novel Writer: no .novel-writer/state.json found in this workspace. ' +
-        'Run `nw init` in the terminal first.',
+      'Storyline: no .storyline/state.json found in this workspace. ' +
+        'Run `storyline init` in the terminal first.',
     );
     return;
   }
@@ -73,7 +73,7 @@ async function runCompileCommand(config: CompileConfig): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const choice = await vscode.window.showErrorMessage(
-      `Novel Writer: compile failed — ${message}`,
+      `Storyline: compile failed — ${message}`,
       'View Log',
     );
     if (choice === 'View Log') {
@@ -104,7 +104,7 @@ function runCompile(
           // (VS Code on macOS doesn't always inherit the shell profile's
           // PATH when launched from the GUI). The command is hardcoded,
           // not user-supplied, so there's no shell-injection concern.
-          const child = spawn(`nw compile --format ${config.format}`, {
+          const child = spawn(`storyline compile --format ${config.format}`, {
             cwd,
             shell: true,
             env: { ...process.env, FORCE_COLOR: '0' },
@@ -124,8 +124,7 @@ function runCompile(
 
           child.on('error', err => {
             const msg = (err as NodeJS.ErrnoException).code === 'ENOENT'
-              ? '`nw` command not found on PATH. Install the novel-writer CLI and link it: ' +
-                '`cd /path/to/novel-writer && npm link`'
+              ? '`storyline` command not found on PATH. Install the Storyline CLI with `npm install -g storyline`, or clone the repo and run `npm link`.'
               : err.message;
             out.appendLine(`\nError: ${msg}`);
             progressReject(new Error(msg));
@@ -160,7 +159,7 @@ function runCompile(
 
 async function showSuccess(outputPath: string | null, config: CompileConfig): Promise<void> {
   if (!outputPath) {
-    vscode.window.showInformationMessage(`Novel Writer: ${config.formatLabel} compile complete.`);
+    vscode.window.showInformationMessage(`Storyline: ${config.formatLabel} compile complete.`);
     return;
   }
 
@@ -183,7 +182,7 @@ async function showSuccess(outputPath: string | null, config: CompileConfig): Pr
 
 function getOutputChannel(): vscode.OutputChannel {
   if (!outputChannel) {
-    outputChannel = vscode.window.createOutputChannel('Novel Writer');
+    outputChannel = vscode.window.createOutputChannel('Storyline');
   }
   return outputChannel;
 }

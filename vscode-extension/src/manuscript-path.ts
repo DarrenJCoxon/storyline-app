@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 
 // Shared helper: read the project's manuscript directory from
-// .novel-writer/state.json. Used by both the custom editor provider
+// .storyline/state.json. Used by both the custom editor provider
 // (for role classification) and the Inspector command (to decide
 // which files are "supporting" vs "manuscript").
 //
@@ -14,7 +14,7 @@ let cached: string | null = null;
 export async function readManuscriptPath(workspaceRoot: vscode.Uri): Promise<string> {
   if (cached !== null) return cached;
   try {
-    const statePath = vscode.Uri.joinPath(workspaceRoot, '.novel-writer', 'state.json');
+    const statePath = vscode.Uri.joinPath(workspaceRoot, '.storyline', 'state.json');
     const bytes = await vscode.workspace.fs.readFile(statePath);
     const state = JSON.parse(new TextDecoder('utf-8').decode(bytes));
     const p = state?.writing?.manuscriptPath;

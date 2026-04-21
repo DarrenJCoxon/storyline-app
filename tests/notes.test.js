@@ -183,7 +183,7 @@ describe('buildNotesMemoryEntries', () => {
   it('tags entries as pending + note + draft so odd-flow can filter by status', () => {
     const notes = [{ chapterNumber: 1, note: 'x', file: 'manuscript/ch01.md', line: 1, column: 1 }];
     const entries = buildNotesMemoryEntries(notes, state());
-    for (const t of ['novel-writer', 'manuscript', 'draft', 'note', 'pending', 'ch1']) {
+    for (const t of ['storyline', 'manuscript', 'draft', 'note', 'pending', 'ch1']) {
       expect(entries[0].tags).toContain(t);
     }
   });

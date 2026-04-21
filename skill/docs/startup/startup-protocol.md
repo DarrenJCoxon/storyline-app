@@ -1,15 +1,15 @@
-# Novel Writer — Startup Protocol
+# Storyline — Startup Protocol
 
 ## Purpose
 
-When `/novel` is activated, this protocol runs first. Nothing else happens until startup is complete.
+When `/storyline` is activated, this protocol runs first. Nothing else happens until startup is complete.
 
 ## Step 1: Check Project State
 
-Run `nw next` to get the current project state as JSON.
+Run `storyline next` to get the current project state as JSON.
 
 ```bash
-nw next
+storyline next
 ```
 
 Returns:
@@ -22,12 +22,12 @@ Returns:
 ### New Project
 If `action: "init"`:
 
-1. Run `nw init` to create `.novel-writer/` and `state.json`
-2. Run `nw next` again to confirm
+1. Run `storyline init` to create `.storyline/` and `state.json`
+2. Run `storyline next` again to confirm
 3. Display:
 
 ```
-Novel Writer — Save the Cat Planning Harness
+Storyline — Save the Cat Planning Harness
 
 Character-first. Beat-driven. Organically detects series potential.
 
@@ -39,11 +39,11 @@ Starting fresh — let's build your novel.
 ### Returning Project
 If `currentStage` is returned:
 
-1. Run `nw status` for the full stage breakdown
+1. Run `storyline status` for the full stage breakdown
 2. Display:
 
 ```
-Novel Writer — Returning to [Project Title]
+Storyline — Returning to [Project Title]
 
 Genre: [Genre] / [Sub-Genre]
 Protagonist: [Name]
@@ -60,7 +60,7 @@ Current Stage: [Stage Name]
 If `complete: true`:
 
 ```
-All planning stages complete! Run `nw generate` to create your master document.
+All planning stages complete! Run `storyline generate` to create your master document.
 ```
 
 ## Step 3: Check Environment
@@ -96,23 +96,23 @@ For new projects → Start Stage 1: Genre & Foundations
 
 For returning projects → Continue from the current stage
 
-The conversation is driven by you (the /novel skill), not by the CLI. Use `nw stage-info <stageId>` to get conversation guides, and `nw save <stageId> '<json>'` to persist data.
+The conversation is driven by you (the /storyline skill), not by the CLI. Use `storyline stage-info <stageId>` to get conversation guides, and `storyline save <stageId> '<json>'` to persist data.
 
 ## CLI Commands Reference
 
 | Command | Purpose |
 |---------|---------|
-| `nw init` | Set up `.novel-writer/` in current directory |
-| `nw start` | Show current status and next action |
-| `nw status` | Show progress and next recommended action |
-| `nw stages` | List all 14 stages with completion status |
-| `nw next` | Return next stage info as JSON (for skill) |
-| `nw stage-info <stage>` | Return stage conversation guide as JSON |
-| `nw save <stage> [json]` | Save stage data to state |
-| `nw traps` | Run story trap detection |
-| `nw checklist <stage>` | Run quality checklist for a stage |
-| `nw revise <stage>` | Show downstream impacts for revision |
-| `nw generate` | Output the master planning document |
+| `storyline init` | Set up `.storyline/` in current directory |
+| `storyline start` | Show current status and next action |
+| `storyline status` | Show progress and next recommended action |
+| `storyline stages` | List all 14 stages with completion status |
+| `storyline next` | Return next stage info as JSON (for skill) |
+| `storyline stage-info <stage>` | Return stage conversation guide as JSON |
+| `storyline save <stage> [json]` | Save stage data to state |
+| `storyline traps` | Run story trap detection |
+| `storyline checklist <stage>` | Run quality checklist for a stage |
+| `storyline revise <stage>` | Show downstream impacts for revision |
+| `storyline generate` | Output the master planning document |
 
 ## Startup Complete
 

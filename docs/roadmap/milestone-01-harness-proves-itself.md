@@ -1,4 +1,4 @@
-# Milestone 1 — Novel Writer harness proves itself on a real book
+# Milestone 1 — Storyline harness proves itself on a real book
 
 _Status: **CURRENT**_
 _Parent: [../roadmap.md](../roadmap.md)_
@@ -6,7 +6,7 @@ _Last updated: 2026-04-19_
 
 ## Outcome
 
-The `/novel` harness (CLI + skill) is used to plan an actual novel from genre through to chapter flesh-out, and the resulting plan is useful enough that someone could write the book from it without re-planning anything structural.
+The `/storyline` harness (CLI + skill) is used to plan an actual novel from genre through to chapter flesh-out, and the resulting plan is useful enough that someone could write the book from it without re-planning anything structural.
 
 ## Why this milestone exists
 
@@ -27,9 +27,9 @@ All three must be true:
 Pre-flight (before planning the real book):
 
 - **1.1 Baseline quality pass on all 14 stage guides** — Read each stage's conversation guide in `lib/ai/stage-guides.js`. Check question order is sensible, hints are accurate, validation messages make sense. Fix anything obviously wrong. _(Half day)_
-- **1.2 End-to-end smoke test** — Seed a synthetic novel state with minimal data, run through every stage via `nw save`, verify every output file generates correctly: stage docs, memory entries, master document. Confirm no schema mismatches like the Chinese-key bug we just fixed. _(Half day)_
-- **1.3 Memory sync round-trip verified in a real Claude session** — Start a new `/novel` session, plan a few stages, end the session, start another session, confirm the previous session's memory is recalled correctly by the skill. _(Half day)_
-- **1.4 Master document generation produces a readable artefact** — Run `nw generate` on a filled state. Read the output. If sections are confusing or out of order, fix the renderer in `lib/output/master-doc.js`. _(Half day)_
+- **1.2 End-to-end smoke test** — Seed a synthetic novel state with minimal data, run through every stage via `storyline save`, verify every output file generates correctly: stage docs, memory entries, master document. Confirm no schema mismatches like the Chinese-key bug we just fixed. _(Half day)_
+- **1.3 Memory sync round-trip verified in a real Claude session** — Start a new `/storyline` session, plan a few stages, end the session, start another session, confirm the previous session's memory is recalled correctly by the skill. _(Half day)_
+- **1.4 Master document generation produces a readable artefact** — Run `storyline generate` on a filled state. Read the output. If sections are confusing or out of order, fix the renderer in `lib/output/master-doc.js`. _(Half day)_
 
 The actual test (this is the milestone):
 

@@ -1,4 +1,4 @@
-// `nw compile` — compile the novel project's manuscript to a publishable
+// `storyline compile` — compile the novel project's manuscript to a publishable
 // format. Story 3.1 wires the CLI; later stories fill in the pipeline phases.
 
 import chalk from 'chalk';
@@ -24,10 +24,10 @@ export function registerCompile(program) {
       }
 
       const projectPath = process.cwd();
-      const stateFile = resolve(projectPath, '.novel-writer', 'state.json');
+      const stateFile = resolve(projectPath, '.storyline', 'state.json');
       if (!existsSync(stateFile)) {
         console.error(chalk.red('No novel project found in this directory.'));
-        console.error(chalk.dim('Run `nw init` first, or cd into an existing project.'));
+        console.error(chalk.dim('Run `storyline init` first, or cd into an existing project.'));
         process.exit(2);
       }
 

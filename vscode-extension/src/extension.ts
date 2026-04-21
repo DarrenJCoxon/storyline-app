@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { openNovelEditor } from './webview-panel';
-import { NovelEditorProvider } from './novel-editor-provider';
+import { StorylineEditorProvider } from './storyline-editor-provider';
 import { WordCountStatusBar } from './status-bar';
 import { compileToEpub, compileToPrintPdf } from './compile-command';
 import { editBookInfo } from './book-info-command';
@@ -8,7 +8,7 @@ import { openPreview } from './preview-command';
 import { openLivePreview } from './live-preview-command';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.log('Novel Writer extension activated');
+  console.log('Storyline extension activated');
 
   // Status bar word count — created first so the custom editor provider
   // can notify it of focus changes (needed because custom editors aren't
@@ -20,8 +20,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // (where extension doesn't activate) get VS Code's default markdown editor.
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
-      NovelEditorProvider.viewType,
-      new NovelEditorProvider(context, statusBar),
+      StorylineEditorProvider.viewType,
+      new StorylineEditorProvider(context, statusBar),
       {
         webviewOptions: { retainContextWhenHidden: true },
         supportsMultipleEditorsPerDocument: false,
@@ -30,12 +30,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('novelWriter.hello', () => {
-      vscode.window.showInformationMessage('Novel Writer — active');
+    vscode.commands.registerCommand('storyline.hello', () => {
+      vscode.window.showInformationMessage('Storyline — active');
     }),
-    vscode.commands.registerCommand('novelWriter.openEditor', (uri?: vscode.Uri) => {
+    vscode.commands.registerCommand('storyline.openEditor', (uri?: vscode.Uri) => {
       if (uri) {
-        return vscode.commands.executeCommand('vscode.openWith', uri, NovelEditorProvider.viewType);
+        return vscode.commands.executeCommand('vscode.openWith', uri, StorylineEditorProvider.viewType);
       }
       return openNovelEditor(context);
     }),
@@ -45,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // the first time and persists the layout per-workspace — no
     // extension-side enforcement required. Replaces the failed
     // Inspector-view approach from v0.16.x.
-    vscode.commands.registerCommand('novelWriter.openToSide', async (uri?: vscode.Uri) => {
+    vscode.commands.registerCommand('storyline.openToSide', async (uri?: vscode.Uri) => {
       let target = uri;
       if (!target) {
         const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
@@ -55,26 +55,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
       if (!target) {
         vscode.window.showInformationMessage(
-          'Novel Writer: select a .md file in the explorer or focus one in the editor first.',
+          'Storyline: select a .md file in the explorer or focus one in the editor first.',
         );
         return;
       }
       await vscode.commands.executeCommand(
         'vscode.openWith',
         target,
-        NovelEditorProvider.viewType,
+        StorylineEditorProvider.viewType,
         vscode.ViewColumn.Beside,
       );
     }),
-    vscode.commands.registerCommand('novelWriter.compileEpub', () => compileToEpub()),
-    vscode.commands.registerCommand('novelWriter.compilePrintPdf', () => compileToPrintPdf()),
-    vscode.commands.registerCommand('novelWriter.openPreview', () => openPreview()),
-    vscode.commands.registerCommand('novelWriter.openLivePreview', () => openLivePreview(context)),
-    vscode.commands.registerCommand('novelWriter.editBookInfo', () => editBookInfo(context)),
-    vscode.commands.registerCommand('novelWriter.showWordCountBreakdown', async () => {
+    vscode.commands.registerCommand('storyline.compileEpub', () => compileToEpub()),
+    vscode.commands.registerCommand('storyline.compilePrintPdf', () => compileToPrintPdf()),
+    vscode.commands.registerCommand('storyline.openPreview', () => openPreview()),
+    vscode.commands.registerCommand('storyline.openLivePreview', () => openLivePreview(context)),
+    vscode.commands.registerCommand('storyline.editBookInfo', () => editBookInfo(context)),
+    vscode.commands.registerCommand('storyline.showWordCountBreakdown', async () => {
       const breakdown = statusBar.getBreakdown();
       if (!breakdown.length) {
-        vscode.window.showInformationMessage('Novel Writer: no markdown files found in the workspace');
+        vscode.window.showInformationMessage('Storyline: no markdown files found in the workspace');
         return;
       }
       const total = statusBar.getTotal();

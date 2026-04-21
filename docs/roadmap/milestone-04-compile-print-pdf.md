@@ -7,7 +7,7 @@ _Last updated: 2026-04-20_
 
 ## Outcome
 
-A writer can run a single command ("Novel Writer: Compile to Print PDF" in VS Code, or `nw compile --format print-pdf` in the terminal) and get a press-ready PDF that:
+A writer can run a single command ("Storyline: Compile to Print PDF" in VS Code, or `storyline compile --format print-pdf` in the terminal) and get a press-ready PDF that:
 
 - Uploads cleanly to KDP's paperback interior checker (passes on first try)
 - Uses 6x9 trim (most popular for trade paperback) by default, configurable
@@ -29,7 +29,7 @@ Scope for M4: **6x9 trim only, one theme (Classic Serif print variant)**. Other 
 
 All four must be true:
 
-1. **A real manuscript compiles to a valid print PDF.** 3+ chapters, 10k+ words. `nw compile --format print-pdf` produces `output/compiled/manuscript-print-6x9.pdf`.
+1. **A real manuscript compiles to a valid print PDF.** 3+ chapters, 10k+ words. `storyline compile --format print-pdf` produces `output/compiled/manuscript-print-6x9.pdf`.
 2. **KDP paperback interior checker passes on first upload.** No errors about bleed, margins, fonts, or embedded resources.
 3. **Running headers and page numbers appear correctly.** Verso (left) pages show book title; recto (right) pages show chapter title. Front matter uses roman numerals; chapter 1 starts at Arabic page 1.
 4. **Drop caps, scene breaks, and chapter openings render as in the EPUB,** but adapted for the fixed trim size (proper line-heights, margins, no overflow).
@@ -71,9 +71,9 @@ manuscript/*.md
 
 ### 4.1 — Scaffold print-pdf format + install dependencies
 
-Wire `nw compile --format print-pdf` as a supported format. Install `puppeteer` and `pagedjs`. Create `lib/compile/print-pdf.js` as a stub that logs "print-pdf phase stub" for now. Update `lib/compile/index.js` and `bin/commands/compile.js` to accept `print-pdf` alongside `epub`.
+Wire `storyline compile --format print-pdf` as a supported format. Install `puppeteer` and `pagedjs`. Create `lib/compile/print-pdf.js` as a stub that logs "print-pdf phase stub" for now. Update `lib/compile/index.js` and `bin/commands/compile.js` to accept `print-pdf` alongside `epub`.
 
-**Done when:** `nw compile --format print-pdf` runs without error, prints the phase sequence, exits cleanly. Produces no PDF yet — that's 4.4.
+**Done when:** `storyline compile --format print-pdf` runs without error, prints the phase sequence, exits cleanly. Produces no PDF yet — that's 4.4.
 
 **Estimate:** Half day.
 
@@ -117,7 +117,7 @@ Build the HTML template that wraps the compiled chapters for paged.js ingestion.
 
 Handle errors: Chromium not installed (first-run download), paged.js timeout, insufficient memory.
 
-**Done when:** `nw compile --format print-pdf` produces a 6x9 PDF with correct pagination. Opens cleanly in Preview / Adobe Reader.
+**Done when:** `storyline compile --format print-pdf` produces a 6x9 PDF with correct pagination. Opens cleanly in Preview / Adobe Reader.
 
 **Estimate:** 1 day.
 
@@ -137,7 +137,7 @@ Only runs these when `format === 'print-pdf'`; EPUB preflight stays unchanged.
 
 ### 4.6 — VS Code "Compile to Print PDF" command
 
-Mirror of the EPUB compile command. Shells out to `nw compile --format print-pdf`, shows progress toast, success notification with [Reveal in Finder] / [Open] actions.
+Mirror of the EPUB compile command. Shells out to `storyline compile --format print-pdf`, shows progress toast, success notification with [Reveal in Finder] / [Open] actions.
 
 **Done when:** From VS Code command palette, running "Compile to Print PDF" produces the PDF and handing it off to macOS Preview via the Open button works.
 
@@ -180,7 +180,7 @@ You, the writer. Take a manuscript (3+ chapters, 10k+ words — placeholder cont
 ## Definition of done
 
 - All four prove-it criteria met
-- `nw compile --format print-pdf` works from any terminal inside a novel project
+- `storyline compile --format print-pdf` works from any terminal inside a novel project
 - VS Code command invokes the CLI and handles success/failure cleanly
 - Output PDF opens in Preview / Adobe Reader
 - KDP paperback interior checker passes

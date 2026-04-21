@@ -1,7 +1,7 @@
 {
-  "name": "novel-writer-vscode",
-  "displayName": "Novel Writer",
-  "description": "Rich-text writing surface for novel projects using the Novel Writer planning harness. Files stay markdown on disk.",
+  "name": "storyline-vscode",
+  "displayName": "Storyline",
+  "description": "Rich-text writing surface for novel projects using the Storyline planning harness. Files stay markdown on disk.",
   "version": "0.17.0",
   "publisher": "darrenjcoxon",
   "engines": {
@@ -11,14 +11,14 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.novel-writer/state.json"
+    "workspaceContains:.storyline/state.json"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "customEditors": [
       {
-        "viewType": "novelWriter.editor",
-        "displayName": "Novel Writer Rich Editor",
+        "viewType": "storyline.editor",
+        "displayName": "Storyline Rich Editor",
         "selector": [
           {
             "filenamePattern": "*.md"
@@ -32,69 +32,69 @@
     ],
     "commands": [
       {
-        "command": "novelWriter.hello",
-        "title": "Novel Writer: Hello (scaffold check)"
+        "command": "storyline.hello",
+        "title": "Storyline: Hello (scaffold check)"
       },
       {
-        "command": "novelWriter.openEditor",
-        "title": "Novel Writer: Open in Rich Editor"
+        "command": "storyline.openEditor",
+        "title": "Storyline: Open in Rich Editor"
       },
       {
-        "command": "novelWriter.openToSide",
-        "title": "Novel Writer: Open to the Side",
+        "command": "storyline.openToSide",
+        "title": "Storyline: Open to the Side",
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "novelWriter.showWordCountBreakdown",
-        "title": "Novel Writer: Show Word Count Breakdown"
+        "command": "storyline.showWordCountBreakdown",
+        "title": "Storyline: Show Word Count Breakdown"
       },
       {
-        "command": "novelWriter.compileEpub",
-        "title": "Novel Writer: Compile to EPUB",
+        "command": "storyline.compileEpub",
+        "title": "Storyline: Compile to EPUB",
         "icon": "$(book)"
       },
       {
-        "command": "novelWriter.compilePrintPdf",
-        "title": "Novel Writer: Compile to Print PDF",
+        "command": "storyline.compilePrintPdf",
+        "title": "Storyline: Compile to Print PDF",
         "icon": "$(file-pdf)"
       },
       {
-        "command": "novelWriter.openPreview",
-        "title": "Novel Writer: Open Preview",
+        "command": "storyline.openPreview",
+        "title": "Storyline: Open Preview",
         "icon": "$(preview)"
       },
       {
-        "command": "novelWriter.openLivePreview",
-        "title": "Novel Writer: Open Live Chapter Preview",
+        "command": "storyline.openLivePreview",
+        "title": "Storyline: Open Live Chapter Preview",
         "icon": "$(eye)"
       },
       {
-        "command": "novelWriter.editBookInfo",
-        "title": "Novel Writer: Edit Book Info",
+        "command": "storyline.editBookInfo",
+        "title": "Storyline: Edit Book Info",
         "icon": "$(info)"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "novelWriter.openEditor",
+          "command": "storyline.openEditor",
           "when": "resourceExtname == .md",
           "group": "navigation@99"
         },
         {
-          "command": "novelWriter.openToSide",
+          "command": "storyline.openToSide",
           "when": "resourceExtname == .md",
           "group": "navigation@100"
         }
       ],
       "editor/title/context": [
         {
-          "command": "novelWriter.openEditor",
+          "command": "storyline.openEditor",
           "when": "resourceExtname == .md",
           "group": "1_modification"
         },
         {
-          "command": "novelWriter.openToSide",
+          "command": "storyline.openToSide",
           "when": "resourceExtname == .md",
           "group": "1_modification"
         }
@@ -102,7 +102,7 @@
     },
     "keybindings": [
       {
-        "command": "novelWriter.openToSide",
+        "command": "storyline.openToSide",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "when": "filesExplorerFocus && resourceExtname == .md"

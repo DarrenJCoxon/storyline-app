@@ -1,14 +1,13 @@
 {
-  "name": "novel-writer",
+  "name": "storyline",
   "version": "1.0.0",
-  "description": "Save the Cat novel planning harness — interactive story planning with AI critique and co-writing support",
+  "description": "Storyline — a planning and writing environment for novelists, built around the Save the Cat story structure, with AI co-writing support powered by Claude.",
   "type": "module",
   "bin": {
-    "novel-writer": "./bin/novel-writer.js",
-    "nw": "./bin/novel-writer.js"
+    "storyline": "./bin/storyline.js"
   },
   "scripts": {
-    "start": "node bin/novel-writer.js",
+    "start": "node bin/storyline.js",
     "test": "vitest run"
   },
   "dependencies": {
