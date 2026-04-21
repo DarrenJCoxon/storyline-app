@@ -39,7 +39,7 @@ export async function editBookInfo(context: vscode.ExtensionContext): Promise<vo
     await vscode.workspace.fs.stat(stateFile);
   } catch {
     vscode.window.showErrorMessage(
-      'Storyline: no .storyline/state.json found. Run `storyline init` first.',
+      'Storyline: no .storyline/state.json found. Run `npx storyline-cli init` first.',
     );
     return;
   }

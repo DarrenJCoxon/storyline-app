@@ -474,11 +474,11 @@ function buildWebviewHtml(
 ): string {
   const initialParagraphStyle = initialConfig.paragraphStyle;
   const initialTheme = initialConfig.theme || 'classic-serif';
-  // Emit the theme <option> tags server-side so the dropdown is
-  // populated before the inline script runs — no flash-of-single-option.
-  const themeOptions = availableThemes
-    .map(t => `<option value="${escapeAttr(t.id)}">${escapeHtml(t.name)}</option>`)
-    .join('\n        ');
+  // Emit theme rows server-side so the popover is populated before
+  // the inline script runs — no flash-of-single-option.
+  const themeRows = availableThemes
+    .map(t => `<button class="popover-row" data-theme="${escapeAttr(t.id)}"><span class="check">✓</span> ${escapeHtml(t.name)}</button>`)
+    .join('\n            ');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -514,67 +514,137 @@ function buildWebviewHtml(
       overflow-y: auto;
       font-family: var(--vscode-font-family);
     }
+    /* ─── Vellum-minimal toolbar ──────────────────────────────────
+     * Two icon buttons (device picker, typography picker) on the left,
+     * a compact status line in the centre (current device label +
+     * filename), nothing on the right. Click an icon → a small popover
+     * drops down with the relevant options as clickable rows. Each
+     * popover closes when the user picks a row or clicks outside.
+     *
+     * The goal: hide complexity until the writer asks for it. At rest
+     * the toolbar shows two icons and a filename — nothing else. */
     .preview-header {
       position: sticky;
       top: 0;
       background: var(--vscode-editor-background);
-      padding: 10px 16px 10px 16px;
-      border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
       font-size: 11px;
       color: var(--vscode-descriptionForeground);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      z-index: 10;
+      gap: 10px;
+      z-index: 20;
     }
-    .preview-header .left { display: flex; align-items: center; gap: 12px; }
-    .preview-header .label { letter-spacing: 0.08em; text-transform: uppercase; }
-    .preview-header .filename {
+    .preview-header .toolbar-left { display: flex; gap: 4px; }
+    .preview-header .toolbar-center {
+      flex: 1;
+      text-align: center;
       font-family: var(--vscode-editor-font-family), monospace;
+      color: var(--vscode-descriptionForeground);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 240px;
     }
-    .preview-header select,
-    .preview-header button {
-      background: var(--vscode-input-background);
-      color: var(--vscode-input-foreground);
-      border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+    .preview-header .toolbar-center .device-label {
+      font-weight: 600;
+      color: var(--vscode-foreground);
+    }
+    .preview-header .toolbar-center .sep { margin: 0 6px; opacity: 0.5; }
+
+    /* Icon buttons — flat, transparent at rest, subtle hover. */
+    .icon-btn {
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      line-height: 1;
+      min-width: 30px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 120ms ease;
+    }
+    .icon-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15)); }
+    .icon-btn.open { background: var(--vscode-toolbar-activeBackground, rgba(128,128,128,0.25)); }
+
+    /* Each icon button + its popover share a .popover-anchor wrapper
+     * so the popover positions itself relative to its button. */
+    .popover-anchor { position: relative; display: inline-block; }
+
+    /* Popovers — anchored below their button, drop in via display.
+     * Only one popover open at a time; toggling one closes the others. */
+    .popover {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 6px;
+      min-width: 220px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+      background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.3));
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      padding: 6px;
+      display: none;
+      z-index: 30;
+    }
+    .popover.open { display: block; }
+    .popover-section + .popover-section { margin-top: 6px; border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.15)); padding-top: 6px; }
+    .popover-section-title {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--vscode-descriptionForeground);
+      padding: 4px 8px 2px;
+    }
+    .popover-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: none;
       border-radius: 3px;
-      padding: 3px 8px;
+      padding: 5px 8px;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .popover-row:hover { background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.12)); }
+    .popover-row.selected { background: var(--vscode-list-activeSelectionBackground, rgba(0,120,212,0.2)); color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground)); }
+    .popover-row .check {
+      width: 12px;
+      opacity: 0;
+    }
+    .popover-row.selected .check { opacity: 1; }
+    .popover-footer {
+      margin-top: 6px;
+      padding: 6px 4px 2px;
+      border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.15));
+    }
+    .popover-footer button {
+      width: 100%;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 3px;
+      padding: 5px;
       font-family: inherit;
       font-size: 11px;
       cursor: pointer;
     }
-    .preview-header .controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .preview-header .controls label {
-      color: var(--vscode-descriptionForeground);
-      font-size: 10px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      margin-right: 2px;
-    }
-    .preview-header .save-btn {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border-color: transparent;
-      margin-left: 4px;
-    }
-    .preview-header .save-btn:hover {
-      background: var(--vscode-button-hoverBackground);
-    }
-    .preview-header .save-btn:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
+    .popover-footer button:hover { background: var(--vscode-button-hoverBackground); }
+    .popover-footer button:disabled { opacity: 0.5; cursor: default; }
 
     .empty-state {
       text-align: center;
@@ -688,52 +758,71 @@ function buildWebviewHtml(
      * 0.625in outside for binding) average to the symmetric 0.75in used
      * here — the text block width is identical, which is what drives
      * line length and character counts per line. */
-    body.device-print-6x9 .device-stage { background: #eceae4; }
+    /* .device-pages stacks discrete page-shaped surfaces vertically
+     * with a small gap between them. Each .device-surface is now ONE
+     * page (fixed height, overflow hidden) — the JS at the bottom of
+     * this file walks the rendered chapter HTML and distributes its
+     * nodes across as many pages as needed, cloning paragraphs that
+     * won't fit onto the next page. This gives the writer a Vellum-
+     * style "book laid out on a desk" preview instead of one infinite
+     * column. */
+    .device-pages {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Each page is a fixed-size clipping container. Dimensions +
+     * typography come from the body.device-* rules below; the common
+     * page-shadow/overflow live here so all three devices share them. */
+    .device-surface {
+      box-sizing: border-box;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 6px 18px rgba(0,0,0,0.10);
+    }
+
+    body.device-print-6x9 .device-stage { background: #eceae4; padding: 24px 0 40px; }
     body.device-print-6x9 .device-surface {
       width: 576px;
-      min-height: 864px;
+      height: 864px;
       padding: 72px;
       background: #ffffff;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.08);
       font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
       font-size: 11pt;
       line-height: 1.45;
     }
 
-    /* iPad (Apple Books) — 3:4 aspect (768pt × 1024pt device). The reading
-     * surface at standard Books.app zoom is ~720px × 960px inside the
-     * device chrome. The outer box-shadow fakes a black bezel so it's
-     * instantly recognisable versus the flat Kindle frame. Page colour
-     * matches Apple Books' default White theme — pure white with a
-     * near-black text colour (not warm-tinted). */
-    body.device-ipad .device-stage { background: #1c1c1e; padding-top: 40px; padding-bottom: 140px; }
+    /* iPad (Apple Books) — 3:4 aspect (768pt × 1024pt device).
+     * We drop the device bezel that used to sit around a single page:
+     * it doesn't translate to a stacked-pages view (a real iPad shows
+     * one page at a time, not a vertical stack). The dark stage
+     * background + pure-white page + Palatino 17/1.55 still signals
+     * "iPad reading" typographically. */
+    body.device-ipad .device-stage { background: #1c1c1e; padding: 32px 0 80px; }
     body.device-ipad .device-surface {
       width: 720px;
-      min-height: 960px;
+      height: 960px;
       padding: 80px 96px;
       background: #ffffff;
       color: #141414;
       border-radius: 4px;
-      box-shadow: 0 0 0 10px #2c2c2e, 0 12px 28px rgba(0,0,0,0.45);
       font-family: var(--nw-body-font, "Palatino", "Iowan Old Style", Georgia, serif);
       font-size: 17px;
       line-height: 1.55;
     }
     body.device-ipad .device-surface p.first::first-letter { color: #141414; }
 
-    /* Kindle Paperwhite — 6" e-ink. The reading area is roughly 560×760
-     * inside the device's grey bezel; the surrounding shadow mimics the
-     * matte plastic shell so it doesn't read as iPad-with-smaller-body.
-     * Page surface is a neutral pale grey — real e-ink isn't bright
-     * white but it isn't warm beige either, it's a cool off-white. */
-    body.device-kindle .device-stage { background: #2e2d2a; padding-top: 40px; padding-bottom: 140px; }
+    /* Kindle Paperwhite — 6" e-ink. Same logic as iPad: bezel dropped,
+     * dark stage + neutral pale-grey page + Bookerly 16/1.55 carries
+     * the e-ink feel without the physical device frame. */
+    body.device-kindle .device-stage { background: #2e2d2a; padding: 32px 0 80px; }
     body.device-kindle .device-surface {
       width: 560px;
-      min-height: 760px;
+      height: 760px;
       padding: 60px 72px;
       background: #ececeb;
       color: #1c1c1c;
-      box-shadow: 0 0 0 22px #6b6458, 0 10px 22px rgba(0,0,0,0.4);
       font-family: var(--nw-body-font, "Bookerly", Georgia, serif);
       font-size: 16px;
       line-height: 1.55;
@@ -763,68 +852,102 @@ function buildWebviewHtml(
 </head>
 <body class="device-print-6x9 paragraphs-${initialParagraphStyle}">
   <div class="preview-header">
-    <div class="left">
-      <span class="label">Live Chapter Preview</span>
-      <span class="filename" id="filename">—</span>
+    <div class="toolbar-left">
+
+      <!-- Device — Print / iPad / Kindle -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-device" title="Device" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="8" height="12" rx="1.5"/><line x1="7" y1="12.2" x2="9" y2="12.2"/></svg>
+        </button>
+        <div class="popover" id="pop-device">
+          <div class="popover-section">
+            <div class="popover-section-title">Device</div>
+            <button class="popover-row" data-device="device-print-6x9"><span class="check">✓</span> Print 6×9</button>
+            <button class="popover-row" data-device="device-ipad"><span class="check">✓</span> iPad — Apple Books</button>
+            <button class="popover-row" data-device="device-kindle"><span class="check">✓</span> Kindle Paperwhite</button>
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
+      <!-- Typography — theme + font -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-type" title="Typography" aria-expanded="false" style="font-family:Georgia,serif;font-style:italic;">Aa</button>
+        <div class="popover" id="pop-type">
+          <div class="popover-section">
+            <div class="popover-section-title">Theme</div>
+            ${themeRows}
+          </div>
+          <div class="popover-section">
+            <div class="popover-section-title">Font</div>
+            <button class="popover-row" data-font=""><span class="check">✓</span> Theme default</button>
+            <button class="popover-row" data-font='Georgia, "Times New Roman", Times, serif'><span class="check">✓</span> Georgia</button>
+            <button class="popover-row" data-font='"Iowan Old Style", Palatino, Garamond, serif'><span class="check">✓</span> Iowan Old Style</button>
+            <button class="popover-row" data-font='"Palatino Linotype", Palatino, Georgia, serif'><span class="check">✓</span> Palatino</button>
+            <button class="popover-row" data-font='Garamond, "Times New Roman", serif'><span class="check">✓</span> Garamond</button>
+            <button class="popover-row" data-font='"Book Antiqua", Palatino, serif'><span class="check">✓</span> Book Antiqua</button>
+            <button class="popover-row" data-font='Baskerville, "Baskerville Old Face", serif'><span class="check">✓</span> Baskerville</button>
+            <button class="popover-row" data-font='"Inter", "Helvetica Neue", Arial, sans-serif'><span class="check">✓</span> Inter</button>
+            <button class="popover-row" data-font='"Helvetica Neue", Helvetica, Arial, sans-serif'><span class="check">✓</span> Helvetica</button>
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
+      <!-- Paragraphing — indented vs block -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-para" title="Paragraphing" aria-expanded="false" style="font-family:Georgia,serif;">¶</button>
+        <div class="popover" id="pop-para">
+          <div class="popover-section">
+            <div class="popover-section-title">Paragraphs</div>
+            <button class="popover-row" data-paragraphs="indented"><span class="check">✓</span> Indented (first-line indent)</button>
+            <button class="popover-row" data-paragraphs="block"><span class="check">✓</span> Block (spaced)</button>
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
+      <!-- Ornamentation — scene break character -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-orn" title="Ornamentation" aria-expanded="false" style="font-family:Georgia,serif;">❦</button>
+        <div class="popover" id="pop-orn">
+          <div class="popover-section">
+            <div class="popover-section-title">Scene break</div>
+            <button class="popover-row" data-ornament=""><span class="check">✓</span> Theme default</button>
+            <button class="popover-row" data-ornament="* * *"><span class="check">✓</span> * * *</button>
+            <button class="popover-row" data-ornament="· · ·"><span class="check">✓</span> · · ·</button>
+            <button class="popover-row" data-ornament="❦"><span class="check">✓</span> ❦ (fleuron)</button>
+            <button class="popover-row" data-ornament="§"><span class="check">✓</span> §</button>
+            <button class="popover-row" data-ornament="✦ ✦ ✦"><span class="check">✓</span> ✦ ✦ ✦</button>
+            <button class="popover-row" data-ornament="— — —"><span class="check">✓</span> — — —</button>
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
     </div>
-    <div class="controls">
-      <label for="device-picker">Device</label>
-      <select id="device-picker" title="Reading device">
-        <option value="device-print-6x9">Print 6×9</option>
-        <option value="device-ipad">iPad — Apple Books</option>
-        <option value="device-kindle">Kindle Paperwhite</option>
-      </select>
-      <label for="theme-picker">Theme</label>
-      <select id="theme-picker" title="Theme">
-        ${themeOptions}
-      </select>
-      <label for="font-picker">Font</label>
-      <select id="font-picker" title="Body font (compile.config.json → themeOverrides.bodyFont)">
-        <option value="">Theme default</option>
-        <option value='Georgia, "Times New Roman", Times, serif'>Georgia</option>
-        <option value='"Iowan Old Style", Palatino, Garamond, serif'>Iowan Old Style</option>
-        <option value='"Palatino Linotype", Palatino, Georgia, serif'>Palatino</option>
-        <option value='Garamond, "Times New Roman", serif'>Garamond</option>
-        <option value='"Book Antiqua", Palatino, serif'>Book Antiqua</option>
-        <option value='Baskerville, "Baskerville Old Face", serif'>Baskerville</option>
-        <option value='"Inter", "Helvetica Neue", Arial, sans-serif'>Inter</option>
-        <option value='"Helvetica Neue", Helvetica, Arial, sans-serif'>Helvetica</option>
-      </select>
-      <label for="ornament-picker">Scene Break</label>
-      <select id="ornament-picker" title="Scene break ornament (compile.config.json → themeOverrides.sceneBreakOrnament)">
-        <option value="">Theme default</option>
-        <option value="* * *">* * *</option>
-        <option value="· · ·">· · ·</option>
-        <option value="❦">❦ (fleuron)</option>
-        <option value="§">§</option>
-        <option value="✦ ✦ ✦">✦ ✦ ✦</option>
-        <option value="— — —">— — —</option>
-      </select>
-      <label for="paragraph-picker">Paragraphs</label>
-      <select id="paragraph-picker" title="Paragraph style">
-        <option value="indented">Indented</option>
-        <option value="block">Block</option>
-      </select>
-      <button id="save-defaults" class="save-btn" title="Write these preview settings to compile.config.json">
-        Save as default
-      </button>
+    <div class="toolbar-center">
+      <span class="filename" id="filename">—</span>
+      <span class="sep">·</span>
+      <span class="device-label" id="device-label">Print 6×9</span>
     </div>
   </div>
   <div class="device-stage">
-    <div class="device-surface" id="content">
-      <div class="empty-state"><p><em>Loading…</em></p></div>
+    <div class="device-pages" id="pages">
+      <div class="device-surface">
+        <div class="empty-state"><p><em>Loading…</em></p></div>
+      </div>
     </div>
   </div>
+  <!-- Hidden buffer holding the freshly rendered HTML; pagination JS
+       pulls children out of here and distributes them into #pages. -->
+  <div id="source-buffer" style="display:none"></div>
   <script>
     const vscode = acquireVsCodeApi();
-    const content = document.getElementById('content');
+    const pagesEl = document.getElementById('pages');
+    const sourceBuffer = document.getElementById('source-buffer');
     const filename = document.getElementById('filename');
-    const devicePicker = document.getElementById('device-picker');
-    const themePicker = document.getElementById('theme-picker');
-    const fontPicker = document.getElementById('font-picker');
-    const ornamentPicker = document.getElementById('ornament-picker');
-    const paragraphPicker = document.getElementById('paragraph-picker');
-    const saveBtn = document.getElementById('save-defaults');
+    const deviceLabel = document.getElementById('device-label');
     const overridesStyle = document.getElementById('overrides');
 
     const initialConfig = {
@@ -832,112 +955,241 @@ function buildWebviewHtml(
       theme: ${JSON.stringify(initialTheme)},
     };
 
-    // Seed dropdowns from saved state first, then from compile.config.json.
+    // ─── State (single source of truth for all four popovers) ────
     const state = vscode.getState() || {};
-    const currentDevice = state.device || 'device-print-6x9';
-    const currentParagraphStyle = state.paragraphStyle || initialConfig.paragraphStyle;
-    const currentTheme = state.theme || initialConfig.theme;
-    const currentFont = state.bodyFont ?? (initialConfig.bodyFont || '');
-    const currentOrnament = state.sceneBreakOrnament ?? (initialConfig.sceneBreakOrnament || '');
+    let currentDevice = state.device || 'device-print-6x9';
+    let currentParagraphStyle = state.paragraphStyle || initialConfig.paragraphStyle;
+    let currentTheme = state.theme || initialConfig.theme;
+    let currentFont = state.bodyFont ?? (initialConfig.bodyFont || '');
+    let currentOrnament = state.sceneBreakOrnament ?? (initialConfig.sceneBreakOrnament || '');
 
-    devicePicker.value = currentDevice;
-    paragraphPicker.value = currentParagraphStyle;
-    if (Array.from(themePicker.options).some(o => o.value === currentTheme)) {
-      themePicker.value = currentTheme;
-    } else {
-      themePicker.value = initialConfig.theme;
+    // If the restored theme isn't one of the themes we know about
+    // (e.g. a bundled theme was renamed between releases), fall back.
+    const knownThemes = Array.from(document.querySelectorAll('[data-theme]')).map(el => el.dataset.theme);
+    if (!knownThemes.includes(currentTheme)) currentTheme = initialConfig.theme;
+
+    const DEVICE_NAMES = {
+      'device-print-6x9': 'Print 6×9',
+      'device-ipad': 'iPad — Apple Books',
+      'device-kindle': 'Kindle Paperwhite',
+    };
+
+    function applyDevice(device) {
+      currentDevice = device;
+      document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
+      document.body.classList.add(device);
+      deviceLabel.textContent = DEVICE_NAMES[device] || device;
+      updateSelectedRows();
+      repaginate();
     }
-    // Font and ornament pickers tolerate "" (= Theme default) cleanly.
-    // If the restored value isn't a listed option, the select silently
-    // falls back to the first option ("Theme default"), which is correct.
-    fontPicker.value = currentFont;
-    ornamentPicker.value = currentOrnament;
+    function applyParagraphs(style) {
+      currentParagraphStyle = style;
+      document.body.classList.remove('paragraphs-indented', 'paragraphs-block');
+      document.body.classList.add('paragraphs-' + style);
+      updateSelectedRows();
+      repaginate();
+    }
+    function applyTheme(themeId) {
+      currentTheme = themeId;
+      updateSelectedRows();
+      vscode.postMessage({ type: 'load-theme', theme: themeId });
+    }
+    function applyFont(fontValue) {
+      currentFont = fontValue;
+      applyOverrides();
+      updateSelectedRows();
+      repaginate();
+    }
+    function applyOrnament(ornamentValue) {
+      currentOrnament = ornamentValue;
+      applyOverrides();
+      updateSelectedRows();
+    }
+
+    // Mark the selected row in each popover with .selected so the ✓
+    // shows against whichever option is currently active.
+    function updateSelectedRows() {
+      const pairs = [
+        ['data-device', currentDevice],
+        ['data-theme', currentTheme],
+        ['data-font', currentFont],
+        ['data-ornament', currentOrnament],
+        ['data-paragraphs', currentParagraphStyle],
+      ];
+      for (const [attr, val] of pairs) {
+        document.querySelectorAll('[' + attr + ']').forEach(el => {
+          el.classList.toggle('selected', el.getAttribute(attr) === val);
+        });
+      }
+    }
 
     applyDevice(currentDevice);
     applyParagraphs(currentParagraphStyle);
     applyOverrides();
+    updateSelectedRows();
 
-    if (themePicker.value !== initialConfig.theme) {
-      vscode.postMessage({ type: 'load-theme', theme: themePicker.value });
+    if (currentTheme !== initialConfig.theme) {
+      vscode.postMessage({ type: 'load-theme', theme: currentTheme });
     }
 
-    function applyDevice(device) {
-      document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
-      document.body.classList.add(device);
+    // ─── Pagination ──────────────────────────────────────────────
+    // Distributes the children of #source-buffer across discrete
+    // .device-surface page elements. Each page is fixed-size; when
+    // appending the next child would overflow, we close the current
+    // page and start a new one. Splits only at block boundaries
+    // (paragraphs, scene breaks, tables) — no mid-paragraph breaks.
+    // That's visually less perfect than Paged.js but fast enough to
+    // run on every keystroke-debounced update.
+    function newPage() {
+      const p = document.createElement('div');
+      p.className = 'device-surface';
+      return p;
     }
-    function applyParagraphs(style) {
-      document.body.classList.remove('paragraphs-indented', 'paragraphs-block');
-      document.body.classList.add('paragraphs-' + style);
+
+    function paginate(sourceEl) {
+      // Collect fresh child nodes from the buffer. We clone so the
+      // buffer stays populated (for repagination on device change).
+      const children = Array.from(sourceEl.children).map(n => n.cloneNode(true));
+      pagesEl.innerHTML = '';
+
+      if (!children.length) {
+        const empty = newPage();
+        empty.innerHTML = '<div class="empty-state"><p><em>No content yet.</em></p></div>';
+        pagesEl.appendChild(empty);
+        return;
+      }
+
+      let page = newPage();
+      pagesEl.appendChild(page);
+
+      for (const child of children) {
+        page.appendChild(child);
+        if (page.scrollHeight > page.clientHeight) {
+          // Overflow — pop the child, open a new page, put it there.
+          page.removeChild(child);
+          if (!page.children.length) {
+            // Child alone is bigger than a page (unusual: giant table,
+            // embedded image). Keep it on its own page to avoid an
+            // infinite loop; it'll be clipped by overflow:hidden.
+            page.appendChild(child);
+            continue;
+          }
+          page = newPage();
+          pagesEl.appendChild(page);
+          page.appendChild(child);
+        }
+      }
+    }
+
+    // Called by device/paragraph change — re-run pagination against
+    // the current buffer contents without a round-trip to the extension.
+    function repaginate() {
+      // Measurement depends on CSS-applied dimensions — defer a frame
+      // so the browser has the new body classes applied.
+      requestAnimationFrame(() => paginate(sourceBuffer));
     }
     function applyOverrides() {
       // Emit a :root stylesheet setting --nw-body-font and
-      // --nw-scene-break-ornament from the current picker values.
-      // Empty string = "Theme default", meaning skip that variable so
-      // the theme's own fallback (in its var() call) applies.
+      // --nw-scene-break-ornament from the current state. Empty string
+      // = "Theme default", skip the variable so the theme's fallback
+      // kicks in.
       const rules = [];
-      if (fontPicker.value) {
-        rules.push('--nw-body-font: ' + fontPicker.value + ';');
-      }
-      if (ornamentPicker.value) {
-        // The content: property takes a quoted string — escape the
-        // two characters that would break the outer CSS quoting.
-        const bs = String.fromCharCode(92);  // literal backslash
-        const q  = String.fromCharCode(34);  // literal double quote
-        const safe = ornamentPicker.value
-          .split(bs).join(bs + bs)
-          .split(q).join(bs + q);
+      if (currentFont) rules.push('--nw-body-font: ' + currentFont + ';');
+      if (currentOrnament) {
+        const bs = String.fromCharCode(92);
+        const q  = String.fromCharCode(34);
+        const safe = currentOrnament.split(bs).join(bs + bs).split(q).join(bs + q);
         rules.push('--nw-scene-break-ornament: "' + safe + '";');
       }
-      overridesStyle.textContent = rules.length
-        ? ':root { ' + rules.join(' ') + ' }'
-        : '';
+      overridesStyle.textContent = rules.length ? ':root { ' + rules.join(' ') + ' }' : '';
     }
     function persist() {
       vscode.setState({
-        device: devicePicker.value,
-        paragraphStyle: paragraphPicker.value,
-        theme: themePicker.value,
-        bodyFont: fontPicker.value,
-        sceneBreakOrnament: ornamentPicker.value,
+        device: currentDevice,
+        paragraphStyle: currentParagraphStyle,
+        theme: currentTheme,
+        bodyFont: currentFont,
+        sceneBreakOrnament: currentOrnament,
       });
     }
 
-    devicePicker.addEventListener('change', () => {
-      applyDevice(devicePicker.value);
-      persist();
-    });
-    paragraphPicker.addEventListener('change', () => {
-      applyParagraphs(paragraphPicker.value);
-      persist();
-    });
-    themePicker.addEventListener('change', () => {
-      persist();
-      vscode.postMessage({ type: 'load-theme', theme: themePicker.value });
-    });
-    fontPicker.addEventListener('change', () => {
-      applyOverrides();
-      persist();
-    });
-    ornamentPicker.addEventListener('change', () => {
-      applyOverrides();
-      persist();
+    // ─── Popover open/close ──────────────────────────────────────
+    function closeAllPopovers() {
+      document.querySelectorAll('.popover.open').forEach(p => p.classList.remove('open'));
+      document.querySelectorAll('.icon-btn.open').forEach(b => {
+        b.classList.remove('open');
+        b.setAttribute('aria-expanded', 'false');
+      });
+    }
+    function openPopover(btn) {
+      const id = btn.dataset.popover;
+      if (!id) return;
+      const wasOpen = btn.classList.contains('open');
+      closeAllPopovers();
+      if (!wasOpen) {
+        const pop = document.getElementById(id);
+        if (pop) pop.classList.add('open');
+        btn.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    document.querySelectorAll('.icon-btn[data-popover]').forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        openPopover(btn);
+      });
     });
 
-    saveBtn.addEventListener('click', () => {
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
-      vscode.postMessage({
-        type: 'save-as-default',
-        paragraphStyle: paragraphPicker.value,
-        theme: themePicker.value,
-        bodyFont: fontPicker.value,
-        sceneBreakOrnament: ornamentPicker.value,
+    // Clicking a row applies the selection, persists, and closes the
+    // popover. We delegate from the popover itself so every row picks
+    // up the same handler without per-element binding.
+    document.querySelectorAll('.popover').forEach(pop => {
+      pop.addEventListener('click', ev => {
+        const row = ev.target.closest('.popover-row');
+        if (!row) return;
+        if (row.hasAttribute('data-device'))     applyDevice(row.dataset.device);
+        else if (row.hasAttribute('data-theme')) applyTheme(row.dataset.theme);
+        else if (row.hasAttribute('data-font'))  applyFont(row.dataset.font);
+        else if (row.hasAttribute('data-ornament')) applyOrnament(row.dataset.ornament);
+        else if (row.hasAttribute('data-paragraphs')) applyParagraphs(row.dataset.paragraphs);
+        persist();
+        closeAllPopovers();
       });
-      setTimeout(() => {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Saved ✓';
-        setTimeout(() => { saveBtn.textContent = 'Save as default'; }, 2000);
-      }, 400);
+    });
+
+    // Click outside any popover/button closes them all. Escape too.
+    document.addEventListener('click', ev => {
+      if (!ev.target.closest('.popover-anchor')) closeAllPopovers();
+    });
+    document.addEventListener('keydown', ev => {
+      if (ev.key === 'Escape') closeAllPopovers();
+    });
+
+    // "Save as default" — same action regardless of which popover
+    // hosts the button. Writes the current state to compile.config.json.
+    document.querySelectorAll('.save-defaults-btn').forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'Saving…';
+        vscode.postMessage({
+          type: 'save-as-default',
+          paragraphStyle: currentParagraphStyle,
+          theme: currentTheme,
+          bodyFont: currentFont,
+          sceneBreakOrnament: currentOrnament,
+        });
+        setTimeout(() => {
+          btn.textContent = 'Saved ✓';
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = original;
+            closeAllPopovers();
+          }, 900);
+        }, 400);
+      });
     });
 
     const themeStyleEl = document.getElementById('theme-css');
@@ -945,13 +1197,19 @@ function buildWebviewHtml(
     window.addEventListener('message', (event) => {
       const msg = event.data;
       if (msg && msg.type === 'update') {
-        content.innerHTML = msg.html || '';
+        // Fresh chapter render. Stash in the hidden buffer so we can
+        // re-paginate later (device change, theme change, paragraph
+        // style toggle) without a round-trip to the extension host.
+        sourceBuffer.innerHTML = msg.html || '';
         filename.textContent = msg.fileName || '—';
+        repaginate();
       }
       if (msg && msg.type === 'theme-css' && typeof msg.css === 'string') {
         // Replace the theme stylesheet's text; the browser re-applies
-        // styles in-place without a repaint flash.
+        // styles in-place without a repaint flash. Then re-paginate —
+        // a different theme may change font metrics / line heights.
         themeStyleEl.textContent = msg.css;
+        repaginate();
       }
     });
 

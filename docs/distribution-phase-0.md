@@ -54,14 +54,14 @@ The scaffold is built from a `templates/` directory shipped inside the npm packa
 
 ## Extension install
 
-The `.vsix` is bundled inside the npm package at `vscode-extension/storyline-vscode-0.21.0.vsix` (already built). After scaffolding, `init`:
+The `.vsix` is bundled inside the npm package at `vscode-extension/storyline-vscode-0.22.0.vsix` (already built). After scaffolding, `init`:
 
 1. Runs `code --install-extension <absolute path to bundled .vsix>` in a subprocess.
 2. On success: prints "Extension installed — run `code .` in this folder to open Storyline."
 3. On failure (no `code` CLI on PATH): prints the fallback instruction:
    > The VS Code CLI isn't on your PATH. Open VS Code, then:
    > - Run "Extensions: Install from VSIX..." from the Command Palette
-   > - Choose: `<absolute path>/storyline-vscode-0.21.0.vsix`
+   > - Choose: `<absolute path>/storyline-vscode-0.22.0.vsix`
 
 Detection: try `which code` / `where.exe code`. Don't shell out to `code` without first confirming it exists — a failing subprocess is confusing.
 
@@ -82,7 +82,7 @@ For testers who don't have Node installed (or don't want to install it), ship a 
 ```
 storyline-starter-v1.0.0.zip
 ├── my-novel/                      # Exact contents of what `npx init` would produce
-├── storyline-vscode-0.21.0.vsix
+├── storyline-vscode-0.22.0.vsix
 └── README.txt                     # 5-line install guide
 ```
 

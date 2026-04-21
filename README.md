@@ -266,7 +266,7 @@ Useful for catching formatting issues early — for example, a scene break that 
 
 **Claude Code doesn't recognise** `/storyline` **or** `/follow-up`The skills weren't installed correctly. Check that `.claude/skills/storyline/` and `.claude/skills/follow-up/` exist inside your project folder. If one is missing, run `npx storyline-cli@latest init .` again from inside that folder to repair it, then reload the Claude Code window.
 
-**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.21.0.vsix`.
+**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.22.0.vsix`.
 
 **Autosave isn't working**Storyline uses its own autosave (every 1.5 seconds after you stop typing). VS Code's separate auto-save feature should be OFF to avoid fighting with it. Check **Code → Preferences → Settings**, search "auto save", and set "Files: Auto Save" to `off`.
 

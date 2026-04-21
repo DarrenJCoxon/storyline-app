@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import * as path from 'path';
 
-// Shell out to the CLI: `storyline compile --format <format>`. Does NOT
+// Shell out to the CLI: `npx storyline-cli compile --format <format>`. Does NOT
 // reimplement the compile pipeline — that logic stays in the CLI so
 // it's testable outside VS Code and usable from any terminal.
 //
@@ -58,7 +58,7 @@ async function runCompileCommand(config: CompileConfig): Promise<void> {
   } catch {
     vscode.window.showErrorMessage(
       'Storyline: no .storyline/state.json found in this workspace. ' +
-        'Run `storyline init` in the terminal first.',
+        'Run `npx storyline-cli init` in the terminal first.',
     );
     return;
   }
@@ -100,11 +100,15 @@ function runCompile(
       },
       () =>
         new Promise<void>((progressResolve, progressReject) => {
-          // Use `shell: true` so the user's PATH/aliases are respected
-          // (VS Code on macOS doesn't always inherit the shell profile's
-          // PATH when launched from the GUI). The command is hardcoded,
-          // not user-supplied, so there's no shell-injection concern.
-          const child = spawn(`storyline compile --format ${config.format}`, {
+          // Invoke the CLI via npx. Storyline ships as the npm package
+          // `storyline-cli` and users don't get a global `storyline`
+          // binary — the old direct invocation failed with "storyline:
+          // command not found" because that binary only exists inside
+          // the npm package's bin/, not on PATH. `npx storyline-cli`
+          // resolves it from the npm cache (warmed by `init`) or
+          // fetches it on first use. Shell: true so the user's shell
+          // profile PATH (where npx lives) is honoured.
+          const child = spawn(`npx -y storyline-cli compile --format ${config.format}`, {
             cwd,
             shell: true,
             env: { ...process.env, FORCE_COLOR: '0' },
@@ -124,7 +128,7 @@ function runCompile(
 
           child.on('error', err => {
             const msg = (err as NodeJS.ErrnoException).code === 'ENOENT'
-              ? '`storyline` command not found on PATH. Install the Storyline CLI with `npm install -g storyline`, or clone the repo and run `npm link`.'
+              ? '`npx` not found on PATH. Install Node.js from https://nodejs.org/ and reload VS Code.'
               : err.message;
             out.appendLine(`\nError: ${msg}`);
             progressReject(new Error(msg));

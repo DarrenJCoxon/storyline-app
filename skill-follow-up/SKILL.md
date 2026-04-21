@@ -1,6 +1,6 @@
 ---
 name: "follow-up"
-version: "1.1.5"
+version: "1.1.6"
 description: "Resolve inline {{bracketed notes}} the writer has left in their manuscript as research stubs or TBDs. Scoped to the file currently open in VS Code (via .storyline/active-file.txt breadcrumb) or the project-configured manuscript directory. Classifies each note as a factual lookup, a plan-consistency query, or a writer-decision; proposes resolutions; applies approved edits in place; then re-syncs manuscript memory."
 metadata:
   priority: 9
