@@ -303,6 +303,64 @@ respective memory.
 closure protocol below catches both plan/memory misalignment AND
 plan/draft divergence in one call.
 
+### Inline notes protocol (writers embed `<bracketed TBDs>` in their prose)
+
+Writers stay in flow by leaving bracketed notes inline where a fact
+should go. Examples that appear naturally in drafting:
+
+```
+She opened the laptop — <need to research the specifications of this laptop>
+— and typed.
+
+They met outside the museum. <check the opening times> The doors were locked.
+
+<why would a locksmith carry a blowtorch in 1923?>
+```
+
+When the writer asks you to "check my notes", "resolve my TBDs",
+"research my notes", or similar — OR at the end of a writing session
+before `nw manuscript sync` — run this workflow:
+
+```bash
+nw manuscript notes --json
+```
+
+Returns `[{file, chapterNumber, line, column, note, contextBefore,
+contextAfter}, ...]`. For each note:
+
+1. **Classify the need.**
+   - Factual lookup (real-world research): "specs of a 2019 MacBook",
+     "opening hours of the British Museum", "is X plausible in Y era"
+     → use web search.
+   - Plan-derived (needs internal consistency): "what colour were
+     Jane's eyes?", "does this contradict the B story?", "is the
+     midpoint reversal visible here?" → query odd-flow for the
+     relevant `chapter:*` / `protagonist:*` / `beats:*` keys.
+   - Writer decision ("TBD", "XXX", "which character says this?") →
+     flag back to the writer, do not answer.
+
+2. **Propose the resolution.** Present one line per note with the
+   proposed replacement text OR a concise answer. Ask the writer to
+   confirm before editing the manuscript file.
+
+3. **Apply.** On approval, edit the `.md` file to replace the `<...>`
+   marker with the resolved text (or, if the writer prefers, keep the
+   note but append the answer as a commented/footnoted addition
+   alongside it). Never silently overwrite.
+
+4. **Commit to memory.** Run `nw manuscript notes --sync` to append
+   pending-note entries to `memory.jsonl`, then push via
+   `mcp__odd-flow__memory_store` and `nw memory mark-synced`. Once
+   resolved, include a follow-up memory entry tagged `resolved`
+   documenting what the research turned up — so a future session can
+   look up "what did we research for chapter 3?" directly.
+
+5. **Re-sync the manuscript snapshot.** After any prose edits, run
+   `nw manuscript sync` so the updated draft state reaches odd-flow.
+
+`nw doctor` surfaces pending note count as an info-level finding —
+not an error, but a visible reminder that research work is outstanding.
+
 ### Stage-closure protocol (run after EVERY completed stage — non-negotiable)
 
 After the writer signs off on a stage and before you transition to the next, run these three checks **in order** and **do not proceed** unless all three pass:

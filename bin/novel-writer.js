@@ -404,6 +404,41 @@ manuscript
   });
 
 manuscript
+  .command('notes')
+  .description('List <inline notes> in the manuscript (writer\'s bracketed TBDs / research stubs)')
+  .option('--json', 'Output machine-readable JSON')
+  .option('--sync', 'Also write each note as a pending memory entry in memory.jsonl')
+  .action(async (opts) => {
+    const state = loadState();
+    if (!state) {
+      console.error(chalk.red('No project found.'));
+      process.exit(1);
+    }
+    const { scanManuscriptNotes, buildNotesMemoryEntries, formatNotesReport } = await import('../lib/manuscript/notes.js');
+    const notes = await scanManuscriptNotes(process.cwd(), {
+      manuscriptPath: state?.writing?.manuscriptPath || 'manuscript',
+    });
+    let memoryResult = null;
+    if (opts.sync) {
+      const { appendMemoryLog } = await import('../lib/memory/stage-memory.js');
+      const entries = buildNotesMemoryEntries(notes, state);
+      memoryResult = await appendMemoryLog(entries);
+    }
+    if (opts.json) {
+      console.log(JSON.stringify({
+        notes,
+        memoryEntries: memoryResult?.entriesWithIds || [],
+        memoryLogPath: memoryResult?.logPath || null,
+      }, null, 2));
+    } else {
+      console.log(notes.length === 0 ? chalk.green(formatNotesReport(notes)) : formatNotesReport(notes));
+      if (memoryResult) {
+        console.log(chalk.dim(`  ↳ ${memoryResult.entriesWithIds.length} memory entries appended to ${memoryResult.logPath}`));
+      }
+    }
+  });
+
+manuscript
   .command('compare')
   .description('Compare draft manuscript against the canonical plan, reporting drift per chapter')
   .option('--json', 'Output machine-readable JSON')
