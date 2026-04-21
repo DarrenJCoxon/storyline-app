@@ -54,6 +54,7 @@ export function registerInit(program) {
       setupEnvFile(targetDir);
       createOutputDir(targetDir);
       createManuscriptDir(targetDir);
+      createDocsDir(targetDir);
       await createCompileConfig(targetDir);
       copyAgentMdFiles(targetDir, flags);
 
@@ -189,34 +190,34 @@ function createOutputDir(targetDir) {
 function createManuscriptDir(targetDir) {
   const manuscriptDir = resolve(targetDir, 'manuscript');
   if (existsSync(manuscriptDir)) {
-    console.log(chalk.dim(`  ✓ manuscript/ already exists`));
+    // Directory already there — don't overwrite, but ensure the seed
+    // chapter exists for writers following the README's first-five-minutes
+    // flow. If they already have their own chapter-01.md we leave it alone.
+    const chapter = resolve(manuscriptDir, 'chapter-01.md');
+    if (!existsSync(chapter)) {
+      writeFileSync(chapter, SEED_CHAPTER);
+      console.log(chalk.dim(`  ✓ Added chapter-01.md to existing manuscript/`));
+    } else {
+      console.log(chalk.dim(`  ✓ manuscript/ already exists`));
+    }
     return;
   }
   mkdirSync(manuscriptDir, { recursive: true });
-  const readmeContent = `# Manuscript
+  writeFileSync(resolve(manuscriptDir, 'README.md'), MANUSCRIPT_README);
+  writeFileSync(resolve(manuscriptDir, 'chapter-01.md'), SEED_CHAPTER);
+  console.log(chalk.dim(`  ✓ Created manuscript/ with chapter-01.md`));
+}
 
-Your novel's prose lives here. One \`.md\` file per chapter is the usual pattern:
-
-\`\`\`
-manuscript/
-├── ch01-opening.md
-├── ch02-the-arrival.md
-├── ch03-first-clue.md
-└── ...
-\`\`\`
-
-Word counts shown in the Storyline VS Code extension's status bar scan
-only this folder — so planning docs in \`output/\` and notes elsewhere don't
-inflate the total.
-
-If you prefer a different layout (e.g. \`chapters/\` or \`drafts/\`), edit
-\`.storyline/state.json\` and change \`writing.manuscriptPath\` to the
-folder you want scanned.
-
-Delete this README once you've got your first chapter file in here.
-`;
-  writeFileSync(resolve(manuscriptDir, 'README.md'), readmeContent);
-  console.log(chalk.dim(`  ✓ Created manuscript/ (writer's prose folder)`));
+function createDocsDir(targetDir) {
+  const docsDir = resolve(targetDir, 'docs');
+  const welcomePath = resolve(docsDir, 'welcome.md');
+  if (existsSync(welcomePath)) {
+    console.log(chalk.dim(`  ✓ docs/welcome.md already exists`));
+    return;
+  }
+  mkdirSync(docsDir, { recursive: true });
+  writeFileSync(welcomePath, WELCOME_DOC);
+  console.log(chalk.dim(`  ✓ Created docs/welcome.md`));
 }
 
 async function createCompileConfig(targetDir) {
@@ -346,3 +347,79 @@ function printManualNextSteps(vscodeResult, flags) {
   }
   console.log();
 }
+
+// ── seeded content templates ──────────────────────────────────────
+
+const MANUSCRIPT_README = `# Manuscript
+
+Your novel's prose lives here. One \`.md\` file per chapter is the usual pattern:
+
+\`\`\`
+manuscript/
+├── chapter-01.md
+├── chapter-02.md
+├── chapter-03.md
+└── ...
+\`\`\`
+
+Word counts shown in the Storyline VS Code extension's status bar scan
+only this folder — so planning docs in \`output/\` and notes elsewhere don't
+inflate the total.
+
+If you prefer a different layout (e.g. \`chapters/\` or \`drafts/\`), edit
+\`.storyline/state.json\` and change \`writing.manuscriptPath\` to the
+folder you want scanned.
+
+Delete this README once you're comfortable with the layout.
+`;
+
+const SEED_CHAPTER = `# Chapter One
+
+Welcome to Storyline. This is a seeded chapter file to get you started — replace this text with your own prose when you're ready.
+
+A few things that will help as you write:
+
+- **Your prose goes here.** Delete everything in this file and start typing. Every 1.5 seconds after you stop typing, Storyline auto-saves your work.
+- **One \`.md\` file per chapter** is the usual pattern. Add \`chapter-02.md\`, \`chapter-03.md\`, and so on as you go. The status bar at the bottom of VS Code shows your total word count across the whole manuscript.
+- **Leave research questions inline** in double curly braces as you draft. For example: {{check the opening times of the British Museum}}. Keep writing — don't break flow to look things up. When you're ready, type \`/follow-up\` (Claude Code / OpenCode) or \`$follow-up\` (Codex) and your AI harness will find every \`{{…}}\`, research it, and propose replacements for your approval.
+- **Scene breaks** render as a centred line when you type \`* * *\` on its own line between paragraphs.
+- **Compile when ready.** Press \`Cmd+Shift+P\` / \`Ctrl+Shift+P\`, type "Storyline: Compile to EPUB" or "Storyline: Compile to Print PDF", and the finished file lands in \`output/\`.
+
+Ready when you are. Delete this placeholder and write your opening.
+`;
+
+const WELCOME_DOC = `# Welcome to Storyline
+
+This file is a scratchpad — notes, character sheets, research, reminders to yourself — anything that isn't prose. Your novel's chapters live in \`manuscript/\`; everything supporting the novel can live here in \`docs/\`.
+
+## The three-column layout
+
+Storyline expects you to work in three columns:
+
+- **Left:** the file tree (your project).
+- **Middle:** this document, or whatever supporting material you're consulting right now.
+- **Right:** the chapter you're writing.
+
+To open a file in the right-hand column, right-click it in the file tree and choose **"Storyline: Open to the Side"**, or select the file in the tree and press \`Cmd+Enter\` (Mac) or \`Ctrl+Enter\` (Windows).
+
+## Starting a planning session
+
+Your AI coding agent (Claude Code, OpenCode, or Codex) drives the planning conversation. Open the agent and:
+
+- **Claude Code / OpenCode:** type \`/storyline\`.
+- **Codex:** type \`$storyline\` or say "use storyline".
+
+The first time you do this, approve the \`odd-flow\` MCP server when prompted — Storyline uses it for durable memory across sessions.
+
+The agent will walk you through 14 planning stages, starting with genre and working through to a full beat sheet and chapter outline. At any point you can switch back here and write prose in \`manuscript/chapter-01.md\`.
+
+## What to delete, what to keep
+
+- Delete the content of this file when you're ready — it's just an onboarding note.
+- Keep \`.storyline/\` untouched (that's your planning state).
+- Keep \`output/\` alone unless you want to clear old compiled EPUBs/PDFs.
+- The \`manuscript/README.md\` can be deleted once you're comfortable with the folder's convention.
+
+Happy writing.
+`;
+
