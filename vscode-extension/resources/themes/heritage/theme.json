@@ -1,0 +1,10 @@
+{
+  "id": "heritage",
+  "name": "Heritage",
+  "version": "1.0.0",
+  "description": "Traditional trade-edition typography for literary, historical, and classical fiction. Palatino / Iowan Old Style body, small-caps centred chapter headings, four-line drop cap with small-caps second word, fleuron (❦) scene breaks. Uses system serif fonts — no embedding.",
+  "sceneBreakOrnament": "❦",
+  "fonts": [],
+  "license": "MIT",
+  "defaultFor": []
+}

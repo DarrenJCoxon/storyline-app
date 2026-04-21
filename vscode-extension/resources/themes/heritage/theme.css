@@ -1,0 +1,278 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Heritage — traditional trade-edition theme for Novel Writer
+ *
+ * Penguin Classic / NYRB / Everyman's Library aesthetic. Old-style serif
+ * body, small-caps centred chapter headings, four-line drop cap, fleuron
+ * scene breaks. Uses system serif fonts (Iowan Old Style / Palatino /
+ * Garamond chain) so no embedding is required.
+ *
+ * Conventions targeted:
+ *   <h1>                   — chapter heading (small-caps, centred,
+ *                            letter-spaced)
+ *   <p class="first">      — first paragraph of a chapter (4-line drop
+ *                            cap, small-caps first line)
+ *   <hr class="scene-break"> — between-scenes ornament ('❦' fleuron)
+ *   hr + p                 — first paragraph of new scene (no indent,
+ *                            small-caps first line)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Reset + base ─────────────────────────────────────────────────────── */
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+               "Book Antiqua", Garamond, "Times New Roman", Times, serif;
+  font-size: 1em;
+  line-height: 1.6;   /* generous leading — literary feel */
+  text-align: justify;
+  -webkit-hyphens: auto;
+  -epub-hyphens: auto;
+  hyphens: auto;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Chapter heading ──────────────────────────────────────────────────── */
+
+/* Small-caps, centred, letter-spaced — the classic heritage treatment. */
+h1 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+               "Book Antiqua", Garamond, "Times New Roman", Times, serif;
+  font-size: 1.4em;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin: 3.5em 0 2.5em 0;
+  line-height: 1.3;
+  page-break-before: always;
+  break-before: page;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+h2, h3 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+               "Book Antiqua", Garamond, "Times New Roman", Times, serif;
+  font-weight: normal;
+  font-style: italic;
+  text-align: center;
+  margin: 2em 0 1em 0;
+  line-height: 1.3;
+}
+
+h2 { font-size: 1.2em; }
+h3 { font-size: 1.05em; }
+
+/* Paragraphs ───────────────────────────────────────────────────────── */
+
+/* Slightly deeper indent than Classic Serif — literary trade convention. */
+p {
+  text-indent: 1.75em;
+  margin: 0;
+  orphans: 3;
+  widows: 3;
+}
+
+/* First paragraph of chapter — no indent, drop cap follows, and the
+ * first line renders in small-caps (the trade-edition convention where
+ * the first phrase mirrors the drop cap's visual weight). */
+p.first {
+  text-indent: 0;
+  margin-top: 0;
+}
+
+p.first::first-line {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+/* First paragraph after a scene break — no indent, with the same
+ * small-caps first-line treatment that opens every chapter. */
+hr.scene-break + p {
+  text-indent: 0;
+}
+
+hr.scene-break + p::first-line {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+/* Drop cap — four lines tall (deeper than Classic Serif's three).
+ *
+ * The ::first-letter pseudo-element degrades gracefully on Kindle
+ * (which sometimes ignores float) — the letter stays large and inline,
+ * which is still a recognisable chapter-opening flourish. */
+p.first::first-letter {
+  float: left;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif;
+  font-size: 4.5em;
+  line-height: 0.82;
+  margin: 0.02em 0.08em 0 0;
+  padding: 0;
+  font-weight: normal;
+  font-style: normal;
+  color: #1a1a1a;
+}
+
+/* Scene break ornament ─────────────────────────────────────────────── */
+
+/* Fleuron (❦) — single centred ornament. Falls back to a small-caps
+ * textual 'x' via the ornament font chain if the glyph is missing
+ * (rare on any modern system). */
+hr.scene-break {
+  border: none;
+  text-align: center;
+  margin: 2.5em 0;
+  height: auto;
+  page-break-after: avoid;
+  page-break-before: avoid;
+  break-after: avoid;
+  break-before: avoid;
+}
+
+hr.scene-break::before {
+  content: "\2766";           /* ❦ FLORAL HEART (fleuron) */
+  display: block;
+  font-size: 1.4em;
+  line-height: 1;
+  color: #666;
+}
+
+/* Emphasis ─────────────────────────────────────────────────────────── */
+
+em, i {
+  font-style: italic;
+}
+
+strong, b {
+  font-weight: bold;
+}
+
+/* Block quotes ─────────────────────────────────────────────────────── */
+
+/* Indented italic quotation — traditional trade treatment. */
+blockquote {
+  margin: 1.5em 2.5em;
+  font-style: italic;
+  text-indent: 0;
+}
+
+blockquote p {
+  text-indent: 0;
+}
+
+/* Lists ───────────────────────────────────────────────────────────── */
+
+ul, ol {
+  margin: 1em 0 1em 2em;
+  padding: 0;
+}
+
+li {
+  margin: 0.3em 0;
+  text-indent: 0;
+}
+
+li p {
+  text-indent: 0;
+  margin: 0;
+}
+
+/* Code ────────────────────────────────────────────────────────────── */
+
+code {
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+pre {
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+  margin: 1em 0;
+  white-space: pre-wrap;
+  text-indent: 0;
+}
+
+/* Links ──────────────────────────────────────────────────────────── */
+
+a {
+  color: #333;
+  text-decoration: underline;
+}
+
+/* Tables ─────────────────────────────────────────────────────────── */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.4em 0;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #aaa;
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f5f0e6;   /* warm cream rule against the darker table body */
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
+  font-weight: normal;
+}
+
+th p, td p {
+  text-indent: 0;
+  margin: 0;
+  text-align: left;
+}
+
+/* Front matter ──────────────────────────────────────────────────── */
+
+.front-matter {
+  text-align: center;
+}
+
+.front-matter p {
+  text-indent: 0;
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+/* Title page heading — larger, small-caps, no page break */
+.front-matter h1 {
+  page-break-before: auto;
+  break-before: auto;
+  margin-top: 6em;
+  font-size: 2em;
+  font-variant: small-caps;
+  letter-spacing: 0.12em;
+  font-weight: normal;
+}
+
+/* Back matter ──────────────────────────────────────────────────── */
+
+.back-matter p {
+  text-indent: 0;
+  margin: 0.9em 0;
+}
+
+.back-matter h1 {
+  font-size: 1.2em;
+  font-variant: small-caps;
+  letter-spacing: 0.15em;
+  font-weight: normal;
+  text-align: center;
+  margin: 3em 0 2em 0;
+}
