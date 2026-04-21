@@ -59,20 +59,9 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
       });
     };
 
-    // Keep the webview in sync if the document changes externally (git
-    // pull, another editor, find/replace). Suppress the echo when
-    // applyEdit below initiated the change itself.
+    // State used by the change subscription below AND by the save
+    // handler. Declared together so both closures share the same refs.
     let suppressNextDocChange = false;
-
-    const changeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
-      if (e.document.uri.toString() !== document.uri.toString()) return;
-      if (suppressNextDocChange) {
-        suppressNextDocChange = false;
-        return;
-      }
-      pushContentToWebview();
-    });
-
     // Autosave timer — scheduled after every content-changed applyEdit;
     // cancelled if a new edit arrives before it fires (so fast typists
     // get exactly one save at the end of their burst, not one per edit).
@@ -83,6 +72,30 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
     // one completes.
     let saveInFlight = false;
     let rerunAfterSave = false;
+
+    // Keep the webview in sync if the document changes externally (git
+    // pull, another editor, find/replace). Two cases we specifically do
+    // NOT push back to the webview:
+    //   1. Our own applyEdit fired the event — suppressNextDocChange
+    //      is set immediately before the call and cleared here.
+    //   2. A save is in flight. VS Code's on-save normalisation
+    //      (files.insertFinalNewline, files.trimTrailingWhitespace,
+    //      "format on save" extensions) fires onDidChangeTextDocument
+    //      after document.save() commits. If we pushed that back to
+    //      the webview, editor.commands.setContent would clobber
+    //      whatever the user has typed since the save was scheduled —
+    //      losing their last ~2 seconds of work. The webview is the
+    //      source of truth during the save window; the next content-
+    //      changed it posts will re-sync cleanly.
+    const changeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document.uri.toString() !== document.uri.toString()) return;
+      if (suppressNextDocChange) {
+        suppressNextDocChange = false;
+        return;
+      }
+      if (saveInFlight) return;
+      pushContentToWebview();
+    });
 
     const runSave = async (): Promise<void> => {
       if (saveInFlight) {
