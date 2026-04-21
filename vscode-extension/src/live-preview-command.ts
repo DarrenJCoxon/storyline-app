@@ -703,39 +703,43 @@ function buildWebviewHtml(
     /* iPad (Apple Books) — 3:4 aspect (768pt × 1024pt device). The reading
      * surface at standard Books.app zoom is ~720px × 960px inside the
      * device chrome. The outer box-shadow fakes a black bezel so it's
-     * instantly recognisable versus the flat Kindle frame. */
+     * instantly recognisable versus the flat Kindle frame. Page colour
+     * matches Apple Books' default White theme — pure white with a
+     * near-black text colour (not warm-tinted). */
     body.device-ipad .device-stage { background: #1c1c1e; padding-top: 40px; padding-bottom: 140px; }
     body.device-ipad .device-surface {
       width: 720px;
       min-height: 960px;
       padding: 80px 96px;
-      background: #f3ece2;
-      color: #1a1612;
+      background: #ffffff;
+      color: #141414;
       border-radius: 4px;
       box-shadow: 0 0 0 10px #2c2c2e, 0 12px 28px rgba(0,0,0,0.45);
       font-family: var(--nw-body-font, "Palatino", "Iowan Old Style", Georgia, serif);
       font-size: 17px;
       line-height: 1.55;
     }
-    body.device-ipad .device-surface p.first::first-letter { color: #1a1612; }
+    body.device-ipad .device-surface p.first::first-letter { color: #141414; }
 
     /* Kindle Paperwhite — 6" e-ink. The reading area is roughly 560×760
      * inside the device's grey bezel; the surrounding shadow mimics the
-     * matte plastic shell so it doesn't read as iPad-with-smaller-body. */
+     * matte plastic shell so it doesn't read as iPad-with-smaller-body.
+     * Page surface is a neutral pale grey — real e-ink isn't bright
+     * white but it isn't warm beige either, it's a cool off-white. */
     body.device-kindle .device-stage { background: #2e2d2a; padding-top: 40px; padding-bottom: 140px; }
     body.device-kindle .device-surface {
       width: 560px;
       min-height: 760px;
       padding: 60px 72px;
-      background: #e9e3d7;
-      color: #2a2824;
+      background: #ececeb;
+      color: #1c1c1c;
       box-shadow: 0 0 0 22px #6b6458, 0 10px 22px rgba(0,0,0,0.4);
       font-family: var(--nw-body-font, "Bookerly", Georgia, serif);
       font-size: 16px;
       line-height: 1.55;
     }
-    body.device-kindle .device-surface p.first::first-letter { color: #2a2824; }
-    body.device-kindle .device-surface hr.scene-break::before { color: #645f58; }
+    body.device-kindle .device-surface p.first::first-letter { color: #1c1c1c; }
+    body.device-kindle .device-surface hr.scene-break::before { color: #5c5c5c; }
 
     /* ─── Paragraph style override (mirror compile/theme.js) ─────
      * The preview's default is indented (first-line indent, no gap).
