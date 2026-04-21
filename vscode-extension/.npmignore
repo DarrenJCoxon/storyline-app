@@ -1,0 +1,7 @@
+# This .npmignore overrides the sibling .gitignore for npm packaging.
+# The .gitignore correctly excludes *.vsix from the git repo (build artefact);
+# but when the parent package publishes to npm, the .vsix must be bundled so
+# `storyline init` can install the extension from the tarball.
+#
+# Empty-with-this-comment is intentional — it tells npm "don't inherit the
+# .gitignore exclusions for this directory".

@@ -6,9 +6,38 @@
   "bin": {
     "storyline": "./bin/storyline.js"
   },
+  "files": [
+    "bin/",
+    "lib/",
+    "skill/",
+    "vscode-extension/storyline-vscode-*.vsix",
+    ".env.example",
+    "CLAUDE.md",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DarrenJCoxon/storyline.git"
+  },
+  "homepage": "https://github.com/DarrenJCoxon/storyline#readme",
+  "bugs": "https://github.com/DarrenJCoxon/storyline/issues",
+  "keywords": [
+    "novel",
+    "writing",
+    "save-the-cat",
+    "story-planning",
+    "claude",
+    "vscode",
+    "epub"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node bin/storyline.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm test && node -e \"if(!require('fs').readdirSync('vscode-extension').some(f=>/^storyline-vscode-.+\\.vsix$/.test(f))){console.error('Missing bundled .vsix — run: cd vscode-extension && npm run package');process.exit(1)}\""
   },
   "dependencies": {
     "@lesjoursfr/html-to-epub": "^3.1.3",

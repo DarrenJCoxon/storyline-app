@@ -1,8 +1,9 @@
 // storyline init command — installs /storyline skill into current directory
 import chalk from 'chalk';
-import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync, cpSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'child_process';
 import { ensureCompileConfig } from '../../lib/config/compile-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -165,7 +166,73 @@ Delete this README once you've got your first chapter file in here.
         console.log(chalk.dim(`  ✓ CLAUDE.md already exists`));
       }
 
+      // Step 6: Copy the /storyline skill into .claude/skills/storyline/ so
+      // Claude Code recognises the slash command inside this project. Scoped
+      // per-project (not into ~/.claude) so each project pins its own skill
+      // version and multi-project users don't get cross-contamination.
+      const skillSrc = resolve(PACKAGE_ROOT, 'skill');
+      const skillDst = resolve(targetDir, '.claude', 'skills', 'storyline');
+      if (existsSync(skillSrc) && !existsSync(skillDst)) {
+        mkdirSync(dirname(skillDst), { recursive: true });
+        cpSync(skillSrc, skillDst, { recursive: true });
+        console.log(chalk.dim(`  ✓ Installed /storyline skill into .claude/skills/storyline/`));
+      } else if (existsSync(skillDst)) {
+        console.log(chalk.dim(`  ✓ /storyline skill already present`));
+      }
+
+      // Step 7: Install the bundled VS Code extension (storyline-vscode-*.vsix)
+      // via the `code` CLI if available. Falls back to printing instructions.
+      // The extension activates on workspaces containing .storyline/state.json,
+      // which we just created — so the writer gets the rich editor, compile
+      // commands, and preview the moment they open this folder in VS Code.
+      const vsixPath = findBundledVsix(PACKAGE_ROOT);
+      if (vsixPath) {
+        const installed = tryInstallVsix(vsixPath);
+        if (installed === 'ok') {
+          console.log(chalk.dim(`  ✓ Installed Storyline VS Code extension`));
+        } else if (installed === 'no-code-cli') {
+          console.log(chalk.yellow(`  ⚠ VS Code 'code' CLI not found on PATH.`));
+          console.log(chalk.dim(`    To install the extension manually:`));
+          console.log(chalk.dim(`      1. Open VS Code`));
+          console.log(chalk.dim(`      2. Cmd/Ctrl+Shift+P → "Extensions: Install from VSIX..."`));
+          console.log(chalk.dim(`      3. Choose: ${vsixPath}`));
+        } else {
+          console.log(chalk.yellow(`  ⚠ Extension install failed — install manually from: ${vsixPath}`));
+        }
+      } else {
+        console.log(chalk.yellow(`  ⚠ No bundled .vsix found — extension install skipped`));
+      }
+
       console.log(chalk.bold(`\n✅ Initialized: ${chalk.cyan(resolvedName)}\n`));
-      console.log(chalk.dim(`  Run ${chalk.white('storyline start')} to begin planning\n`));
+      console.log(chalk.dim(`  Next steps:`));
+      console.log(chalk.dim(`    cd ${projectName || '.'}`));
+      console.log(chalk.dim(`    code .                 ${chalk.dim('# open the project in VS Code')}`));
+      console.log(chalk.dim(`    Then type ${chalk.white('/storyline')} in Claude Code to start planning.\n`));
     });
+}
+
+// ── helpers ──────────────────────────────────────────────────────
+
+function findBundledVsix(packageRoot) {
+  const vsixDir = resolve(packageRoot, 'vscode-extension');
+  if (!existsSync(vsixDir)) return null;
+  const files = readdirSync(vsixDir).filter(f => f.startsWith('storyline-vscode-') && f.endsWith('.vsix'));
+  if (files.length === 0) return null;
+  // Prefer the highest-versioned vsix if multiple exist.
+  files.sort().reverse();
+  return resolve(vsixDir, files[0]);
+}
+
+function tryInstallVsix(vsixPath) {
+  // Probe for the `code` CLI. spawnSync returns status !== null only when the
+  // binary was reachable (even if it then errored). ENOENT means the command
+  // isn't on PATH at all — that's our fallback signal.
+  const probe = spawnSync('code', ['--version'], { stdio: 'ignore' });
+  if (probe.error && probe.error.code === 'ENOENT') return 'no-code-cli';
+  if (probe.status !== 0) return 'error';
+
+  const install = spawnSync('code', ['--install-extension', vsixPath, '--force'], {
+    stdio: 'ignore',
+  });
+  return install.status === 0 ? 'ok' : 'error';
 }
