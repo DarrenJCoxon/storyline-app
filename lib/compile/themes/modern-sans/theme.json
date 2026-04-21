@@ -6,5 +6,6 @@
   "sceneBreakOrnament": "· · ·",
   "fonts": [],
   "license": "MIT",
-  "defaultFor": []
+  "defaultFor": [],
+  "overridable": ["bodyFont", "sceneBreakOrnament", "chapterHeadingStyle"]
 }

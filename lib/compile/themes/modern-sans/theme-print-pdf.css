@@ -134,6 +134,7 @@ section.chapter > *:first-child {
 body {
   /* Slightly tighter leading than EPUB — print doesn't need 1.5 when the
    * page is fixed and margins are generous. */
+  font-family: var(--nw-body-font, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
   font-size: 10.5pt;
   line-height: 1.4;
   orphans: 3;

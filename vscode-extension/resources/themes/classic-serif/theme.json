@@ -1,10 +1,11 @@
 {
   "id": "classic-serif",
   "name": "Classic Serif",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Traditional novel typography: Georgia/Times serif, drop caps on chapter openings, centred '* * *' scene breaks, italic chapter headings. Uses reader-supplied system fonts so no font embedding or licensing concerns. Tuned for Apple Books, Kindle, Kobo, and other reflowable EPUB readers.",
   "sceneBreakOrnament": "* * *",
   "fonts": [],
   "license": "MIT",
-  "defaultFor": ["epub"]
+  "defaultFor": ["epub"],
+  "overridable": ["bodyFont", "sceneBreakOrnament", "chapterHeadingStyle"]
 }

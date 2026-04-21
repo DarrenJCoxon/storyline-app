@@ -21,7 +21,7 @@ html, body {
 }
 
 body {
-  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--nw-body-font, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
   font-size: 1em;
   line-height: 1.5;
   text-align: left;   /* ragged-right is part of the modern look */
@@ -34,14 +34,18 @@ body {
 
 /* Chapter heading ──────────────────────────────────────────────────── */
 
-/* Left-aligned, bold, generous top margin — confident, no italic flourish. */
+/* Left-aligned, bold, generous top margin — confident, no italic flourish.
+ * Overridable via --nw-chapter-* custom properties so a writer can flip
+ * this to small-caps or italic-centred without editing theme CSS. */
 h1 {
-  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--nw-body-font, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
   font-size: 1.8em;
-  font-weight: 700;
-  font-style: normal;
-  text-align: left;
-  letter-spacing: -0.01em;
+  font-weight: var(--nw-chapter-font-weight, 700);
+  font-style: var(--nw-chapter-font-style, normal);
+  font-variant: var(--nw-chapter-font-variant, normal);
+  text-align: var(--nw-chapter-text-align, left);
+  letter-spacing: var(--nw-chapter-letter-spacing, -0.01em);
+  text-transform: var(--nw-chapter-text-transform, none);
   margin: 2.5em 0 1.5em 0;
   line-height: 1.15;
   page-break-before: always;
@@ -108,7 +112,7 @@ hr.scene-break {
 }
 
 hr.scene-break::before {
-  content: "\00B7 \00B7 \00B7";   /* · · · — three middle dots */
+  content: var(--nw-scene-break-ornament, "\00B7 \00B7 \00B7");   /* · · · */
   display: block;
   letter-spacing: 0.8em;
   font-size: 1em;

@@ -139,6 +139,9 @@ section.chapter > *:first-child {
 /* Print typography tweaks ─────────────────────────────────────────── */
 
 body {
+  font-family: var(--nw-body-font,
+               "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif);
   font-size: 11pt;
   line-height: 1.5;       /* a touch tighter than EPUB for fixed-page economy */
   orphans: 3;

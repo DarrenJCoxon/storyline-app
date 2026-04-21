@@ -21,7 +21,7 @@ html, body {
 }
 
 body {
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
   font-size: 1em;
   line-height: 1.55;
   text-align: justify;
@@ -34,12 +34,20 @@ body {
 
 /* Chapter heading ──────────────────────────────────────────────────── */
 
+/* Chapter heading — the defaults below reflect the theme's canonical
+ * style (italic + centred). Individual properties are overridable via
+ * --nw-chapter-* CSS custom properties so compile.config.json's
+ * chapterHeadingStyle override can flip the heading to bold-left,
+ * small-caps, etc. without editing this theme. */
 h1 {
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
   font-size: 1.6em;
-  font-weight: normal;
-  font-style: italic;
-  text-align: center;
+  font-weight: var(--nw-chapter-font-weight, normal);
+  font-style: var(--nw-chapter-font-style, italic);
+  font-variant: var(--nw-chapter-font-variant, normal);
+  letter-spacing: var(--nw-chapter-letter-spacing, normal);
+  text-align: var(--nw-chapter-text-align, center);
+  text-transform: var(--nw-chapter-text-transform, none);
   margin: 3em 0 2em 0;
   line-height: 1.3;
   page-break-before: always;
@@ -113,7 +121,7 @@ hr.scene-break {
 }
 
 hr.scene-break::before {
-  content: "* * *";
+  content: var(--nw-scene-break-ornament, "* * *");
   display: block;
   letter-spacing: 0.5em;
   font-size: 0.95em;

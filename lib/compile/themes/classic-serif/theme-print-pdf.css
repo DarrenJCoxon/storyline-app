@@ -181,6 +181,7 @@ body {
   /* Slight reduction of base line-height for print; 1.5 is more common
    * for paperback than the 1.55 we used for EPUB (which reflows on
    * bigger screens). */
+  font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
   font-size: 11pt;
   line-height: 1.45;
   orphans: 3;

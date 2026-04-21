@@ -222,6 +222,7 @@ Compile (writes files to `output/compiled/`):
 ```json
 {
   "theme": "classic-serif",
+  "paragraphStyle": "indented",
   "trimSize": "6x9",
   "frontMatter": ["title-page", "copyright", "dedication"],
   "backMatter": ["acknowledgements", "about-the-author"],
@@ -233,11 +234,22 @@ Compile (writes files to `output/compiled/`):
     "copyrightYear": 2026
   },
   "themeOverrides": {
-    "chapterHeading.fontFamily": "Playfair Display",
-    "sceneBreak.ornament": "* * *"
+    "bodyFont": "Palatino, Georgia, serif",
+    "sceneBreakOrnament": "❦",
+    "chapterHeadingStyle": "small-caps"
   }
 }
 ```
+
+**Theme overrides (Story 6.3).** A small, curated set. Anything beyond these requires forking the theme directory under `lib/compile/themes/`.
+
+| Key | Type | Effect | Supported by |
+|---|---|---|---|
+| `bodyFont` | CSS `font-family` stack | Sets the body + chapter font family. Writers supply a full stack so readers without the first face fall through gracefully. | Classic Serif, Modern Sans, Heritage |
+| `sceneBreakOrnament` | string | Becomes the `content:` value of `hr.scene-break::before`. Any single glyph or short phrase. Common values: `"* * *"`, `"· · ·"`, `"❦"`, `"§"`. | Classic Serif, Modern Sans, Heritage |
+| `chapterHeadingStyle` | preset name | Flips chapter `h1` to one of: `italic-centred`, `bold-left`, `small-caps`, `uppercase`. Each preset sets a coordinated group of `font-weight` / `font-style` / `font-variant` / `letter-spacing` / `text-align` / `text-transform` values. | Classic Serif, Modern Sans (Heritage declines — drop-cap treatment is tightly coupled to its heading) |
+
+Each theme's `theme.json` declares which keys it honours via `overridable[]`. Overrides that the active theme doesn't honour surface as warnings at compile time (the compile still proceeds, they just don't apply). Typos and unknown keys also warn.
 
 **Output directory: `output/compiled/`**
 

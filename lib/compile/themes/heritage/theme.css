@@ -24,8 +24,9 @@ html, body {
 }
 
 body {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
-               "Book Antiqua", Garamond, "Times New Roman", Times, serif;
+  font-family: var(--nw-body-font,
+               "Iowan Old Style", "Palatino Linotype", Palatino,
+               "Book Antiqua", Garamond, "Times New Roman", Times, serif);
   font-size: 1em;
   line-height: 1.6;   /* generous leading — literary feel */
   text-align: justify;
@@ -138,7 +139,7 @@ hr.scene-break {
 }
 
 hr.scene-break::before {
-  content: "\2766";           /* ❦ FLORAL HEART (fleuron) */
+  content: var(--nw-scene-break-ornament, "\2766");  /* ❦ FLORAL HEART */
   display: block;
   font-size: 1.4em;
   line-height: 1;
