@@ -46,8 +46,16 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     return;
   }
 
-  const themeCss = await loadThemeCss(context);
+  const availableThemes = await discoverThemes(context);
   const initialConfig = await readCompileConfig(folder.uri);
+  // Fall back to 'classic-serif' if the config points at a theme that
+  // isn't on disk (project carried over from another machine, theme
+  // removed, typo in config). Preview keeps working; compile would
+  // warn the same way.
+  const initialThemeId = availableThemes.some(t => t.id === initialConfig.theme)
+    ? initialConfig.theme
+    : 'classic-serif';
+  const initialThemeCss = await loadThemeCss(context, initialThemeId);
   const md = createRenderer();
 
   const panel = vscode.window.createWebviewPanel(
@@ -60,7 +68,11 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     },
   );
 
-  panel.webview.html = buildWebviewHtml(themeCss, initialConfig);
+  panel.webview.html = buildWebviewHtml(
+    initialThemeCss,
+    { ...initialConfig, theme: initialThemeId },
+    availableThemes,
+  );
 
   // Track the "source of truth" URI — the .md file currently focused in
   // VS Code, whether in the default text editor OR our custom TipTap
@@ -157,6 +169,22 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       updatePreview();
       return;
     }
+    if (msg?.type === 'load-theme') {
+      const { theme } = msg as { theme?: string };
+      if (typeof theme !== 'string' || !theme.trim()) return;
+      const id = theme.trim();
+      if (!availableThemes.some(t => t.id === id)) return;
+      try {
+        const css = await loadThemeCss(context, id);
+        panel.webview.postMessage({ type: 'theme-css', id, css });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(
+          `Novel Writer: could not load theme "${id}" — ${message}`,
+        );
+      }
+      return;
+    }
     if (msg?.type === 'save-as-default') {
       const { paragraphStyle, theme } = msg as { paragraphStyle?: string; theme?: string };
       try {
@@ -236,20 +264,71 @@ async function saveDefaultsToConfig(
   await fs.writeFile(configPath, JSON.stringify(updated, null, 2) + '\n', 'utf-8');
 }
 
-async function loadThemeCss(context: vscode.ExtensionContext): Promise<string> {
-  const cssPath = path.join(
-    context.extensionPath,
-    'resources',
-    'themes',
-    'classic-serif',
-    'theme.css',
-  );
+interface ThemeDescriptor {
+  id: string;
+  name: string;
+}
+
+// Scan resources/themes/ for every theme the compile pipeline ships
+// (copied at build time by scripts/copy-theme-assets.mjs). Each
+// directory with a theme.json becomes a dropdown entry. The name
+// shown in the UI comes from theme.json's `name` field.
+async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDescriptor[]> {
+  const themesRoot = path.join(context.extensionPath, 'resources', 'themes');
+  try {
+    const entries = await fs.readdir(themesRoot, { withFileTypes: true });
+    const themes: ThemeDescriptor[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const metaPath = path.join(themesRoot, entry.name, 'theme.json');
+      try {
+        const raw = await fs.readFile(metaPath, 'utf-8');
+        const meta = JSON.parse(raw) as { id?: string; name?: string };
+        themes.push({
+          id: typeof meta.id === 'string' && meta.id.trim() ? meta.id.trim() : entry.name,
+          name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : entry.name,
+        });
+      } catch {
+        // Skip directories without a valid theme.json — they're in-
+        // progress or unrelated files. The compile pipeline enforces
+        // the shape; the preview is tolerant.
+      }
+    }
+    // Stable ordering: classic-serif first (the default), then alphabetical
+    // by display name. Writers open the preview and see their current
+    // default selected and familiar themes adjacent.
+    themes.sort((a, b) => {
+      if (a.id === 'classic-serif') return -1;
+      if (b.id === 'classic-serif') return 1;
+      return a.name.localeCompare(b.name);
+    });
+    if (themes.length > 0) return themes;
+  } catch {
+    // Resources directory missing — fall through to the minimal fallback.
+  }
+  return [{ id: 'classic-serif', name: 'Classic Serif' }];
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
+  const cssPath = path.join(context.extensionPath, 'resources', 'themes', themeId, 'theme.css');
   try {
     return await fs.readFile(cssPath, 'utf-8');
   } catch {
     // Fallback: minimal inline typography so the preview isn't styleless
-    // if the resource bundle is missing. Shouldn't happen in a properly
-    // packaged .vsix.
+    // if the theme is missing. Shouldn't happen in a properly packaged
+    // .vsix, but a writer with a stale resources/ dir shouldn't get a
+    // blank panel.
     return `
       body { font-family: Georgia, serif; line-height: 1.6; }
       p { text-indent: 1.5em; margin: 0; }
@@ -273,17 +352,26 @@ function emptyStateHtml(): string {
   `;
 }
 
-function buildWebviewHtml(themeCss: string, initialConfig: LivePreviewConfig): string {
+function buildWebviewHtml(
+  themeCss: string,
+  initialConfig: LivePreviewConfig,
+  availableThemes: ThemeDescriptor[],
+): string {
   const initialParagraphStyle = initialConfig.paragraphStyle;
   const initialTheme = initialConfig.theme || 'classic-serif';
+  // Emit the theme <option> tags server-side so the dropdown is
+  // populated before the inline script runs — no flash-of-single-option.
+  const themeOptions = availableThemes
+    .map(t => `<option value="${escapeAttr(t.id)}">${escapeHtml(t.name)}</option>`)
+    .join('\n        ');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live Chapter Preview</title>
-  <style>
-    /* ─── Theme CSS (Classic Serif, shared with compile pipeline) ─── */
+  <style id="theme-css">
+    /* ─── Theme CSS (swapped live when Theme dropdown changes) ─── */
     ${themeCss}
 
     /* ─── Panel shell (chrome around the reading surface) ────────── */
@@ -525,8 +613,8 @@ function buildWebviewHtml(themeCss: string, initialConfig: LivePreviewConfig): s
         <option value="device-kindle">Kindle Paperwhite</option>
       </select>
       <label for="theme-picker">Theme</label>
-      <select id="theme-picker" title="Theme (more in Milestone 6)">
-        <option value="classic-serif">Classic Serif</option>
+      <select id="theme-picker" title="Theme">
+        ${themeOptions}
       </select>
       <label for="paragraph-picker">Paragraphs</label>
       <select id="paragraph-picker" title="Paragraph style">
@@ -565,10 +653,23 @@ function buildWebviewHtml(themeCss: string, initialConfig: LivePreviewConfig): s
 
     devicePicker.value = currentDevice;
     paragraphPicker.value = currentParagraphStyle;
-    themePicker.value = currentTheme;
+    // Only adopt a restored theme if the dropdown actually lists it.
+    // Otherwise the picker silently mismatches the stylesheet.
+    if (Array.from(themePicker.options).some(o => o.value === currentTheme)) {
+      themePicker.value = currentTheme;
+    } else {
+      themePicker.value = initialConfig.theme;
+    }
 
     applyDevice(currentDevice);
     applyParagraphs(currentParagraphStyle);
+
+    // If vscode.setState restored a theme different from the one the
+    // host inlined at build time, request its CSS now so the panel's
+    // stylesheet matches the dropdown selection.
+    if (themePicker.value !== initialConfig.theme) {
+      vscode.postMessage({ type: 'load-theme', theme: themePicker.value });
+    }
 
     function applyDevice(device) {
       document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
@@ -595,9 +696,11 @@ function buildWebviewHtml(themeCss: string, initialConfig: LivePreviewConfig): s
       persist();
     });
     themePicker.addEventListener('change', () => {
-      // Theme swap is a no-op for now (only Classic Serif ships).
-      // Milestone 6 adds more themes and loads their CSS dynamically.
       persist();
+      // Ask the host for the selected theme's CSS; it posts back a
+      // 'theme-css' message that we apply below. No page reload — we
+      // just swap the contents of <style id="theme-css">.
+      vscode.postMessage({ type: 'load-theme', theme: themePicker.value });
     });
 
     saveBtn.addEventListener('click', () => {
@@ -615,11 +718,18 @@ function buildWebviewHtml(themeCss: string, initialConfig: LivePreviewConfig): s
       }, 400);
     });
 
+    const themeStyleEl = document.getElementById('theme-css');
+
     window.addEventListener('message', (event) => {
       const msg = event.data;
       if (msg && msg.type === 'update') {
         content.innerHTML = msg.html || '';
         filename.textContent = msg.fileName || '—';
+      }
+      if (msg && msg.type === 'theme-css' && typeof msg.css === 'string') {
+        // Replace the theme stylesheet's text; the browser re-applies
+        // styles in-place without a repaint flash.
+        themeStyleEl.textContent = msg.css;
       }
     });
 
