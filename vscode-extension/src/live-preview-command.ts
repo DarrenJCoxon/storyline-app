@@ -94,10 +94,19 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       return;
     }
     const markdown = doc.getText();
-    const bodyHtml = md.render(markdown);
+    // Soft section breaks — blank paragraphs in the editor source
+    // (3+ consecutive newlines in markdown) render as visible vertical
+    // gap with no ornament, and the next paragraph drops its first-
+    // line indent. This lets writers use plain blank lines for
+    // section shifts without reaching for `---`, which inserts the
+    // ornamental `* * *` break.
+    const chunks = markdown.split(/\n{3,}/).filter(c => c.trim().length > 0);
+    const chunkHtml = chunks.length > 0
+      ? chunks.map(c => md.render(c)).join('<hr class="scene-break scene-break--soft" />\n')
+      : md.render(markdown);
     // Mark first paragraph for drop cap styling (same transform the
     // compile theme phase applies).
-    const withFirst = bodyHtml.replace('<p>', '<p class="first">');
+    const withFirst = chunkHtml.replace('<p>', '<p class="first">');
     panel.webview.postMessage({
       type: 'update',
       html: withFirst,
@@ -442,15 +451,24 @@ function buildWebviewHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live Chapter Preview</title>
+  <style id="overrides">
+    /* Override layer — Font + Scene Break pickers write :root custom
+     * properties into this tag's textContent. Its rules cascade into
+     * every var() reference in both the theme CSS and panel CSS
+     * below. JS rewrites this tag wholesale on each override change;
+     * critical that nothing else lives here. Starts empty. */
+  </style>
   <style id="theme-css">
-    /* ─── Theme CSS (swapped live when Theme dropdown changes) ─── */
+    /* Theme CSS (swapped wholesale when Theme dropdown changes — must
+     * therefore contain ONLY theme CSS, nothing shared with the panel
+     * chrome). */
     ${themeCss}
   </style>
-  <style id="overrides">
-    /* ─── Override layer — Font + Scene Break pickers write :root
-     *     custom properties here; the theme CSS reads them via var(). */
-
-    /* ─── Panel shell (chrome around the reading surface) ────────── */
+  <style>
+    /* ─── Panel shell (chrome around the reading surface) ──────────
+     * This block is static — never touched by JS. Contains device
+     * frames, header styling, and the device-surface structural rules
+     * that must survive both theme swaps and override updates. */
     html, body {
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
