@@ -110,12 +110,30 @@ export class NovelEditorProvider implements vscode.CustomTextEditorProvider {
             }
           }
 
-          const saved = await document.save();
-          // document.save() returns false when nothing needed saving
-          // (e.g. document was already clean), which is NOT an error.
-          // Only treat as a failure if the document is still dirty after save.
+          // document.save() returns false in several benign cases:
+          //   - VS Code's autoSave fired first and the doc is already clean
+          //   - A queued save from applyEdit's onDidChangeTextDocument is
+          //     still in flight and VS Code coalesces ours into it
+          //   - Filesystem is iCloud / Dropbox / Time Machine managed and
+          //     reported a sync lag back to VS Code
+          // A real failure is: save returned false AND after a short
+          // beat the document is STILL dirty. Retry once before erroring.
+          let saved = await document.save();
           if (!saved && document.isDirty) {
-            throw new Error('document.save() reported failure while document is still dirty');
+            await new Promise(resolve => setTimeout(resolve, 80));
+            // If the document is now clean, autoSave caught up — success.
+            if (!document.isDirty) {
+              saved = true;
+            } else {
+              saved = await document.save();
+            }
+          }
+          if (!saved && document.isDirty) {
+            throw new Error(
+              'document.save() failed twice — the file may be read-only, ' +
+              'locked by another process, or on a cloud-synced folder ' +
+              'with sync conflicts. Check the file in Finder/Explorer.',
+            );
           }
 
           webviewPanel.webview.postMessage({ type: 'saved' });
