@@ -1,6 +1,6 @@
 ---
 name: "storyline"
-version: "1.1.6"
+version: "1.1.7"
 description: "Storyline planning harness using Save the Cat story structure. Use /storyline to start or resume a novel planning session — character-first, beat-driven, with AI critique at every stage. Covers genre, protagonist, supporting cast, 15-beat sheet, B story, subplots, scene outline, plot threads, and chapter flesh-out. Designed for writers who want expert guidance on story structure."
 metadata:
   priority: 10

@@ -1,6 +1,6 @@
 {
   "name": "storyline-cli",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Storyline — a planning and writing environment for novelists, built around the Save the Cat story structure, with AI co-writing support powered by Claude.",
   "type": "module",
   "bin": {

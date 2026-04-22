@@ -31,18 +31,18 @@ _Last updated: 2026-04-20_
 **Build complete** (Stories 5.1-5.4 shipped: full-book preview, live chapter preview, device frames, theme + paragraph-style switcher). **Gate open** — awaiting preview-on-real-book validation (Story 5.5, writer work). Detail: [roadmap/milestone-05-preview.md](roadmap/milestone-05-preview.md)
 
 ### ▶ Milestone 6 — Theme expansion and refinement
-**Current milestone** (build work). Second and third themes (Modern Sans, Heritage) plus a small, curated override system in `compile.config.json` for body font, scene break ornament, chapter heading style. Live preview theme dropdown becomes functional.
-**Prove-it gate:** Writer picks a theme for their real book because one *looks right for it*, not because the others are broken. Detail: [roadmap/milestone-06-theme-expansion.md](roadmap/milestone-06-theme-expansion.md)
+**Current milestone** (build work). Second and third themes (Modern Sans, Heritage), a first-class chapter-opener style library with four named openers (Meridian / Cinder / Edgewood / Hawthorn — each a full composition of chapter label, title, vertical drop, first-section heading, and first-paragraph treatment), and a small curated override system for body font and scene-break ornament. Live preview gains both a theme and a chapter-opener dropdown with ~300ms swap.
+**Prove-it gate:** Writer picks a theme AND chapter opener for their real book because the pairing *looks right for it*, not because the others are broken. Every chapter's first page compiles correctly in EPUB and print PDF — drop caps, vertical drop, first-section heading, first-paragraph treatment all render as designed. Detail: [roadmap/milestone-06-theme-expansion.md](roadmap/milestone-06-theme-expansion.md)
 
 ### Milestone 7 — Multi-engine refactor
 **Outcome:** Platform extracted from Storyline. Engine API formalised. Second engine (Non-Fiction Writer) built as proof that the abstraction works.
 **Prove-it gate:** Plan an actual non-fiction book using the second engine. The extension must host both engines cleanly; Storyline work must not regress.
 **Status:** Deferred until at least Milestone 4 is shipped. Do not start early. See `engine-platform.md` for the warning on premature generalisation.
 
-### Milestone 8 — Hybrid local / frontier AI routing (exploratory)
-**Outcome:** Per-token AI cost drops 60–80% on a full planning run by routing cheap scaffolding work to a local Ollama model (Gemma 4 26B MoE as current candidate) while keeping critique stages on the frontier API. Zero quality regression where it counts.
-**Prove-it gate:** Blind-pairing test on Stage 7 + Stage 13 critique — hybrid must be indistinguishable from frontier-only. Measured cost reduction ≥60%. Silent fallback to API when Ollama is absent.
-**Status:** Exploratory — logged for a future phase. Blocked on M7 (router belongs at the platform layer, not inside the Storyline engine). Do not start early. Detail: [roadmap/milestone-08-hybrid-ai-routing.md](roadmap/milestone-08-hybrid-ai-routing.md)
+### Milestone 8 — Intelligent per-stage model routing (exploratory)
+**Outcome:** Per-token AI cost drops 60–80% on a full planning run by routing each stage to the right Claude model — Haiku for capture/phrasing/bookkeeping (~4 stages), Sonnet for the mid-reasoning majority (~9 stages), Opus reserved for the two whole-book synthesis stages (13, 14). Zero quality regression where it counts; Opus-grade critique stays on the stages that need it.
+**Prove-it gate:** Blind-pairing test on Stages 7, 13, 14 — routed output must be indistinguishable from all-Opus baseline. Cost ≤40% of all-Opus, ≤70% of all-Sonnet. Silent escalation to Opus on confidence-check failure.
+**Status:** Exploratory — logged for a future phase. Should land after M6 (compile pipeline stable); can land without M7. Detail: [roadmap/milestone-08-hybrid-ai-routing.md](roadmap/milestone-08-hybrid-ai-routing.md). Local Ollama routing demoted to "possible future extension" inside this milestone — no hardware concerns, same cost benefit, ships on existing infrastructure.
 
 ### Milestone 9 — Scrivener manuscript import (exploratory)
 **Outcome:** A writer runs `storyline import scrivener <path-to-.scriv>` and their prose lands in `manuscript/` as markdown with part/chapter/section order preserved via filename prefixes. Everything non-manuscript (Research, Notes, synopses, keywords, snapshots, compile settings) is dropped by design, with an honest report of what was skipped.

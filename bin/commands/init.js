@@ -271,9 +271,14 @@ function readOwnPackageVersion() {
 // ── VS Code extension outcome reporting ───────────────────────────
 
 function reportVSCodeOutcome(result) {
-  const { outcome, editor, vsixPath } = result;
+  const { outcome, editor, vsixPath, legacyRemoved } = result;
   if (outcome === 'ok') {
     console.log(chalk.dim(`  ✓ Installed and verified Storyline extension into ${editor.name}`));
+    if (legacyRemoved && legacyRemoved.length) {
+      for (const id of legacyRemoved) {
+        console.log(chalk.dim(`  ✓ Removed legacy extension ${id}`));
+      }
+    }
     return;
   }
   if (outcome === 'no-vsix') {

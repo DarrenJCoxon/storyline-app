@@ -25,6 +25,17 @@ import { spawnSync } from 'child_process';
 
 const EXTENSION_ID = 'darrenjcoxon.storyline-vscode';
 
+// Predecessor extension IDs that we should remove if found. Storyline
+// was previously published as 'novel-writer-vscode' under the same
+// publisher; writers who migrated by re-running init end up with both
+// installed, producing duplicate context-menu entries ("Novel Writer:
+// Open in Rich Editor" alongside "Storyline: Open in Rich Editor").
+// We uninstall the legacy IDs after successfully installing the
+// current one.
+const LEGACY_EXTENSION_IDS = [
+  'darrenjcoxon.novel-writer-vscode',
+];
+
 export default function installVSCodeExtension(packageRoot, { log } = {}) {
   const logFn = log || (() => {});
   const vsixPath = findBundledVsix(packageRoot);
@@ -40,9 +51,12 @@ export default function installVSCodeExtension(packageRoot, { log } = {}) {
   if (installOutcome === 'ok') {
     const registered = isExtensionRegistered(EXTENSION_ID, editor);
     if (registered) {
+      // Sweep up any legacy predecessor extensions before reload —
+      // best-effort, doesn't affect main install outcome on failure.
+      const removed = removeLegacyExtensions(editor);
       const willReload = editor.source === 'env';
-      logFn({ outcome: 'ok', editor, vsixPath, willReload });
-      return { outcome: 'ok', editor, vsixPath, willReload };
+      logFn({ outcome: 'ok', editor, vsixPath, willReload, legacyRemoved: removed });
+      return { outcome: 'ok', editor, vsixPath, willReload, legacyRemoved: removed };
     }
     logFn({ outcome: 'not-registered', editor, vsixPath });
     return { outcome: 'not-registered', editor, vsixPath, willReload: false };
@@ -50,6 +64,24 @@ export default function installVSCodeExtension(packageRoot, { log } = {}) {
 
   logFn({ outcome: installOutcome, editor, vsixPath });
   return { outcome: installOutcome, editor, vsixPath, willReload: false };
+}
+
+// Uninstall any legacy Storyline-predecessor extensions that are still
+// registered with the editor. Returns the list of IDs that were
+// actually removed (i.e. were present before, absent after) — empty
+// array if nothing legacy was found.
+export function removeLegacyExtensions(editor) {
+  const removed = [];
+  for (const id of LEGACY_EXTENSION_IDS) {
+    if (!isExtensionRegistered(id, editor)) continue;
+    const result = spawnSync(editor.path, ['--uninstall-extension', id], { stdio: 'ignore' });
+    // VS Code's uninstall returns 0 even when the ID isn't registered,
+    // so we re-check after to confirm.
+    if (result.status === 0 && !isExtensionRegistered(id, editor)) {
+      removed.push(id);
+    }
+  }
+  return removed;
 }
 
 // ── helpers ──────────────────────────────────────────────────────

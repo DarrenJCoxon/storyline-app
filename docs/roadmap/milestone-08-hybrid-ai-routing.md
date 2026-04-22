@@ -1,118 +1,126 @@
-# Milestone 8 — Hybrid local / frontier AI routing
+# Milestone 8 — Intelligent per-stage model routing
 
-_Status: **EXPLORATORY** — logged for a future phase, not started. No build work until at least M7 ships._
+_Status: **EXPLORATORY** — logged for a future phase, not started._
 _Parent: [../roadmap.md](../roadmap.md)_
-_Last updated: 2026-04-21_
+_Last updated: 2026-04-22_
 
 ## Outcome
 
-Storyline's per-token AI cost drops substantially (target: 60–80% reduction on a full planning run) **without any degradation in the quality of critique and structural reasoning that writers judge the product on.** Achieved by routing cheap scaffolding work (question phrasing, state capture, summarisation) to a local Ollama model and reserving the frontier API for the stages where reasoning quality actually matters.
+Storyline's per-token AI cost drops substantially (target: 60–80% reduction on a full planning run) **without any degradation in the quality of critique and structural reasoning that writers judge the product on.** Achieved by routing each stage to the right Claude model for the job — Haiku for capture/phrasing/bookkeeping, Sonnet for the mid-reasoning majority, Opus reserved for the two or three stages that genuinely need whole-book cross-stage reasoning.
 
 ## Why this milestone exists
 
-The Save the Cat harness is tight: 14 fixed stages, a known state schema, and genre/beat reference material. A lot of the LLM calls during a planning run are low-reasoning-load — rephrasing the next question, echoing captured state back to the writer, generating a stage summary. Those calls don't need a frontier model. The critique passes (Beat Sheet validation, Consistency & Critique, Master Document synthesis) do.
+The Save the Cat harness is tight: 14 fixed stages, a known state schema, genre/beat reference material. A meaningful fraction of LLM calls during a planning run are low-reasoning-load — rephrasing the next question, echoing captured state back to the writer, maintaining the plot thread registry. Those calls don't need Sonnet, let alone Opus. Running them on Haiku cuts cost roughly 20× per call against Opus and ~4× against Sonnet, with no quality impact because the task doesn't have reasoning in it.
 
-Shipping a hybrid router means a writer can plan a full novel at near-zero marginal cost while still getting frontier-quality critique at the three or four stages it genuinely matters. It also opens a "local-only / offline" mode for writers who don't want any API dependency at all — at a clearly-communicated quality tradeoff.
+Meanwhile, Stages 13 (Consistency & Critique) and 14 (Master Document) demand reasoning across the entire project state at once — every character, every beat, every subplot, checked for coherence. That's Opus work. Shipping a router that gets those right while pushing cheap work down-tier is a strict improvement on the current "one model for everything" default.
 
-The trigger model is **Gemma 4** on Ollama, specifically the 26B MoE variant (25.2B total / 3.8B active parameters, 256K context window). MoE economics give near-27B-dense quality at ~4B-dense inference cost, and 256K context means the full `state.json` fits in every prompt without custom summarisation.
+The routing lives inside the existing OpenRouter path — no new infrastructure, no new dependencies, no hardware concerns for the writer. Just a per-stage `model` parameter on the API call.
 
 ## Prove-it gate
 
 All three must be true:
 
-1. **Blind-pairing test on critique quality.** For a real manuscript's Stage 7 (Beat Sheet) and Stage 13 (Consistency & Critique), the writer compares critique output from three routing configurations (`premium` = all frontier API, `balanced` = hybrid per the policy table below, `local-only` = all local) without knowing which is which. The `balanced` configuration must be rated **indistinguishable** from `premium` on the critique stages. If `balanced` feels worse, the router is wrong.
-2. **Measured cost reduction on a full planning run.** End-to-end planning of a real book in `balanced` mode uses ≤40% of the tokens-billed-to-API of the same run in `premium` mode. If the saving isn't real, the milestone has no reason to exist.
-3. **Zero regression when Ollama is unavailable.** Uninstalling Ollama mid-run falls back silently to API for every stage. No broken experience, no cryptic errors. Default behaviour with no Ollama installed is identical to today.
+1. **Blind-pairing test on critique quality.** For a real manuscript's Stage 7 (Beat Sheet), Stage 13 (Consistency & Critique), and Stage 14 (Master Document), compare routed output against an all-Opus baseline without knowing which is which. Routed output must be rated **indistinguishable** from all-Opus on those stages. If it feels worse, the mapping is wrong — escalate the offending stage a tier and re-test.
+2. **Measured cost reduction on a full planning run.** End-to-end planning of a real book using the routing policy costs ≤40% of the same run on all-Opus, and ≤70% of the same run on all-Sonnet. If the saving isn't real, the milestone has no reason to exist.
+3. **Escalation path works silently.** When a Sonnet response fails the confidence check (see guardrails), the router retries on Opus without the writer noticing anything except "that critique was thorough." Zero surfaced errors.
 
-## Proposed routing policy
+## Routing policy
 
-| Stage | Handler | Rationale |
+| Stage | Task character | Model |
 |---|---|---|
-| 1 Genre & Foundations | Local (E4B) | Structured capture. Low reasoning load. |
-| 2 Story Seed & Premise | Local (E4B) | Mostly question phrasing + echo. |
-| 3 Protagonist Deep Dive | Local (26B MoE) | Character work needs mid reasoning. |
-| 4 Supporting Cast | Local (E4B) | Capture + schema. |
-| 5 Relationship Web | Local (26B MoE) | Mid reasoning — relational consistency. |
-| 6 Logline Refinement | Local (26B MoE) | Phrasing + structural compression. |
-| **7 Beat Sheet** | **Frontier API** | The core critique. Never downgrade. |
-| 8 B Story | Local (26B MoE) | Thematic link reasoning, but bounded. |
-| 9 Subplots | Local (26B MoE) | Thread tracking. |
-| 10 Scene Outline (pass 1) | Local (26B MoE) | High-level outline. |
-| 10 Scene Outline (critique) | **Frontier API** | Structural review needs frontier. |
-| 11 Plot Thread Registry | Local (E4B) | Bookkeeping. |
-| 12 Chapter Flesh-Out | Local (26B MoE) | Bounded expansion. |
-| **13 Consistency & Critique** | **Frontier API** | The whole-book reasoning pass. Never downgrade. |
-| **14 Master Document** | **Frontier API** | Final synthesis. Never downgrade. |
+| 1 Genre & Foundations | Structured capture, known taxonomy | **Haiku** |
+| 2 Story Seed & Premise | Question phrasing + echo | **Haiku** |
+| 3 Protagonist Deep Dive | Character nuance, backstory | Sonnet |
+| 4 Supporting Cast | Schema capture, light reasoning | **Haiku** |
+| 5 Relationship Web | Multi-character consistency | Sonnet |
+| 6 Logline Refinement | Compression + judgement | Sonnet |
+| 7 Beat Sheet | Save the Cat structural validation | Sonnet (→ Opus on escalation) |
+| 8 B Story | Thematic-link reasoning | Sonnet |
+| 9 Subplots | Thread interaction | Sonnet |
+| 10 Scene Outline (pass 1) | High-level outline generation | Sonnet |
+| 10 Scene Outline (critique) | Outline validation | Sonnet (→ Opus on escalation) |
+| 11 Plot Thread Registry | Bookkeeping | **Haiku** |
+| 12 Chapter Flesh-Out | Bounded expansion, two-pass | Sonnet |
+| **13 Consistency & Critique** | **Whole-book cross-stage reasoning** | **Opus** |
+| **14 Master Document** | **Full synthesis of 13 stages** | **Opus** |
 
-Four stages go to the frontier API. Ten stay local. Exact split is subject to the prove-it gate — the router may need to escalate more stages if the blind-pairing test fails.
+Rough split: 4 stages on Haiku, 9 on Sonnet, 2 on Opus (plus Stage 7 / Stage 10-critique escalations). The cost shape is dominated by Sonnet; Opus usage is surgical.
 
-## Architecture sketch
+The mapping is subject to the prove-it gate — if the blind-pairing test shows any of the Sonnet stages producing weaker critique than Opus would, promote that stage. Don't defend the table, defend the outcome.
+
+## Architecture
 
 ```
 lib/ai/
-├── openrouter-client.js    (existing — frontier API)
-├── local-client.js         (M8 — Ollama HTTP client, same interface)
-└── model-router.js         (M8 — stage → handler mapping + fallback logic)
+├── openrouter-client.js    (existing — takes `model` parameter already)
+└── model-router.js         (M8 — stage → model mapping + confidence check + escalation)
 
 .storyline/config.json (new field)
 {
   "ai": {
-    "quality": "balanced"   // premium | balanced | local-only
-  }
-}
-
-.storyline/state.json (new field per stage entry)
-{
-  "stages": {
-    "7_beat_sheet": {
-      ...existing...,
-      "critiquedBy": "frontier-api:claude-sonnet-4-6"  // provenance
-    }
+    "quality": "balanced"   // economy | balanced | premium
   }
 }
 ```
 
+**Quality modes:**
+- `economy` — push one tier lower across the board (Haiku for structured, Sonnet ceiling; no Opus). Clearly communicated: "critique will be faster and cheaper but less thorough."
+- `balanced` — the table above. The default.
+- `premium` — promote all Sonnet stages to Opus. For writers who want maximum critique quality and don't care about cost.
+
 **Guardrails:**
-- Every local critique response runs through a cheap heuristic check (beat-reference count, generic-phrasing pattern match). Below threshold → auto-escalate to API for that call only.
-- Ollama unreachable (connection refused, timeout) → silent fallback to API. Logged, not surfaced as an error.
-- `storyline config ai.quality premium` forces frontier for every call. `local-only` forces local and hides the frontier client entirely.
-- Per-stage model provenance written to `state.json` so the writer (and we, during the prove-it test) can see which model produced which output.
+- Every Sonnet critique response runs through a cheap heuristic check — specificity of beat references, presence of concrete revision suggestions vs. generic phrasing. Below threshold → silently retry on Opus for that call only. Log the escalation; surface a counter at stage-end ("2 of 8 critique points escalated to Opus").
+- Per-stage model provenance written to `.storyline/state.json` so the writer (and we, during prove-it testing) can see which model produced which output.
+- Every call still flows through the same OpenRouter client and the same error handling — model routing is a parameter change, not a new code path.
 
 ## Dependencies
 
-- **Blocked on M7 (multi-engine refactor) landing**, because the router should live at the platform layer, not inside the Storyline engine. If we add a router before M7, we'll have to move it.
-- Requires Ollama as an optional install (not bundled). Ship detection + install instructions, not the binary.
-- Gemma 4 license needs review before shipping any recommendation to install it — confirm the license permits the use we're pointing writers at.
+- Can land without M7 (multi-engine refactor), because the router is thin and can be lifted into the platform later with minimal churn.
+- Should land **after M6 ships** so we're not optimising cost on a moving target.
+- No new runtime dependencies. OpenRouter call shape is already model-parameterised.
 
 ## Risks
 
-**Quality regression hidden by writer politeness.** Writers may not flag that critique feels shallower — they'll just trust the tool less. The blind-pairing prove-it gate is the defence; don't skip it.
+**The mapping is a guess until it's tested.** The table above is my best judgement, not empirical. Stage 7 in particular is a hard call — Sonnet is usually enough for Save the Cat critique, but a writer working a genre subversion or an unusual structural choice might need Opus. The escalation path is the safety valve; lean on it rather than arguing the table.
 
-**Hardware variance.** Gemma 4 26B MoE wants ~16–20GB RAM at reasonable quantisation. A writer on an 8GB MacBook Air gets the E4B only, which means more stages escalate to API, which means less cost saving. Router must gracefully degrade: detect available models at startup and adjust the policy table downward per machine.
+**Haiku being "good enough" for capture is also an assumption.** Haiku 4.5 is capable at structured tasks but has been observed producing subtle formatting drift on JSON state writes. Stage 1, 2, 4, 11 handlers must validate state-schema output before committing it, same as we'd validate any LLM output — don't trust Haiku further than you'd trust Sonnet on the schema boundary.
 
-**256K context is a trap if we stuff it.** Fitting the whole state in every prompt is convenient but expensive at inference time. Keep the old summarisation path as an option; don't assume 256K means "send everything every turn."
+**Confidence heuristics are fragile.** "Did this critique cite specific beats?" is a string-match test that can be gamed by the model generating beat names without substance. Keep the heuristic simple, accept false negatives (unnecessary Opus escalation) over false positives (weak critique that slips through). Re-tune after real use.
 
-**Ollama as an install barrier.** Writers are not developers. "Install Ollama, pull a 16GB model, configure a daemon" is not acceptable UX. Either we invest in a one-click installer experience for this milestone or we keep local routing opt-in for technical users only and don't claim it as a default.
+**Prompt tuning per model.** Haiku / Sonnet / Opus respond differently to the same system prompt — Haiku prefers shorter, more explicit instructions; Opus tolerates longer context and subtlety. Stage prompts may need per-tier variants. Not a blocker but adds implementation surface.
 
-**Gemma 4 might not be the right model by the time we build this.** The local model landscape moves fast. Treat the routing policy as model-agnostic: the `local-client.js` talks to Ollama, the specific model ID is config. Re-evaluate the model choice at build time, not now.
+**Writers will ask "why did you use the cheap model on my book?"** Frame the quality setting honestly in docs: `balanced` gives you Opus-grade critique on the stages that matter and cheaper models only on stages where quality ceiling isn't the bottleneck. Per-stage provenance in `state.json` lets a curious writer verify.
+
+## Possible future extension — local model tier
+
+Once the routing architecture is in place, a fourth tier could push the cheapest stages (currently Haiku) to a local Ollama model — Gemma 4 E4B or similar — for writers who want zero API cost on the capture/bookkeeping stages. This was the original framing of this milestone; it's now demoted to "possible extension" because the Claude-tier routing delivers most of the cost benefit without hardware concerns, install UX problems, or model-drift quality worries.
+
+If we pursue the local tier later:
+- Slot a `local` handler in the router for stages 1, 2, 4, 11
+- Add Ollama detection + silent fallback to Haiku if absent
+- Add `local-only` as a fifth `ai.quality` value
+- License check on the chosen model
+
+Not part of M8 scope. Logged here so it's not lost.
 
 ## Cut list (explicitly NOT in this milestone)
 
-- **Bundling Ollama or any model weights with Storyline.** Too big, too much licensing complexity. Detect + guide.
-- **Fine-tuning a local model on Save the Cat critique.** Interesting future research, massively out of scope here.
+- **Local model routing.** See "possible future extension" above. Not here.
+- **Prompt-by-prompt model routing within a single stage.** Stage-level granularity is plenty. Per-prompt would be a rabbit hole.
 - **A model-picker UI per stage.** One quality setting, three values. More knobs = decision fatigue.
-- **Non-Ollama local backends (llama.cpp, MLX, LM Studio).** Pick one runtime, ship it well. Others are future work if there's demand.
-- **Streaming responses from the local model into the VS Code UI differently from API responses.** Same interface, same UX.
-- **Cost tracking / billing dashboard.** A single "estimated tokens saved this session" line is the most we need; a dashboard is feature-creep.
+- **Model routing for prose generation.** Storyline doesn't generate prose. Out of scope permanently.
+- **Cross-provider routing** (GPT-4, Gemini, etc.). Stick to Claude — that's the harness's voice-tuning target.
+- **A cost dashboard.** A single "estimated tokens / cost this session" line is the most we need.
+- **Auto-detection of "this is a hard book"** to promote all stages. Writer uses `premium` if they want that. Don't guess.
 
 ## Definition of done (when this milestone eventually runs)
 
-- `lib/ai/local-client.js` and `lib/ai/model-router.js` shipped
+- `lib/ai/model-router.js` shipped, with the stage→model table and the confidence-check escalation
 - `storyline config ai.quality` command works; default is `balanced`
+- Per-stage model provenance in `state.json`
 - Blind-pairing prove-it gate met on a real manuscript
 - Cost reduction measured and documented
-- Ollama-absent fallback verified
-- `docs/engine-platform.md` updated with the routing architecture and the rule "critique stages never downgrade from frontier without explicit user opt-in"
+- `docs/engine-platform.md` updated with the routing architecture and the rule "stages 13 and 14 never downgrade from Opus without explicit user opt-in"
 
 ## Lessons learned
 
