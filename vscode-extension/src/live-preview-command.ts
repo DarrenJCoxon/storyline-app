@@ -318,6 +318,7 @@ export async function openLivePreview(
     tabSubscription.dispose();
     tabGroupSubscription.dispose();
     textChangeSubscription.dispose();
+    richEditorSubscription.dispose();
     if (debounceTimer) clearTimeout(debounceTimer);
   });
 }
