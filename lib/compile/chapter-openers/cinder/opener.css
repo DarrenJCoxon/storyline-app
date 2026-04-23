@@ -1,0 +1,87 @@
+/*
+ * Cinder — Chapter Opener
+ * Character: Minimalist, modern literary.
+ * Tiny numeral, left-aligned lowercase slab-serif title.
+ * No caps, no drop cap, no ornament.
+ *
+ * Targets: h1, h2.first-section, h2:not(.first-section), p.first-paragraph
+ * Does NOT style: body paragraphs, scene breaks, margins/padding on body, page layout.
+ */
+
+/* ── Chapter Number ─────────────────────────────────────────────────────── */
+
+.chapter-number {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
+  font-size: 0.6em;
+  font-weight: 400;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  text-align: left;
+  margin: 4em 0 0.8em 0;
+  text-indent: 0;
+  opacity: 0.5;
+}
+
+/* ── Chapter Title ──────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;  /* slab-serif stack */
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: none;          /* lowercase — intentional, no caps */
+  letter-spacing: -0.01em;
+  text-align: left;
+  margin: 0 0 1.5em 0;          /* minimal drop */
+  font-size: 1.6em;
+  line-height: 1.1;
+}
+
+/* ── First Section Heading ──────────────────────────────────────────────── */
+
+h2.first-section {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  font-size: 0.65em;
+  text-transform: uppercase;    /* small-caps-like via text-transform for broad compat */
+  letter-spacing: 0.18em;
+  text-align: left;
+  margin: 2em 0 1em 0;
+}
+
+/* ── Subsequent Section Headings ────────────────────────────────────────── */
+/*
+ * In minimalist style all section headings look the same —
+ * no visual distinction between first and subsequent.
+ */
+
+h2:not(.first-section) {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  font-size: 0.65em;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  text-align: left;
+  margin: 1.6em 0 0.8em 0;
+}
+
+/* ── First Paragraph Treatment: flush-left, no decoration ──────────────── */
+
+p.first-paragraph,
+p.first {
+  text-indent: 0;
+  font-variant: normal;         /* no small-caps — flush left, clean */
+}
+
+/* Explicitly cancel any theme drop-cap on ::first-letter */
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  float: none;
+  font-size: 1em;
+}

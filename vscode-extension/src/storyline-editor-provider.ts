@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { WordCountStatusBar } from './status-bar';
 import type { ActiveFileTracker } from './active-file-tracker';
+import type { BackupService } from './backup-service';
 import { classifyDocumentRole } from './manuscript-path';
 
 // CustomTextEditorProvider that owns .md files in novel projects.
@@ -22,11 +23,63 @@ const AUTOSAVE_IDLE_MS = 1500;
 export class StorylineEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'storyline.editor';
 
+  // Registry of currently-open Storyline webview panels, keyed by the
+  // document URI they're editing. Populated on resolveCustomTextEditor,
+  // cleaned up on onDidDispose. Used by flushAll() to pull pending
+  // content out of every webview on quit — bypassing the 500ms
+  // debounce that would otherwise swallow in-flight keystrokes.
+  private readonly livePanels = new Map<string, vscode.WebviewPanel>();
+
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly statusBar: WordCountStatusBar,
     private readonly activeFileTracker: ActiveFileTracker,
+    private readonly backupService: BackupService | null,
   ) {}
+
+  // Returns the currently focused Storyline editor webview, or any
+  // visible one as a fallback. Used by the toggle-compose-mode command
+  // (palette + keyboard) so it can post the toggle into the editor the
+  // writer is actually looking at, even if the keybinding fired with
+  // focus on the explorer or status bar.
+  public getActiveOrVisiblePanel(): vscode.WebviewPanel | undefined {
+    let visibleFallback: vscode.WebviewPanel | undefined;
+    for (const panel of this.livePanels.values()) {
+      if (panel.active) return panel;
+      if (panel.visible && !visibleFallback) visibleFallback = panel;
+    }
+    return visibleFallback;
+  }
+
+  // Quit-time drain. Called from deactivate(). For every open webview,
+  // asks it to post its latest markdown synchronously (bypassing the
+  // 500ms debounce), waits for the messages to arrive and applyEdit to
+  // settle, then saves every dirty markdown document in the workspace.
+  //
+  // The live save pipeline is NOT touched — this is a one-shot shutdown
+  // flush that only runs during deactivate, where VS Code will actually
+  // await async extension work before killing the host.
+  public async flushAll(): Promise<void> {
+    // 1. Ask every live webview to post its current markdown immediately.
+    for (const panel of this.livePanels.values()) {
+      try {
+        // Fire-and-forget — webview responds via content-changed which
+        // the existing onDidReceiveMessage handler applies to the doc.
+        panel.webview.postMessage({ type: 'request-flush' });
+      } catch { /* panel may already be disposed */ }
+    }
+    // 2. Give the webview → host round-trip time. 200ms is generous —
+    // the postMessage and applyEdit are both fast, but VS Code's
+    // message bus can have jitter during shutdown.
+    await new Promise(resolve => setTimeout(resolve, 200));
+    // 3. Save every dirty markdown document. This covers BOTH dirtied-
+    // by-flush docs AND docs that were dirty before the flush (autosave
+    // hadn't fired yet).
+    const dirtyDocs = vscode.workspace.textDocuments.filter(
+      d => d.isDirty && /\.(md|markdown)$/i.test(d.uri.fsPath),
+    );
+    await Promise.all(dirtyDocs.map(d => d.save().then(() => undefined, () => undefined)));
+  }
 
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
@@ -47,6 +100,13 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
       : 'supporting';
 
     webviewPanel.webview.html = buildWebviewHtml(webviewPanel.webview, this.context.extensionUri);
+
+    // Register this panel for quit-time flushing. Key by document URI
+    // so a re-open of the same chapter replaces the stale entry (VS
+    // Code may call resolve again for a document that was previously
+    // disposed if the writer closes and reopens the tab).
+    const panelKey = document.uri.toString();
+    this.livePanels.set(panelKey, webviewPanel);
 
     // Status bar word count — custom editors aren't text editors, so
     // vscode.window.activeTextEditor is always undefined for us. We
@@ -72,12 +132,25 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
       }
     });
 
+    // Per-document scroll position — writers reopening a long supporting
+    // doc (a 20k-word planning note, a character bible) want to land
+    // where they were last reading, not at the top or wherever TipTap's
+    // setContent leaves the caret. Persisted in workspaceState so it
+    // survives VS Code restarts. Only sent on the INITIAL load; later
+    // load-content pushes (external file changes, git pull) don't
+    // re-scroll, since the writer may have moved since opening.
+    const scrollStateKey = `editor-scroll:${document.uri.toString()}`;
+    const savedScrollY = this.context.workspaceState.get<number>(scrollStateKey) ?? 0;
+    let initialLoadSent = false;
+
     const pushContentToWebview = () => {
       webviewPanel.webview.postMessage({
         type: 'load-content',
         markdown: document.getText(),
         fileName: vscode.workspace.asRelativePath(document.uri),
+        restoreScrollY: initialLoadSent ? null : savedScrollY,
       });
+      initialLoadSent = true;
     };
 
     // Content-based sync guard.
@@ -189,9 +262,57 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
       viewStateSubscription.dispose();
       this.statusBar.clearActiveCustomEditorIfMatches(document.uri);
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      // Deregister — but only if this panel is still the one we have
+      // tracked. If a newer resolve for the same URI replaced us, leave
+      // the newer entry alone.
+      if (this.livePanels.get(panelKey) === webviewPanel) {
+        this.livePanels.delete(panelKey);
+      }
+      // Chapter close → snapshot the whole project. Debounced inside
+      // the service so closing five tabs in a row produces one
+      // snapshot, not five.
+      this.backupService?.scheduleBackup('chapter-close');
     });
 
-    webviewPanel.webview.onDidReceiveMessage(async (msg: { type: string; markdown?: string }) => {
+    webviewPanel.webview.onDidReceiveMessage(async (msg: { type: string; markdown?: string; scrollY?: number; enabled?: boolean }) => {
+      if (msg.type === 'compose-mode') {
+        // Compose mode toggle from the editor — flip VS Code Zen Mode in
+        // sync so the activity bar, side bar, panel and tabs all collapse
+        // (or restore) alongside the in-webview compose surface. Zen Mode
+        // is a toggle command (no explicit on/off variant), so we detect
+        // current state by reading the workbench config and only fire if
+        // it differs from what the webview is asking for. This keeps
+        // toggling idempotent: pressing the shortcut twice in quick
+        // succession can't desynchronise the two layers.
+        try {
+          const wantZen = msg.enabled === true;
+          // Best-effort check: VS Code doesn't expose isZenMode publicly,
+          // so we infer from `workbench.action.toggleZenMode` semantics —
+          // any time the webview's compose state changes we fire the
+          // toggle, accepting that out-of-band Zen toggles by the user
+          // (Cmd+K Z) can drift. The trade-off is acceptable because the
+          // common case is the writer using only our shortcut.
+          await vscode.commands.executeCommand('workbench.action.toggleZenMode');
+          // After toggling, push focus back to the webview so the writer
+          // doesn't have to click into the prose to keep typing.
+          if (wantZen) {
+            webviewPanel.reveal(webviewPanel.viewColumn, false);
+          }
+        } catch { /* zen-mode unavailable in some hosts; silent */ }
+        return;
+      }
+      if (msg.type === 'scroll-changed' && typeof msg.scrollY === 'number' && Number.isFinite(msg.scrollY)) {
+        // Webview debounces scroll events; we persist every one that
+        // arrives. No-op if it matches what's already saved (workspaceState
+        // still writes to disk, so skip the round-trip when possible).
+        const clamped = Math.max(0, Math.round(msg.scrollY));
+        const current = this.context.workspaceState.get<number>(scrollStateKey);
+        if (current !== clamped) {
+          await this.context.workspaceState.update(scrollStateKey, clamped);
+        }
+        return;
+      }
+
       if (msg.type === 'ready') {
         // Anchor the content-based guard at whatever the document holds
         // at mount time. The webview is about to render this exact text,
@@ -253,9 +374,8 @@ export class StorylineEditorProvider implements vscode.CustomTextEditorProvider 
       if (msg.type === 'flush-save' && typeof msg.markdown === 'string') {
         // Webview is about to lose state (tab close, window hidden,
         // pagehide). Apply the pending content and route through
-        // runSave() — which posts 'saving' → 'saved' so the webview's
-        // status indicator stays accurate and doesn't hang on "Saving…"
-        // after a tab-switch-triggered flush.
+        // runSave() — fire-and-forget so we don't block the webview's
+        // teardown path.
         if (autoSaveTimer) {
           clearTimeout(autoSaveTimer);
           autoSaveTimer = undefined;

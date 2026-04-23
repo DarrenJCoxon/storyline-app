@@ -11,6 +11,10 @@ import chalk from 'chalk';
 import { loadState, printStatus, listStages, saveState, markStageComplete, markStageIncomplete } from '../lib/state/store.js';
 import { registerInit } from './commands/init.js';
 import { registerCompile } from './commands/compile.js';
+import { registerUpgrade } from './commands/upgrade.js';
+import { registerCritique } from './commands/critique.js';
+import { registerReseed } from './commands/reseed.js';
+import { registerVerifyStage } from './commands/verify-stage.js';
 import { STAGE_ORDER, STAGE_BY_ID } from '../lib/state/project-state.js';
 import { deriveCurrentStage, calculateProgress, getMissingRequirements, checkStageGate, getDownstreamImpacts } from '../lib/state/transitions.js';
 import { getStageGuide, getAllStageGuides } from '../lib/ai/stage-guides.js';
@@ -22,10 +26,14 @@ const program = new Command();
 program
   .name('storyline')
   .description('Storyline — plan and write your novel using Save the Cat. Use /storyline inside Claude Code for the planning conversation.')
-  .version('1.1.7');
+  .version('1.7.0');
 
 registerInit(program);
 registerCompile(program);
+registerUpgrade(program);
+registerCritique(program);
+registerReseed(program);
+registerVerifyStage(program);
 
 // ── start — show status and next action (NOT interactive) ──────
 program
@@ -133,21 +141,68 @@ program
   });
 
 // ── stage-info — output stage guide as JSON (for /storyline skill) ──
+//
+// Programmatic gate: before returning the guide for stage N, walk every
+// upstream stage (index < N) and run the doctor's stageCommitted check.
+// If any upstream stage shows orphan-artefact drift (doc on disk but
+// state empty), refuse with UPSTREAM_DRIFT — the skill MUST recover
+// before advancing. This is the primary defence against the recurring
+// "wrote the doc, skipped the save" failure mode. No --force escape.
 program
   .command('stage-info')
-  .description('Output stage conversation guide as JSON (used by /storyline skill)')
+  .description('Output stage conversation guide as JSON (used by /storyline skill). Refuses with UPSTREAM_DRIFT if any earlier stage has docs but no state.')
   .argument('<stage>', 'Stage ID')
   .action(async (stageId) => {
     const guide = getStageGuide(stageId);
     if (!guide) {
-      console.error(JSON.stringify({ error: `No guide for stage: ${stageId}` }));
+      console.log(JSON.stringify({ error: `No guide for stage: ${stageId}` }));
       process.exit(1);
     }
 
-    // Enrich with runtime state
     const state = loadState();
-    const persona = getPersonaForStage(stageId);
 
+    // ── Upstream drift gate ──────────────────────────────────────
+    // If state exists, run the doctor and find orphan-artefact findings
+    // for any stage strictly upstream of the requested one. If found,
+    // refuse to return the guide.
+    if (state) {
+      const requestedStage = STAGE_ORDER.find(s => s.id === stageId);
+      if (requestedStage) {
+        const { runDoctor } = await import('../lib/doctor.js');
+        const report = await runDoctor(state, process.cwd());
+        const upstreamOrphans = report.findings.filter(f => {
+          if (f.type !== 'orphan-artefact') return false;
+          const fStage = STAGE_ORDER.find(s => s.id === f.stageId);
+          return fStage && fStage.index < requestedStage.index;
+        });
+
+        if (upstreamOrphans.length > 0) {
+          const driftPayload = upstreamOrphans.map(f => ({
+            stageId: f.stageId,
+            stageName: f.stageName,
+            orphanDocs: f.artefacts || [],
+          }));
+          const firstName = driftPayload[0].stageName;
+          const errorPayload = {
+            error: {
+              code: 'UPSTREAM_DRIFT',
+              requestedStage: stageId,
+              message:
+                `Cannot fetch brief for "${requestedStage.name}" — upstream stage "${firstName}" ` +
+                `has a doc on disk but state.json is empty. The /storyline skill wrote the long-form ` +
+                `doc without invoking \`storyline-cli save\`. You must recover before advancing.`,
+              recover: 'npx storyline-cli doctor --recover',
+              drift: driftPayload,
+            },
+          };
+          console.log(JSON.stringify(errorPayload, null, 2));
+          process.exit(2);
+        }
+      }
+    }
+
+    // Enrich with runtime state
+    const persona = getPersonaForStage(stageId);
     const output = {
       ...guide,
       persona: persona ? { name: persona.name, tagline: persona.tagline, activation: persona.activation } : null,
@@ -269,6 +324,18 @@ program
     if (memoryLogPath) console.error(chalk.dim(`  ↳ memory log: ${memoryLogPath} (${memoryEntries.length} entries)`));
     warnings.forEach(w => console.error(chalk.yellow(`  ⚠ ${w}`)));
 
+    // The verifyCommand is the skill's contract: after save returns,
+    // the skill MUST run this and confirm exit code 0 before composing
+    // any docs/<NN>-*.md or advancing to the next stage. The Claude
+    // Code PostToolUse hook also runs it, but the skill should not
+    // depend on the hook firing.
+    const verifyCommand = `npx storyline-cli verify-stage ${stageId}`;
+    const fieldsPopulated = state[stageId] && typeof state[stageId] === 'object'
+      ? (Array.isArray(state[stageId])
+          ? [`${stageId}[${state[stageId].length}]`]
+          : Object.keys(state[stageId]).filter(k => state[stageId][k] !== null && state[stageId][k] !== undefined))
+      : [];
+
     console.log(JSON.stringify({
       saved: true,
       stageId,
@@ -277,6 +344,12 @@ program
       memoryEntries,
       seriesPotential,
       warnings,
+      verifyCommand,
+      stateAfterSave: {
+        committedAt: state.stages[stageId].completedAt,
+        fieldsPopulated,
+      },
+      nextAction: `Run \`${verifyCommand}\` and confirm exit 0 before composing any docs/ artefact for this stage or advancing.`,
     }, null, 2));
   });
 
@@ -519,6 +592,7 @@ program
   .command('doctor')
   .description('Check state.json / output/ / docs/ / memory for drift. Run at every stage closure.')
   .option('--json', 'Output machine-readable JSON instead of the human summary')
+  .option('--recover', 'Print a precise recovery brief for each orphan stage (reseed command, source doc path, required fields)')
   .action(async (opts) => {
     const state = loadState();
     if (!state) {
@@ -529,6 +603,40 @@ program
     }
     const { runDoctor, formatDoctorReport } = await import('../lib/doctor.js');
     const report = await runDoctor(state);
+
+    if (opts.recover) {
+      // Recovery mode — for every orphan-artefact finding, print a
+      // precise reseed brief so the writer knows exactly what to do.
+      // Does not write state itself — it's guidance only.
+      const orphans = report.findings.filter(f => f.type === 'orphan-artefact');
+      if (orphans.length === 0) {
+        console.log(chalk.green('✓ No orphan-artefact drift detected. Nothing to recover.'));
+        process.exit(report.ok ? 0 : 1);
+      }
+      const bar = '━'.repeat(60);
+      console.log(chalk.cyan(bar));
+      console.log(chalk.cyan(`  Doctor recovery brief — ${orphans.length} stage${orphans.length === 1 ? '' : 's'} to reseed`));
+      console.log(chalk.cyan(bar));
+      console.log('');
+      console.log(chalk.dim('  For each stage below, the long-form doc exists on disk but the'));
+      console.log(chalk.dim('  structured data never reached state.json. Run the reseed command'));
+      console.log(chalk.dim('  for each one, following the guidance it prints.'));
+      console.log('');
+      orphans.forEach((f, i) => {
+        console.log(chalk.yellow(`  ${i + 1}. ${f.stageName} (${f.stageId})`));
+        if (f.artefacts?.length) {
+          console.log(chalk.dim('     Orphan doc(s):'));
+          f.artefacts.forEach(a => console.log(chalk.dim(`       • ${a}`)));
+        }
+        console.log(chalk.bold(`     Recovery: npx storyline-cli reseed ${f.stageId}`));
+        console.log('');
+      });
+      console.log(chalk.cyan(bar));
+      console.log(chalk.dim('  After reseeding each stage, re-run `npx storyline-cli doctor` to confirm.'));
+      console.log('');
+      process.exit(report.ok ? 0 : 1);
+    }
+
     if (opts.json) {
       console.log(JSON.stringify(report, null, 2));
     } else {
@@ -583,6 +691,120 @@ program
       missingRequirements: missing,
       gateBlocked: gate,
     }, null, 2));
+  });
+
+// ── config — read / write .storyline/config.json (AI quality etc.) ────
+const config = program.command('config').description('Read or write .storyline/config.json');
+
+config
+  .command('get')
+  .description('Get a config value by dotted key (e.g. ai.quality)')
+  .argument('<key>', 'Dotted config key')
+  .action(async (key) => {
+    const { loadStorylineConfig, getConfigValue } = await import('../lib/config/storyline-config.js');
+    const cfg = loadStorylineConfig();
+    const value = getConfigValue(cfg, key);
+    if (value === undefined) {
+      console.error(chalk.yellow(`Config key not set: ${key}`));
+      process.exit(1);
+    }
+    console.log(typeof value === 'string' ? value : JSON.stringify(value));
+  });
+
+config
+  .command('set')
+  .description('Set a config value (ai.quality must be economy|balanced|premium)')
+  .argument('<key>', 'Dotted config key')
+  .argument('<value>', 'Value to set')
+  .action(async (key, value) => {
+    const { loadStorylineConfig, saveStorylineConfig, setConfigValue, VALID_QUALITY_MODES } = await import('../lib/config/storyline-config.js');
+    if (key === 'ai.quality' && !VALID_QUALITY_MODES.includes(value)) {
+      console.error(chalk.red(`Invalid ai.quality: ${value}. Use one of: ${VALID_QUALITY_MODES.join(', ')}`));
+      process.exit(1);
+    }
+    const cfg = loadStorylineConfig();
+    setConfigValue(cfg, key, value);
+    await saveStorylineConfig(cfg);
+    console.log(chalk.green(`Set ${key} = ${value}`));
+  });
+
+config
+  .command('list')
+  .description('Show the full active config (defaults + overrides)')
+  .action(async () => {
+    const { loadStorylineConfig } = await import('../lib/config/storyline-config.js');
+    console.log(JSON.stringify(loadStorylineConfig(), null, 2));
+  });
+
+// ── route — return routed model for a stage (used by /storyline skill) ─
+program
+  .command('route')
+  .description('Return { model, escalateOn, qualityMode } for a stage — used by /storyline skill at stage boundaries')
+  .argument('<stageId>', 'Stage ID (e.g. beatSheet, critique, sceneOutline:critique)')
+  .action(async (stageId) => {
+    const { routeStage } = await import('../lib/ai/model-router.js');
+    const { loadStorylineConfig } = await import('../lib/config/storyline-config.js');
+    const cfg = loadStorylineConfig();
+    const routed = routeStage(stageId, cfg.ai?.quality || 'balanced');
+
+    // Loud imperative block on stderr — impossible to miss in skill-driven
+    // Bash output. The skill MUST act on these instructions or M8 silently
+    // fails (provenance gets recorded but the parent session did the work).
+    const bar = '━'.repeat(60);
+    const lines = [
+      bar,
+      '  MANDATORY NEXT ACTION — M8 stage-boundary delegation',
+      bar,
+      `  Stage:              ${stageId}`,
+      `  Quality mode:       ${routed.qualityMode}`,
+      `  Named subagent:     ${routed.subagentType}    (model: ${routed.model})`,
+      `  Escalate on weak:   ${routed.escalateSubagentType || '(no escalation for this stage)'}`,
+      '',
+      '  You MUST now invoke the named subagent via the Task tool:',
+      `     subagent_type:   "${routed.subagentType}"`,
+      `     description:     "${stageId} critique"`,
+      '     prompt:          <stage critique brief — state snapshot + stage guide>',
+      '',
+      `  The subagent is pre-configured in .claude/agents/${routed.subagentType}.md`,
+      '  with model pinned. Its first line will be "MODEL: <tier>" for verification.',
+      '',
+      '  DO NOT critique this stage in the parent session.',
+      '  DO NOT call record-model without a preceding Task-tool invocation.',
+      '',
+      '  After the subagent returns, call:',
+      `     npx storyline-cli record-model ${stageId} <modelUsed>`,
+      '  (use --escalated if escalation fired)',
+      bar,
+    ];
+    console.error(lines.join('\n'));
+
+    // JSON on stdout — unchanged, machine-parseable.
+    console.log(JSON.stringify(routed, null, 2));
+  });
+
+// ── record-model — write per-stage model provenance into state.json ────
+program
+  .command('record-model')
+  .description('Record which model handled a stage critique (writes state.modelProvenance)')
+  .argument('<stageId>', 'Stage ID')
+  .argument('<model>', 'Model used: haiku | sonnet | opus | parent')
+  .option('--escalated', 'Mark this call as having escalated from the routed model to a higher tier')
+  .option('--fallback', 'Mark this call as having fallen back to the parent-session model (harness lacks per-invocation pinning)')
+  .action(async (stageId, model, opts) => {
+    const state = loadState();
+    if (!state) {
+      console.error(chalk.red('No project found. Run `storyline init` first.'));
+      process.exit(1);
+    }
+    if (!state.modelProvenance) state.modelProvenance = {};
+    state.modelProvenance[stageId] = {
+      model,
+      escalated: !!opts.escalated,
+      fallback: !!opts.fallback,
+      recordedAt: new Date().toISOString(),
+    };
+    await saveState(state);
+    console.log(JSON.stringify({ stageId, ...state.modelProvenance[stageId] }, null, 2));
   });
 
 program.parse();

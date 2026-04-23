@@ -146,6 +146,8 @@ At any point you can switch to VS Code and write prose in the chapter you have o
 
 **Resolving research notes:** while drafting, wrap research questions in double curly braces — e.g. `{{check British Museum opening times}}`. When you're ready, type `/follow-up` (Claude Code / OpenCode) or `$follow-up` (Codex) and your agent will scan the manuscript for every `{{…}}`, research each one, and show you proposed replacements for your approval.
 
+**Critiquing a drafted chapter:** once you've drafted a chapter and want to check it against the plan you made for it, type `/critique 3` (or `/critique ch03`) in your agent. Storyline reads the prose alongside that chapter's beat-sheet entry, scene outline, and protagonist arc, and returns structured findings on whether the scene delivered its planned beat function — without rewriting your prose. See `/critique` below for the full description.
+
 * * *
 
 ## How Storyline is organised
@@ -237,6 +239,41 @@ The point: you never have to break flow to research. Leave the `{{question}}`, k
 
 * * *
 
+## Checking your draft against the plan — `/critique`
+
+You planned chapter 12 as the midpoint with a false-victory flip — the protagonist gets the bag of money and only realises later it's counterfeit. Six weeks later you've drafted the chapter. Did the scene actually deliver that flip, or did you write a different scene altogether?
+
+That's what `/critique` is for.
+
+In your AI agent, with a chapter drafted under `manuscript/`, type:
+
+```
+/critique 3
+```
+
+(or `/critique ch03` — both work.)
+
+Storyline will:
+
+1. Read the chapter's prose from `manuscript/`.
+2. Pull the matching slice of your plan from `.storyline/state.json` — the chapter outline entry, the parent beat (with its midpoint type, whiff of death, etc.), and your protagonist's want / need / flaw / core lie.
+3. Hand the bundle to a dedicated draft critic that reads both at once and returns structured findings against the planned beat function, POV, conflict, and what-changes.
+
+The findings come back with severity markers:
+
+- 🔴 **ERROR** — a planned beat function that didn't land (e.g. midpoint where the flip never happens)
+- 🟡 **WARNING** — partial delivery (the conflict is implied but not on the page)
+- 💡 **SUGGESTION** — specific revision direction
+- ✅ **Faithful to the plan** — when the chapter does what the plan said it would
+
+The critic never rewrites your prose. It tells you where the prose drifted from the plan and lets *you* decide which is right — sometimes the plan was wrong and the prose is the better version. Updating the plan to match the prose is just as valid as steering the prose back to the plan.
+
+If you haven't planned the chapter yet (no Stage 12 entry for it), `/critique` will tell you so cleanly rather than producing a fake critique. The plan is the anchor; without it, faithfulness is meaningless.
+
+**This is faithfulness-only on first ship.** Prose-craft critique (POV slips, dialogue, sentence-level pacing) and whole-manuscript continuity passes are planned for follow-on releases.
+
+* * *
+
 ## Compiling to EPUB or PDF
 
 When your manuscript is ready, open the Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows) and type:
@@ -264,7 +301,18 @@ Useful for catching formatting issues early — for example, a scene break that 
 
 **"code: command not found**"You've tried to run `code .` from a system terminal before enabling VS Code's shell command. You don't need to — follow the install instructions above, which run `npx storyline-cli init` from VS Code's own integrated terminal instead. That path always works.
 
-**Claude Code doesn't recognise** `/storyline` **or** `/follow-up`The skills weren't installed correctly. Check that `.claude/skills/storyline/` and `.claude/skills/follow-up/` exist inside your project folder. If one is missing, run `npx storyline-cli@latest init .` again from inside that folder to repair it, then reload the Claude Code window.
+**Claude Code doesn't recognise** `/storyline`**,** `/follow-up`**, or** `/critique`The skills weren't installed correctly. Check that `.claude/skills/storyline/`, `.claude/skills/follow-up/`, and `.claude/skills/critique/` exist inside your project folder. If one is missing, run `npx storyline-cli@latest init .` again from inside that folder to repair it, then reload the Claude Code window.
+
+**`/critique` says** `STATE_DOC_DRIFT` **or** `/storyline` **says** `UPSTREAM_DRIFT`Your planning conversation produced long-form docs in `docs/` (e.g. `13-chapter-flesh-out.md`) but the structured data never reached `.storyline/state.json`. This is the bug the v1.6 enforcement layer is designed to detect. To recover:
+
+1. Run `npx storyline-cli doctor --recover` — lists every stage that needs reseeding, with the exact next command for each.
+2. For each stage in the list, run `npx storyline-cli reseed <stageId>` — prints the required-fields schema, points at the source doc to extract from, and shows the exact `save` command to run.
+3. Extract the structured data from the doc (you can ask your AI in a separate chat to read the doc and output JSON matching the schema).
+4. Run the `save` command shown by reseed.
+5. Run `npx storyline-cli verify-stage <stageId>` — must exit 0.
+6. Repeat for each orphan stage, then re-run `/critique` or `/storyline`.
+
+This recovery class is automatically prevented for new projects by the PreToolUse hook installed by `init` — it refuses any write to `docs/<NN>-*.md` before the matching `save` has committed.
 
 **The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.22.0.vsix`.
 

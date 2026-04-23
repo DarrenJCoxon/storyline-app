@@ -87,5 +87,5 @@ Standard, Puppy Love, Buddy Love, Whydunit, Fool Again, Out of the Box, Traps, G
 - `skill/docs/startup/startup-protocol.md` — Startup routing
 - `lib/state/project-state.js` — Full state schema
 - `lib/ai/narrative-voice.js` — Save the Cat knowledge
-- `lib/ai/openrouter-client.js` — AI critique (OpenRouter)
+- `lib/ai/model-router.js` — Per-stage model routing (M8 — Haiku / Sonnet / Opus)
 - `lib/stages/*.js` — One file per planning stage

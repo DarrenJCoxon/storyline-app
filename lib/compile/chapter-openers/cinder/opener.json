@@ -1,0 +1,12 @@
+{
+  "id": "cinder",
+  "name": "Cinder",
+  "description": "Minimalist. Left-aligned. Lowercase slab-serif. No caps, no drop cap. Modern literary.",
+  "compatibleThemes": ["modern-sans"],
+  "defaultFor": [],
+  "features": {
+    "firstParagraphTreatment": "flush-left",
+    "chapterLabelFormat": "none",
+    "verticalDrop": "minimal"
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: "storyline"
-version: "1.1.7"
+version: "1.6.1"
 description: "Storyline planning harness using Save the Cat story structure. Use /storyline to start or resume a novel planning session — character-first, beat-driven, with AI critique at every stage. Covers genre, protagonist, supporting cast, 15-beat sheet, B story, subplots, scene outline, plot threads, and chapter flesh-out. Designed for writers who want expert guidance on story structure."
 metadata:
   priority: 10
@@ -114,7 +114,8 @@ Starting fresh — let's build your novel.
 ### Returning Project
 If `npx storyline-cli next` returns a `currentStage`:
 1. Run `npx storyline-cli status` for full stage breakdown
-2. Display:
+2. **Run `npx storyline-cli config get ai.quality`** — returns `balanced` (default), `economy`, or `premium`. Remember this value; every stage-boundary critique will route to a named subagent pinned to the matching tier. Do not surface the mode to the writer unless they ask; it's harness plumbing, not a conversation topic.
+3. Display:
 ```
 Storyline — Returning to [Project Title]
 
@@ -125,7 +126,7 @@ Current Stage: [Stage Name] — [what's still needed]
 
 [Show gate warnings if any]
 ```
-3. Ask: "Continue from where you left off, or jump to a specific stage?"
+4. Ask: "Continue from where you left off, or jump to a specific stage?"
 
 ### Complete Project
 If `npx storyline-cli next` returns `{ complete: true }`:
@@ -135,18 +136,68 @@ All planning stages complete! Run `npx storyline-cli generate` to create your ma
 
 ## How to Drive the Conversation
 
-For each stage, you are the coaching persona. You ask questions naturally, respond to what the writer says, and save progress as you go.
+For each stage, you are the coaching persona. You conduct the conversation, but the structured save into `state.json` is the **single source of truth**. The `docs/<NN>-<stage>.md` long-form artefact is a *narration of what was saved*, not a deliverable that competes with save.
 
-### Stage Flow
+### The save-then-compose ordering rule (NON-NEGOTIABLE)
 
-1. **Get stage info**: Run `npx storyline-cli stage-info <stageId>` to get the conversation guide
-2. **Introduce the persona**: Display the persona's name, tagline, and activation text
-3. **Ask questions**: Use the guide's questions as your roadmap, but adapt naturally
-4. **Save after each answer**: Run `npx storyline-cli save <stageId> '{"field": "value"}'` to persist data
-5. **Run checks when stage completes**:
-   - `npx storyline-cli checklist <stageId>` — quality checklist
+The most common failure of this harness is writing a long-form doc into `docs/` and forgetting to call `save` — the doc lives on disk, state stays empty, the next session has no record of what was planned. The fix:
+
+> **You MUST call `storyline-cli save <stageId>` BEFORE you write anything to `docs/<NN>-<stage>.md`.**
+
+This ordering is mechanically enforced on Claude Code by a PreToolUse hook installed at `init` time — if you try to `Write` to `docs/<NN>-*.md` before save has committed, the hook will refuse the write and surface an error. On OpenCode and Codex the rule is enforced by the CLI's `stage-info` gate (which refuses to return the next stage's brief while there's drift). Either way: save first, then narrate.
+
+### Stage Flow (per stage — exactly in this order)
+
+1. **Get stage info — handle UPSTREAM_DRIFT.**  
+   `npx storyline-cli stage-info <stageId>`. The CLI runs a drift check across all upstream stages. If any earlier stage has a doc on disk but no committed state, you get back:
+   ```json
+   { "error": { "code": "UPSTREAM_DRIFT", "drift": [...], "recover": "npx storyline-cli doctor --recover" } }
+   ```
+   When you see this, **HALT this stage**. Tell the writer their previous planning didn't persist to state, run `npx storyline-cli doctor --recover` to enumerate what needs reseeding, and walk them through `npx storyline-cli reseed <stageId>` for each orphan stage. Do not advance until `stage-info` returns the brief cleanly.
+
+2. **Introduce the persona** from the brief and **ask questions** per the guide. Adapt to what the writer says; don't plow through a checklist.
+
+3. **Save — the durable commit. THIS HAPPENS BEFORE ANY DOC WRITE.**  
+   Once you've gathered enough to commit, run:
+   ```bash
+   npx storyline-cli save <stageId> '<json>'
+   ```
+   (For large array stages like `chapterOutline`, pipe via stdin.) The CLI returns a JSON receipt:
+   ```json
+   {
+     "saved": true,
+     "stageId": "...",
+     "verifyCommand": "npx storyline-cli verify-stage <stageId>",
+     "stateAfterSave": { "committedAt": "...", "fieldsPopulated": [...] },
+     "memoryEntries": [...],
+     "nextAction": "Run `npx storyline-cli verify-stage <stageId>` and confirm exit 0 before composing any docs/ artefact for this stage or advancing."
+   }
+   ```
+
+4. **Verify the save committed.** Run the receipt's `verifyCommand`. **If it exits non-zero, halt** — surface the error to the writer; do not advance and do not write a doc. The verify command exits 0 only when state is consistent (orphan-free, all required fields present).
+
+5. **Now — and only now — compose the long-form `docs/<NN>-<stage>.md`** if you want to give the writer a readable narrative artefact for this stage. **You are narrating from already-saved state.** If you skip save (step 3) or verify (step 4), the PreToolUse hook on Claude Code will refuse this Write outright. Don't try to work around it.
+
+6. **Route and delegate critique — MANDATORY** (M8):
+   - `npx storyline-cli route <stageId>` — returns `{ subagentType, escalateSubagentType, model, qualityMode }`. The stderr output is a loud imperative block — read it.
+   - **Invoke the Task tool with `subagent_type: <the returned subagentType>`** (one of `storyline-critic-haiku` | `storyline-critic-sonnet` | `storyline-critic-opus` — pre-installed in `.claude/agents/`). Do NOT pass a `model` parameter. Do NOT use `general-purpose`. Brief the subagent with the relevant state snapshot + stage guide; it will reply with `MODEL: <tier>` as its first line for verification.
+   - If `escalateSubagentType` is non-null AND the subagent's reply fails the heuristic in `skill/docs/routing/confidence-check.md`, silently invoke Task a second time with `subagent_type: "storyline-critic-opus"` and use that output instead.
+   - `npx storyline-cli record-model <stageId> <modelFromMODELline> [--escalated]` — records which model handled this critique.
+   - Present the subagent's critique to the writer. Do not author your own version alongside it.
+
+7. **Run the structural CLI checks**:
+   - `npx storyline-cli checklist <stageId>` — quality checklist (rule-based)
    - `npx storyline-cli traps` — story trap detection (after beatSheet and bStory)
-6. **Transition**: Show summary, ask if ready for next stage
+   - `npx storyline-cli doctor` — final cross-surface check; must report no drift before transition
+
+8. **Transition.** Show summary, ask if ready for the next stage. The next stage's `stage-info` will run the drift gate again — if anything's amiss with this stage's commit, it will fail loud at that boundary.
+
+**Self-check at every advance:**
+- Did `verify-stage <stageId>` return exit 0 after save? (If not, the commit isn't real.)
+- Did the chat show a Task-tool block for `storyline-critic-<tier>`? (If not, M8 routing was skipped.)
+- Did `doctor` report no drift? (If not, something is off-state and the next stage will refuse to load.)
+
+If any answer is no, fix it before continuing. Do not fabricate `record-model` entries. Do not skip verify because "I'm sure save worked." The whole point of these gates is to catch the case where you *thought* you saved but didn't.
 
 ### Key Rules
 
@@ -154,7 +205,7 @@ For each stage, you are the coaching persona. You ask questions naturally, respo
 - **Genre first** — establish genre before exploring premise
 - **Conversational, not templated** — adapt questions to what the writer has described. If they give a long answer, respond to it before asking the next question. Don't just plow through a checklist.
 - **No writing of actual prose** — this is a planning harness only
-- **AI critique after every stage** — use `npx storyline-cli traps` and `npx storyline-cli checklist` at stage boundaries
+- **AI critique after every stage** — use `npx storyline-cli traps` and `npx storyline-cli checklist` at stage boundaries. For critique that requires model-specific judgement (Stage 7 Beat Sheet, Stages 13 / 14), delegate to a subagent via the harness's Agent tool using the model returned by `npx storyline-cli route <stageId>` — see [Stage-boundary subagent delegation](#stage-boundary-subagent-delegation) below.
 - **Organic series detection** — when the premise suggests series potential, mention it naturally
 - **Two-pass scene outline** — high-level first, approved, then fleshed chapter by chapter
 - **Word count intelligence** — show genre-appropriate ranges at genre stage, track allocation throughout
@@ -199,7 +250,7 @@ npx storyline-cli generate
 # + masterDoc.markdown into state.json.
 ```
 
-**Critical invariant — stages 12 / 13 / 14 must use `npx storyline-cli save` or `npx storyline-cli generate`, not just prose writing.** If you only write a narrative markdown file (e.g. into `docs/` or elsewhere) without calling the corresponding `npx storyline-cli save`, the state file stays stuck at stage 11 and the project will appear unfinished on the next `/storyline` activation — the writer loses their place, and memory for those stages never reaches odd-flow. The save-and-sync step is the durable commit; the prose doc alone is not.
+**Critical invariant — every stage must use `npx storyline-cli save` (or `npx storyline-cli generate` for stage 14), and the resulting `verifyCommand` must exit 0, BEFORE you write any narrative markdown to `docs/`.** This is no longer enforced by prose alone — Claude Code's PreToolUse hook will refuse the doc write outright if state is empty for the matching stage, and `stage-info` for the next stage will return `UPSTREAM_DRIFT` and refuse to advance. The save-and-verify step is the durable commit; the prose doc is the *narration of* the commit, not its substitute.
 
 ### What `npx storyline-cli save` does automatically (MANDATORY — do not skip)
 
@@ -221,9 +272,14 @@ The JSON stdout shape is:
     { "id": "2026-04-19T...-0-protagonist:wound", "namespace": "novel:<slug>", "key": "protagonist:wound", "value": "...", "tags": [...] },
     ...
   ],
+  "verifyCommand": "npx storyline-cli verify-stage protagonist",
+  "stateAfterSave": { "committedAt": "...", "fieldsPopulated": ["name","want","need","flaw","coreLie","arcDirection"] },
+  "nextAction": "Run `npx storyline-cli verify-stage protagonist` and confirm exit 0 before composing any docs/ artefact for this stage or advancing.",
   "warnings": []
 }
 ```
+
+After every save, **run the `verifyCommand` and confirm exit code 0.** If verify fails, halt — do not write a `docs/<NN>-<stage>.md`, do not advance to the next stage. Surface the error to the writer and use the `recover` field in verify's error payload (typically `npx storyline-cli reseed <stageId>`) to fix it.
 
 ### Memory sync — the non-negotiable contract
 
@@ -387,13 +443,21 @@ not an error, but a visible reminder that research work is outstanding.
 
 ### Stage-closure protocol (run after EVERY completed stage — non-negotiable)
 
-After the writer signs off on a stage and before you transition to the next, run these three checks **in order** and **do not proceed** unless all three pass:
+After the writer signs off on a stage and before you transition to the next, the **full closure sequence** is:
 
 ```bash
+# 1. Route + delegate critique (M8 — see Stage Flow step 5 for the Task invocation between route and record-model)
+npx storyline-cli route <stageId>
+# [Task tool invocation of storyline-critic-<tier> — see Stage Flow step 5]
+npx storyline-cli record-model <stageId> <modelUsed> [--escalated]
+
+# 2. Structural checks
 npx storyline-cli status            # must show the stage you just completed as ✓
 npx storyline-cli memory status     # pendingEntries must be 0
 npx storyline-cli doctor            # must report "no drift"
 ```
+
+Do **not** proceed to the next stage unless all of these complete cleanly. The M8 routing step (route → Task → record-model) is the first and it is mandatory — the structural checks rely on `modelProvenance[stageId]` being populated for the completed stage.
 
 What each confirms:
 
@@ -402,6 +466,45 @@ What each confirms:
 - **`npx storyline-cli doctor`** — no orphan artefacts. Specifically catches: prose docs in `docs/` with no matching `npx storyline-cli save`; output/stages/ files whose stage slot in state.json is empty; memory entries logged but not synced.
 
 This was added after a real regression where stages 12, 13, 14 generated large narrative markdown files into `docs/` but the structured data never reached `state.json` — the project appeared unfinished on the next session and none of the chapter-flesh-out memory was in odd-flow. **The closure protocol exists to make that class of failure impossible to ship.**
+
+### Stage-boundary subagent delegation — MANDATORY (M8)
+
+**Critique at every stage boundary is handled by calling one of three named subagents by name via the Task tool.** The three agents are pre-installed into `<project>/.claude/agents/` by `storyline init`:
+
+- `storyline-critic-haiku` — fast structured-capture validation (pinned to Haiku). Stages 1 / 2 / 4 / 11.
+- `storyline-critic-sonnet` — structural-reasoning critic (pinned to Sonnet). Stages 3 / 5–10 / 12, plus the first pass on Stage 7 and Stage 10-critique.
+- `storyline-critic-opus` — whole-book cross-stage reasoning (pinned to Opus). Stages 13 / 14, plus the escalation target when a Sonnet critic's output is weak.
+
+You invoke these by name — you do NOT pass a model parameter and you do NOT call a generic `general-purpose` subagent. The model is already pinned inside each agent's frontmatter; that's the whole point of the named-subagent pattern.
+
+**What NOT to do — the failure mode this rule prevents:**
+
+> Parent runs `storyline-cli route beatSheet` → gets `{ subagentType: "storyline-critic-sonnet" }` → parent writes its own critique into the chat → parent runs `storyline-cli record-model beatSheet sonnet` → `state.modelProvenance` claims Sonnet did the work, but no subagent was ever invoked.
+
+If no Task-tool block appears in the chat at a stage boundary, routing is not active regardless of what `state.modelProvenance` says. The `record-model` call is a log of what happened, not a substitute for it.
+
+**The correct flow — at every stage boundary, exactly in this order:**
+
+1. **Route.** Run `npx storyline-cli route <stageId>`. Parse the JSON on stdout. Read the loud imperative block on stderr — it tells you which named subagent to invoke for this stage. For Stage 10's second pass use stage id `sceneOutline:critique`.
+
+2. **Invoke the named subagent via the Task tool — THIS IS THE NON-NEGOTIABLE STEP.** Call the Task tool with:
+   - `subagent_type:` the `subagentType` value from the route JSON (one of `"storyline-critic-haiku"` | `"storyline-critic-sonnet"` | `"storyline-critic-opus"`)
+   - `description:` e.g. `"Stage 7 critique"`
+   - `prompt:` the stage's critique brief — include the relevant state snapshot (use `storyline-cli status` / `stage-info` output inline in the prompt) plus the stage guide. The agent's own system prompt already defines its scope, output format, and identity line — you do not need to re-specify those.
+
+   The subagent's first reply line will be `MODEL: haiku|sonnet|opus` for identity verification. Read that line; that is what you record in step 4.
+
+3. **Escalate silently on weak output.** If the route JSON returned a non-null `escalateSubagentType` (i.e. `"storyline-critic-opus"`) and the first subagent's response fails the confidence check in `skill/docs/routing/confidence-check.md`, invoke the Task tool a second time with `subagent_type: "storyline-critic-opus"` and use that output instead. Do not surface the retry as an error — track it for the stage-end counter ("2 of 8 critique points escalated to Opus").
+
+4. **Record provenance, truthfully.** Run `npx storyline-cli record-model <stageId> <modelReported>` where `<modelReported>` is the model the subagent declared on its `MODEL:` line. Add `--escalated` if the Opus retry in step 3 fired. **Only** use `--fallback` if the harness genuinely does not expose the Task tool with these named subagents — not as a shortcut when you decided to critique in-session.
+
+5. **Present.** Render the subagent's critique back into the conversation as normal.
+
+**Self-check before each `record-model` call:** did the chat just show a Task-tool block for `storyline-critic-<tier>`? If no, go back and do step 2. Do not fabricate provenance.
+
+**Do not delegate for everything.** Conversational turns (asking the next question, echoing state back to the writer, confirming completion) stay in the parent session — they are the planning dialogue itself. Delegation is for stage-boundary critique only. But for that critique, delegation is the whole point.
+
+**If the named agents are missing from `.claude/agents/`:** run `storyline-cli init` in the project — it's idempotent and will install any missing agent files without overwriting local customisations. Alert the writer if the files are missing and you had to reinstall them.
 
 ### Why this design
 

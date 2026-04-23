@@ -67,32 +67,17 @@ If `complete: true`:
 All planning stages complete! Run `npx storyline-cli generate` to create your master document.
 ```
 
-## Step 3: Check Environment
+## Step 3: Confirm Routing Mode
 
-Check if `OPENROUTER_API_KEY` is set in `.env`:
+Run `npx storyline-cli config get ai.quality` and note the value (defaults to `balanced` if no config file exists yet — that's fine, no need to prompt).
 
-```bash
-node -e "
-import('fs').then(fs => {
-  const envPath = path.join(process.cwd(), '.env');
-  if (fs.existsSync(envPath)) {
-    const env = fs.readFileSync(envPath, 'utf-8');
-    const hasKey = env.includes('OPENROUTER_API_KEY=') && !env.match(/OPENROUTER_API_KEY=\s*$/);
-    console.log('ENV_CHECK:' + (hasKey ? 'CONFIGURED' : 'MISSING'));
-  } else {
-    console.log('ENV_CHECK:NO_ENV');
-  }
-})
-"
-```
+Routing modes:
 
-If `ENV_CHECK:MISSING` or `ENV_CHECK:NO_ENV`:
+- `economy` — every stage shifted one tier down; no Opus escalation. Faster, less thorough critique.
+- `balanced` — default. Haiku on capture stages, Sonnet on the middle, Opus on Stages 13 / 14.
+- `premium` — all Sonnet stages promoted to Opus. Maximum critique depth.
 
-```
-AI critique is available once you set OPENROUTER_API_KEY in .env
-Copy .env.example to .env and add your key from openrouter.ai/keys
-Rule-based checks are active regardless.
-```
+The writer can change this mid-project with `npx storyline-cli config set ai.quality <mode>`. Don't surface this unless they ask — the default is the right default.
 
 ## Step 4: Begin Conversation
 
@@ -119,6 +104,9 @@ All commands are invoked as `npx storyline-cli <subcommand>`.
 | `npx storyline-cli checklist <stage>` | Run quality checklist for a stage |
 | `npx storyline-cli revise <stage>` | Show downstream impacts for revision |
 | `npx storyline-cli generate` | Output the master planning document |
+| `npx storyline-cli route <stage>` | Return `{ model, escalateOn, qualityMode }` for a stage — use at stage boundaries to pin subagent model |
+| `npx storyline-cli record-model <stage> <model>` | Record which model handled critique for a stage |
+| `npx storyline-cli config get/set ai.quality <mode>` | Read / change routing mode (economy / balanced / premium) |
 
 ## Startup Complete
 

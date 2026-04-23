@@ -155,6 +155,14 @@ blockquote p {
 ul, ol {
   margin: 1em 0 1em 2em;
   padding: 0;
+  /* Kindle's KFX renderer defaults to page-break-before: always on
+   * block-level lists, which forces every bullet block onto a new
+   * page. Explicitly let lists flow with surrounding prose — they
+   * only break when pagination genuinely needs the space. */
+  page-break-before: auto;
+  break-before: auto;
+  page-break-after: auto;
+  break-after: auto;
 }
 
 li {

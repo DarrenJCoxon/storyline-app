@@ -49,6 +49,11 @@ _Last updated: 2026-04-20_
 **Prove-it gate:** A real Scrivener project imports and compiles to a valid EPUB via the existing pipeline, in the same binder order. The "what was dropped" report is accurate and non-alarming.
 **Status:** Exploratory — logged for a future phase. Should land after M6 (compile pipeline stable); not blocked on M7. Detail: [roadmap/milestone-09-scrivener-import.md](roadmap/milestone-09-scrivener-import.md)
 
+### Milestone 10 — Drafting Companion (exploratory)
+**Outcome:** A writer drafting prose invokes `/critique` and gets expert feedback on what they wrote, measured against the plan they made. The harness reads the open chapter (or whole manuscript), pulls the matching slice of `.storyline/state.json`, and returns structured critique in two sections — **faithfulness** (did the scene deliver the planned beat function, POV, conflict, what-changes?) and optional **craft** (POV slips, tense drift, dialogue, pacing). The differentiator is faithfulness; nobody else has the plan object.
+**Prove-it gate:** (1) Faithfulness critique on a real chapter surfaces a specific issue the writer did not already know about. (2) `/critique all` catches a cross-chapter contradiction or arc drift neither drift-report nor per-chapter faithfulness would catch. (3) The writer trusts it enough to re-run it on the next chapter.
+**Status:** Exploratory — logged for a future phase. Should land after M1 and M2 prove themselves (plans must be populated and writers must actually be drafting); benefits from M8's routing primitive for Opus escalation. Detail: [roadmap/milestone-10-drafting-companion.md](roadmap/milestone-10-drafting-companion.md)
+
 ## Meta-rules for milestones
 
 1. **One milestone at a time for build work.** If you feel pulled to start the next one before the current's build stories are complete, that's a signal the current milestone's scope is weak, not that it's done. **Exception:** when a milestone's prove-it gate requires user-validation (planning a real novel, writing a real chapter), build work on the next milestone can proceed in parallel — the gate closes independently whenever the writer does that work.

@@ -81,6 +81,14 @@ Concretely, the VS Code extension ships these capabilities regardless of engine:
 
 An engine doesn't reinvent any of this. It just plugs in.
 
+### Per-stage model routing (M8)
+
+Critique at stage boundaries is routed to a specific Claude model (Haiku / Sonnet / Opus) via subagent delegation rather than run on whatever model the parent harness session happens to be using. Mapping lives in `lib/ai/model-router.js` and `skill/docs/routing/stage-model-map.md`; the CLI exposes `storyline-cli route <stageId>` and `storyline-cli record-model <stageId> <model>` for skill-side orchestration, and `storyline-cli config set ai.quality economy|balanced|premium` for the writer.
+
+Architectural rule: **Stages 13 (Consistency & Critique) and 14 (Master Document) never downgrade from Opus unless the writer has explicitly opted into `economy` mode.** Those two stages do the only genuine whole-book cross-stage reasoning in the harness; every other stage is structured capture or bounded-scope critique. The router enforces this — `balanced` pins both to Opus, `premium` keeps them there, `economy` is the only mode that shifts them to Sonnet, and it is off by default.
+
+The routing lives inside the skill (stage-boundary subagent delegation, described in `skill/SKILL.md`), not inside the platform's compile/state/memory pipes. Other engines built on this platform can adopt the same pattern by shipping their own stage→model map if their critique characteristics differ.
+
 ## What an engine provides
 
 An engine is a bundle of:

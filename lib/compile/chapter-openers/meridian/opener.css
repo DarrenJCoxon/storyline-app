@@ -1,0 +1,83 @@
+/*
+ * Meridian — Chapter Opener
+ * Character: Clean, contemporary, trade-thriller.
+ * Bold condensed sans headings, centred, all-caps.
+ * No drop cap — small-caps lead-in on first words instead.
+ *
+ * Targets: h1, h2.first-section, h2:not(.first-section), p.first-paragraph
+ * Does NOT style: body paragraphs, scene breaks, margins/padding on body, page layout.
+ */
+
+/* ── Chapter Number ─────────────────────────────────────────────────────── */
+
+.chapter-number {
+  font-family: inherit;
+  font-size: 0.65em;
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  text-align: center;
+  margin: 4em 0 1em 0;
+  text-indent: 0;
+}
+
+/* ── Chapter Title ──────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: inherit;          /* uses theme's body font stack */
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-align: center;
+  margin: 0 0 2.5em 0;          /* moderate drop below title before content starts */
+  font-size: 1.4em;
+  line-height: 1.2;
+}
+
+/* ── First Section Heading (prominent/decorated) ────────────────────────── */
+
+h2.first-section {
+  font-family: inherit;
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin: 2em 0 1.2em 0;
+}
+
+/* ── Subsequent Section Headings (quieter sibling) ──────────────────────── */
+
+h2:not(.first-section) {
+  font-family: inherit;
+  font-weight: 600;
+  font-style: normal;
+  font-variant: normal;
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin: 1.8em 0 1em 0;
+}
+
+/* ── First Paragraph Treatment: small-caps lead-in ──────────────────────── */
+
+p.first-paragraph,
+p.first {
+  text-indent: 0;
+  font-variant: small-caps;     /* native small-caps on the opening paragraph */
+  font-size: 1em;
+}
+
+/* Explicitly cancel any theme drop-cap on ::first-letter */
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  float: none;
+  font-size: 1em;
+}

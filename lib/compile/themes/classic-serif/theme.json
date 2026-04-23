@@ -7,5 +7,6 @@
   "fonts": [],
   "license": "MIT",
   "defaultFor": ["epub"],
-  "overridable": ["bodyFont", "sceneBreakOrnament", "chapterHeadingStyle"]
+  "defaultOpener": "edgewood",
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
 }

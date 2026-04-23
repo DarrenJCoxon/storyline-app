@@ -1,0 +1,96 @@
+/*
+ * Hawthorn — Chapter Opener
+ * Character: Classical literary. Large roman numeral chapter number.
+ * Title in small-caps with letter-spacing. Generous drop.
+ * Drop cap + small-caps second word on first paragraph. Heritage feel.
+ *
+ * Targets: h1, h2.first-section, h2:not(.first-section), p.first-paragraph
+ * Does NOT style: body paragraphs, scene breaks, margins/padding on body, page layout.
+ *
+ * Note on "small-caps second word":
+ * CSS alone cannot reliably target the second word of a paragraph without JavaScript.
+ * The drop cap combined with the generous vertical spacing and small-caps title
+ * already delivers the full classical feel. A JS-based post-processor can inject
+ * a <span class="second-word"> if the assembler chooses to support it in future.
+ *
+ * EPUB compat notes:
+ * - ::first-letter is broadly supported in Apple Books and most readers.
+ * - Kindle renders ::first-letter with font fallback quirks — final serif fallback
+ *   in font-family ensures graceful rendering.
+ * - font-variant: small-caps works in Apple Books; on Kindle renders as normal caps
+ *   (acceptable, not broken).
+ * - initial-letter property is NOT used — poor EPUB reader support.
+ */
+
+/* ── Chapter Number ─────────────────────────────────────────────────────── */
+
+.chapter-number {
+  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  font-size: 1.6em;           /* large — classical roman numeral feel */
+  font-weight: normal;
+  font-variant: small-caps;
+  letter-spacing: 0.1em;
+  text-align: center;
+  margin: 4em 0 1.2em 0;
+  text-indent: 0;
+}
+
+/* ── Chapter Title ──────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  text-transform: none;
+  letter-spacing: 0.18em;
+  text-align: center;
+  margin: 0 0 3.5em 0;          /* very generous drop */
+  font-size: 1.2em;
+  line-height: 1.5;
+}
+
+/* ── First Section Heading (prominent) ──────────────────────────────────── */
+
+h2.first-section {
+  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  font-size: 0.8em;
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin: 3em 0 1.5em 0;
+  text-transform: none;
+}
+
+/* ── Subsequent Section Headings (quieter sibling) ──────────────────────── */
+
+h2:not(.first-section) {
+  font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  font-size: 0.75em;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin: 2.2em 0 1em 0;        /* less top margin — quieter sibling */
+  text-transform: none;
+}
+
+/* ── First Paragraph Treatment: drop cap ────────────────────────────────── */
+
+p.first-paragraph,
+p.first {
+  text-indent: 0;
+}
+
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  float: left;
+  font-size: 3.5em;
+  line-height: 0.82;
+  margin: 0.08em 0.1em 0 0;
+  font-family: 'Palatino Linotype', Palatino, serif;  /* final serif fallback for Kindle */
+  font-weight: normal;
+}

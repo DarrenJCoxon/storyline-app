@@ -1,8 +1,6 @@
 # Milestone 1 — Storyline harness proves itself on a real book
 
-_Status: **CURRENT**_
-_Parent: [../roadmap.md](../roadmap.md)_
-_Last updated: 2026-04-19_
+*Status: **DONE** — a full novel was planned end-to-end with the harness; the writer is now drafting from the resulting plan.Parent: ../roadmap.mdLast updated: 2026-04-22*
 
 ## Outcome
 
@@ -26,37 +24,32 @@ All three must be true:
 
 Pre-flight (before planning the real book):
 
-- **1.1 Baseline quality pass on all 14 stage guides** — Read each stage's conversation guide in `lib/ai/stage-guides.js`. Check question order is sensible, hints are accurate, validation messages make sense. Fix anything obviously wrong. _(Half day)_
-- **1.2 End-to-end smoke test** — Seed a synthetic novel state with minimal data, run through every stage via `storyline save`, verify every output file generates correctly: stage docs, memory entries, master document. Confirm no schema mismatches like the Chinese-key bug we just fixed. _(Half day)_
-- **1.3 Memory sync round-trip verified in a real Claude session** — Start a new `/storyline` session, plan a few stages, end the session, start another session, confirm the previous session's memory is recalled correctly by the skill. _(Half day)_
-- **1.4 Master document generation produces a readable artefact** — Run `storyline generate` on a filled state. Read the output. If sections are confusing or out of order, fix the renderer in `lib/output/master-doc.js`. _(Half day)_
+- **1.1 Baseline quality pass on all 14 stage guides** — Read each stage's conversation guide in `lib/ai/stage-guides.js`. Check question order is sensible, hints are accurate, validation messages make sense. Fix anything obviously wrong. *(Half day)*
+- **1.2 End-to-end smoke test** — Seed a synthetic novel state with minimal data, run through every stage via `storyline save`, verify every output file generates correctly: stage docs, memory entries, master document. Confirm no schema mismatches like the Chinese-key bug we just fixed. *(Half day)*
+- **1.3 Memory sync round-trip verified in a real Claude session** — Start a new `/storyline` session, plan a few stages, end the session, start another session, confirm the previous session's memory is recalled correctly by the skill. *(Half day)*
+- **1.4 Master document generation produces a readable artefact** — Run `storyline generate` on a filled state. Read the output. If sections are confusing or out of order, fix the renderer in `lib/output/master-doc.js`. *(Half day)*
 
 The actual test (this is the milestone):
 
-- **1.5 Plan a real novel end-to-end using the harness** — You, not me. Use the tool on a novel you genuinely want to write. Keep a friction log as you go: any question that felt awkward, any output that was useless, any moment you wanted to quit and write in a notebook instead. _(Variable — days to weeks depending on your pace)_
+- **1.5 Plan a real novel end-to-end using the harness** — You, not me. Use the tool on a novel you genuinely want to write. Keep a friction log as you go: any question that felt awkward, any output that was useless, any moment you wanted to quit and write in a notebook instead. *(Variable — days to weeks depending on your pace)*
 
 Reactive work (informed by the friction log):
 
-- **1.6 Triage the friction log** — Review the log at end of planning. Sort items into: must-fix before another writer uses this, nice-to-have, won't-fix. _(Half day after Story 1.5)_
-- **1.7 Fix must-fix items** — One story per item, added here as they're identified. Each under two days. _(Variable)_
-- **1.8 Gate check and milestone closure** — Re-read the completed master document. Apply the three prove-it criteria. If all three pass, mark milestone complete and move to Milestone 2. _(Half day)_
+- **1.6 Triage the friction log** — Review the log at end of planning. Sort items into: must-fix before another writer uses this, nice-to-have, won't-fix. *(Half day after Story 1.5)*
+- **1.7 Fix must-fix items** — One story per item, added here as they're identified. Each under two days. *(Variable)*
+- **1.8 Gate check and milestone closure** — Re-read the completed master document. Apply the three prove-it criteria. If all three pass, mark milestone complete and move to Milestone 2. *(Half day)*
 
 ## Risks
 
-**Risk: You start planning your real book but abandon the tool halfway.**
-Mitigation: Stories 1.1-1.4 reduce the chance of early friction. If you still abandon it, that's valuable signal — the friction log becomes the input to a more fundamental redesign before moving on. Don't force completion of a broken tool.
+**Risk: You start planning your real book but abandon the tool halfway**.Mitigation: Stories 1.1-1.4 reduce the chance of early friction. If you still abandon it, that's valuable signal — the friction log becomes the input to a more fundamental redesign before moving on. Don't force completion of a broken tool.
 
-**Risk: The plan completes but feels generic or wrong.**
-Mitigation: The prove-it gate's second criterion ("the plan is usable") catches this. If the plan exists but isn't usable, the critique heuristics or question sequencing are wrong and need work before Milestone 2.
+**Risk: The plan completes but feels generic or wrong**.Mitigation: The prove-it gate's second criterion ("the plan is usable") catches this. If the plan exists but isn't usable, the critique heuristics or question sequencing are wrong and need work before Milestone 2.
 
-**Risk: Memory sync fails silently in a real session.**
-Mitigation: Story 1.3 explicitly tests this round-trip. Also, the durable jsonl log means no memory is ever actually lost even if sync fails — pending entries catch up on next session. Sync failure degrades experience, it doesn't destroy data.
+**Risk: Memory sync fails silently in a real session**.Mitigation: Story 1.3 explicitly tests this round-trip. Also, the durable jsonl log means no memory is ever actually lost even if sync fails — pending entries catch up on next session. Sync failure degrades experience, it doesn't destroy data.
 
-**Risk: You hit AI critique bugs (OpenRouter errors, rate limits, weird output).**
-Mitigation: The fallback to rule-based critique is already in place. If critiques are consistently unhelpful rather than failing, that's feedback for Milestone 1.7 rather than a blocker.
+**Risk: AI critique produces weak or inconsistent output**.Mitigation: Critique runs in-session through the harness subscription, so there are no API errors or rate-limit bugs to hit. If critiques are consistently unhelpful rather than failing, that's feedback for Milestone 1.7 — and, ultimately, the per-stage model routing introduced in M8.
 
-**Risk: The harness works fine for fiction but you realise you want to plan non-fiction first.**
-Mitigation: That becomes Milestone 7 input. Do not let it pull us into building the multi-engine platform before Milestone 1 is shipped. One engine working end-to-end beats two engines half-built.
+**Risk: The harness works fine for fiction but you realise you want to plan non-fiction first**.Mitigation: That becomes Milestone 7 input. Do not let it pull us into building the multi-engine platform before Milestone 1 is shipped. One engine working end-to-end beats two engines half-built.
 
 ## Cut list (explicitly NOT in this milestone)
 
@@ -80,4 +73,4 @@ This milestone is closed when:
 
 ## Lessons learned
 
-_To be filled in at milestone closure. What surprised you? What do you now believe about the harness that you didn't at the start? What should Milestone 2 know?_
+*To be filled in at milestone closure. What surprised you? What do you now believe about the harness that you didn't at the start? What should Milestone 2 know?*

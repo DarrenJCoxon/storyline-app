@@ -1,0 +1,12 @@
+{
+  "id": "meridian",
+  "name": "Meridian",
+  "description": "Bold condensed sans. Centred. All-caps. Small-caps lead-in. Contemporary trade feel.",
+  "compatibleThemes": ["classic-serif", "modern-sans"],
+  "defaultFor": ["modern-sans"],
+  "features": {
+    "firstParagraphTreatment": "small-caps-lead-in",
+    "chapterLabelFormat": "none",
+    "verticalDrop": "moderate"
+  }
+}

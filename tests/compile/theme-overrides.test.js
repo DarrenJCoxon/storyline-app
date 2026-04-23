@@ -128,10 +128,14 @@ describe('themeOverrides — chapterHeadingStyle presets', () => {
   it('warns on unknown preset name', async () => {
     writeConfig(tmp, { theme: 'classic-serif', themeOverrides: { chapterHeadingStyle: 'swirly' } });
     const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
-    expect(ctx.theme.overrideWarnings).toHaveLength(1);
-    expect(ctx.theme.overrideWarnings[0].type).toBe('invalid');
-    expect(ctx.theme.overrideWarnings[0].key).toBe('chapterHeadingStyle');
-    expect(ctx.theme.overrideWarnings[0].message).toContain('swirly');
+    // Story 6.5: chapterHeadingStyle is deprecated, so we get a deprecation
+    // warning AND an invalid-preset warning (2 total).
+    const invalidWarn = ctx.theme.overrideWarnings.find(w => w.type === 'invalid');
+    expect(invalidWarn).toBeTruthy();
+    expect(invalidWarn.key).toBe('chapterHeadingStyle');
+    expect(invalidWarn.message).toContain('swirly');
+    const deprecationWarn = ctx.theme.overrideWarnings.find(w => w.type === 'deprecation');
+    expect(deprecationWarn).toBeTruthy();
   });
 });
 
@@ -148,15 +152,16 @@ describe('themeOverrides — warnings', () => {
     expect(ctx.theme.overrideWarnings[0].key).toBe('emojiAbundance');
   });
 
-  it('warns "unsupported" when the theme does not honour a valid key', async () => {
-    // Heritage's overridable = ['bodyFont', 'sceneBreakOrnament'].
-    // chapterHeadingStyle is a globally valid key but Heritage opts out.
+  it('warns "deprecation" when chapterHeadingStyle is used (Story 6.5)', async () => {
+    // chapterHeadingStyle is deprecated as of Story 6.5 — the opener system
+    // owns heading style now. It still applies for backwards compat but always
+    // emits a deprecation warning regardless of theme.
     writeConfig(tmp, { theme: 'heritage', themeOverrides: { chapterHeadingStyle: 'bold-left' } });
     const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
-    expect(ctx.theme.overrideWarnings).toHaveLength(1);
-    expect(ctx.theme.overrideWarnings[0].type).toBe('unsupported');
-    expect(ctx.theme.overrideWarnings[0].key).toBe('chapterHeadingStyle');
-    expect(ctx.theme.overrideWarnings[0].message).toContain('heritage');
+    const deprecationWarn = ctx.theme.overrideWarnings.find(w => w.type === 'deprecation');
+    expect(deprecationWarn).toBeTruthy();
+    expect(deprecationWarn.key).toBe('chapterHeadingStyle');
+    expect(deprecationWarn.message).toContain('deprecated');
   });
 
   it('warns "invalid" when bodyFont is not a string', async () => {
@@ -178,14 +183,17 @@ describe('themeOverrides — warnings', () => {
       theme: 'classic-serif',
       themeOverrides: {
         bodyFont: 'Palatino, serif',     // valid → applied
-        chapterHeadingStyle: 'funky',    // invalid preset → warning
+        chapterHeadingStyle: 'funky',    // invalid preset + deprecation → 2 warnings
         mystery: 'thing',                // unknown → warning
       },
     });
     const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
     expect(ctx.theme.css).toMatch(/--nw-body-font:\s*Palatino/);  // valid applied
+    // Story 6.5: chapterHeadingStyle emits deprecation + invalid; mystery emits unknown
     const types = ctx.theme.overrideWarnings.map(w => w.type).sort();
-    expect(types).toEqual(['invalid', 'unknown']);
+    expect(types).toContain('invalid');
+    expect(types).toContain('unknown');
+    expect(types).toContain('deprecation');
   });
 });
 
@@ -212,7 +220,20 @@ describe('themeOverrides — theme.json overridable declarations', () => {
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'nw-ov-')); });
   afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-  it('classic-serif honours all three overrides', async () => {
+  it('classic-serif honours bodyFont and sceneBreakOrnament without warnings', async () => {
+    // Story 6.5: chapterHeadingStyle is deprecated; test non-deprecated keys only.
+    writeConfig(tmp, {
+      theme: 'classic-serif',
+      themeOverrides: {
+        bodyFont: 'Palatino, serif',
+        sceneBreakOrnament: '§',
+      },
+    });
+    const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
+    expect(ctx.theme.overrideWarnings).toHaveLength(0);
+  });
+
+  it('classic-serif applies chapterHeadingStyle with a deprecation warning', async () => {
     writeConfig(tmp, {
       theme: 'classic-serif',
       themeOverrides: {
@@ -222,10 +243,26 @@ describe('themeOverrides — theme.json overridable declarations', () => {
       },
     });
     const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
+    // Only deprecation warning — preset still applied
+    const types = ctx.theme.overrideWarnings.map(w => w.type);
+    expect(types).toEqual(['deprecation']);
+    expect(ctx.theme.css).toMatch(/--nw-chapter-font-variant:\s*small-caps/);
+  });
+
+  it('modern-sans honours bodyFont and sceneBreakOrnament without warnings', async () => {
+    // Story 6.5: chapterHeadingStyle is deprecated; test non-deprecated keys only.
+    writeConfig(tmp, {
+      theme: 'modern-sans',
+      themeOverrides: {
+        bodyFont: 'Helvetica, sans-serif',
+        sceneBreakOrnament: '***',
+      },
+    });
+    const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
     expect(ctx.theme.overrideWarnings).toHaveLength(0);
   });
 
-  it('modern-sans honours all three overrides', async () => {
+  it('modern-sans applies chapterHeadingStyle with a deprecation warning', async () => {
     writeConfig(tmp, {
       theme: 'modern-sans',
       themeOverrides: {
@@ -235,7 +272,9 @@ describe('themeOverrides — theme.json overridable declarations', () => {
       },
     });
     const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
-    expect(ctx.theme.overrideWarnings).toHaveLength(0);
+    const types = ctx.theme.overrideWarnings.map(w => w.type);
+    expect(types).toEqual(['deprecation']);
+    expect(ctx.theme.css).toMatch(/--nw-chapter-font-style:\s*italic/);
   });
 
   it('heritage only honours bodyFont + sceneBreakOrnament (chapter style locked)', async () => {

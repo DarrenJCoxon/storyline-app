@@ -1,5 +1,6 @@
 // Install Storyline skills into a project's .claude/skills/ directory
-// so Claude Code recognises /storyline and /follow-up as slash commands.
+// so Claude Code recognises /storyline, /follow-up, and /critique as
+// slash commands.
 //
 // Scoped per-project (not ~/.claude) so each novel project pins its own
 // skill version and multi-project writers don't hit cross-contamination.
@@ -13,6 +14,7 @@ import { resolve, dirname } from 'path';
 const SKILLS = [
   { src: 'skill',           slug: 'storyline', slash: '/storyline' },
   { src: 'skill-follow-up', slug: 'follow-up', slash: '/follow-up' },
+  { src: 'skill-critique',  slug: 'critique',  slash: '/critique'  },
 ];
 
 export default function installClaudeSkills(packageRoot, targetDir, { log } = {}) {

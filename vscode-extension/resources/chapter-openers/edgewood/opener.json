@@ -1,0 +1,12 @@
+{
+  "id": "edgewood",
+  "name": "Edgewood",
+  "description": "Ornate serif. Centred. Chapter label. Drop cap. Traditional trade and literary fiction feel.",
+  "compatibleThemes": ["classic-serif", "heritage"],
+  "defaultFor": ["classic-serif"],
+  "features": {
+    "firstParagraphTreatment": "drop-cap",
+    "chapterLabelFormat": "none",
+    "verticalDrop": "generous"
+  }
+}

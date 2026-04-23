@@ -1,5 +1,6 @@
 // Install Storyline commands into a project's .opencode/ directory so
-// OpenCode recognises /storyline and /follow-up as slash commands.
+// OpenCode recognises /storyline, /follow-up, and /critique as slash
+// commands.
 //
 // OpenCode's command layout (learned from odd-studio's implementation):
 //
@@ -25,13 +26,22 @@ const COMMANDS = [
     src: 'skill',
     slug: 'storyline',
     name: 'storyline',
+    role: 'planning coach',
     description: 'Start or resume a Storyline novel planning session using the Save the Cat methodology. Character-first, beat-driven, with AI critique at every stage.',
   },
   {
     src: 'skill-follow-up',
     slug: 'follow-up',
     name: 'follow-up',
+    role: 'inline-notes resolver',
     description: "Resolve inline {{bracketed notes}} the writer has left in their manuscript as research stubs or TBDs. Classifies each note and applies approved edits in place.",
+  },
+  {
+    src: 'skill-critique',
+    slug: 'critique',
+    name: 'critique',
+    role: 'draft-faithfulness critic',
+    description: 'Faithfulness critique of a drafted manuscript chapter against the Storyline plan. Reads the prose and the matching plan slice; delegates to the storyline-critic-draft subagent for structured findings on beat function, POV, conflict, and what-changes.',
   },
 ];
 
@@ -75,7 +85,7 @@ export default function installOpenCodeCommands(packageRoot, targetDir, { log } 
       '',
       `# /${cmd.name}`,
       '',
-      `You are now operating as the Storyline ${cmd.name === 'storyline' ? 'planning coach' : 'inline-notes resolver'}.`,
+      `You are now operating as the Storyline ${cmd.role || cmd.name}.`,
       '',
       'Read this file now:',
       `- \`.opencode/${cmd.slug}/SKILL.md\` — the canonical Storyline skill`,

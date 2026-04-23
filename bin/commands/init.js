@@ -22,6 +22,8 @@ import { fileURLToPath } from 'url';
 import { ensureCompileConfig } from '../../lib/config/compile-config.js';
 import detectAgent, { expandAgent, agentLabel } from '../../scripts/detect-agent.js';
 import installClaudeSkills from '../../scripts/install-claude-skills.js';
+import installClaudeAgents from '../../scripts/install-claude-agents.js';
+import installClaudeHooks from '../../scripts/install-claude-hooks.js';
 import installOpenCodeCommands from '../../scripts/install-opencode-commands.js';
 import installCodexPlugin from '../../scripts/install-codex-plugin.js';
 import setupMcp from '../../scripts/setup-mcp.js';
@@ -61,6 +63,12 @@ export function registerInit(program) {
       // ── Phase 2: install skills/commands per harness ──────────
       if (flags.isClaude) {
         installClaudeSkills(PACKAGE_ROOT, targetDir, {
+          log: msg => console.log(chalk.dim(`  ✓ ${msg}`)),
+        });
+        installClaudeAgents(PACKAGE_ROOT, targetDir, {
+          log: msg => console.log(chalk.dim(`  ✓ ${msg}`)),
+        });
+        installClaudeHooks(targetDir, {
           log: msg => console.log(chalk.dim(`  ✓ ${msg}`)),
         });
       }
@@ -167,16 +175,15 @@ function createInitialState(targetDir, resolvedName) {
 }
 
 function setupEnvFile(targetDir) {
+  // Storyline no longer requires environment variables at init time.
+  // AI critique runs through the harness subscription (Claude Code /
+  // OpenCode / Codex) via stage-boundary subagent delegation — no API
+  // keys. The .env scaffolding is kept only so writers can set their
+  // own project-specific variables if they want to.
   const envFile = resolve(targetDir, '.env');
   const envExample = resolve(targetDir, '.env.example');
-  if (existsSync(envFile)) {
-    console.log(chalk.dim(`  ✓ .env already exists`));
-  } else if (existsSync(envExample)) {
-    console.log(chalk.dim(`  ✓ .env.example found (copy to .env and add OpenRouter key for AI critique)`));
-  } else {
-    copyFileSync(resolve(PACKAGE_ROOT, '.env.example'), envFile);
-    console.log(chalk.dim(`  ✓ Created .env from .env.example`));
-  }
+  if (existsSync(envFile) || !existsSync(envExample)) return;
+  copyFileSync(envExample, envFile);
 }
 
 function createOutputDir(targetDir) {

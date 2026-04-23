@@ -2,7 +2,7 @@
   "name": "storyline-vscode",
   "displayName": "Storyline",
   "description": "Rich-text writing surface for novel projects using the Storyline planning harness. Files stay markdown on disk.",
-  "version": "0.22.0",
+  "version": "0.31.0",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
@@ -27,7 +27,7 @@
             "filenamePattern": "*.markdown"
           }
         ],
-        "priority": "default"
+        "priority": "option"
       }
     ],
     "commands": [
@@ -72,30 +72,61 @@
         "command": "storyline.editBookInfo",
         "title": "Storyline: Edit Book Info",
         "icon": "$(info)"
+      },
+      {
+        "command": "storyline.setBackupFolder",
+        "title": "Storyline: Set Backup Folder"
+      },
+      {
+        "command": "storyline.openBackupFolder",
+        "title": "Storyline: Open Backup Folder"
+      },
+      {
+        "command": "storyline.showBackupLog",
+        "title": "Storyline: Show Backup Log"
+      },
+      {
+        "command": "storyline.toggleComposeMode",
+        "title": "Storyline: Toggle Compose Mode"
       }
     ],
     "menus": {
+      "commandPalette": [
+        { "command": "storyline.hello", "when": "storyline.active" },
+        { "command": "storyline.openEditor", "when": "storyline.active" },
+        { "command": "storyline.openToSide", "when": "storyline.active" },
+        { "command": "storyline.showWordCountBreakdown", "when": "storyline.active" },
+        { "command": "storyline.compileEpub", "when": "storyline.active" },
+        { "command": "storyline.compilePrintPdf", "when": "storyline.active" },
+        { "command": "storyline.openPreview", "when": "storyline.active" },
+        { "command": "storyline.openLivePreview", "when": "storyline.active" },
+        { "command": "storyline.editBookInfo", "when": "storyline.active" },
+        { "command": "storyline.setBackupFolder", "when": "storyline.active" },
+        { "command": "storyline.openBackupFolder", "when": "storyline.active" },
+        { "command": "storyline.showBackupLog", "when": "storyline.active" },
+        { "command": "storyline.toggleComposeMode", "when": "storyline.active" }
+      ],
       "explorer/context": [
         {
           "command": "storyline.openEditor",
-          "when": "resourceExtname == .md",
+          "when": "storyline.active && resourceExtname == .md",
           "group": "navigation@99"
         },
         {
           "command": "storyline.openToSide",
-          "when": "resourceExtname == .md",
+          "when": "storyline.active && resourceExtname == .md",
           "group": "navigation@100"
         }
       ],
       "editor/title/context": [
         {
           "command": "storyline.openEditor",
-          "when": "resourceExtname == .md",
+          "when": "storyline.active && resourceExtname == .md",
           "group": "1_modification"
         },
         {
           "command": "storyline.openToSide",
-          "when": "resourceExtname == .md",
+          "when": "storyline.active && resourceExtname == .md",
           "group": "1_modification"
         }
       ]
@@ -105,7 +136,13 @@
         "command": "storyline.openToSide",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
-        "when": "filesExplorerFocus && resourceExtname == .md"
+        "when": "storyline.active && filesExplorerFocus && resourceExtname == .md"
+      },
+      {
+        "command": "storyline.toggleComposeMode",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "storyline.active"
       }
     ]
   },

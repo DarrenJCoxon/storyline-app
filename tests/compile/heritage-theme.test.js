@@ -169,7 +169,8 @@ describe('heritage theme — shared compile-pipeline integration', () => {
         projectPath: tmp,
         chapters: ['<h1>Ch</h1>\n<p>First para.</p>\n<p>Second.</p>\n'],
       }));
-      expect(ctx.theme.chapters[0].html).toContain('<p class="first">First para.</p>');
+      // Story 6.5: class is now "first first-paragraph" (first kept for drop-cap compat)
+      expect(ctx.theme.chapters[0].html).toContain('<p class="first first-paragraph">First para.</p>');
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

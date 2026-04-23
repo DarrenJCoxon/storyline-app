@@ -1,0 +1,12 @@
+{
+  "id": "hawthorn",
+  "name": "Hawthorn",
+  "description": "Classical. Large roman numeral. Small-caps title. Generous drop. Drop cap with small-caps second word. Heritage and literary fiction feel.",
+  "compatibleThemes": ["classic-serif", "heritage"],
+  "defaultFor": ["heritage"],
+  "features": {
+    "firstParagraphTreatment": "drop-cap",
+    "chapterLabelFormat": "none",
+    "verticalDrop": "generous"
+  }
+}

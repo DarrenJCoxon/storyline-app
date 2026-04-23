@@ -7,5 +7,6 @@
   "fonts": [],
   "license": "MIT",
   "defaultFor": [],
-  "overridable": ["bodyFont", "sceneBreakOrnament", "chapterHeadingStyle"]
+  "defaultOpener": "meridian",
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
 }

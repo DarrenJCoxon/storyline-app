@@ -1,6 +1,6 @@
 # Milestone 6 — Theme expansion and refinement
 
-*Status: **PLANNED** (next build milestone — M5 build complete, user-validation gate open in parallel)Parent: ../roadmap.mdRelated design: ../compile-feature.md (Themes section), ../vscode-extension.md (Preview theme dropdown)Last updated: 2026-04-22*
+*Status: **DONE**Parent: ../roadmap.mdRelated design: ../compile-feature.md (Themes section), ../vscode-extension.md (Preview theme dropdown)Last updated: 2026-04-22*
 
 ## Outcome
 

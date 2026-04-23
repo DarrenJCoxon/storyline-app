@@ -81,8 +81,9 @@ describe('compile pipeline — tiny-book fixture', () => {
   it('marks the first paragraph of each chapter for drop caps', async () => {
     const ctx = await runAllPhases();
     for (const chapter of ctx.theme.chapters) {
-      expect(chapter.html).toMatch(/<p class="first">/);
-      const firstCount = (chapter.html.match(/<p class="first">/g) || []).length;
+      // Story 6.5: class is now "first first-paragraph" (first kept for drop-cap compat)
+      expect(chapter.html).toMatch(/<p class="first first-paragraph">/);
+      const firstCount = (chapter.html.match(/<p class="first first-paragraph">/g) || []).length;
       expect(firstCount).toBe(1);
     }
   });

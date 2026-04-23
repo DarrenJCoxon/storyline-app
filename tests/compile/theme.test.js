@@ -33,7 +33,7 @@ describe('applyTheme — first-paragraph marking', () => {
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'nw-theme-')); });
   afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-  it('marks the first <p> of each chapter with class="first"', async () => {
+  it('marks the first <p> of each chapter with class="first first-paragraph"', async () => {
     const ctx = htmlContext({
       projectPath: tmp,
       chapters: [
@@ -42,9 +42,10 @@ describe('applyTheme — first-paragraph marking', () => {
       ],
     });
     const out = await applyTheme(ctx);
-    expect(out.theme.chapters[0].html).toContain('<p class="first">First para.</p>');
+    // Story 6.5: first paragraph now gets both "first" and "first-paragraph" classes
+    expect(out.theme.chapters[0].html).toContain('<p class="first first-paragraph">First para.</p>');
     expect(out.theme.chapters[0].html).toContain('<p>Second para.</p>');
-    expect(out.theme.chapters[1].html).toContain('<p class="first">Only para.</p>');
+    expect(out.theme.chapters[1].html).toContain('<p class="first first-paragraph">Only para.</p>');
   });
 
   it('only marks the first <p>, not every <p>', async () => {
@@ -54,7 +55,8 @@ describe('applyTheme — first-paragraph marking', () => {
     });
     const out = await applyTheme(ctx);
     const html = out.theme.chapters[0].html;
-    const matches = html.match(/<p class="first">/g) || [];
+    // Story 6.5: class is now "first first-paragraph"
+    const matches = html.match(/<p class="first first-paragraph">/g) || [];
     expect(matches).toHaveLength(1);
   });
 });

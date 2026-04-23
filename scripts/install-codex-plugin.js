@@ -29,6 +29,7 @@ const PLUGIN_NAME = 'storyline';
 const SKILLS = [
   { src: 'skill',           slug: 'storyline' },
   { src: 'skill-follow-up', slug: 'follow-up' },
+  { src: 'skill-critique',  slug: 'critique'  },
 ];
 
 export default function installCodexPlugin(packageRoot, targetDir, { log, version } = {}) {

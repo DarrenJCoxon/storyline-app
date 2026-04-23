@@ -47,6 +47,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   }
 
   const availableThemes = await discoverThemes(context);
+  const availableOpeners = await discoverOpeners(context);
   const initialConfig = await readCompileConfig(folder.uri);
   // Fall back to 'classic-serif' if the config points at a theme that
   // isn't on disk (project carried over from another machine, theme
@@ -56,6 +57,28 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     ? initialConfig.theme
     : 'classic-serif';
   const initialThemeCss = await loadThemeCss(context, initialThemeId);
+  // Resolve initial opener: prefer config value, then theme's defaultOpener
+  // (from theme.json if present), then first compatible opener, then ''.
+  const initialOpenerId = (() => {
+    if (initialConfig.chapterOpener && availableOpeners.some(o => o.id === initialConfig.chapterOpener)) {
+      return initialConfig.chapterOpener;
+    }
+    // Pick first compatible opener for this theme (or first overall)
+    const compatible = availableOpeners.filter(
+      o => o.compatibleThemes.length === 0 || o.compatibleThemes.includes(initialThemeId),
+    );
+    return compatible.length > 0 ? compatible[0].id : (availableOpeners.length > 0 ? availableOpeners[0].id : '');
+  })();
+  const initialOpenerCss = initialOpenerId ? await loadOpenerCss(context, initialOpenerId) : '';
+  // Print-specific CSS layers — additional overrides applied on top of
+  // base theme/opener CSS when the preview is in Print 6×9 mode. These
+  // are the SAME files the compile pipeline loads for PDF output, so
+  // Print 6×9 preview matches the compiled PDF byte-for-byte (h1
+  // margins, font sizes, drop-cap dimensions, etc.). Only applied when
+  // the active device is Print 6×9 — iPad/Kindle previews keep using
+  // base CSS only.
+  const initialThemePrintCss = await loadThemePrintCss(context, initialThemeId);
+  const initialOpenerPrintCss = initialOpenerId ? await loadOpenerPrintCss(context, initialOpenerId) : '';
   const md = createRenderer();
 
   const panel = vscode.window.createWebviewPanel(
@@ -73,8 +96,12 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
 
   panel.webview.html = buildWebviewHtml(
     initialThemeCss,
-    { ...initialConfig, theme: initialThemeId },
+    initialOpenerCss,
+    initialThemePrintCss,
+    initialOpenerPrintCss,
+    { ...initialConfig, theme: initialThemeId, chapterOpener: initialOpenerId },
     availableThemes,
+    availableOpeners,
   );
 
   // Track the "source of truth" URI — the .md file currently focused in
@@ -117,6 +144,15 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       ? chunks.map(c => md.render(c)).join(SOFT_BREAK)
       : md.render(markdown);
     chunkHtml = chunkHtml.replace(/<p>\s*<\/p>\s*/g, SOFT_BREAK);
+    // If the chapter markdown doesn't start with an H1, auto-inject a chapter
+    // number + title block derived from the filename. Mirrors the compile
+    // pipeline's chapter heading injection so preview matches compile output.
+    if (!chunkHtml.trimStart().startsWith('<h1') && sourceUri) {
+      const heading = deriveChapterHeading(sourceUri);
+      if (heading) {
+        chunkHtml = `<div class="chapter-number">${heading.number}</div>\n<h1>${heading.title}</h1>\n` + chunkHtml;
+      }
+    }
     // Mark first paragraph for drop cap styling (same transform the
     // compile theme phase applies).
     const withFirst = chunkHtml.replace('<p>', '<p class="first">');
@@ -198,7 +234,8 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       if (!availableThemes.some(t => t.id === id)) return;
       try {
         const css = await loadThemeCss(context, id);
-        panel.webview.postMessage({ type: 'theme-css', id, css });
+        const printCss = await loadThemePrintCss(context, id);
+        panel.webview.postMessage({ type: 'theme-css', id, css, printCss });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(
@@ -207,12 +244,35 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
       }
       return;
     }
+    if (msg?.type === 'load-chapter-opener') {
+      const { opener } = msg as { opener?: string };
+      if (typeof opener !== 'string') return;
+      const id = opener.trim();
+      // Empty id = clear opener
+      if (!id) {
+        panel.webview.postMessage({ type: 'opener-css', id: '', css: '', printCss: '' });
+        return;
+      }
+      if (!availableOpeners.some(o => o.id === id)) return;
+      try {
+        const css = await loadOpenerCss(context, id);
+        const printCss = await loadOpenerPrintCss(context, id);
+        panel.webview.postMessage({ type: 'opener-css', id, css, printCss });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(
+          `Storyline: could not load chapter opener "${id}" — ${message}`,
+        );
+      }
+      return;
+    }
     if (msg?.type === 'save-as-default') {
-      const { paragraphStyle, theme, bodyFont, sceneBreakOrnament } = msg as {
+      const { paragraphStyle, theme, bodyFont, sceneBreakOrnament, chapterOpener } = msg as {
         paragraphStyle?: string;
         theme?: string;
         bodyFont?: string;
         sceneBreakOrnament?: string;
+        chapterOpener?: string;
       };
       try {
         await saveDefaultsToConfig(folder.uri, {
@@ -220,6 +280,7 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
           theme,
           bodyFont,
           sceneBreakOrnament,
+          chapterOpener,
         });
         vscode.window.setStatusBarMessage(
           `Storyline: preview defaults saved to compile.config.json`,
@@ -251,6 +312,8 @@ interface LivePreviewConfig {
   // empty-string means "theme default" (no override).
   bodyFont: string;
   sceneBreakOrnament: string;
+  // Chapter opener style id — empty string means "none / theme default"
+  chapterOpener: string;
 }
 
 // Reads compile.config.json to seed the preview dropdowns with the
@@ -263,6 +326,7 @@ async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreview
     theme: 'classic-serif',
     bodyFont: '',
     sceneBreakOrnament: '',
+    chapterOpener: '',
   };
   try {
     const raw = await fs.readFile(configPath, 'utf-8');
@@ -276,11 +340,13 @@ async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreview
     const bodyFont = typeof overrides.bodyFont === 'string' ? overrides.bodyFont : '';
     const sceneBreakOrnament = typeof overrides.sceneBreakOrnament === 'string'
       ? overrides.sceneBreakOrnament : '';
+    const chapterOpener = typeof parsed.chapterOpener === 'string' ? parsed.chapterOpener : '';
     return {
       paragraphStyle: style === 'block' ? 'block' : 'indented',
       theme,
       bodyFont,
       sceneBreakOrnament,
+      chapterOpener,
     };
   } catch {
     return defaults;
@@ -297,11 +363,13 @@ async function saveDefaultsToConfig(
     theme,
     bodyFont,
     sceneBreakOrnament,
+    chapterOpener,
   }: {
     paragraphStyle?: string;
     theme?: string;
     bodyFont?: string;
     sceneBreakOrnament?: string;
+    chapterOpener?: string;
   },
 ): Promise<void> {
   const configPath = path.join(workspaceRoot.fsPath, 'compile.config.json');
@@ -342,12 +410,26 @@ async function saveDefaultsToConfig(
       delete updated.themeOverrides;
     }
   }
+  // chapterOpener is a top-level field (not inside themeOverrides)
+  if (typeof chapterOpener === 'string') {
+    if (chapterOpener === '') {
+      delete updated.chapterOpener;
+    } else {
+      updated.chapterOpener = chapterOpener;
+    }
+  }
   await fs.writeFile(configPath, JSON.stringify(updated, null, 2) + '\n', 'utf-8');
 }
 
 interface ThemeDescriptor {
   id: string;
   name: string;
+}
+
+interface OpenerDescriptor {
+  id: string;
+  name: string;
+  compatibleThemes: string[];
 }
 
 // Scan resources/themes/ for every theme the compile pipeline ships
@@ -414,6 +496,57 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
+// Scan resources/chapter-openers/ for every opener the compile pipeline
+// ships (copied at build time by scripts/copy-theme-assets.mjs). Falls
+// back to empty array if the directory doesn't exist yet.
+async function discoverOpeners(context: vscode.ExtensionContext): Promise<OpenerDescriptor[]> {
+  const openersRoot = path.join(context.extensionPath, 'resources', 'chapter-openers');
+  let entries: string[];
+  try {
+    entries = await fs.readdir(openersRoot);
+  } catch {
+    // Directory doesn't exist — copy-assets hasn't run for openers yet.
+    console.log('[Storyline] opener discovery: resources/chapter-openers/ not found — no openers available');
+    return [];
+  }
+
+  const openers: OpenerDescriptor[] = [];
+  for (const name of entries) {
+    const openerDir = path.join(openersRoot, name);
+    try {
+      const statResult = await fs.stat(openerDir);
+      if (!statResult.isDirectory()) continue;
+      const metaPath = path.join(openerDir, 'opener.json');
+      const raw = await fs.readFile(metaPath, 'utf-8');
+      const meta = JSON.parse(raw) as { id?: string; name?: string; compatibleThemes?: string[] };
+      openers.push({
+        id: typeof meta.id === 'string' && meta.id.trim() ? meta.id.trim() : name,
+        name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : name,
+        compatibleThemes: Array.isArray(meta.compatibleThemes)
+          ? meta.compatibleThemes.filter((t): t is string => typeof t === 'string')
+          : [],
+      });
+    } catch (err) {
+      console.warn(`[Storyline] opener discovery: skipping "${name}"`, err);
+    }
+  }
+
+  openers.sort((a, b) => a.name.localeCompare(b.name));
+  if (openers.length > 0) {
+    console.log(`[Storyline] opener discovery: ${openers.map(o => o.id).join(', ')}`);
+  }
+  return openers;
+}
+
+async function loadOpenerCss(context: vscode.ExtensionContext, openerId: string): Promise<string> {
+  const cssPath = path.join(context.extensionPath, 'resources', 'chapter-openers', openerId, 'opener.css');
+  try {
+    return await fs.readFile(cssPath, 'utf-8');
+  } catch {
+    return '';
+  }
+}
+
 async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
   const cssPath = path.join(context.extensionPath, 'resources', 'themes', themeId, 'theme.css');
   try {
@@ -427,6 +560,32 @@ async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): 
       body { font-family: Georgia, serif; line-height: 1.6; }
       p { text-indent: 1.5em; margin: 0; }
     `;
+  }
+}
+
+// Print-PDF CSS layer for a theme. Same file the compile pipeline reads
+// when packaging the 6×9 PDF — loaded into the preview ONLY when the
+// device picker is on Print 6×9, so the preview's chapter title margins,
+// font sizes and drop-cap dimensions match the PDF exactly. Missing file
+// is fine (theme has no print-specific overrides) — return empty string.
+async function loadThemePrintCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
+  const cssPath = path.join(context.extensionPath, 'resources', 'themes', themeId, 'theme-print-pdf.css');
+  try {
+    return await fs.readFile(cssPath, 'utf-8');
+  } catch {
+    return '';
+  }
+}
+
+// Print-PDF CSS layer for a chapter opener. Mirrors loadThemePrintCss —
+// only applied when device is Print 6×9. Empty openerId returns ''.
+async function loadOpenerPrintCss(context: vscode.ExtensionContext, openerId: string): Promise<string> {
+  if (!openerId) return '';
+  const cssPath = path.join(context.extensionPath, 'resources', 'chapter-openers', openerId, 'opener-print-pdf.css');
+  try {
+    return await fs.readFile(cssPath, 'utf-8');
+  } catch {
+    return '';
   }
 }
 
@@ -467,18 +626,47 @@ function emptyStateHtml(): string {
   `;
 }
 
+// Derive chapter number and display title from the manuscript filename.
+// Handles: ch01-clarity.md, chapter-01-clarity.md, 01-clarity.md, chapter-1.md, ch1.md
+function deriveChapterHeading(uri: vscode.Uri): { number: string; title: string } | null {
+  const basename = path.basename(uri.fsPath, path.extname(uri.fsPath));
+  const match = basename.match(/^(?:ch(?:apter)?[-_]?)(\d+)(?:[-_]+(.+))?$/i);
+  if (!match) return null;
+  const num = parseInt(match[1], 10);
+  const titlePart = match[2]
+    ? match[2].replace(/[-_]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : '';
+  return { number: String(num), title: titlePart || `Chapter ${num}` };
+}
+
 function buildWebviewHtml(
   themeCss: string,
+  openerCss: string,
+  themePrintCss: string,
+  openerPrintCss: string,
   initialConfig: LivePreviewConfig,
   availableThemes: ThemeDescriptor[],
+  availableOpeners: OpenerDescriptor[],
 ): string {
   const initialParagraphStyle = initialConfig.paragraphStyle;
   const initialTheme = initialConfig.theme || 'classic-serif';
+  const initialOpener = initialConfig.chapterOpener || '';
   // Emit theme rows server-side so the popover is populated before
   // the inline script runs — no flash-of-single-option.
   const themeRows = availableThemes
     .map(t => `<button class="popover-row" data-theme="${escapeAttr(t.id)}"><span class="check">✓</span> ${escapeHtml(t.name)}</button>`)
     .join('\n            ');
+  // Emit opener rows server-side. Each opener carries a data-compatible-themes
+  // attribute (JSON array of theme ids) so the webview can filter without
+  // a round-trip when the active theme changes.
+  const openerRows = availableOpeners.length > 0
+    ? availableOpeners
+        .map(o => {
+          const compat = escapeAttr(JSON.stringify(o.compatibleThemes));
+          return `<button class="popover-row" data-opener="${escapeAttr(o.id)}" data-opener-themes="${compat}"><span class="check">✓</span> ${escapeHtml(o.name)}</button>`;
+        })
+        .join('\n            ')
+    : `<div style="padding:6px 8px;font-size:12px;color:var(--vscode-descriptionForeground);">No openers available</div>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -498,6 +686,26 @@ function buildWebviewHtml(
      * chrome). */
     ${themeCss}
   </style>
+  <style id="opener-css">
+    /* Chapter opener CSS — loaded AFTER theme CSS so opener rules
+     * cascade over theme heading defaults. Swapped wholesale when the
+     * Chapter first page style dropdown changes. */
+    ${openerCss}
+  </style>
+  <style id="theme-print-css">
+    /* Print-PDF theme overrides — only populated when the device picker
+     * is on Print 6×9. Loaded AFTER opener-css so print h1 margins and
+     * font sizes can override both theme and opener defaults. This is
+     * the same file the compile pipeline reads when building the PDF,
+     * so Print 6×9 preview matches the compiled PDF exactly. */
+    ${themePrintCss}
+  </style>
+  <style id="opener-print-css">
+    /* Print-PDF opener overrides — only populated when device is Print
+     * 6×9. Loaded LAST so opener-specific print tweaks (e.g. larger
+     * drop caps, generous title drops) win the cascade. */
+    ${openerPrintCss}
+  </style>
   <style>
     /* ─── Panel shell (chrome around the reading surface) ──────────
      * This block is static — never touched by JS. Contains device
@@ -511,7 +719,8 @@ function buildWebviewHtml(
       padding: 0;
     }
     body {
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
       font-family: var(--vscode-font-family);
     }
     /* ─── Vellum-minimal toolbar ──────────────────────────────────
@@ -524,8 +733,7 @@ function buildWebviewHtml(
      * The goal: hide complexity until the writer asks for it. At rest
      * the toolbar shows two icons and a filename — nothing else. */
     .preview-header {
-      position: sticky;
-      top: 0;
+      flex-shrink: 0;
       background: var(--vscode-editor-background);
       padding: 8px 14px;
       border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
@@ -658,10 +866,13 @@ function buildWebviewHtml(
      * resize the panel. */
 
     .device-stage {
+      flex: 1 1 auto;
+      min-height: 0;
       padding: 24px 16px 120px;
       display: flex;
       justify-content: center;
       overflow-x: auto;
+      overflow-y: auto;
     }
 
     .device-surface {
@@ -675,7 +886,6 @@ function buildWebviewHtml(
       text-indent: 1.5em;
       margin: 0;
     }
-    .device-surface > p:first-child,
     .device-surface h1 + p,
     .device-surface h2 + p,
     .device-surface h3 + p,
@@ -686,12 +896,12 @@ function buildWebviewHtml(
     .device-surface blockquote p {
       text-indent: 0;
     }
-    .device-surface h1 {
-      font-style: italic;
-      font-weight: normal;
-      font-size: 1.6em;
+    /* .chapter-number — auto-injected block when chapter markdown has no H1.
+     * Opener CSS owns the visual treatment; this is just a neutral fallback. */
+    .device-surface .chapter-number {
       text-align: center;
-      margin: 2em 0 1em;
+      margin: 4em 0 0.5em 0;
+      text-indent: 0;
     }
     .device-surface h2, .device-surface h3 { font-weight: bold; margin: 1.5em 0 0.4em; }
     .device-surface p.first::first-letter {
@@ -699,7 +909,6 @@ function buildWebviewHtml(
       font-size: 3.2em;
       line-height: 0.85;
       margin: 0.02em 0.08em 0 0;
-      font-weight: bold;
     }
     .device-surface hr.scene-break { border: none; text-align: center; margin: 2em 0; }
     .device-surface hr.scene-break::before {
@@ -907,6 +1116,21 @@ function buildWebviewHtml(
         </div>
       </div>
 
+      <!-- Chapter opener — first-page heading style -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-opener" title="Chapter first page style" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3" stroke-width="2"/><line x1="4" y1="7" x2="12" y2="7"/><line x1="3" y1="10" x2="13" y2="10"/><line x1="3" y1="13" x2="11" y2="13"/></svg>
+        </button>
+        <div class="popover" id="pop-opener">
+          <div class="popover-section">
+            <div class="popover-section-title">Chapter first page style</div>
+            <button class="popover-row" data-opener=""><span class="check">✓</span> Theme default</button>
+            ${openerRows}
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
       <!-- Ornamentation — scene break character -->
       <div class="popover-anchor">
         <button class="icon-btn" data-popover="pop-orn" title="Ornamentation" aria-expanded="false" style="font-family:Georgia,serif;">❦</button>
@@ -949,10 +1173,32 @@ function buildWebviewHtml(
     const filename = document.getElementById('filename');
     const deviceLabel = document.getElementById('device-label');
     const overridesStyle = document.getElementById('overrides');
+    // Print-layer style elements need to be in scope before applyDevice
+    // runs (it calls syncPrintLayers on init), so we capture them here
+    // rather than alongside the regular theme/opener style refs further
+    // down. The message handlers below close over the same vars.
+    const themePrintStyleEl = document.getElementById('theme-print-css');
+    const openerPrintStyleEl = document.getElementById('opener-print-css');
+    // Cache print CSS so we can toggle it on/off without round-tripping
+    // to the extension when the writer flips between Print 6×9 and the
+    // iPad/Kindle previews. Seeded from the server-rendered <style> tag
+    // contents so the cache survives a device toggle on first paint.
+    let cachedThemePrintCss = themePrintStyleEl.textContent || '';
+    let cachedOpenerPrintCss = openerPrintStyleEl.textContent || '';
+    // Print 6×9 is the only device that should see print-specific
+    // overrides (h1 margins in inches, font-size in pt, drop-cap
+    // dimensions tuned for fixed page). iPad/Kindle stay on the base
+    // EPUB-flavoured typography.
+    function syncPrintLayers() {
+      const isPrint = currentDevice === 'device-print-6x9';
+      themePrintStyleEl.textContent = isPrint ? cachedThemePrintCss : '';
+      openerPrintStyleEl.textContent = isPrint ? cachedOpenerPrintCss : '';
+    }
 
     const initialConfig = {
       paragraphStyle: ${JSON.stringify(initialParagraphStyle)},
       theme: ${JSON.stringify(initialTheme)},
+      chapterOpener: ${JSON.stringify(initialOpener)},
     };
 
     // ─── State (single source of truth for all four popovers) ────
@@ -962,11 +1208,26 @@ function buildWebviewHtml(
     let currentTheme = state.theme || initialConfig.theme;
     let currentFont = state.bodyFont ?? (initialConfig.bodyFont || '');
     let currentOrnament = state.sceneBreakOrnament ?? (initialConfig.sceneBreakOrnament || '');
+    let currentOpener = state.chapterOpener ?? initialConfig.chapterOpener;
 
     // If the restored theme isn't one of the themes we know about
     // (e.g. a bundled theme was renamed between releases), fall back.
     const knownThemes = Array.from(document.querySelectorAll('[data-theme]')).map(el => el.dataset.theme);
     if (!knownThemes.includes(currentTheme)) currentTheme = initialConfig.theme;
+
+    // Filter opener rows to show only those compatible with the current theme.
+    // Openers with an empty compatibleThemes array are shown for all themes.
+    function filterOpenerRows(themeId) {
+      document.querySelectorAll('[data-opener]').forEach(el => {
+        const raw = el.getAttribute('data-opener-themes');
+        if (raw === null) return; // the "None" option — always visible
+        try {
+          const compat = JSON.parse(raw);
+          const visible = compat.length === 0 || compat.includes(themeId);
+          el.style.display = visible ? '' : 'none';
+        } catch { /* leave visible on parse error */ }
+      });
+    }
 
     const DEVICE_NAMES = {
       'device-print-6x9': 'Print 6×9',
@@ -979,6 +1240,11 @@ function buildWebviewHtml(
       document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
       document.body.classList.add(device);
       deviceLabel.textContent = DEVICE_NAMES[device] || device;
+      // Print 6×9 is the only device that loads print-specific CSS
+      // overrides (h1 margins, font sizes in pt, drop-cap dimensions)
+      // so the preview matches the compiled PDF exactly. iPad/Kindle
+      // keep their EPUB-flavoured base typography.
+      syncPrintLayers();
       updateSelectedRows();
       repaginate();
     }
@@ -991,8 +1257,14 @@ function buildWebviewHtml(
     }
     function applyTheme(themeId) {
       currentTheme = themeId;
+      filterOpenerRows(themeId);
       updateSelectedRows();
       vscode.postMessage({ type: 'load-theme', theme: themeId });
+    }
+    function applyOpener(openerId) {
+      currentOpener = openerId;
+      updateSelectedRows();
+      vscode.postMessage({ type: 'load-chapter-opener', opener: openerId });
     }
     function applyFont(fontValue) {
       currentFont = fontValue;
@@ -1012,6 +1284,7 @@ function buildWebviewHtml(
       const pairs = [
         ['data-device', currentDevice],
         ['data-theme', currentTheme],
+        ['data-opener', currentOpener],
         ['data-font', currentFont],
         ['data-ornament', currentOrnament],
         ['data-paragraphs', currentParagraphStyle],
@@ -1026,10 +1299,14 @@ function buildWebviewHtml(
     applyDevice(currentDevice);
     applyParagraphs(currentParagraphStyle);
     applyOverrides();
+    filterOpenerRows(currentTheme);
     updateSelectedRows();
 
     if (currentTheme !== initialConfig.theme) {
       vscode.postMessage({ type: 'load-theme', theme: currentTheme });
+    }
+    if (currentOpener !== initialConfig.chapterOpener && currentOpener) {
+      vscode.postMessage({ type: 'load-chapter-opener', opener: currentOpener });
     }
 
     // ─── Pagination ──────────────────────────────────────────────
@@ -1108,6 +1385,7 @@ function buildWebviewHtml(
         device: currentDevice,
         paragraphStyle: currentParagraphStyle,
         theme: currentTheme,
+        chapterOpener: currentOpener,
         bodyFont: currentFont,
         sceneBreakOrnament: currentOrnament,
       });
@@ -1150,6 +1428,7 @@ function buildWebviewHtml(
         if (!row) return;
         if (row.hasAttribute('data-device'))     applyDevice(row.dataset.device);
         else if (row.hasAttribute('data-theme')) applyTheme(row.dataset.theme);
+        else if (row.hasAttribute('data-opener')) applyOpener(row.dataset.opener);
         else if (row.hasAttribute('data-font'))  applyFont(row.dataset.font);
         else if (row.hasAttribute('data-ornament')) applyOrnament(row.dataset.ornament);
         else if (row.hasAttribute('data-paragraphs')) applyParagraphs(row.dataset.paragraphs);
@@ -1178,6 +1457,7 @@ function buildWebviewHtml(
           type: 'save-as-default',
           paragraphStyle: currentParagraphStyle,
           theme: currentTheme,
+          chapterOpener: currentOpener,
           bodyFont: currentFont,
           sceneBreakOrnament: currentOrnament,
         });
@@ -1193,6 +1473,7 @@ function buildWebviewHtml(
     });
 
     const themeStyleEl = document.getElementById('theme-css');
+    const openerStyleEl = document.getElementById('opener-css');
 
     window.addEventListener('message', (event) => {
       const msg = event.data;
@@ -1209,6 +1490,20 @@ function buildWebviewHtml(
         // styles in-place without a repaint flash. Then re-paginate —
         // a different theme may change font metrics / line heights.
         themeStyleEl.textContent = msg.css;
+        if (typeof msg.printCss === 'string') {
+          cachedThemePrintCss = msg.printCss;
+          syncPrintLayers();
+        }
+        repaginate();
+      }
+      if (msg && msg.type === 'opener-css' && typeof msg.css === 'string') {
+        // Replace the opener stylesheet's text. The opener CSS sits
+        // AFTER theme CSS so opener rules win for chapter headings.
+        openerStyleEl.textContent = msg.css;
+        if (typeof msg.printCss === 'string') {
+          cachedOpenerPrintCss = msg.printCss;
+          syncPrintLayers();
+        }
         repaginate();
       }
     });

@@ -1,0 +1,9 @@
+/*
+ * Cinder — Print/PDF overrides (Paged.js)
+ * Applies on top of opener.css for print output.
+ * Only contains print-specific adjustments.
+ */
+
+h1 {
+  margin: 0 0 2em 0;   /* slightly more vertical drop in print */
+}

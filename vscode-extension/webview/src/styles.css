@@ -338,6 +338,148 @@ body.nw-manuscript.vscode-high-contrast .toolbar {
   background: var(--vscode-editor-background);
 }
 
+/* ══════════════════════════════════════════════════════════════════
+ * Compose Mode — Scrivener-style distraction-free writing surface.
+ *
+ * Triggered by Cmd/Ctrl+Shift+Enter. Adds .compose-mode to <html> and
+ * <body>; the host also toggles VS Code Zen Mode in parallel so the
+ * activity bar, side bar, panel and tabs all collapse out of view.
+ *
+ * Visual model: a centred "paper" surface (light-cream in light theme,
+ * warm dark in dark theme) sits on a much darker / much lighter gutter
+ * background, mimicking Scrivener's composition view. The top toolbar
+ * vanishes; a slim icon bar pins to the bottom of the viewport with
+ * just the controls a writer needs in flow (typewriter toggle, word
+ * count, save status, exit).
+ *
+ * Esc exits. Cmd/Ctrl+Shift+Enter also toggles back out.
+ * ══════════════════════════════════════════════════════════════════ */
+
+html.compose-mode,
+body.compose-mode {
+  background: #1c1a17 !important;   /* warm near-black gutters */
+}
+
+body.compose-mode .toolbar {
+  display: none !important;          /* the top toolbar is the very thing we're hiding */
+}
+
+body.compose-mode .novel-editor {
+  max-width: 760px;
+  margin: 0 auto;
+  /* Cream "paper" surface — same warmth across light and dark VS Code
+   * themes, since compose mode is its own self-contained surface. */
+  background: #f5f1e8;
+  color: #1f1d1a;
+  min-height: 100vh;
+  padding: 9vh 8vw 30vh;             /* generous top + bottom for typewriter scroll */
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.45);
+}
+
+/* Override the manuscript-tint rule so compose paper wins over the
+ * normal manuscript surface. Both the html and body class variants
+ * were applied earlier — knock both of them back here. */
+html.compose-mode.nw-manuscript,
+body.compose-mode.nw-manuscript {
+  background: #1c1a17 !important;
+}
+body.compose-mode .ProseMirror,
+body.compose-mode .ProseMirror p,
+body.compose-mode .ProseMirror h1,
+body.compose-mode .ProseMirror h2,
+body.compose-mode .ProseMirror h3 {
+  color: #1f1d1a;
+}
+body.compose-mode .ProseMirror hr.scene-break::before {
+  color: #6b655a;
+}
+body.compose-mode .ProseMirror blockquote {
+  color: #5a564f;
+  border-left-color: rgba(0, 0, 0, 0.2);
+}
+
+/* The bottom strip — fixed to the viewport, slim, semi-transparent so
+ * it sits over (not under) the prose if the writer scrolls right to
+ * the page edge. Mirrors the Scrivener composition bar (icons + text
+ * across one row at the bottom of the screen). */
+.compose-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(28, 26, 23, 0.92);
+  color: #eae5d8;
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  user-select: none;
+}
+
+.compose-bar-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.compose-bar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.compose-bar-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.compose-bar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.compose-bar-checkbox:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.compose-bar-checkbox input { margin: 0; cursor: pointer; }
+
+.compose-bar-filename {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.compose-bar-spacer { width: 24px; }
+
+.compose-bar-words {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.compose-bar-status {
+  min-width: 64px;
+  text-align: right;
+  opacity: 0.7;
+}
+.compose-bar-status--failed {
+  color: #ff8a80;
+  opacity: 1;
+}
+
 /* Role badge — small muted pill. Shown on both roles so the writer
  * can see which kind of doc is in front of them, though supporting
  * docs-as-editor are rare now that the Inspector handles them. */
