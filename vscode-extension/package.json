@@ -2,7 +2,7 @@
   "name": "storyline-vscode",
   "displayName": "Storyline",
   "description": "Rich-text writing surface for novel projects using the Storyline planning harness. Files stay markdown on disk.",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
@@ -15,21 +15,6 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "customEditors": [
-      {
-        "viewType": "storyline.editor",
-        "displayName": "Storyline Rich Editor",
-        "selector": [
-          {
-            "filenamePattern": "*.md"
-          },
-          {
-            "filenamePattern": "*.markdown"
-          }
-        ],
-        "priority": "option"
-      }
-    ],
     "commands": [
       {
         "command": "storyline.hello",

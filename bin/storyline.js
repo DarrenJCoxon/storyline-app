@@ -26,7 +26,7 @@ const program = new Command();
 program
   .name('storyline')
   .description('Storyline — plan and write your novel using Save the Cat. Use /storyline inside Claude Code for the planning conversation.')
-  .version('1.7.0');
+  .version('1.8.0');
 
 registerInit(program);
 registerCompile(program);
