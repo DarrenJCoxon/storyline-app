@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import MarkdownIt from 'markdown-it';
+import type { StorylineEditorProvider } from './storyline-editor-provider';
 
 // "Storyline: Open Live Chapter Preview" — side panel that renders
 // the active chapter (markdown) with theme CSS applied, and updates
@@ -39,7 +40,10 @@ function createRenderer(): MarkdownIt {
   return md;
 }
 
-export async function openLivePreview(context: vscode.ExtensionContext): Promise<void> {
+export async function openLivePreview(
+  context: vscode.ExtensionContext,
+  editorProvider?: StorylineEditorProvider,
+): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
     vscode.window.showErrorMessage('Storyline: open a novel project folder first.');
@@ -170,15 +174,25 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
     debounceTimer = setTimeout(updatePreview, DEBOUNCE_MS);
   };
 
-  // Get the URI of the active tab, whether it's a text editor tab or a
-  // custom-editor tab. Returns undefined for terminal tabs, diff tabs,
-  // notebooks, webview panels (like our own preview!), etc.
+  // Get the URI of the active tab. Handles three cases:
+  //   - TabInputText: standard text editor (built-in markdown preview etc.)
+  //   - TabInputCustom: legacy custom-editor tabs (kept for compatibility
+  //     with any extension that still registers a custom editor for .md)
+  //   - TabInputWebview: webview panels — including our own rich editor.
+  //     We can't read a URI off a webview directly, but the editor
+  //     provider tracks which document its currently-active panel is
+  //     editing. Live-preview reads that to follow the rich editor.
+  // Returns undefined for terminal tabs, diff tabs, notebooks, this
+  // preview panel itself, etc.
   const getActiveTabUri = (): vscode.Uri | undefined => {
     const tab = vscode.window.tabGroups.activeTabGroup?.activeTab;
     if (!tab) return undefined;
     const input = tab.input;
     if (input instanceof vscode.TabInputText) return input.uri;
     if (input instanceof vscode.TabInputCustom) return input.uri;
+    if (input instanceof vscode.TabInputWebview) {
+      return editorProvider?.getActiveRichEditorUri();
+    }
     return undefined;
   };
 
@@ -202,6 +216,12 @@ export async function openLivePreview(context: vscode.ExtensionContext): Promise
   // events cover both cases; activeTextEditor does not.
   const tabSubscription = vscode.window.tabGroups.onDidChangeTabs(refreshSource);
   const tabGroupSubscription = vscode.window.tabGroups.onDidChangeTabGroups(refreshSource);
+  // Rich-editor focus changes — webview tabs don't fire onDidChangeTabs
+  // when their internal active state flips (the tab itself is the same
+  // object), so we need a separate signal from the editor provider to
+  // know when the writer has switched between two open rich editors.
+  const richEditorSubscription =
+    editorProvider?.onDidChangeActiveRichEditor(() => refreshSource()) ?? { dispose: () => {} };
 
   // React to text edits — including edits via our custom editor, because
   // applyEdit there emits onDidChangeTextDocument too. If we haven't yet

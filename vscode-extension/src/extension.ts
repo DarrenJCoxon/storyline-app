@@ -36,19 +36,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // .storyline/state.json, so non-Storyline windows stay clean.
   await vscode.commands.executeCommand('setContext', 'storyline.active', true);
 
-  // Custom-editor priority is "option" globally (so .md files in non-
-  // Storyline workspaces keep opening with VS Code's built-in markdown
-  // editor — without this the extension's static customEditors
-  // contribution would claim every .md file system-wide and break
-  // any workspace where activate() doesn't register the provider).
-  // For Storyline workspaces we restore the "always open in the rich
-  // editor" behaviour by writing a workspace-scoped editorAssociations
-  // entry. Idempotent — only writes if the association is missing or
-  // pointing somewhere else, so we don't churn .vscode/settings.json
-  // on every activation.
-  await ensureRichEditorAssociation();
+  // The customEditors contribution that used to claim *.md system-wide
+  // has been removed entirely (it was breaking .md opening in non-
+  // Storyline projects and showing a "Storyline Rich Editor" entry in
+  // every Open With submenu globally). The rich editor is now opened
+  // exclusively via the storyline.openEditor command (right-click in
+  // the explorer, or Cmd+Enter on a selected .md file). No global
+  // file-association side effects remain.
+  // Earlier-version cleanup: remove a stale workbench.editorAssociations
+  // entry pointing at the now-deleted custom editor viewType. If we
+  // leave it in place, VS Code tries to open .md files with a viewType
+  // that no longer exists and shows "no provider available".
+  await clearStaleEditorAssociations();
 
-  // Status bar word count — created first so the custom editor provider
+  // Status bar word count — created first so the rich editor provider
   // can notify it of focus changes (needed because custom editors aren't
   // text editors and don't flip vscode.window.activeTextEditor).
   const statusBar = new WordCountStatusBar(context);
@@ -71,36 +72,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await ensureBackupConfigured(workspaceRoot, context);
   }
 
-  // Custom editor for .md files. Only registered here so non-novel workspaces
-  // (where extension doesn't activate) get VS Code's default markdown editor.
+  // Rich editor — command-driven now, no static customEditors
+  // contribution. The provider exposes openForUri(uri) which creates
+  // a fresh WebviewPanel (or reveals an existing one) for a markdown
+  // file. Stored module-scoped so deactivate() can call flushAll().
   editorProvider = new StorylineEditorProvider(context, statusBar, activeFileTracker, backupService);
-  context.subscriptions.push(
-    vscode.window.registerCustomEditorProvider(
-      StorylineEditorProvider.viewType,
-      editorProvider,
-      {
-        webviewOptions: { retainContextWhenHidden: true },
-        supportsMultipleEditorsPerDocument: false,
-      },
-    ),
-  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('storyline.hello', () => {
       vscode.window.showInformationMessage('Storyline — active');
     }),
-    vscode.commands.registerCommand('storyline.openEditor', (uri?: vscode.Uri) => {
+    vscode.commands.registerCommand('storyline.openEditor', async (uri?: vscode.Uri) => {
       if (uri) {
-        return vscode.commands.executeCommand('vscode.openWith', uri, StorylineEditorProvider.viewType);
+        await editorProvider!.openForUri(uri);
+        return;
       }
+      // No URI passed — fall back to the existing file picker flow.
       return openNovelEditor(context);
     }),
     // Open a file in the right-hand editor column (ViewColumn.Beside).
     // Writers use this to pin a supporting doc next to their manuscript
     // without affecting the Explorer sidebar. VS Code creates column 2
     // the first time and persists the layout per-workspace — no
-    // extension-side enforcement required. Replaces the failed
-    // Inspector-view approach from v0.16.x.
+    // extension-side enforcement required.
     vscode.commands.registerCommand('storyline.openToSide', async (uri?: vscode.Uri) => {
       let target = uri;
       if (!target) {
@@ -108,6 +102,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const input = activeTab?.input;
         if (input instanceof vscode.TabInputText) target = input.uri;
         else if (input instanceof vscode.TabInputCustom) target = input.uri;
+        else if (input instanceof vscode.TabInputWebview) {
+          // Webview tab — could be one of our rich editor panels.
+          // Recover the .md URI from the editor provider's tracking.
+          target = editorProvider?.getActiveRichEditorUri();
+        }
       }
       if (!target) {
         vscode.window.showInformationMessage(
@@ -115,17 +114,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         );
         return;
       }
-      await vscode.commands.executeCommand(
-        'vscode.openWith',
-        target,
-        StorylineEditorProvider.viewType,
-        vscode.ViewColumn.Beside,
-      );
+      await editorProvider!.openForUri(target, vscode.ViewColumn.Beside);
     }),
     vscode.commands.registerCommand('storyline.compileEpub', () => compileToEpub()),
     vscode.commands.registerCommand('storyline.compilePrintPdf', () => compileToPrintPdf()),
     vscode.commands.registerCommand('storyline.openPreview', () => openPreview()),
-    vscode.commands.registerCommand('storyline.openLivePreview', () => openLivePreview(context)),
+    vscode.commands.registerCommand('storyline.openLivePreview', () => openLivePreview(context, editorProvider!)),
     vscode.commands.registerCommand('storyline.editBookInfo', () => editBookInfo(context)),
     vscode.commands.registerCommand('storyline.setBackupFolder', async () => {
       const root = vscode.workspace.workspaceFolders?.[0]?.uri;
@@ -218,42 +212,46 @@ export async function deactivate(): Promise<void> {
   // Other disposables registered on context.subscriptions are cleaned up by VS Code.
 }
 
-// Writes the workspace-scoped editor association so .md files in this
-// Storyline project default to opening in the rich Storyline editor
-// (TipTap surface) rather than VS Code's built-in markdown editor.
+// Removes any leftover *.md / *.markdown → storyline.editor entries from
+// workbench.editorAssociations (workspace AND user scope). Earlier
+// extension versions wrote these to make double-click open the rich
+// editor; now that the customEditors contribution has been removed
+// entirely, those entries point at a viewType that doesn't exist and
+// VS Code complains "no provider available" when opening .md files.
+// Strip them on activation so existing projects recover automatically.
 //
-// Why a workspace setting and not a "default" priority on the custom
-// editor contribution: making the contribution global-default broke
-// .md files in EVERY workspace — even non-Storyline ones — because
-// VS Code routed them to storyline.editor before our extension could
-// say "we shouldn't be active here". Per-workspace association keeps
-// the rich editor as the default exactly where it belongs.
-//
-// Idempotent: reads the current setting and only writes if either of
-// the two extensions (md, markdown) is missing or pointing elsewhere.
-// Writes through ConfigurationTarget.Workspace so the value lands in
-// the workspace's .vscode/settings.json (committed alongside project
-// state — the rich editor is part of the project's intended setup).
-async function ensureRichEditorAssociation(): Promise<void> {
-  try {
-    const config = vscode.workspace.getConfiguration('workbench');
-    const current = config.get<Record<string, string>>('editorAssociations') || {};
-    const desiredViewType = 'storyline.editor';
-    const needsUpdate =
-      current['*.md'] !== desiredViewType ||
-      current['*.markdown'] !== desiredViewType;
-    if (!needsUpdate) return;
-    await config.update(
-      'editorAssociations',
-      { ...current, '*.md': desiredViewType, '*.markdown': desiredViewType },
-      vscode.ConfigurationTarget.Workspace,
-    );
-  } catch (err) {
-    // Non-fatal: if the workspace is read-only or the user has chosen
-    // to manage editorAssociations themselves, the explicit "Storyline:
-    // Open in Rich Editor" command remains a fallback.
-    console.warn('Storyline: could not set workbench.editorAssociations', err);
-  }
+// Other associations the user/extensions added are left intact.
+async function clearStaleEditorAssociations(): Promise<void> {
+  const stripStorylineEntries = async (target: vscode.ConfigurationTarget) => {
+    try {
+      const config = vscode.workspace.getConfiguration('workbench');
+      const inspect = config.inspect<Record<string, string>>('editorAssociations');
+      const current =
+        target === vscode.ConfigurationTarget.Workspace
+          ? inspect?.workspaceValue
+          : inspect?.globalValue;
+      if (!current) return;
+      const cleaned: Record<string, string> = {};
+      let modified = false;
+      for (const [pattern, viewType] of Object.entries(current)) {
+        if ((pattern === '*.md' || pattern === '*.markdown') && viewType === 'storyline.editor') {
+          modified = true;
+          continue;
+        }
+        cleaned[pattern] = viewType;
+      }
+      if (!modified) return;
+      await config.update(
+        'editorAssociations',
+        Object.keys(cleaned).length ? cleaned : undefined,
+        target,
+      );
+    } catch {
+      /* non-fatal */
+    }
+  };
+  await stripStorylineEntries(vscode.ConfigurationTarget.Workspace);
+  await stripStorylineEntries(vscode.ConfigurationTarget.Global);
 }
 
 async function isStorylineWorkspace(): Promise<boolean> {
