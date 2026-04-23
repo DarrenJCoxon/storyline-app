@@ -293,6 +293,24 @@ While you're writing, you can see how the book will render in its final form:
 
 Useful for catching formatting issues early — for example, a scene break that sits awkwardly at the bottom of a page, or a chapter heading that clashes with the theme.
 
+The toolbar at the top of the preview pins in place when you scroll, so you can flip between Print 6×9 / iPad / Kindle, swap the theme, or change the chapter-opener style without losing your scroll position. **Print 6×9** mode loads the same CSS layer the compile pipeline uses for the PDF (chapter-title margins, font sizes, drop-cap dimensions), so what you see in that preview is what comes out of the printer.
+
+* * *
+
+## Compose mode
+
+When you want a distraction-free writing surface — no tabs, no sidebars, no toolbars — press **`Cmd+Shift+Enter`** (mac) / **`Ctrl+Shift+Enter`** (Windows / Linux) inside any chapter, or run **"Storyline: Toggle Compose Mode"** from the Command Palette.
+
+You get a Scrivener-style centred "paper" surface on warm-dark gutters, with VS Code's chrome (activity bar, side bar, panel, tabs) collapsed via Zen Mode. A slim floating bar at the bottom of the screen shows just the controls a writer needs in flow:
+
+- **Exit** (or press `Esc`)
+- **Typewriter** toggle — keep the active line near the vertical middle of the viewport
+- The current filename
+- Live word count
+- Save status
+
+Press the same shortcut again — or `Esc` — to return to the normal layout.
+
 * * *
 
 ## Troubleshooting
@@ -314,7 +332,9 @@ Useful for catching formatting issues early — for example, a scene break that 
 
 This recovery class is automatically prevented for new projects by the PreToolUse hook installed by `init` — it refuses any write to `docs/<NN>-*.md` before the matching `save` has committed.
 
-**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.22.0.vsix`.
+**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.31.0.vsix`.
+
+**`.md` files won't open in non-Storyline projects**Fixed in v1.7.0 / extension 0.31.0. The Storyline VS Code extension used to claim every `.md` file system-wide, which broke the markdown editor in unrelated projects. As of 0.31.0 the extension only activates in workspaces that contain `.storyline/state.json`, and `.md` files in other workspaces open in VS Code's built-in markdown editor as expected. If you're still seeing the old behaviour, update the extension via "Extensions: Install from VSIX…" with the `.vsix` from your latest Storyline install.
 
 **Autosave isn't working**Storyline uses its own autosave (every 1.5 seconds after you stop typing). VS Code's separate auto-save feature should be OFF to avoid fighting with it. Check **Code → Preferences → Settings**, search "auto save", and set "Files: Auto Save" to `off`.
 
