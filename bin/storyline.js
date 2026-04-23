@@ -26,7 +26,7 @@ const program = new Command();
 program
   .name('storyline')
   .description('Storyline — plan and write your novel using Save the Cat. Use /storyline inside Claude Code for the planning conversation.')
-  .version('1.8.2');
+  .version('1.0.0');
 
 registerInit(program);
 registerCompile(program);
@@ -190,8 +190,8 @@ program
               message:
                 `Cannot fetch brief for "${requestedStage.name}" — upstream stage "${firstName}" ` +
                 `has a doc on disk but state.json is empty. The /storyline skill wrote the long-form ` +
-                `doc without invoking \`storyline-cli save\`. You must recover before advancing.`,
-              recover: 'npx storyline-cli doctor --recover',
+                `doc without invoking \`storyline-vsc save\`. You must recover before advancing.`,
+              recover: 'npx storyline-vsc doctor --recover',
               drift: driftPayload,
             },
           };
@@ -329,7 +329,7 @@ program
     // any docs/<NN>-*.md or advancing to the next stage. The Claude
     // Code PostToolUse hook also runs it, but the skill should not
     // depend on the hook firing.
-    const verifyCommand = `npx storyline-cli verify-stage ${stageId}`;
+    const verifyCommand = `npx storyline-vsc verify-stage ${stageId}`;
     const fieldsPopulated = state[stageId] && typeof state[stageId] === 'object'
       ? (Array.isArray(state[stageId])
           ? [`${stageId}[${state[stageId].length}]`]
@@ -628,11 +628,11 @@ program
           console.log(chalk.dim('     Orphan doc(s):'));
           f.artefacts.forEach(a => console.log(chalk.dim(`       • ${a}`)));
         }
-        console.log(chalk.bold(`     Recovery: npx storyline-cli reseed ${f.stageId}`));
+        console.log(chalk.bold(`     Recovery: npx storyline-vsc reseed ${f.stageId}`));
         console.log('');
       });
       console.log(chalk.cyan(bar));
-      console.log(chalk.dim('  After reseeding each stage, re-run `npx storyline-cli doctor` to confirm.'));
+      console.log(chalk.dim('  After reseeding each stage, re-run `npx storyline-vsc doctor` to confirm.'));
       console.log('');
       process.exit(report.ok ? 0 : 1);
     }
@@ -772,7 +772,7 @@ program
       '  DO NOT call record-model without a preceding Task-tool invocation.',
       '',
       '  After the subagent returns, call:',
-      `     npx storyline-cli record-model ${stageId} <modelUsed>`,
+      `     npx storyline-vsc record-model ${stageId} <modelUsed>`,
       '  (use --escalated if escalation fired)',
       bar,
     ];

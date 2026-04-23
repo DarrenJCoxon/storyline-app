@@ -1,5 +1,5 @@
 // Install Storyline's drift-check hooks into a project's
-// .claude/settings.json. Auto-invoked by `storyline-cli init` for
+// .claude/settings.json. Auto-invoked by `storyline-vsc init` for
 // Claude-Code-detected projects. Idempotent: leaves existing user
 // customisations alone, only adds our two hook entries if missing.
 //
@@ -7,7 +7,7 @@
 //
 //   PostToolUse on Bash — fires after every Bash tool call. The
 //   handler script (bin/commands/hook-handler.js) inspects the command
-//   and if it was `storyline-cli save <stage>`, runs verify-stage. If
+//   and if it was `storyline-vsc save <stage>`, runs verify-stage. If
 //   verify fails, the hook surfaces the failure loud (stderr + block
 //   decision).
 //
@@ -24,8 +24,8 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 
-// The handler is shipped inside the storyline-cli package and called
-// via node — works whether the writer installs storyline-cli locally
+// The handler is shipped inside the storyline-vsc package and called
+// via node — works whether the writer installs storyline-vsc locally
 // or invokes via npx. The hook command resolves the local install path
 // at fire time so it survives package updates.
 const POST_BASH_SAVE_HOOK = {
@@ -33,7 +33,7 @@ const POST_BASH_SAVE_HOOK = {
   hooks: [
     {
       type: 'command',
-      command: 'node node_modules/storyline-cli/bin/commands/hook-handler.js --mode=post-bash-save',
+      command: 'node node_modules/storyline-vsc/bin/commands/hook-handler.js --mode=post-bash-save',
     },
   ],
 };
@@ -43,7 +43,7 @@ const PRE_WRITE_DOC_HOOK = {
   hooks: [
     {
       type: 'command',
-      command: 'node node_modules/storyline-cli/bin/commands/hook-handler.js --mode=pre-write-doc',
+      command: 'node node_modules/storyline-vsc/bin/commands/hook-handler.js --mode=pre-write-doc',
     },
   ],
 };
@@ -51,7 +51,7 @@ const PRE_WRITE_DOC_HOOK = {
 // Marker we look for to detect "already installed" — keyed off the
 // handler script path so writers can rename or move our hook config
 // without us re-installing on every init.
-const STORYLINE_HOOK_MARKER = 'storyline-cli/bin/commands/hook-handler.js';
+const STORYLINE_HOOK_MARKER = 'storyline-vsc/bin/commands/hook-handler.js';
 
 function readSettings(settingsPath) {
   if (!existsSync(settingsPath)) return {};

@@ -9,7 +9,7 @@ metadata:
     - 'output/manuscript/**/*.md'
     - '.storyline/active-file.txt'
   bashPatterns:
-    - '\bstoryline-cli\s+manuscript\s+notes\b'
+    - '\bstoryline-vsc\s+manuscript\s+notes\b'
   promptSignals:
     phrases:
       - "follow-up"
@@ -65,11 +65,11 @@ The scanner accepts three formats so writers coming from older Storyline project
 | `<...>` | Legacy — still accepted | `<check the museum hours>` |
 | `&lt;...&gt;` | Legacy — still accepted (produced by older rich-text save paths that HTML-encoded angle brackets) | `&lt;check the museum hours&gt;` |
 
-If a project contains legacy markers, offer to run `npx storyline-cli manuscript migrate-markers` once — this previews then rewrites every `<...>` and `&lt;...&gt;` to `{{...}}` in place, so future scans stay simple.
+If a project contains legacy markers, offer to run `npx storyline-vsc manuscript migrate-markers` once — this previews then rewrites every `<...>` and `&lt;...&gt;` to `{{...}}` in place, so future scans stay simple.
 
 ## CLI invocation note (READ FIRST)
 
-Storyline ships as the npm package **`storyline-cli`** and is run via `npx`. Users do not have a global `storyline` binary on their PATH. Every CLI call below must be made as `npx storyline-cli <subcommand>`.
+Storyline ships as the npm package **`storyline-vsc`** and is run via `npx`. Users do not have a global `storyline` binary on their PATH. Every CLI call below must be made as `npx storyline-vsc <subcommand>`.
 
 ## Step 1 — Determine which file(s) to scan
 
@@ -125,10 +125,10 @@ Run the scanner on the chosen scope:
 
 ```bash
 # single file
-npx storyline-cli manuscript notes --file <path> --json
+npx storyline-vsc manuscript notes --file <path> --json
 
 # whole manuscript directory (uses state.writing.manuscriptPath)
-npx storyline-cli manuscript notes --json
+npx storyline-vsc manuscript notes --json
 ```
 
 The scanner returns JSON of shape:
@@ -160,7 +160,7 @@ If `result.notes` is empty, tell the writer there's nothing to resolve and stop.
 
 If any notes have `style !== 'curly'`, after resolving them offer a one-line migration prompt:
 
-> I noticed some notes still use the legacy `<…>` or `&lt;…&gt;` format. Run `npx storyline-cli manuscript migrate-markers` to convert them to `{{…}}` in one pass (preview-first). Not required — the scanner still reads them — but future sessions stay cleaner.
+> I noticed some notes still use the legacy `<…>` or `&lt;…&gt;` format. Run `npx storyline-vsc manuscript migrate-markers` to convert them to `{{…}}` in one pass (preview-first). Not required — the scanner still reads them — but future sessions stay cleaner.
 
 ## Step 3 — Classify each note
 
@@ -234,21 +234,21 @@ For notes the writer wants to **keep as open questions**, leave them in place.
 After applying edits, capture the research outcomes so a future session can look up "what did we verify for chapter 3?":
 
 ```bash
-npx storyline-cli manuscript notes --sync    # writes pending-note entries to memory.jsonl
-npx storyline-cli memory sync                 # returns pending entries as JSON
+npx storyline-vsc manuscript notes --sync    # writes pending-note entries to memory.jsonl
+npx storyline-vsc memory sync                 # returns pending entries as JSON
 ```
 
 For each entry returned by `memory sync`:
 1. Call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }`.
 2. Append a second `resolved`-tagged memory entry per resolved note, documenting the finding (e.g. "British Museum hours: 10–17, Fri late to 20:30 — research for chapter 3, line 12").
-3. Call `npx storyline-cli memory mark-synced <id1> <id2> ...` for every pushed entry.
+3. Call `npx storyline-vsc memory mark-synced <id1> <id2> ...` for every pushed entry.
 
 ## Step 8 — Re-sync the manuscript snapshot
 
 Prose has changed, so manuscript memory is now stale. Refresh it:
 
 ```bash
-npx storyline-cli manuscript sync
+npx storyline-vsc manuscript sync
 ```
 
 This writes `draft:*` keys reflecting new word count, chapter shape, and opening/closing sentences. Push any new pending entries as in Step 7.

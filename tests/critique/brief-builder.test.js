@@ -250,7 +250,7 @@ describe('buildCritiqueBrief — structured errors', () => {
   it('returns STATE_DOC_DRIFT when chapterOutline is empty but a chapter-flesh-out doc exists', async () => {
     // The recurring drift class: writer ran /storyline Stage 12, the skill
     // generated the long-form doc, but the parent harness skipped the
-    // `storyline-cli save chapterOutline` call. State stays empty.
+    // `storyline-vsc save chapterOutline` call. State stays empty.
     // The brief-builder must detect this and tell the writer specifically
     // — not pretend they haven't planned the stage.
     writeChapter(projectPath, 'ch01-orphan.md', '# Orphan\n\nDrafted prose.\n');
@@ -266,7 +266,7 @@ describe('buildCritiqueBrief — structured errors', () => {
     expect(brief.error?.code).toBe('STATE_DOC_DRIFT');
     expect(brief.error.chapterNumber).toBe(1);
     expect(brief.error.orphanDocs).toContain('docs/13-chapter-flesh-out.md');
-    expect(brief.error.message).toContain('storyline-cli save chapterOutline');
-    expect(brief.error.message).toContain('storyline-cli doctor');
+    expect(brief.error.message).toContain('storyline-vsc save chapterOutline');
+    expect(brief.error.message).toContain('storyline-vsc doctor');
   });
 });

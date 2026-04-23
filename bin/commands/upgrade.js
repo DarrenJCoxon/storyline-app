@@ -1,12 +1,12 @@
 // storyline upgrade — reinstall the skill + agents from the current
-// storyline-cli package, overwriting whatever is in .claude/skills/ and
+// storyline-vsc package, overwriting whatever is in .claude/skills/ and
 // .claude/agents/. Safe: does NOT touch state.json, manuscript/, output/,
 // compile.config.json, or .storyline/config.json.
 //
 // The regular `storyline init` is intentionally idempotent (leaves
 // existing .claude/skills/* alone so local edits survive repeat inits).
 // That's the right default but makes it impossible to pick up skill /
-// agent changes from a new storyline-cli version. `upgrade` is the
+// agent changes from a new storyline-vsc version. `upgrade` is the
 // explicit escape hatch for "give me the latest skill wiring without
 // touching my project data".
 
@@ -26,7 +26,7 @@ const PACKAGE_ROOT = resolve(__dirname, '../..');
 export function registerUpgrade(program) {
   program
     .command('upgrade')
-    .description('Reinstall skill + agents from the current storyline-cli version. Safe — leaves state.json, manuscript/, output/ untouched.')
+    .description('Reinstall skill + agents from the current storyline-vsc version. Safe — leaves state.json, manuscript/, output/ untouched.')
     .option('--agent <type>', 'Target agent: claude-code, opencode, codex, both, all, or auto', 'auto')
     .option('--keep-agents', 'Only upgrade the skill; leave .claude/agents/ alone')
     .action(async (opts) => {

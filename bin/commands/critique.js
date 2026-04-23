@@ -3,11 +3,11 @@
 // The skill (skill-critique/SKILL.md) does the conversational work of
 // invoking the draft critic via the harness's Task tool. This CLI is the
 // data plane: build the JSON brief the critic reads. The skill then
-// records model provenance via `storyline-cli record-model draftCritique
+// records model provenance via `storyline-vsc record-model draftCritique
 // <model>` (reusing the existing M8 plumbing).
 //
 // Subcommands so far:
-//   storyline-cli critique-brief <chapter>
+//   storyline-vsc critique-brief <chapter>
 //     Emit the JSON bundle (prose + plan slice + beat slice + drift +
 //     protagonist) for a chapter to stdout. The skill pipes this directly
 //     into the subagent prompt.

@@ -9,7 +9,7 @@ metadata:
     - '.storyline/state.json'
     - '.storyline/active-file.txt'
   bashPatterns:
-    - '\bstoryline-cli\s+critique-brief\b'
+    - '\bstoryline-vsc\s+critique-brief\b'
   promptSignals:
     phrases:
       - "critique this chapter"
@@ -55,7 +55,7 @@ You are the drafting-phase companion for a writer using Storyline. The writer ha
 
 ## CLI invocation note (READ FIRST)
 
-Storyline ships as the npm package **`storyline-cli`** and is run via `npx`. Users do **not** have a global `storyline` binary on their PATH. Every CLI call below must be made as `npx storyline-cli <subcommand>` — never bare `storyline ...`.
+Storyline ships as the npm package **`storyline-vsc`** and is run via `npx`. Users do **not** have a global `storyline` binary on their PATH. Every CLI call below must be made as `npx storyline-vsc <subcommand>` — never bare `storyline ...`.
 
 ## Activation
 
@@ -91,7 +91,7 @@ The writer typed `/critique <ref>`. Parse `<ref>`:
 Run:
 
 ```bash
-npx storyline-cli critique-brief <chapter>
+npx storyline-vsc critique-brief <chapter>
 ```
 
 The CLI emits a JSON bundle on stdout. On failure it emits a structured error JSON and exits non-zero. **You must parse the JSON** — do not skip this step or try to assemble the brief yourself.
@@ -101,7 +101,7 @@ The CLI emits a JSON bundle on stdout. On failure it emits a structured error JS
 - `INVALID_CHAPTER_REF` — tell the writer the reference didn't parse; ask for a number or `ch<NN>` form.
 - `NO_STATE` — tell them there's no `.storyline/state.json`; suggest `storyline init` and completing at least Stage 12.
 - `CHAPTER_NOT_FOUND` — tell them that chapter number has no manuscript file; surface how many chapters are drafted so far.
-- `STATE_DOC_DRIFT` — **read this carefully**. The chapter has been planned (the long-form doc exists in `docs/`), but the structured slice never reached `state.json`. This is a recurring `/storyline` skill bug where the parent harness wrote the doc without invoking `storyline-cli save chapterOutline`. Surface the specific orphan doc paths from `error.orphanDocs` to the writer. Tell them: "Your chapter plan exists in \[paths\] but never got saved into `state.chapterOutline`. Run `npx storyline-cli doctor` to confirm the drift, then re-run `/storyline` and ask it to migrate the existing docs into state, or hand-edit `.storyline/state.json` to populate `chapterOutline` from the doc." Do not invoke the critic. Do not pretend the data is missing — it isn't, it's just in the wrong place.
+- `STATE_DOC_DRIFT` — **read this carefully**. The chapter has been planned (the long-form doc exists in `docs/`), but the structured slice never reached `state.json`. This is a recurring `/storyline` skill bug where the parent harness wrote the doc without invoking `storyline-vsc save chapterOutline`. Surface the specific orphan doc paths from `error.orphanDocs` to the writer. Tell them: "Your chapter plan exists in \[paths\] but never got saved into `state.chapterOutline`. Run `npx storyline-vsc doctor` to confirm the drift, then re-run `/storyline` and ask it to migrate the existing docs into state, or hand-edit `.storyline/state.json` to populate `chapterOutline` from the doc." Do not invoke the critic. Do not pretend the data is missing — it isn't, it's just in the wrong place.
 - `NO_CHAPTER_PLAN` — **also important**. The chapter has not been planned at all (no doc, no state). Do not proceed to the critic. Tell the writer: "I can't run a faithfulness critique on this chapter — there's no plan slice for chapter N in state. Run `/storyline` Stage 12 (Chapter Flesh-Out) to populate the chapter outline, then re-run `/critique`." No critic invocation. Faithfulness without a plan is not what this milestone ships.
 - `CHAPTER_READ_FAILED` — filesystem issue. Surface the path and ask the writer to check.
 
@@ -112,7 +112,7 @@ If the brief returns cleanly (no `error` field), proceed.
 Run:
 
 ```bash
-npx storyline-cli route draftCritique
+npx storyline-vsc route draftCritique
 ```
 
 You will receive JSON with `subagentType: "storyline-critic-draft"` on stdout plus a loud imperative block on stderr telling you exactly which subagent to invoke. Read both.
@@ -129,7 +129,7 @@ Do not pass a model parameter. Do not call a generic subagent. The critic's own 
 
 **What NOT to do — the failure mode this rule prevents:**
 
-> Parent runs `storyline-cli critique-brief 3` → parent writes its own critique into the chat based on the brief → parent runs `storyline-cli record-model draftCritique sonnet` → `state.modelProvenance` claims Sonnet did the work, but no subagent was ever invoked.
+> Parent runs `storyline-vsc critique-brief 3` → parent writes its own critique into the chat based on the brief → parent runs `storyline-vsc record-model draftCritique sonnet` → `state.modelProvenance` claims Sonnet did the work, but no subagent was ever invoked.
 
 If no Task-tool block appears in the chat, the critique did not happen. Go back and invoke the subagent. Do not fabricate provenance.
 
@@ -143,7 +143,7 @@ If no Task-tool block appears in the chat, the critique did not happen. Go back 
 Run:
 
 ```bash
-npx storyline-cli record-model draftCritique sonnet
+npx storyline-vsc record-model draftCritique sonnet
 ```
 
 No `--escalated` flag (no escalation in first ship). No `--fallback` unless the harness genuinely does not expose the Task tool — which for Claude Code it does. Do not use `--fallback` as a shortcut if you chose to critique in-session.
@@ -159,7 +159,7 @@ If the writer wants to update the plan (accepting the prose's new direction), po
 - Did a Task-tool block for `storyline-critic-draft` appear in the chat?
 - Did its first line read `MODEL: sonnet`?
 - Did you present its output without paraphrasing?
-- Did you run `storyline-cli record-model draftCritique sonnet` after?
+- Did you run `storyline-vsc record-model draftCritique sonnet` after?
 
 If all four are yes, the invocation is clean. If any are no, back up and fix — do not close the conversation with half-done provenance.
 
@@ -168,7 +168,7 @@ If all four are yes, the invocation is clean. If any are no, back up and fix —
 If the Task tool reports `storyline-critic-draft` is not installed, run:
 
 ```bash
-npx storyline-cli init
+npx storyline-vsc init
 ```
 
 It's idempotent and will install missing agent files without overwriting local customisations. Tell the writer you reinstalled the agent and retry the Task invocation.

@@ -103,7 +103,7 @@ describe('install-claude-hooks (Layer 3)', () => {
     // 2 user + 1 ours = 3 total; never duplicated.
     expect(settings.hooks.PostToolUse.length).toBe(3);
     const ours = settings.hooks.PostToolUse.filter(e =>
-      e.hooks.some(h => h.command.includes('storyline-cli/bin/commands/hook-handler.js')));
+      e.hooks.some(h => h.command.includes('storyline-vsc/bin/commands/hook-handler.js')));
     expect(ours.length).toBe(1);
   });
 });

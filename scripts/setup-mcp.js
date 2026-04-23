@@ -225,7 +225,7 @@ export function writeCodexUserToml(log = () => {}, { home = homedir() } = {}) {
   // prior section that didn't end with one.
   const addition = [
     '',
-    '# Added by storyline-cli init — odd-flow MCP server for durable',
+    '# Added by storyline-vsc init — odd-flow MCP server for durable',
     '# memory. Remove this section if you no longer use Storyline.',
     '[mcp_servers.odd-flow]',
     'command = "npx"',

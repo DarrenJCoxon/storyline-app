@@ -65,7 +65,7 @@ export function registerVerifyStage(program) {
           code: 'STATE_DOC_DRIFT',
           message: `Stage "${stage.name}" has artefact(s) on disk but state.json is not populated.`,
           orphanDocs: orphanFinding.artefacts || [],
-          recover: `npx storyline-cli reseed ${stageId}`,
+          recover: `npx storyline-vsc reseed ${stageId}`,
         };
         if (opts.json) {
           console.log(JSON.stringify(result, null, 2));
@@ -88,7 +88,7 @@ export function registerVerifyStage(program) {
           code: 'MISSING_FIELDS',
           message: `Stage "${stage.name}" has required fields missing from state.json.`,
           missingFields: missing,
-          recover: `Run /storyline to complete this stage, or \`npx storyline-cli reseed ${stageId}\` if you've already planned it.`,
+          recover: `Run /storyline to complete this stage, or \`npx storyline-vsc reseed ${stageId}\` if you've already planned it.`,
         };
         if (opts.json) {
           console.log(JSON.stringify(result, null, 2));

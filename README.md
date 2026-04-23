@@ -71,7 +71,7 @@ From the menu bar, choose **View → Terminal** **→ New Terminal** (or press `
 In that terminal, type (or copy-paste) the following and press Enter:
 
 ```bash
-npx storyline-cli init
+npx storyline-vsc init
 ```
 
 This downloads Storyline and sets up the current folder as a novel project. It takes 20-30 seconds the first time as npm fetches the package.
@@ -88,10 +88,10 @@ Because you're running this from VS Code's own terminal, the `code` CLI is alway
 **To force a specific agent** (instead of auto-detect), pass `--agent`:
 
 ```bash
-npx storyline-cli init --agent claude-code   # Claude Code only
-npx storyline-cli init --agent opencode      # OpenCode only
-npx storyline-cli init --agent codex         # Codex only
-npx storyline-cli init --agent all           # all three
+npx storyline-vsc init --agent claude-code   # Claude Code only
+npx storyline-vsc init --agent opencode      # OpenCode only
+npx storyline-vsc init --agent codex         # Codex only
+npx storyline-vsc init --agent all           # all three
 ```
 
 ### 5. Reload the VS Code window
@@ -112,7 +112,7 @@ Storyline comes with a VS Code extension that provides the rich-text writing sur
 
 In the file tree on the left, **right-click** `docs/welcome.md` and choose **"Storyline: Open in Rich Editor"**. It opens in the middle of the screen as the Storyline rich-text editor — a normal writing surface, no code, no syntax highlighting, just prose. You can start typing.
 
-(A single click still works on `.md` files but opens VS Code's built-in markdown editor — useful when you want to see the raw markdown source. As of v1.8 the rich editor is opened explicitly via the right-click menu so the extension stays out of the way in non-Storyline projects.)
+(A single click still works on `.md` files but opens VS Code's built-in markdown editor — useful when you want to see the raw markdown source. The rich editor is opened explicitly via the right-click menu so the extension stays out of the way in non-Storyline projects.)
 
 ### Open a chapter to the side
 
@@ -317,24 +317,24 @@ Press the same shortcut again — or `Esc` — to return to the normal layout.
 
 **"npx: command not found**"You haven't installed Node.js, or the install didn't update your PATH. Re-install Node from https://nodejs.org/ and restart your terminal.
 
-**"code: command not found**"You've tried to run `code .` from a system terminal before enabling VS Code's shell command. You don't need to — follow the install instructions above, which run `npx storyline-cli init` from VS Code's own integrated terminal instead. That path always works.
+**"code: command not found**"You've tried to run `code .` from a system terminal before enabling VS Code's shell command. You don't need to — follow the install instructions above, which run `npx storyline-vsc init` from VS Code's own integrated terminal instead. That path always works.
 
-**Claude Code doesn't recognise** `/storyline`**,** `/follow-up`**, or** `/critique`The skills weren't installed correctly. Check that `.claude/skills/storyline/`, `.claude/skills/follow-up/`, and `.claude/skills/critique/` exist inside your project folder. If one is missing, run `npx storyline-cli@latest init .` again from inside that folder to repair it, then reload the Claude Code window.
+**Claude Code doesn't recognise** `/storyline`**,** `/follow-up`**, or** `/critique`The skills weren't installed correctly. Check that `.claude/skills/storyline/`, `.claude/skills/follow-up/`, and `.claude/skills/critique/` exist inside your project folder. If one is missing, run `npx storyline-vsc@latest init .` again from inside that folder to repair it, then reload the Claude Code window.
 
 **`/critique` says** `STATE_DOC_DRIFT` **or** `/storyline` **says** `UPSTREAM_DRIFT`Your planning conversation produced long-form docs in `docs/` (e.g. `13-chapter-flesh-out.md`) but the structured data never reached `.storyline/state.json`. This is the bug the v1.6 enforcement layer is designed to detect. To recover:
 
-1. Run `npx storyline-cli doctor --recover` — lists every stage that needs reseeding, with the exact next command for each.
-2. For each stage in the list, run `npx storyline-cli reseed <stageId>` — prints the required-fields schema, points at the source doc to extract from, and shows the exact `save` command to run.
+1. Run `npx storyline-vsc doctor --recover` — lists every stage that needs reseeding, with the exact next command for each.
+2. For each stage in the list, run `npx storyline-vsc reseed <stageId>` — prints the required-fields schema, points at the source doc to extract from, and shows the exact `save` command to run.
 3. Extract the structured data from the doc (you can ask your AI in a separate chat to read the doc and output JSON matching the schema).
 4. Run the `save` command shown by reseed.
-5. Run `npx storyline-cli verify-stage <stageId>` — must exit 0.
+5. Run `npx storyline-vsc verify-stage <stageId>` — must exit 0.
 6. Repeat for each orphan stage, then re-run `/critique` or `/storyline`.
 
 This recovery class is automatically prevented for new projects by the PreToolUse hook installed by `init` — it refuses any write to `docs/<NN>-*.md` before the matching `save` has committed.
 
 **The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.32.1.vsix`.
 
-**`.md` files won't open in non-Storyline projects, or "Storyline" still appears in right-click menus there**Fully fixed in v1.8.2 / extension 0.32.1. (1.8.0 / 1.8.1 shipped a broken extension that left .md files unopenable — install 1.8.2 to recover.) Earlier versions registered Storyline as a `.md` editor system-wide via a `customEditors` package contribution, which leaked into every VS Code workspace — even those with no Storyline project. As of 0.32.1 the extension contributes nothing globally: the rich editor is opened only via the explicit "Storyline: Open in Rich Editor" command (right-click in the Explorer or via the Command Palette), and every command, menu item and keybinding is gated behind a `storyline.active` context key that is only set after the workspace check passes. Non-Storyline workspaces see zero Storyline entries in any menu. **If you're still seeing the old behaviour, update the extension**: run `npx storyline-cli@latest init .` from inside any Storyline project (it will install the new 0.32.1 VSIX and reload), or install it manually via "Extensions: Install from VSIX…". A future 1.9.0 will restore single-click auto-routing in Storyline projects via tab interception.
+**`.md` files don't open in non-Storyline projects, or "Storyline" appears in right-click menus there**This package (`storyline-vsc`) replaces the earlier `storyline-cli` package, whose extension registered itself as a `.md` editor system-wide via a `customEditors` contribution and leaked into every VS Code workspace. `storyline-vsc` contributes nothing globally: the rich editor is opened only via the explicit "Storyline: Open in Rich Editor" command (right-click in the Explorer or via the Command Palette), and every command, menu item, and keybinding is gated behind a `storyline.active` context key that is only set after the workspace check passes. Non-Storyline workspaces see zero Storyline entries in any menu. If you previously installed `storyline-cli`, uninstall the old VS Code extension first (Extensions panel → search "Storyline" → uninstall), then run `npx storyline-vsc@latest init .` from inside any Storyline project to install the clean replacement. A future release will restore single-click auto-routing in Storyline projects via tab interception.
 
 **Autosave isn't working**Storyline uses its own autosave (every 1.5 seconds after you stop typing). VS Code's separate auto-save feature should be OFF to avoid fighting with it. Check **Code → Preferences → Settings**, search "auto save", and set "Files: Auto Save" to `off`.
 

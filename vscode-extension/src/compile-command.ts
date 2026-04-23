@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import * as path from 'path';
 
-// Shell out to the CLI: `npx storyline-cli compile --format <format>`. Does NOT
+// Shell out to the CLI: `npx storyline-vsc compile --format <format>`. Does NOT
 // reimplement the compile pipeline — that logic stays in the CLI so
 // it's testable outside VS Code and usable from any terminal.
 //
@@ -58,7 +58,7 @@ async function runCompileCommand(config: CompileConfig): Promise<void> {
   } catch {
     vscode.window.showErrorMessage(
       'Storyline: no .storyline/state.json found in this workspace. ' +
-        'Run `npx storyline-cli init` in the terminal first.',
+        'Run `npx storyline-vsc init` in the terminal first.',
     );
     return;
   }
@@ -101,14 +101,14 @@ function runCompile(
       () =>
         new Promise<void>((progressResolve, progressReject) => {
           // Invoke the CLI via npx. Storyline ships as the npm package
-          // `storyline-cli` and users don't get a global `storyline`
+          // `storyline-vsc` and users don't get a global `storyline`
           // binary — the old direct invocation failed with "storyline:
           // command not found" because that binary only exists inside
-          // the npm package's bin/, not on PATH. `npx storyline-cli`
+          // the npm package's bin/, not on PATH. `npx storyline-vsc`
           // resolves it from the npm cache (warmed by `init`) or
           // fetches it on first use. Shell: true so the user's shell
           // profile PATH (where npx lives) is honoured.
-          const child = spawn(`npx -y storyline-cli compile --format ${config.format}`, {
+          const child = spawn(`npx -y storyline-vsc compile --format ${config.format}`, {
             cwd,
             shell: true,
             env: { ...process.env, FORCE_COLOR: '0' },

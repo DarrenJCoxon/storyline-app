@@ -23,7 +23,7 @@ export async function openPreview(): Promise<void> {
     await vscode.workspace.fs.stat(stateFile);
   } catch {
     vscode.window.showErrorMessage(
-      'Storyline: no .storyline/state.json found. Run `npx storyline-cli init` first.',
+      'Storyline: no .storyline/state.json found. Run `npx storyline-vsc init` first.',
     );
     return;
   }

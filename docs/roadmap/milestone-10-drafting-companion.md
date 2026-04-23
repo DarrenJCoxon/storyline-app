@@ -47,7 +47,7 @@ Active-file resolution reuses vscode-extension/src/active-file-tracker.ts; when 
 ## Flow per chapter
 
 1. **Resolve scope** — skill maps the invocation to one or more files under `manuscript/`.
-2. **Build the critique brief** — new CLI verb `storyline-cli critique-brief <chapter>` emits a JSON bundle containing:
+2. **Build the critique brief** — new CLI verb `storyline-vsc critique-brief <chapter>` emits a JSON bundle containing:
    - the chapter's prose (raw markdown)
    - the chapter's plan slice (`state.chapterOutline[n]`, including POV, scenes, conflict, what-changes, parent beat id)
    - the parent beat's slice (`state.beatSheet[beatId]`, including midpointType / whiffOfDeath / selfRevelation / etc. where applicable)
@@ -88,7 +88,7 @@ lib/critique/                         (new — pure Node, no model calls)
 └── output-formatter.js               (agent reply → writer-facing markdown)
 
 bin/commands/
-└── critique.js                       (storyline-cli critique-brief, -render)
+└── critique.js                       (storyline-vsc critique-brief, -render)
 ```
 
 ### Reuse, don't rebuild
@@ -101,7 +101,7 @@ bin/commands/
 
 ### VS Code ergonomics (phase 2 of this milestone)
 
-Once the skill-driven flow is proven, add a command palette entry `Storyline: Critique this chapter` and a right-click context menu item on `.md` files under `manuscript/`. Both shell out to `storyline-cli critique-brief` and invoke the same skill path via the harness. No separate code path, no duplication.
+Once the skill-driven flow is proven, add a command palette entry `Storyline: Critique this chapter` and a right-click context menu item on `.md` files under `manuscript/`. Both shell out to `storyline-vsc critique-brief` and invoke the same skill path via the harness. No separate code path, no duplication.
 
 ## The `storyline-critic-draft` agent
 
@@ -195,7 +195,7 @@ Severities: 🔴 error (planned beat function missing), 🟡 warning (partial de
 
 - `/critique` skill works for single-chapter, whole-manuscript, and plan-only modes
 - `storyline-critic-draft` agent installed via `storyline init` into `.claude/agents/`
-- `storyline-cli critique-brief <chapter>` produces a complete JSON bundle (prose + plan slice + beat slice + drift findings + protagonist arc)
+- `storyline-vsc critique-brief <chapter>` produces a complete JSON bundle (prose + plan slice + beat slice + drift findings + protagonist arc)
 - Faithfulness critique runs Sonnet by default, escalates silently to Opus on weak output (per M8 confidence-check heuristic)
 - `/critique all` runs a serial Opus continuity pass with per-chapter Sonnet results cached
 - VS Code command palette entry `Storyline: Critique this chapter` shells out to the same skill path (phase 2)
@@ -230,7 +230,7 @@ Before any code is written, the writer validates the draft critic's system promp
   "prose": "<paste the full markdown of the chapter here>",
   "chapterPlan": <paste state.chapterOutline.find(c => c.chapterNumber === N)>,
   "beatPlan": <paste state.beatSheet.beats[chapterPlan.beat]>,
-  "driftFindings": <paste any findings from `storyline-cli manuscript compare` filtered to chapter N — may be []>,
+  "driftFindings": <paste any findings from `storyline-vsc manuscript compare` filtered to chapter N — may be []>,
   "protagonist": <paste state.protagonist>
 }
 ```

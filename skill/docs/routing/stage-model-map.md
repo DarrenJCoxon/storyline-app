@@ -1,6 +1,6 @@
 # Stage → model routing map
 
-This is the authoritative table the `/storyline` skill uses at stage boundaries. It maps each planning stage to the Claude model that should handle that stage's critique subagent. The skill fetches the live routing via `npx storyline-cli route <stageId>` — that CLI call factors in the current `ai.quality` setting and returns `{ model, escalateOn }`. This doc explains the rationale.
+This is the authoritative table the `/storyline` skill uses at stage boundaries. It maps each planning stage to the Claude model that should handle that stage's critique subagent. The skill fetches the live routing via `npx storyline-vsc route <stageId>` — that CLI call factors in the current `ai.quality` setting and returns `{ model, escalateOn }`. This doc explains the rationale.
 
 ## Why route at all on a subscription plan
 
@@ -28,7 +28,7 @@ Storyline runs inside a subscription harness (Claude Code / OpenCode / Codex). T
 
 ## Quality modes
 
-Set via `npx storyline-cli config set ai.quality <mode>`. Stored in `.storyline/config.json`.
+Set via `npx storyline-vsc config set ai.quality <mode>`. Stored in `.storyline/config.json`.
 
 - `economy` — every tier shifted down by one. Haiku capture stages become Haiku still (floor), Sonnet stages become Haiku, Opus stages become Sonnet. No escalation on Stage 7 / Stage 10-critique. Use when the writer wants speed and does not need deep critique.
 - `balanced` — the table above. Default.
@@ -46,10 +46,10 @@ The model is pinned inside each agent's frontmatter — the skill invokes by nam
 
 At every stage boundary:
 
-1. Run `npx storyline-cli route <stageId>` and parse `{ subagentType, escalateSubagentType, qualityMode, model }` from stdout.
-2. **Invoke the named subagent via the Task tool**, passing `subagent_type: <routed subagentType>`. Brief it with the stage's critique context — a snapshot of the relevant state (via `npx storyline-cli status` / `stage-info`) plus the stage guide. The agent's own system prompt already defines its output format, scope, and identity line (every reply begins with `MODEL: <tier>` for verification).
+1. Run `npx storyline-vsc route <stageId>` and parse `{ subagentType, escalateSubagentType, qualityMode, model }` from stdout.
+2. **Invoke the named subagent via the Task tool**, passing `subagent_type: <routed subagentType>`. Brief it with the stage's critique context — a snapshot of the relevant state (via `npx storyline-vsc status` / `stage-info`) plus the stage guide. The agent's own system prompt already defines its output format, scope, and identity line (every reply begins with `MODEL: <tier>` for verification).
 3. When the subagent returns, run the confidence check (see `confidence-check.md`). If `escalateSubagentType` is set and the check fails, invoke the Task tool a second time with `subagent_type: "storyline-critic-opus"` and the same brief, and use that output instead.
-4. Record provenance: `npx storyline-cli record-model <stageId> <modelReported> [--escalated]`. `<modelReported>` is the value on the subagent's `MODEL:` line. This writes `state.modelProvenance[stageId]` so the writer (and future prove-it tests) can see which model produced which critique.
+4. Record provenance: `npx storyline-vsc record-model <stageId> <modelReported> [--escalated]`. `<modelReported>` is the value on the subagent's `MODEL:` line. This writes `state.modelProvenance[stageId]` so the writer (and future prove-it tests) can see which model produced which critique.
 5. Render the critique back into the conversation as normal.
 
 ## Harness support

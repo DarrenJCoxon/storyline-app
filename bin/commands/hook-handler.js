@@ -14,7 +14,7 @@
 //
 //   --mode post-bash-save
 //     Fires after every `Bash` tool call. If the command was
-//     `npx storyline-cli save <stage>` (or `storyline save <stage>`),
+//     `npx storyline-vsc save <stage>` (or `storyline save <stage>`),
 //     run `verify-stage <stage>`. If verify fails, emit a "block"
 //     decision so the writer / harness sees the failure loud.
 //
@@ -74,7 +74,7 @@ function emitDecision(decision, reason, extra = {}) {
 
 function findStorylineSaveStage(bashCommand) {
   if (!bashCommand) return null;
-  // Match `storyline-cli save <stage>` or `storyline save <stage>`,
+  // Match `storyline-vsc save <stage>` or `storyline save <stage>`,
   // optionally prefixed with `npx ` (with or without `-y`).
   const m = bashCommand.match(/storyline(?:-cli)?\s+save\s+([a-zA-Z]+)/);
   return m ? m[1] : null;
@@ -94,8 +94,8 @@ function findDocStageFromPath(filePath) {
 function runVerifyStage(stageId, projectPath) {
   // Shell out to `node <self> verify-stage <stage> --json` so the
   // handler is a thin wrapper that always uses the same logic as the
-  // CLI verb. Works regardless of whether storyline-cli is on PATH.
-  const cli = resolve(projectPath, 'node_modules', 'storyline-cli', 'bin', 'storyline.js');
+  // CLI verb. Works regardless of whether storyline-vsc is on PATH.
+  const cli = resolve(projectPath, 'node_modules', 'storyline-vsc', 'bin', 'storyline.js');
   // Fall back to the npx invocation if the local install isn't present.
   const cmd = `node ${JSON.stringify(cli)} verify-stage ${stageId} --json`;
   try {
@@ -107,8 +107,8 @@ function runVerifyStage(stageId, projectPath) {
 }
 
 function fallbackVerify(stageId, projectPath) {
-  // If the local install isn't present, try `npx storyline-cli verify-stage`.
-  const cmd = `npx storyline-cli verify-stage ${stageId} --json`;
+  // If the local install isn't present, try `npx storyline-vsc verify-stage`.
+  const cmd = `npx storyline-vsc verify-stage ${stageId} --json`;
   try {
     const out = execSync(cmd, { cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
     return { ok: true, exit: 0, stdout: out };
@@ -141,7 +141,7 @@ async function handlePostBashSave(payload) {
   }
   // Verify failed: surface the failure loud. Don't block (the save
   // already happened); just make sure the harness sees the gap.
-  emitDecision('block', `storyline save ${stageId} did not produce a verifiable commit. Run \`npx storyline-cli verify-stage ${stageId}\` to inspect. Either re-save with full data or run \`npx storyline-cli reseed ${stageId}\`.`);
+  emitDecision('block', `storyline save ${stageId} did not produce a verifiable commit. Run \`npx storyline-vsc verify-stage ${stageId}\` to inspect. Either re-save with full data or run \`npx storyline-vsc reseed ${stageId}\`.`);
   process.exit(2);
 }
 
@@ -162,7 +162,7 @@ async function handlePreWriteDoc(payload) {
   emitDecision('block',
     `Refusing write to ${filePath}: stage "${stageId}" has not been saved to .storyline/state.json yet. ` +
     `Per the /storyline skill's per-stage flow, save MUST happen before any docs/<NN>-*.md is written. ` +
-    `Run \`npx storyline-cli save ${stageId} '<json>'\` first, then retry the write.`,
+    `Run \`npx storyline-vsc save ${stageId} '<json>'\` first, then retry the write.`,
   );
   process.exit(2);
 }
@@ -191,7 +191,7 @@ main().catch((e) => {
 });
 
 // This file is loaded directly by Claude Code's hook runner via
-// `node node_modules/storyline-cli/bin/commands/hook-handler.js --mode=...`
+// `node node_modules/storyline-vsc/bin/commands/hook-handler.js --mode=...`
 // — it doesn't go through Commander.
 
 // Provide a no-op register so it doesn't accidentally pollute the CLI

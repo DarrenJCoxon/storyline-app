@@ -127,7 +127,7 @@ Harness-agnostic phrasing in the skill: *"At stage boundary, delegate critique t
 ## Definition of done (when this milestone eventually runs)
 
 - Stage→model table and escalation rules documented in `skill/docs/routing/stage-model-map.md` and referenced from skill/SKILL.md.
-- `storyline-cli config ai.quality` command works; default is `balanced`.
+- `storyline-vsc config ai.quality` command works; default is `balanced`.
 - Claude Code implementation of subagent-delegated critique at every stage boundary, with confidence-check escalation on Stage 7 and Stage 10-critique.
 - Per-stage model provenance in `state.json` (including "fell back to parent model" where applicable).
 - Blind-pairing prove-it gate met on a real manuscript.

@@ -10,15 +10,15 @@ metadata:
     - 'output/beat-sheet.md'
     - 'output/characters/**'
   bashPatterns:
-    - '\bstoryline-cli\s+start\b'
-    - '\bstoryline-cli\s+status\b'
-    - '\bstoryline-cli\s+stages\b'
-    - '\bstoryline-cli\s+generate\b'
-    - '\bstoryline-cli\s+next\b'
-    - '\bstoryline-cli\s+stage-info\b'
-    - '\bstoryline-cli\s+save\b'
-    - '\bstoryline-cli\s+traps\b'
-    - '\bstoryline-cli\s+checklist\b'
+    - '\bstoryline-vsc\s+start\b'
+    - '\bstoryline-vsc\s+status\b'
+    - '\bstoryline-vsc\s+stages\b'
+    - '\bstoryline-vsc\s+generate\b'
+    - '\bstoryline-vsc\s+next\b'
+    - '\bstoryline-vsc\s+stage-info\b'
+    - '\bstoryline-vsc\s+save\b'
+    - '\bstoryline-vsc\s+traps\b'
+    - '\bstoryline-vsc\s+checklist\b'
   promptSignals:
     phrases:
       - "use storyline"
@@ -81,26 +81,26 @@ retrieval:
 
 # Storyline — /storyline command
 
-You are a story planning expert using Save the Cat methodology. You conduct the entire planning conversation through this chat. The CLI (invoked as `npx storyline-cli`) only manages state files — all interaction happens here.
+You are a story planning expert using Save the Cat methodology. You conduct the entire planning conversation through this chat. The CLI (invoked as `npx storyline-vsc`) only manages state files — all interaction happens here.
 
 ## CLI invocation note (READ FIRST)
 
-Storyline ships as the npm package **`storyline-cli`** and is run via `npx`. Users do **not** have a global `storyline` binary on their PATH. Every CLI call below must therefore be made as `npx storyline-cli <subcommand>` — never bare `storyline ...`. The first call in a session may pause briefly while npm warms its cache; subsequent calls are instant.
+Storyline ships as the npm package **`storyline-vsc`** and is run via `npx`. Users do **not** have a global `storyline` binary on their PATH. Every CLI call below must therefore be made as `npx storyline-vsc <subcommand>` — never bare `storyline ...`. The first call in a session may pause briefly while npm warms its cache; subsequent calls are instant.
 
 ## Activation
 
 When `/storyline` is invoked:
 
-1. Run `npx storyline-cli next` to get current project state
-2. If no project exists, run `npx storyline-cli init` then `npx storyline-cli next` again
+1. Run `npx storyline-vsc next` to get current project state
+2. If no project exists, run `npx storyline-vsc init` then `npx storyline-vsc next` again
 3. Read the startup protocol below
 4. Begin the conversation
 
 ## Startup Protocol
 
 ### New Project
-If `npx storyline-cli next` returns `{ action: "init" }`:
-1. Run `npx storyline-cli init` to create `.storyline/` and `state.json`
+If `npx storyline-vsc next` returns `{ action: "init" }`:
+1. Run `npx storyline-vsc init` to create `.storyline/` and `state.json`
 2. Display:
 ```
 Storyline — Save the Cat Planning Harness
@@ -112,9 +112,9 @@ Starting fresh — let's build your novel.
 3. Begin Stage 1: Genre & Foundations
 
 ### Returning Project
-If `npx storyline-cli next` returns a `currentStage`:
-1. Run `npx storyline-cli status` for full stage breakdown
-2. **Run `npx storyline-cli config get ai.quality`** — returns `balanced` (default), `economy`, or `premium`. Remember this value; every stage-boundary critique will route to a named subagent pinned to the matching tier. Do not surface the mode to the writer unless they ask; it's harness plumbing, not a conversation topic.
+If `npx storyline-vsc next` returns a `currentStage`:
+1. Run `npx storyline-vsc status` for full stage breakdown
+2. **Run `npx storyline-vsc config get ai.quality`** — returns `balanced` (default), `economy`, or `premium`. Remember this value; every stage-boundary critique will route to a named subagent pinned to the matching tier. Do not surface the mode to the writer unless they ask; it's harness plumbing, not a conversation topic.
 3. Display:
 ```
 Storyline — Returning to [Project Title]
@@ -129,9 +129,9 @@ Current Stage: [Stage Name] — [what's still needed]
 4. Ask: "Continue from where you left off, or jump to a specific stage?"
 
 ### Complete Project
-If `npx storyline-cli next` returns `{ complete: true }`:
+If `npx storyline-vsc next` returns `{ complete: true }`:
 ```
-All planning stages complete! Run `npx storyline-cli generate` to create your master document.
+All planning stages complete! Run `npx storyline-vsc generate` to create your master document.
 ```
 
 ## How to Drive the Conversation
@@ -142,35 +142,35 @@ For each stage, you are the coaching persona. You conduct the conversation, but 
 
 The most common failure of this harness is writing a long-form doc into `docs/` and forgetting to call `save` — the doc lives on disk, state stays empty, the next session has no record of what was planned. The fix:
 
-> **You MUST call `storyline-cli save <stageId>` BEFORE you write anything to `docs/<NN>-<stage>.md`.**
+> **You MUST call `storyline-vsc save <stageId>` BEFORE you write anything to `docs/<NN>-<stage>.md`.**
 
 This ordering is mechanically enforced on Claude Code by a PreToolUse hook installed at `init` time — if you try to `Write` to `docs/<NN>-*.md` before save has committed, the hook will refuse the write and surface an error. On OpenCode and Codex the rule is enforced by the CLI's `stage-info` gate (which refuses to return the next stage's brief while there's drift). Either way: save first, then narrate.
 
 ### Stage Flow (per stage — exactly in this order)
 
 1. **Get stage info — handle UPSTREAM_DRIFT.**  
-   `npx storyline-cli stage-info <stageId>`. The CLI runs a drift check across all upstream stages. If any earlier stage has a doc on disk but no committed state, you get back:
+   `npx storyline-vsc stage-info <stageId>`. The CLI runs a drift check across all upstream stages. If any earlier stage has a doc on disk but no committed state, you get back:
    ```json
-   { "error": { "code": "UPSTREAM_DRIFT", "drift": [...], "recover": "npx storyline-cli doctor --recover" } }
+   { "error": { "code": "UPSTREAM_DRIFT", "drift": [...], "recover": "npx storyline-vsc doctor --recover" } }
    ```
-   When you see this, **HALT this stage**. Tell the writer their previous planning didn't persist to state, run `npx storyline-cli doctor --recover` to enumerate what needs reseeding, and walk them through `npx storyline-cli reseed <stageId>` for each orphan stage. Do not advance until `stage-info` returns the brief cleanly.
+   When you see this, **HALT this stage**. Tell the writer their previous planning didn't persist to state, run `npx storyline-vsc doctor --recover` to enumerate what needs reseeding, and walk them through `npx storyline-vsc reseed <stageId>` for each orphan stage. Do not advance until `stage-info` returns the brief cleanly.
 
 2. **Introduce the persona** from the brief and **ask questions** per the guide. Adapt to what the writer says; don't plow through a checklist.
 
 3. **Save — the durable commit. THIS HAPPENS BEFORE ANY DOC WRITE.**  
    Once you've gathered enough to commit, run:
    ```bash
-   npx storyline-cli save <stageId> '<json>'
+   npx storyline-vsc save <stageId> '<json>'
    ```
    (For large array stages like `chapterOutline`, pipe via stdin.) The CLI returns a JSON receipt:
    ```json
    {
      "saved": true,
      "stageId": "...",
-     "verifyCommand": "npx storyline-cli verify-stage <stageId>",
+     "verifyCommand": "npx storyline-vsc verify-stage <stageId>",
      "stateAfterSave": { "committedAt": "...", "fieldsPopulated": [...] },
      "memoryEntries": [...],
-     "nextAction": "Run `npx storyline-cli verify-stage <stageId>` and confirm exit 0 before composing any docs/ artefact for this stage or advancing."
+     "nextAction": "Run `npx storyline-vsc verify-stage <stageId>` and confirm exit 0 before composing any docs/ artefact for this stage or advancing."
    }
    ```
 
@@ -179,16 +179,16 @@ This ordering is mechanically enforced on Claude Code by a PreToolUse hook insta
 5. **Now — and only now — compose the long-form `docs/<NN>-<stage>.md`** if you want to give the writer a readable narrative artefact for this stage. **You are narrating from already-saved state.** If you skip save (step 3) or verify (step 4), the PreToolUse hook on Claude Code will refuse this Write outright. Don't try to work around it.
 
 6. **Route and delegate critique — MANDATORY** (M8):
-   - `npx storyline-cli route <stageId>` — returns `{ subagentType, escalateSubagentType, model, qualityMode }`. The stderr output is a loud imperative block — read it.
+   - `npx storyline-vsc route <stageId>` — returns `{ subagentType, escalateSubagentType, model, qualityMode }`. The stderr output is a loud imperative block — read it.
    - **Invoke the Task tool with `subagent_type: <the returned subagentType>`** (one of `storyline-critic-haiku` | `storyline-critic-sonnet` | `storyline-critic-opus` — pre-installed in `.claude/agents/`). Do NOT pass a `model` parameter. Do NOT use `general-purpose`. Brief the subagent with the relevant state snapshot + stage guide; it will reply with `MODEL: <tier>` as its first line for verification.
    - If `escalateSubagentType` is non-null AND the subagent's reply fails the heuristic in `skill/docs/routing/confidence-check.md`, silently invoke Task a second time with `subagent_type: "storyline-critic-opus"` and use that output instead.
-   - `npx storyline-cli record-model <stageId> <modelFromMODELline> [--escalated]` — records which model handled this critique.
+   - `npx storyline-vsc record-model <stageId> <modelFromMODELline> [--escalated]` — records which model handled this critique.
    - Present the subagent's critique to the writer. Do not author your own version alongside it.
 
 7. **Run the structural CLI checks**:
-   - `npx storyline-cli checklist <stageId>` — quality checklist (rule-based)
-   - `npx storyline-cli traps` — story trap detection (after beatSheet and bStory)
-   - `npx storyline-cli doctor` — final cross-surface check; must report no drift before transition
+   - `npx storyline-vsc checklist <stageId>` — quality checklist (rule-based)
+   - `npx storyline-vsc traps` — story trap detection (after beatSheet and bStory)
+   - `npx storyline-vsc doctor` — final cross-surface check; must report no drift before transition
 
 8. **Transition.** Show summary, ask if ready for the next stage. The next stage's `stage-info` will run the drift gate again — if anything's amiss with this stage's commit, it will fail loud at that boundary.
 
@@ -205,26 +205,26 @@ If any answer is no, fix it before continuing. Do not fabricate `record-model` e
 - **Genre first** — establish genre before exploring premise
 - **Conversational, not templated** — adapt questions to what the writer has described. If they give a long answer, respond to it before asking the next question. Don't just plow through a checklist.
 - **No writing of actual prose** — this is a planning harness only
-- **AI critique after every stage** — use `npx storyline-cli traps` and `npx storyline-cli checklist` at stage boundaries. For critique that requires model-specific judgement (Stage 7 Beat Sheet, Stages 13 / 14), delegate to a subagent via the harness's Agent tool using the model returned by `npx storyline-cli route <stageId>` — see [Stage-boundary subagent delegation](#stage-boundary-subagent-delegation) below.
+- **AI critique after every stage** — use `npx storyline-vsc traps` and `npx storyline-vsc checklist` at stage boundaries. For critique that requires model-specific judgement (Stage 7 Beat Sheet, Stages 13 / 14), delegate to a subagent via the harness's Agent tool using the model returned by `npx storyline-vsc route <stageId>` — see [Stage-boundary subagent delegation](#stage-boundary-subagent-delegation) below.
 - **Organic series detection** — when the premise suggests series potential, mention it naturally
 - **Two-pass scene outline** — high-level first, approved, then fleshed chapter by chapter
 - **Word count intelligence** — show genre-appropriate ranges at genre stage, track allocation throughout
 - **Enforced gates** — if `gateBlocked` is true, explain the gate and help the writer resolve it before proceeding
-- **Revision with downstream impact** — `npx storyline-cli revise <stage>` shows what else is affected
+- **Revision with downstream impact** — `npx storyline-vsc revise <stage>` shows what else is affected
 
 ### Saving Data
 
-Use `npx storyline-cli save` to persist stage data. The JSON format matches the state schema:
+Use `npx storyline-vsc save` to persist stage data. The JSON format matches the state schema:
 
 ```bash
 # Save genre data
-npx storyline-cli save genre '{"primaryGenre":"Thriller","tone":"dark","audience":"Adult","targetWordCount":85000,"genreVariant":"standard"}'
+npx storyline-vsc save genre '{"primaryGenre":"Thriller","tone":"dark","audience":"Adult","targetWordCount":85000,"genreVariant":"standard"}'
 
 # Save protagonist data
-npx storyline-cli save protagonist '{"name":"Jane","want":"Make partner","need":"Accept I\'m enough","flaw":"Must control everything","coreLie":"I\'m not worthy without the title","arcDirection":"Controlling to surrendering"}'
+npx storyline-vsc save protagonist '{"name":"Jane","want":"Make partner","need":"Accept I\'m enough","flaw":"Must control everything","coreLie":"I\'m not worthy without the title","arcDirection":"Controlling to surrendering"}'
 
 # Save beat sheet (pipe JSON via stdin)
-echo '{"genreVariant":"standard","beats":{...}}' | npx storyline-cli save beatSheet
+echo '{"genreVariant":"standard","beats":{...}}' | npx storyline-vsc save beatSheet
 
 # Stage 12 — chapterOutline (array-shaped; can pipe via stdin for large payloads)
 #   Must be an array of { chapterNumber, chapterTitle, beat?, estimatedWords?,
@@ -234,10 +234,10 @@ echo '[
   {"chapterNumber":1, "chapterTitle":"Opening",
    "scenes":[{"sceneNumber":1,"pov":"Jane","summary":"...","conflict":"...","whatChanges":"..."}]},
   ...
-]' | npx storyline-cli save chapterOutline
+]' | npx storyline-vsc save chapterOutline
 
 # Stage 13 — critique (captures flagged issues + pacing / arc / beat notes)
-npx storyline-cli save critique '{
+npx storyline-vsc save critique '{
   "flaggedIssues":[{"check":"midpoint","message":"...","severity":"note","resolution":"accepted"}],
   "pacingAnalysis":"Acts proportioned correctly...",
   "characterConsistency":"Want/need arc holds...",
@@ -245,16 +245,16 @@ npx storyline-cli save critique '{
 }'
 
 # Stage 14 — masterDoc is GENERATED, not hand-saved. Run:
-npx storyline-cli generate
+npx storyline-vsc generate
 # which assembles the final planning document and writes masterDoc.generatedAt
 # + masterDoc.markdown into state.json.
 ```
 
-**Critical invariant — every stage must use `npx storyline-cli save` (or `npx storyline-cli generate` for stage 14), and the resulting `verifyCommand` must exit 0, BEFORE you write any narrative markdown to `docs/`.** This is no longer enforced by prose alone — Claude Code's PreToolUse hook will refuse the doc write outright if state is empty for the matching stage, and `stage-info` for the next stage will return `UPSTREAM_DRIFT` and refuse to advance. The save-and-verify step is the durable commit; the prose doc is the *narration of* the commit, not its substitute.
+**Critical invariant — every stage must use `npx storyline-vsc save` (or `npx storyline-vsc generate` for stage 14), and the resulting `verifyCommand` must exit 0, BEFORE you write any narrative markdown to `docs/`.** This is no longer enforced by prose alone — Claude Code's PreToolUse hook will refuse the doc write outright if state is empty for the matching stage, and `stage-info` for the next stage will return `UPSTREAM_DRIFT` and refuse to advance. The save-and-verify step is the durable commit; the prose doc is the *narration of* the commit, not its substitute.
 
-### What `npx storyline-cli save` does automatically (MANDATORY — do not skip)
+### What `npx storyline-vsc save` does automatically (MANDATORY — do not skip)
 
-Every `npx storyline-cli save` writes three things and returns a JSON payload on stdout:
+Every `npx storyline-vsc save` writes three things and returns a JSON payload on stdout:
 
 1. Updates `.storyline/state.json`
 2. Writes a per-stage markdown file to `output/stages/<stageId>.md` (human-readable record for the writer)
@@ -272,50 +272,50 @@ The JSON stdout shape is:
     { "id": "2026-04-19T...-0-protagonist:wound", "namespace": "novel:<slug>", "key": "protagonist:wound", "value": "...", "tags": [...] },
     ...
   ],
-  "verifyCommand": "npx storyline-cli verify-stage protagonist",
+  "verifyCommand": "npx storyline-vsc verify-stage protagonist",
   "stateAfterSave": { "committedAt": "...", "fieldsPopulated": ["name","want","need","flaw","coreLie","arcDirection"] },
-  "nextAction": "Run `npx storyline-cli verify-stage protagonist` and confirm exit 0 before composing any docs/ artefact for this stage or advancing.",
+  "nextAction": "Run `npx storyline-vsc verify-stage protagonist` and confirm exit 0 before composing any docs/ artefact for this stage or advancing.",
   "warnings": []
 }
 ```
 
-After every save, **run the `verifyCommand` and confirm exit code 0.** If verify fails, halt — do not write a `docs/<NN>-<stage>.md`, do not advance to the next stage. Surface the error to the writer and use the `recover` field in verify's error payload (typically `npx storyline-cli reseed <stageId>`) to fix it.
+After every save, **run the `verifyCommand` and confirm exit code 0.** If verify fails, halt — do not write a `docs/<NN>-<stage>.md`, do not advance to the next stage. Surface the error to the writer and use the `recover` field in verify's error payload (typically `npx storyline-vsc reseed <stageId>`) to fix it.
 
 ### Memory sync — the non-negotiable contract
 
 **Memory must be written through the whole planning process, or the plan is lost between sessions.** The CLI can't call MCP tools, so the skill (you) does the push. Because that's fragile, we use a durable log + sync cursor so nothing is ever lost.
 
-**On every `/storyline` activation, FIRST thing after `npx storyline-cli next`, run this reconciliation:**
+**On every `/storyline` activation, FIRST thing after `npx storyline-vsc next`, run this reconciliation:**
 
 ```bash
-npx storyline-cli memory sync
+npx storyline-vsc memory sync
 ```
 
 This returns `{ pending: [...], count: N }`. If `count > 0`:
 
 1. For each entry, call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }` from the entry
 2. After each successful push, collect the entry's `id`
-3. Once all pushes complete, call: `npx storyline-cli memory mark-synced <id1> <id2> ...`
+3. Once all pushes complete, call: `npx storyline-vsc memory mark-synced <id1> <id2> ...`
 
 This catches up any writes missed in previous sessions, MCP outages, or interrupted runs.
 
-**After every `npx storyline-cli save`:**
+**After every `npx storyline-vsc save`:**
 
 1. Parse the JSON payload from stdout
 2. For each entry in `memoryEntries`, call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }`
-3. After all pushes complete, call `npx storyline-cli memory mark-synced <id1> <id2> ...` with every entry's `id`
+3. After all pushes complete, call `npx storyline-vsc memory mark-synced <id1> <id2> ...` with every entry's `id`
 4. Mention the stage doc path to the writer in your transition message
-5. **If `seriesPotential` is present and `seriesPotential.detected === true`** (only returned after `npx storyline-cli save premise`), raise it with the writer before moving to the next stage. Show the indicators and the suggestion, then ask whether they want to explore this as a series. If yes, capture their intent into `premise.seriesContext` via another `npx storyline-cli save premise`.
+5. **If `seriesPotential` is present and `seriesPotential.detected === true`** (only returned after `npx storyline-vsc save premise`), raise it with the writer before moving to the next stage. Show the indicators and the suggestion, then ask whether they want to explore this as a series. If yes, capture their intent into `premise.seriesContext` via another `npx storyline-vsc save premise`.
 
-Series detection can also be re-run on demand with `npx storyline-cli detect-series` (useful after the writer revises the premise).
+Series detection can also be re-run on demand with `npx storyline-vsc detect-series` (useful after the writer revises the premise).
 
 **At the end of each session / before a stage transition, sanity-check:**
 
 ```bash
-npx storyline-cli memory status
+npx storyline-vsc memory status
 ```
 
-Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `npx storyline-cli memory sync` and push them before moving on.
+Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `npx storyline-vsc memory sync` and push them before moving on.
 
 ### Writing-session protocol (manuscript memory — runs after drafting prose)
 
@@ -329,13 +329,13 @@ odd-flow memory, tagged distinctly, so a future session can compare.
 manuscript file):**
 
 ```bash
-npx storyline-cli manuscript sync      # snapshot prose → memory.jsonl with `draft:*` keys
-npx storyline-cli memory sync          # push the new entries to odd-flow MCP
-npx storyline-cli memory mark-synced   # as before
-npx storyline-cli manuscript compare   # plan vs draft — review any drift findings
+npx storyline-vsc manuscript sync      # snapshot prose → memory.jsonl with `draft:*` keys
+npx storyline-vsc memory sync          # push the new entries to odd-flow MCP
+npx storyline-vsc memory mark-synced   # as before
+npx storyline-vsc manuscript compare   # plan vs draft — review any drift findings
 ```
 
-What `npx storyline-cli manuscript sync` captures per chapter: title, word count,
+What `npx storyline-vsc manuscript sync` captures per chapter: title, word count,
 scene count (detected from `---`, `* * *`, or blank-paragraph breaks),
 POV (first-/third-person heuristic), opening sentence, closing
 sentence. Manuscript-level: total word count, chapter count, progress
@@ -344,7 +344,7 @@ versus `genre.targetWordCount`.
 Keys live under `draft:*` to disambiguate from the plan's `chapter:*`
 memories — both coexist in the same `novel:<slug>` namespace.
 
-**`npx storyline-cli manuscript compare` reports drift** along these axes:
+**`npx storyline-vsc manuscript compare` reports drift** along these axes:
 
 - `chapter-count-mismatch` — more or fewer drafted chapters than planned
 - `unplanned-chapter` — a chapter file exists with no plan counterpart
@@ -355,11 +355,11 @@ memories — both coexist in the same `novel:<slug>` namespace.
 
 The compare report does not auto-update the plan. When drift is real
 (the writer has chosen a new direction), the writer decides: either
-update the plan to match (new `npx storyline-cli save chapterOutline` / `npx storyline-cli save
+update the plan to match (new `npx storyline-vsc save chapterOutline` / `npx storyline-vsc save
 critique`) or steer the draft back. Both actions re-sync their
 respective memory.
 
-**`npx storyline-cli doctor` folds manuscript drift into its report** — the stage-
+**`npx storyline-vsc doctor` folds manuscript drift into its report** — the stage-
 closure protocol below catches both plan/memory misalignment AND
 plan/draft divergence in one call.
 
@@ -384,8 +384,8 @@ older rich-text save paths). A project with legacy markers can be
 migrated in one pass:
 
 ```bash
-npx storyline-cli manuscript migrate-markers        # preview
-npx storyline-cli manuscript migrate-markers --yes  # apply
+npx storyline-vsc manuscript migrate-markers        # preview
+npx storyline-vsc manuscript migrate-markers --yes  # apply
 ```
 
 The dedicated `/follow-up` slash command is the recommended entry
@@ -396,10 +396,10 @@ writer asks "check my notes" rather than switching to `/follow-up`.
 
 When the writer asks you to "check my notes", "resolve my TBDs",
 "research my notes", or similar — OR at the end of a writing session
-before `npx storyline-cli manuscript sync` — run this workflow:
+before `npx storyline-vsc manuscript sync` — run this workflow:
 
 ```bash
-npx storyline-cli manuscript notes --json
+npx storyline-vsc manuscript notes --json
 ```
 
 Returns `{ notes: [...], memoryEntries: [...], memoryLogPath: ... }`.
@@ -428,17 +428,17 @@ For each note:
    note but append the answer as a commented/footnoted addition
    alongside it). Never silently overwrite.
 
-4. **Commit to memory.** Run `npx storyline-cli manuscript notes --sync` to append
+4. **Commit to memory.** Run `npx storyline-vsc manuscript notes --sync` to append
    pending-note entries to `memory.jsonl`, then push via
-   `mcp__odd-flow__memory_store` and `npx storyline-cli memory mark-synced`. Once
+   `mcp__odd-flow__memory_store` and `npx storyline-vsc memory mark-synced`. Once
    resolved, include a follow-up memory entry tagged `resolved`
    documenting what the research turned up — so a future session can
    look up "what did we research for chapter 3?" directly.
 
 5. **Re-sync the manuscript snapshot.** After any prose edits, run
-   `npx storyline-cli manuscript sync` so the updated draft state reaches odd-flow.
+   `npx storyline-vsc manuscript sync` so the updated draft state reaches odd-flow.
 
-`npx storyline-cli doctor` surfaces pending note count as an info-level finding —
+`npx storyline-vsc doctor` surfaces pending note count as an info-level finding —
 not an error, but a visible reminder that research work is outstanding.
 
 ### Stage-closure protocol (run after EVERY completed stage — non-negotiable)
@@ -447,23 +447,23 @@ After the writer signs off on a stage and before you transition to the next, the
 
 ```bash
 # 1. Route + delegate critique (M8 — see Stage Flow step 5 for the Task invocation between route and record-model)
-npx storyline-cli route <stageId>
+npx storyline-vsc route <stageId>
 # [Task tool invocation of storyline-critic-<tier> — see Stage Flow step 5]
-npx storyline-cli record-model <stageId> <modelUsed> [--escalated]
+npx storyline-vsc record-model <stageId> <modelUsed> [--escalated]
 
 # 2. Structural checks
-npx storyline-cli status            # must show the stage you just completed as ✓
-npx storyline-cli memory status     # pendingEntries must be 0
-npx storyline-cli doctor            # must report "no drift"
+npx storyline-vsc status            # must show the stage you just completed as ✓
+npx storyline-vsc memory status     # pendingEntries must be 0
+npx storyline-vsc doctor            # must report "no drift"
 ```
 
 Do **not** proceed to the next stage unless all of these complete cleanly. The M8 routing step (route → Task → record-model) is the first and it is mandatory — the structural checks rely on `modelProvenance[stageId]` being populated for the completed stage.
 
 What each confirms:
 
-- **`npx storyline-cli status`** — the deriver advanced. If the stage still shows as the current stage (`→`), your `npx storyline-cli save` either failed or you skipped it. Halt and resolve before moving on.
-- **`npx storyline-cli memory status`** — the durable log made it to odd-flow MCP. If `pendingEntries > 0`, push them (`npx storyline-cli memory sync` → `mcp__odd-flow__memory_store` for each → `npx storyline-cli memory mark-synced <ids>`) before proceeding.
-- **`npx storyline-cli doctor`** — no orphan artefacts. Specifically catches: prose docs in `docs/` with no matching `npx storyline-cli save`; output/stages/ files whose stage slot in state.json is empty; memory entries logged but not synced.
+- **`npx storyline-vsc status`** — the deriver advanced. If the stage still shows as the current stage (`→`), your `npx storyline-vsc save` either failed or you skipped it. Halt and resolve before moving on.
+- **`npx storyline-vsc memory status`** — the durable log made it to odd-flow MCP. If `pendingEntries > 0`, push them (`npx storyline-vsc memory sync` → `mcp__odd-flow__memory_store` for each → `npx storyline-vsc memory mark-synced <ids>`) before proceeding.
+- **`npx storyline-vsc doctor`** — no orphan artefacts. Specifically catches: prose docs in `docs/` with no matching `npx storyline-vsc save`; output/stages/ files whose stage slot in state.json is empty; memory entries logged but not synced.
 
 This was added after a real regression where stages 12, 13, 14 generated large narrative markdown files into `docs/` but the structured data never reached `state.json` — the project appeared unfinished on the next session and none of the chapter-flesh-out memory was in odd-flow. **The closure protocol exists to make that class of failure impossible to ship.**
 
@@ -479,24 +479,24 @@ You invoke these by name — you do NOT pass a model parameter and you do NOT ca
 
 **What NOT to do — the failure mode this rule prevents:**
 
-> Parent runs `storyline-cli route beatSheet` → gets `{ subagentType: "storyline-critic-sonnet" }` → parent writes its own critique into the chat → parent runs `storyline-cli record-model beatSheet sonnet` → `state.modelProvenance` claims Sonnet did the work, but no subagent was ever invoked.
+> Parent runs `storyline-vsc route beatSheet` → gets `{ subagentType: "storyline-critic-sonnet" }` → parent writes its own critique into the chat → parent runs `storyline-vsc record-model beatSheet sonnet` → `state.modelProvenance` claims Sonnet did the work, but no subagent was ever invoked.
 
 If no Task-tool block appears in the chat at a stage boundary, routing is not active regardless of what `state.modelProvenance` says. The `record-model` call is a log of what happened, not a substitute for it.
 
 **The correct flow — at every stage boundary, exactly in this order:**
 
-1. **Route.** Run `npx storyline-cli route <stageId>`. Parse the JSON on stdout. Read the loud imperative block on stderr — it tells you which named subagent to invoke for this stage. For Stage 10's second pass use stage id `sceneOutline:critique`.
+1. **Route.** Run `npx storyline-vsc route <stageId>`. Parse the JSON on stdout. Read the loud imperative block on stderr — it tells you which named subagent to invoke for this stage. For Stage 10's second pass use stage id `sceneOutline:critique`.
 
 2. **Invoke the named subagent via the Task tool — THIS IS THE NON-NEGOTIABLE STEP.** Call the Task tool with:
    - `subagent_type:` the `subagentType` value from the route JSON (one of `"storyline-critic-haiku"` | `"storyline-critic-sonnet"` | `"storyline-critic-opus"`)
    - `description:` e.g. `"Stage 7 critique"`
-   - `prompt:` the stage's critique brief — include the relevant state snapshot (use `storyline-cli status` / `stage-info` output inline in the prompt) plus the stage guide. The agent's own system prompt already defines its scope, output format, and identity line — you do not need to re-specify those.
+   - `prompt:` the stage's critique brief — include the relevant state snapshot (use `storyline-vsc status` / `stage-info` output inline in the prompt) plus the stage guide. The agent's own system prompt already defines its scope, output format, and identity line — you do not need to re-specify those.
 
    The subagent's first reply line will be `MODEL: haiku|sonnet|opus` for identity verification. Read that line; that is what you record in step 4.
 
 3. **Escalate silently on weak output.** If the route JSON returned a non-null `escalateSubagentType` (i.e. `"storyline-critic-opus"`) and the first subagent's response fails the confidence check in `skill/docs/routing/confidence-check.md`, invoke the Task tool a second time with `subagent_type: "storyline-critic-opus"` and use that output instead. Do not surface the retry as an error — track it for the stage-end counter ("2 of 8 critique points escalated to Opus").
 
-4. **Record provenance, truthfully.** Run `npx storyline-cli record-model <stageId> <modelReported>` where `<modelReported>` is the model the subagent declared on its `MODEL:` line. Add `--escalated` if the Opus retry in step 3 fired. **Only** use `--fallback` if the harness genuinely does not expose the Task tool with these named subagents — not as a shortcut when you decided to critique in-session.
+4. **Record provenance, truthfully.** Run `npx storyline-vsc record-model <stageId> <modelReported>` where `<modelReported>` is the model the subagent declared on its `MODEL:` line. Add `--escalated` if the Opus retry in step 3 fired. **Only** use `--fallback` if the harness genuinely does not expose the Task tool with these named subagents — not as a shortcut when you decided to critique in-session.
 
 5. **Present.** Render the subagent's critique back into the conversation as normal.
 
@@ -504,7 +504,7 @@ If no Task-tool block appears in the chat at a stage boundary, routing is not ac
 
 **Do not delegate for everything.** Conversational turns (asking the next question, echoing state back to the writer, confirming completion) stay in the parent session — they are the planning dialogue itself. Delegation is for stage-boundary critique only. But for that critique, delegation is the whole point.
 
-**If the named agents are missing from `.claude/agents/`:** run `storyline-cli init` in the project — it's idempotent and will install any missing agent files without overwriting local customisations. Alert the writer if the files are missing and you had to reinstall them.
+**If the named agents are missing from `.claude/agents/`:** run `storyline-vsc init` in the project — it's idempotent and will install any missing agent files without overwriting local customisations. Alert the writer if the files are missing and you had to reinstall them.
 
 ### Why this design
 
@@ -517,11 +517,11 @@ If `mcp__odd-flow__memory_store` is unavailable in a session, tell the writer on
 
 ### Reading State
 
-- `npx storyline-cli next` — What stage to work on next (JSON)
-- `npx storyline-cli status` — Full project status (human-readable)
-- `npx storyline-cli stage-info <stageId>` — Stage conversation guide (JSON)
-- `npx storyline-cli traps` — Story trap detection results (JSON)
-- `npx storyline-cli checklist <stageId>` — Quality checklist results (JSON)
+- `npx storyline-vsc next` — What stage to work on next (JSON)
+- `npx storyline-vsc status` — Full project status (human-readable)
+- `npx storyline-vsc stage-info <stageId>` — Stage conversation guide (JSON)
+- `npx storyline-vsc traps` — Story trap detection results (JSON)
+- `npx storyline-vsc checklist <stageId>` — Quality checklist results (JSON)
 
 ## Core Planning Stages
 
@@ -588,21 +588,21 @@ Current stage is never stored — it's derived from data completeness. `deriveCu
 
 ### CLI Commands
 
-All commands are invoked as `npx storyline-cli <subcommand>`.
+All commands are invoked as `npx storyline-vsc <subcommand>`.
 
 | Command | Purpose |
 |---------|---------|
-| `npx storyline-cli init` | Set up `.storyline/` in current directory |
-| `npx storyline-cli start` | Show current status and next action |
-| `npx storyline-cli status` | Show progress and next recommended action |
-| `npx storyline-cli stages` | List all 14 stages with completion status |
-| `npx storyline-cli next` | Return next stage info as JSON (for skill) |
-| `npx storyline-cli stage-info <stage>` | Return stage conversation guide as JSON (for skill) |
-| `npx storyline-cli save <stage> [json]` | Save stage data to state (for skill) |
-| `npx storyline-cli traps` | Run story trap detection |
-| `npx storyline-cli checklist <stage>` | Run quality checklist for a stage |
-| `npx storyline-cli revise <stage>` | Show downstream impacts for revision |
-| `npx storyline-cli generate` | Output the master planning document |
+| `npx storyline-vsc init` | Set up `.storyline/` in current directory |
+| `npx storyline-vsc start` | Show current status and next action |
+| `npx storyline-vsc status` | Show progress and next recommended action |
+| `npx storyline-vsc stages` | List all 14 stages with completion status |
+| `npx storyline-vsc next` | Return next stage info as JSON (for skill) |
+| `npx storyline-vsc stage-info <stage>` | Return stage conversation guide as JSON (for skill) |
+| `npx storyline-vsc save <stage> [json]` | Save stage data to state (for skill) |
+| `npx storyline-vsc traps` | Run story trap detection |
+| `npx storyline-vsc checklist <stage>` | Run quality checklist for a stage |
+| `npx storyline-vsc revise <stage>` | Show downstream impacts for revision |
+| `npx storyline-vsc generate` | Output the master planning document |
 
 ## Reference Docs
 

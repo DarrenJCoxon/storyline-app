@@ -97,7 +97,7 @@ const STAGE_SCHEMAS = {
   beatSheet: {
     shape: 'object',
     fields: ['genreVariant (string)', 'beats (object keyed by beatId: beat01OpeningImage ... beat15EndCredits; each beat has beat-specific fields — see skill/SKILL.md)'],
-    example: `echo '{"genreVariant":"standard","beats":{"beat08Midpoint":{"midpointType":"false-victory","flipOrReveal":"...","scene":"..."}}}' | npx storyline-cli save beatSheet`,
+    example: `echo '{"genreVariant":"standard","beats":{"beat08Midpoint":{"midpointType":"false-victory","flipOrReveal":"...","scene":"..."}}}' | npx storyline-vsc save beatSheet`,
   },
   bStory: {
     shape: 'object',
@@ -122,7 +122,7 @@ const STAGE_SCHEMAS = {
   chapterOutline: {
     shape: 'array',
     fields: ['Array of chapter objects: { chapterNumber, chapterTitle, estimatedWords, beat (beatId), scenes: [{ sceneNumber, location, timeOfDay, pov, purpose, conflict, whatChanges, beats, notes }] }'],
-    example: `echo '[{"chapterNumber":1,"chapterTitle":"Opening","beat":"beat01OpeningImage","estimatedWords":3000,"scenes":[{"sceneNumber":1,"pov":"Jane","purpose":"...","conflict":"...","whatChanges":"..."}]}]' | npx storyline-cli save chapterOutline`,
+    example: `echo '[{"chapterNumber":1,"chapterTitle":"Opening","beat":"beat01OpeningImage","estimatedWords":3000,"scenes":[{"sceneNumber":1,"pov":"Jane","purpose":"...","conflict":"...","whatChanges":"..."}]}]' | npx storyline-vsc save chapterOutline`,
   },
   critique: {
     shape: 'object',
@@ -131,8 +131,8 @@ const STAGE_SCHEMAS = {
   },
   masterDoc: {
     shape: 'generated',
-    fields: ['NOT HAND-SAVED — run `npx storyline-cli generate` instead.'],
-    example: `npx storyline-cli generate`,
+    fields: ['NOT HAND-SAVED — run `npx storyline-vsc generate` instead.'],
+    example: `npx storyline-vsc generate`,
   },
 };
 
@@ -185,7 +185,7 @@ export function registerReseed(program) {
         console.error('');
       } else {
         console.error(chalk.green('  State already has all required fields for this stage.'));
-        console.error(chalk.green('  Run `npx storyline-cli doctor` to check for other drift.'));
+        console.error(chalk.green('  Run `npx storyline-vsc doctor` to check for other drift.'));
         console.error('');
       }
 
@@ -209,7 +209,7 @@ export function registerReseed(program) {
       console.error('    2. Extract the structured fields by hand (or ask an AI in a separate');
       console.error('       chat to read the doc and output JSON matching the schema above).');
       console.error('    3. Run the save command with that JSON (see example above).');
-      console.error(`    4. Run \`npx storyline-cli verify-stage ${stageId}\` to confirm state is consistent.`);
+      console.error(`    4. Run \`npx storyline-vsc verify-stage ${stageId}\` to confirm state is consistent.`);
       console.error('');
       console.error(chalk.cyan(bar));
       console.error('');
@@ -224,7 +224,7 @@ export function registerReseed(program) {
         missingFields: missing,
         schema: schema || null,
         saveCommand: schema?.example || null,
-        verifyCommand: `npx storyline-cli verify-stage ${stageId}`,
+        verifyCommand: `npx storyline-vsc verify-stage ${stageId}`,
       }, null, 2));
     });
 }

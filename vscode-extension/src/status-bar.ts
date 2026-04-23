@@ -51,7 +51,7 @@ export class WordCountStatusBar {
     this.item.show();
 
     // Watch state.json for filesystem-level writes too — the harness
-    // updates it via `storyline-cli save` (a Bash tool call), which
+    // updates it via `storyline-vsc save` (a Bash tool call), which
     // never fires onDidSaveTextDocument. Without this watcher, target
     // word count stays cached at the value loaded at extension start.
     const stateWatcher = vscode.workspace.createFileSystemWatcher('**/.storyline/state.json');
