@@ -2,7 +2,7 @@
   "name": "storyline-vscode",
   "displayName": "Storyline",
   "description": "Rich-text writing surface for novel projects using the Storyline planning harness. Files stay markdown on disk.",
-  "version": "0.32.0",
+  "version": "0.32.1",
   "publisher": "darrenjcoxon",
   "engines": {
     "vscode": "^1.85.0"
