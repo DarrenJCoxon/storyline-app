@@ -108,11 +108,11 @@ Storyline comes with a VS Code extension that provides the rich-text writing sur
 
 ## Your first five minutes
 
-### Open the welcome document
+### Open the welcome document in the rich editor
 
-With the `my-novel/` folder open in VS Code, click `docs/welcome.md` in the file tree on the left. It opens in the middle of the screen — this is the Storyline rich-text editor.
+In the file tree on the left, **right-click** `docs/welcome.md` and choose **"Storyline: Open in Rich Editor"**. It opens in the middle of the screen as the Storyline rich-text editor — a normal writing surface, no code, no syntax highlighting, just prose. You can start typing.
 
-It looks like a normal writing surface: no code, no syntax highlighting, just prose. You can start typing.
+(A single click still works on `.md` files but opens VS Code's built-in markdown editor — useful when you want to see the raw markdown source. As of v1.8 the rich editor is opened explicitly via the right-click menu so the extension stays out of the way in non-Storyline projects.)
 
 ### Open a chapter to the side
 
