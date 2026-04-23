@@ -899,6 +899,24 @@ function buildWebviewHtml(
     .device-surface {
       box-sizing: border-box;
       color: #111;
+      position: relative;          /* anchor for the absolutely-positioned .page-number footer */
+    }
+
+    /* Page-number footer — sits in the bottom margin of every paginated
+     * surface, centred horizontally. position:absolute keeps it out of
+     * the content flow so the pagination overflow check (scrollHeight vs
+     * clientHeight) is unaffected — adding a number can never push a
+     * paragraph onto the next page. Per-device colour/size overrides
+     * below for iPad and Kindle to match each device's typographic feel. */
+    .device-surface .page-number {
+      position: absolute;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: inherit;
+      user-select: none;
+      pointer-events: none;
+      font-variant-numeric: oldstyle-nums;
     }
 
     /* Structural rules applied regardless of device (typography
@@ -1014,6 +1032,12 @@ function buildWebviewHtml(
 
     body.device-print-6x9 .device-stage { background: #eceae4; padding: 24px 0 40px; }
     body.device-print-6x9 .device-surface {
+      /* Exact 6"×9" trim at 96 DPI = 576×864 CSS pixels. 0.75" margins
+       * all sides → 72px padding. Text block: 4.5"×7.5" (432×720).
+       * Asymmetric verso/recto margins in the real PDF (0.875" inside,
+       * 0.625" outside for binding) average to the symmetric 0.75" used
+       * here — text-block width is identical, which is what drives line
+       * length and characters per line. */
       width: 576px;
       height: 864px;
       padding: 72px;
@@ -1021,6 +1045,11 @@ function buildWebviewHtml(
       font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
       font-size: 11pt;
       line-height: 1.45;
+    }
+    body.device-print-6x9 .device-surface .page-number {
+      bottom: 36px;                /* centred in the 72px bottom margin */
+      font-size: 10pt;
+      color: #555;
     }
 
     /* iPad (Apple Books) — 3:4 aspect (768pt × 1024pt device).
@@ -1031,8 +1060,12 @@ function buildWebviewHtml(
      * "iPad reading" typographically. */
     body.device-ipad .device-stage { background: #1c1c1e; padding: 32px 0 80px; }
     body.device-ipad .device-surface {
-      width: 720px;
-      height: 960px;
+      /* iPad portrait — 768×1024 points (the canonical iPad point
+       * dimensions, matching the 9.7" / mini reading area). 4:3 aspect
+       * ratio. ~96px side margins + 80px top/bottom mirrors Apple Books'
+       * generous reading frame. */
+      width: 768px;
+      height: 1024px;
       padding: 80px 96px;
       background: #ffffff;
       color: #141414;
@@ -1042,14 +1075,23 @@ function buildWebviewHtml(
       line-height: 1.55;
     }
     body.device-ipad .device-surface p.first::first-letter { color: #141414; }
+    body.device-ipad .device-surface .page-number {
+      bottom: 32px;                /* sits in the bottom margin, ~half of 80px padding */
+      font-size: 12px;
+      color: #6b6b6b;
+    }
 
     /* Kindle Paperwhite — 6" e-ink. Same logic as iPad: bezel dropped,
      * dark stage + neutral pale-grey page + Bookerly 16/1.55 carries
      * the e-ink feel without the physical device frame. */
     body.device-kindle .device-stage { background: #2e2d2a; padding: 32px 0 80px; }
     body.device-kindle .device-surface {
-      width: 560px;
-      height: 760px;
+      /* Kindle Paperwhite (current gen) — 6.8" display, ~1236×1648 px
+       * native, reading area roughly 600×800 pt after device chrome.
+       * Aspect ratio 3:4 matches the device. Bookerly 16/1.55 with
+       * tight 60×72 padding mimics the e-ink reading frame. */
+      width: 600px;
+      height: 800px;
       padding: 60px 72px;
       background: #ececeb;
       color: #1c1c1c;
@@ -1059,6 +1101,11 @@ function buildWebviewHtml(
     }
     body.device-kindle .device-surface p.first::first-letter { color: #1c1c1c; }
     body.device-kindle .device-surface hr.scene-break::before { color: #5c5c5c; }
+    body.device-kindle .device-surface .page-number {
+      bottom: 24px;                /* tight bottom margin like a real Paperwhite */
+      font-size: 11px;
+      color: #5c5c5c;
+    }
 
     /* ─── Paragraph style override (mirror compile/theme.js) ─────
      * The preview's default is indented (first-line indent, no gap).
@@ -1376,6 +1423,24 @@ function buildWebviewHtml(
           pagesEl.appendChild(page);
           page.appendChild(child);
         }
+      }
+
+      // Footer pass — number every page in sequence and place a
+      // .page-number element absolutely-positioned in the bottom margin
+      // of each .device-surface (per-device CSS controls the exact
+      // bottom offset, font size, and colour). Done AFTER the overflow
+      // distribution loop because position:absolute keeps the number
+      // out of the scrollHeight check — adding it during the loop would
+      // be safe too, but a separate pass keeps the pagination logic
+      // single-purpose. Empty-state pages skip numbering.
+      const pages = pagesEl.children;
+      for (let i = 0; i < pages.length; i++) {
+        const surface = pages[i];
+        if (surface.querySelector('.empty-state')) continue;
+        const num = document.createElement('div');
+        num.className = 'page-number';
+        num.textContent = String(i + 1);
+        surface.appendChild(num);
       }
     }
 
