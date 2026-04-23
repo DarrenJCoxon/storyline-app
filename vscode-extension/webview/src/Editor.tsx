@@ -315,15 +315,14 @@ export function Editor(): JSX.Element | null {
         saveNow();
         return;
       }
-      // Cmd/Ctrl+Shift+Enter — toggle compose mode. Picked because the
-      // base Cmd+Enter already opens-to-side from the explorer; adding
-      // Shift gives a related-but-distinct gesture writers can learn as
-      // a pair ("Cmd+Enter to open beside, Cmd+Shift+Enter to focus").
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'Enter') {
-        e.preventDefault();
-        toggleCompose();
-        return;
-      }
+      // Compose-mode toggle is bound at the host level as the chord
+      // Cmd+K Cmd+M (mac) / Ctrl+K Ctrl+M (win/linux) — chords can't be
+      // intercepted reliably from inside the webview, so we leave the
+      // shortcut to VS Code's keybinding system. The host's command
+      // handler posts a `request-compose-toggle` message which our
+      // listener below picks up. The original Cmd+Shift+Enter binding
+      // was retired because it collided with Scrivener's own global
+      // shortcut on macOS.
       // Esc exits compose mode (only). In normal mode Esc is left alone
       // so existing TipTap behaviours (close menus, blur) keep working.
       if (e.key === 'Escape' && composeMode) {

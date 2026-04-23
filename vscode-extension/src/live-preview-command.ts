@@ -900,6 +900,14 @@ function buildWebviewHtml(
       box-sizing: border-box;
       color: #111;
       position: relative;          /* anchor for the absolutely-positioned .page-number footer */
+      /* CRITICAL: every .device-surface has an explicit height (576/864
+       * for Print 6×9, 768/1024 for iPad, 600/800 for Kindle). Inside
+       * .device-pages (a flex column) the default flex-shrink: 1 will
+       * squash these pages to fit the visible stage height — turning
+       * each 864px page card into a ~200px squished tile. flex-shrink:
+       * 0 forces flexbox to honour the explicit height; overflow
+       * within .device-stage becomes scroll, which is what we want. */
+      flex-shrink: 0;
     }
 
     /* Page-number footer — sits in the bottom margin of every paginated

@@ -299,7 +299,7 @@ The toolbar at the top of the preview pins in place when you scroll, so you can 
 
 ## Compose mode
 
-When you want a distraction-free writing surface — no tabs, no sidebars, no toolbars — press **`Cmd+Shift+Enter`** (mac) / **`Ctrl+Shift+Enter`** (Windows / Linux) inside any chapter, or run **"Storyline: Toggle Compose Mode"** from the Command Palette.
+When you want a distraction-free writing surface — no tabs, no sidebars, no toolbars — press the chord **`Cmd+K Cmd+M`** (mac) / **`Ctrl+K Ctrl+M`** (Windows / Linux) inside any chapter, or run **"Storyline: Toggle Compose Mode"** from the Command Palette. (The chord avoids clashes with macOS apps like Scrivener that claim simpler shortcuts globally.)
 
 You get a Scrivener-style centred "paper" surface on warm-dark gutters, with VS Code's chrome (activity bar, side bar, panel, tabs) collapsed via Zen Mode. A slim floating bar at the bottom of the screen shows just the controls a writer needs in flow:
 
