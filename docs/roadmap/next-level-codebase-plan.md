@@ -247,6 +247,24 @@ Capabilities:
 - Retrieval-augmented critique for unsupported claims.
 - Fiction worldbuilding research support without forcing academic citation workflows.
 
+### 6. Academic Book Category
+
+Add an academic category to non-fiction so Storyline can support books built around instruction, curriculum, exam preparation, and structured learning outcomes.
+
+Initial book types:
+
+- Textbook.
+- Revision guide.
+
+Capabilities:
+
+- Define target learner, course level, syllabus/standard, prerequisites, and learning outcomes.
+- Plan chapters around concepts, worked examples, practice tasks, summaries, and assessment checkpoints.
+- Track coverage against a curriculum map or exam specification.
+- Support revision-guide patterns such as concise explanations, memory aids, common mistakes, practice questions, mark-scheme guidance, and spaced recap.
+- Add critique checks for pedagogical sequence, cognitive load, concept scaffolding, assessment alignment, and missing prerequisite knowledge.
+- Extend compile output with academic front/back matter such as learning objectives, chapter summaries, glossaries, answer keys, references, and indexes.
+
 ## Suggested Milestones
 
 ### Milestone A: Make the Current App Trustworthy
@@ -292,6 +310,15 @@ Capabilities:
 - Add visual identity board.
 - Add series continuity support.
 - Add research and citation workspace for non-fiction.
+
+### Milestone G: Add Academic Non-Fiction
+
+- Add an academic non-fiction category.
+- Add `Textbook` and `Revision Guide` as first-class book types.
+- Extend non-fiction schemas for learner profile, course level, syllabus, learning outcomes, prerequisites, assessment style, and curriculum coverage.
+- Add planning stages or stage variants for concept sequence, worked examples, practice questions, chapter summaries, and answer keys.
+- Add critique checks for pedagogy, scaffolding, cognitive load, exam alignment, and revision effectiveness.
+- Extend compile templates for textbook/revision-guide conventions such as objectives, exercises, glossaries, answer sections, and indexes.
 
 ## Engineering Quality Gates
 
