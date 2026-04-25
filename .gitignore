@@ -22,3 +22,7 @@ Thumbs.db
 
 # State (per-project, don't commit)
 .novel-writer/
+
+# Local AI tooling (not part of the project)
+.claude/
+.swarm/
