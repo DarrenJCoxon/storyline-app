@@ -16,12 +16,11 @@ messages, no blank screens.
 | Failure | UI |
 |---------|----|
 | AI call fails (transient) | Inline retry button, "Something went wrong — try again" |
-| AI call fails (auth/key) | Banner: "Your API key is invalid. Update it in settings." |
-| Credits exhausted | Full-width banner above input, "Upgrade to continue" + plan cards |
-| Network offline | Subtle banner: "You're offline — planning will resume when reconnected" |
+| AI call fails (bad key) | Banner: "Your API key was rejected. Update it in settings." |
+| OpenRouter spend cap reached | Banner: "AI limit reached for this month — resets on [date]" |
+| Licence key expired | Prompt: "Your subscription has ended." + Stripe portal link |
+| Network offline | Subtle banner: "You're offline — planning resumes when reconnected" |
 | State save fails | Toast: "Save failed — your conversation is still here, try again" |
-| Supabase session expired | Prompt to re-authenticate inline (no full page redirect) |
-| Stripe payment failed | Email notification via Stripe + banner in app on next open |
 
 ### Empty states
 
@@ -29,76 +28,74 @@ messages, no blank screens.
 |---------|-------------|
 | No workspace open | "Open a project folder to begin. File → Open Folder." |
 | New project, Stage 1 | AI sends opening message automatically — never a blank pane |
-| No manuscript files | "Your manuscript is empty. Create your first chapter to start writing." |
-| No chapter cards yet | "Chapter cards will appear here as you complete planning stages." |
+| No manuscript files | "Your manuscript is empty. Create your first chapter." |
+| No chapter cards yet | "Chapter cards appear here as you complete planning stages." |
 
 ### Model routing tuning
 
 After real usage data from beta writers:
 - Review actual token counts per stage vs. projections
-- Adjust tier assignments if costs are higher or quality is lower than expected
-- Consider adding a "quality mode" toggle for BYOK users (always use strong model)
+- Adjust tier assignments if costs are higher or quality lower than expected
+- Verify OpenRouter spend caps are appropriate per plan
 
 ### Analytics (Posthog)
 
 Privacy-first — no PII, no message content, no manuscript text ever sent.
 
 Events tracked:
-- `session_start` — extension activated
+- `session_start` — extension activated, plan type (managed/byok/free)
 - `stage_opened` — writer enters a new stage
-- `stage_saved` — writer saves a stage (+ stage_id, model_used, tokens_used)
-- `stage_completed_all` — all 14 stages done
-- `compile_triggered` — EPUB or PDF compile started (+ format)
-- `compile_completed` — compile finished (+ duration_seconds)
-- `onboarding_completed` — plan selected / BYOK configured
-- `subscription_upgraded` — Free → paid conversion
-- `credits_exhausted` — balance hit 0
+- `stage_saved` — stage saved (+ stage_id, model_used)
+- `all_stages_complete` — all 14 stages done
+- `compile_triggered` — EPUB or PDF (+ format)
+- `compile_completed` — (+ duration_seconds)
+- `onboarding_completed` — plan type chosen
+- `free_limit_reached` — 10 free calls exhausted
+- `upgrade_prompted` — upgrade CTA shown
 
 Dashboards: weekly active users, stage completion funnel, compile usage,
-cost per active user, credit exhaustion rate.
+free-to-paid conversion rate.
 
 ### In-app feedback
 
-- "Send feedback" link in the chat pane footer (small, unobtrusive)
-- Opens a minimal form: rating (1–5 stars), free text, send
-- Submissions go to a Supabase table, no email required
-- Team reviews weekly during beta
+- "Send feedback" link in the chat pane footer
+- Opens a minimal form: rating (1–5 stars), free text, anonymous submit
+- Submissions POST to a simple endpoint (Formspree or equivalent —
+  zero additional infrastructure)
 
 ### Beta invite flow
 
-- Simple waitlist page (not a full marketing site — a single HTML page)
-- Invite code system: Supabase generates single-use codes, codes bypass
-  the Free 10-credit limit and grant 50 credits for the beta period
-- "Share a friend" flow: beta writers can generate one invite code for a
-  friend from the extension's account panel
+- Simple waitlist page (single HTML page, no framework)
+- Invite codes: a special code accepted alongside the licence key entry
+  that grants Pro-level access for the beta period at no charge
+- Codes written directly to KV store; no additional backend needed
 
 ### Documentation
 
-User-facing, not technical:
+- **Quick start guide** (in-app, dismissible): shown after onboarding
+- **Stage reference** (from the chat pane rail): one paragraph per stage
+- **FAQ**: billing, BYOK, local models, data ownership
 
-- **Quick start guide** (in-app, dismissible): shown after onboarding, covers
-  the three-column layout, how saves work, how credits work
-- **Stage reference** (accessible from the chat pane rail): one-paragraph
-  description of each stage, what it produces, why it matters
-- **FAQ** (linked from the account panel): billing, BYOK, local models, data
-  privacy
+  The FAQ must prominently answer: "Do you store my writing?" — No. All
+  project files live on your machine. We never see your manuscript or
+  planning state.
 
 ## Technical tasks
 
-- [ ] Build error boundary components for all AI failure modes
-- [ ] Build "Credits exhausted" banner and upgrade CTA
+- [ ] Build error boundary components for all failure modes
+- [ ] Build "spend cap reached" and "licence expired" banners
 - [ ] Build empty states for all listed contexts
-- [ ] Implement Posthog analytics — install SDK, add event calls at each touchpoint
-- [ ] Build in-app feedback form and Supabase submissions table
-- [ ] Implement beta invite code generation and validation in Supabase
-- [ ] Implement "Share a friend" invite UI in account panel
+- [ ] Instrument Posthog events at each touchpoint
+- [ ] Build in-app feedback form (Formspree or equivalent)
+- [ ] Implement beta invite code support in `/validate` endpoint
 - [ ] Write quick start guide (in-app component)
-- [ ] Write stage reference content (per-stage one-paragraph descriptions)
-- [ ] Write FAQ content
+- [ ] Write stage reference content
+- [ ] Write FAQ (prominently answer the data ownership question)
 - [ ] Tune model routing based on beta token data
-- [ ] Load test `credits-deduct` edge function (concurrent saves)
-- [ ] Penetration check: verify RLS prevents cross-user data access
-- [ ] Review Stripe webhook for idempotency (duplicate events must not double credit)
+- [ ] Load test `/validate` endpoint (concurrent activations)
+- [ ] Verify OpenRouter spend caps are enforced correctly
+- [ ] Review Stripe webhook for idempotency (duplicate events must not
+      double-provision OpenRouter keys)
 
 ## Dependencies
 
@@ -106,10 +103,10 @@ M1–M5 complete.
 
 ## Success criteria
 
-- 10 beta writers reach Stage 5 (Protagonist) without filing a data loss report
-- No unhandled promise rejections in production Posthog error tracking
-- Average session length > 15 minutes (writers are engaged, not bouncing)
-- Cost per active Starter user ≤ £0.20/month in AI API costs
-- Credit exhaustion rate < 20% (most writers finish a plan before running out)
+- 10 beta writers reach Stage 5 without filing a data loss report
+- No unhandled errors in Posthog error tracking
+- Average session length > 15 minutes
+- Actual AI cost per active Starter user ≤ $2.00/month (within spend cap)
+- Free-to-paid conversion rate ≥ 15% within 30 days of first use
 - In-app feedback average rating ≥ 3.5/5
-- Zero cross-user data leaks (verified by RLS audit)
+- FAQ data ownership question answered clearly and accurately

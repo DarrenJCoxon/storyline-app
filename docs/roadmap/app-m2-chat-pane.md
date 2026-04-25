@@ -4,7 +4,12 @@
 
 The core planning conversation works end-to-end in the VS Code extension.
 No Claude Code, no terminal, no skill system. The writer opens the chat pane,
-the AI introduces the current stage, they talk, they save. That's the loop.
+the AI introduces the current stage, they talk, they save to local state.
+
+## Storage
+
+All saves write to local `.storyline/state.json` — no remote calls on save.
+The AI provider call is the only network request in the conversation loop.
 
 ## Deliverables
 
@@ -52,15 +57,15 @@ Registered in VS Code's secondary sidebar (right side). Contains:
 4. Writer types → message appended to turn history → AI streams response
 5. Writer types "save" or clicks Save button:
      - AI confirms stage data in structured JSON block
-     - Extension parses JSON, merges into state.json
-     - credits-deduct called (1 credit)
-     - Stage complete card shown
+     - Extension parses JSON, merges into .storyline/state.json (local write)
+     - Stage complete card shown in chat
+     - writeAllChapterCards() runs if chapterOutline updated (local write)
      - Stage rail updates
      - Next stage's AI opening prompt fires
 ```
 
-Turn history is kept per-stage. Completed stages are collapsed in the rail
-but their history is retained and readable.
+Turn history is kept per-stage in memory for the session. Completed stages
+are collapsed in the rail but their history is retained and readable.
 
 ### Message components
 
@@ -73,7 +78,7 @@ line-height (`1.7`). Feels like reading an editor's notes, not a chatbot.
 
 **Structured response cards** (rendered from AI output when applicable)
 
-- *Option card* — selectable choice (e.g. "Choose your genre variant")
+- *Option card* — selectable choice (e.g. "Choose your genre variant").
   Horizontal card, accent border on hover, checkmark on select.
 - *Beat card* — a suggested story beat with title + one-line description.
   Expandable on click.
@@ -83,7 +88,7 @@ line-height (`1.7`). Feels like reading an editor's notes, not a chatbot.
   what was saved. Appears before the next stage opens.
 
 **Save receipt** (shown inline after each save)
-Compact — stage name, doc path written, credit balance remaining.
+Compact — stage name, local file path written. No network call on save.
 
 ### Stage progress rail
 
@@ -91,9 +96,6 @@ Vertical list at the top of the pane. Each stage shows:
 - Completion state: `○` not started, `◉` active, `●` complete
 - Stage name
 - Clicking a completed stage expands/collapses its chat history
-
-Current stage always visible. Rail does not scroll independently — the whole
-pane scrolls.
 
 ### Input box
 
@@ -105,9 +107,9 @@ pane scrolls.
 
 ### Streaming
 
-AI response streams token by token. A blinking cursor (`|`) follows the last
-character while streaming. On completion the cursor disappears. No jank —
-content is appended to a `pre`-rendered container, not re-rendered per token.
+AI response streams token by token. A blinking cursor (`|`) follows the
+last character while streaming. On completion the cursor disappears.
+Content appended to a pre-rendered container, not re-rendered per token.
 
 ## Design tokens
 
@@ -139,19 +141,20 @@ content is appended to a `pre`-rendered container, not re-rendered per token.
 - [ ] Build option card, beat card, critique badge, stage complete card
 - [ ] Build stage progress rail component
 - [ ] Build shadow-focus input component with ⌘↵ send
-- [ ] Wire save intent → state.json write → credits-deduct → receipt
-- [ ] Apply design tokens, light/dark mode via VS Code `body[data-vscode-theme-kind]`
+- [ ] Wire save intent → local state.json write → stage complete card
+- [ ] Wire chapterOutline save → writeAllChapterCards (local write)
+- [ ] Apply design tokens, light/dark mode via VS Code theme kind
 - [ ] Framer Motion: stage complete card entrance, message fade-in
 
 ## Dependencies
 
-M1 complete (AI provider, credits-deduct, @storyline/core).
+M1 complete (AI provider abstraction, @storyline/core).
 
 ## Success criteria
 
 - Full conversation through Stage 3 (Protagonist) works without errors
-- State.json is written correctly on save with correct field values
-- Credits deduct by exactly 1 per save
+- state.json is written correctly on save with correct field values
+- No network call is made on save (local write only)
 - Streaming feels smooth — no jank, no flicker
 - Light and dark mode both presentable to an external user
 - `⌘↵` sends, `Enter` inserts newline
