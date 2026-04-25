@@ -9,8 +9,9 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ─── Dark tokens ───────────────────────────────────── */
+    /* ─── Dark tokens (default) ─────────────────────────── */
     :root {
+      --page-bg:         #080808;
       --activity-bg:     #0D0D0D;
       --sidebar-bg:      #161616;
       --sidebar-border:  rgba(255,255,255,0.07);
@@ -23,7 +24,7 @@
       --editor-border:   rgba(255,255,255,0.07);
       --editor-text:     #CCC8C0;
       --editor-muted:    #4E4C4A;
-      --editor-scene:    #4E4C4A;
+      --editor-scene:    #4A4846;
       --chat-bg:         #1A1A1A;
       --chat-rail-bg:    #141414;
       --chat-foot-bg:    #111111;
@@ -35,71 +36,57 @@
       --accent-glow:     rgba(201,168,76,0.20);
       --bubble-bg:       #252525;
       --col-sep:         rgba(255,255,255,0.08);
-      --font-ui:         'Inter', system-ui, sans-serif;
-      --font-serif:      'Lora', Georgia, 'Times New Roman', serif;
-      --font-sans:       'Inter', system-ui, sans-serif;
     }
 
-    /* ─── Light tokens — Moleskine paper palette ────────── */
+    /* ─── Light tokens — Moleskine paper ───────────────── */
     .light {
-      --activity-bg:     #2A2A2A;   /* always dark for icon contrast */
-      --sidebar-bg:      #E8E7E4;   /* stone — noticeably darker than paper */
+      --page-bg:         #C8C6C2;
+      --activity-bg:     #2A2A2A;
+      --sidebar-bg:      #E8E7E4;
       --sidebar-border:  rgba(0,0,0,0.08);
       --sidebar-text:    #7A7875;
       --sidebar-hover:   rgba(0,0,0,0.04);
       --sidebar-sel-bg:  rgba(180,148,60,0.1);
       --sidebar-sel-txt: #8B6E1A;
-      --editor-bg:       #F7F6F4;   /* warm paper grey — Moleskine page */
-      --editor-tabs-bg:  #EDECEA;   /* slightly darker than paper */
+      --editor-bg:       #F7F6F4;
+      --editor-tabs-bg:  #EDECEA;
       --editor-border:   rgba(0,0,0,0.07);
-      --editor-text:     #1E1C1A;   /* near-black ink */
-      --editor-muted:    #8A8480;   /* cooler grey, less golden */
+      --editor-text:     #1E1C1A;
+      --editor-muted:    #8A8480;
       --editor-scene:    #AEAAA6;
-      --chat-bg:         #F2F1EF;   /* paper-adjacent, distinct from editor */
-      --chat-rail-bg:    #E9E8E5;   /* stone rail */
-      --chat-foot-bg:    #E2E1DE;   /* darker stone footer */
+      --chat-bg:         #F2F1EF;
+      --chat-rail-bg:    #E9E8E5;
+      --chat-foot-bg:    #E2E1DE;
       --text:            #1E1C1A;
       --text-muted:      #6B6865;
       --text-dim:        #BEBCBA;
       --accent:          #B8922A;
       --accent-sub:      rgba(184,146,42,0.1);
       --accent-glow:     rgba(184,146,42,0.22);
-      --bubble-bg:       #E6E4E0;   /* stone bubble */
+      --bubble-bg:       #E6E4E0;
       --col-sep:         rgba(0,0,0,0.09);
     }
 
     /* ─── Page ──────────────────────────────────────────── */
-    html { font-family: 'Inter', system-ui, sans-serif; }
-
-    body {
-      min-height: 100vh;
-      background: #080808;
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--page-bg);
       display: flex;
-      flex-direction: column;
       align-items: center;
-      padding: 36px 20px 64px;
-      gap: 32px;
-    }
-
-    .section-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #3A3A3A;
-      align-self: flex-start;
-      margin-bottom: -20px;
+      justify-content: center;
+      transition: background 0.25s;
     }
 
     /* ─── Shell ─────────────────────────────────────────── */
     .shell {
       display: flex;
-      width: 1260px;
-      height: 780px;
+      width: 1280px;
+      height: 820px;
       border-radius: 10px;
       overflow: hidden;
       box-shadow: 0 28px 90px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
-      flex-shrink: 0;
+      transition: box-shadow 0.25s;
     }
 
     /* ─── Activity Bar ──────────────────────────────────── */
@@ -113,25 +100,21 @@
       gap: 2px;
       flex-shrink: 0;
       border-right: 1px solid var(--col-sep);
+      transition: background 0.25s, border-color 0.25s;
     }
 
     .ai {
-      width: 34px;
-      height: 34px;
+      width: 34px; height: 34px;
       border-radius: 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #484644;
-      cursor: pointer;
-      transition: color .15s;
+      display: flex; align-items: center; justify-content: center;
+      color: #484644; cursor: pointer;
+      transition: color .15s, background .15s;
     }
-
     .ai:hover { color: #888; }
     .ai.on    { color: #AAA; background: rgba(255,255,255,0.07); }
     .ai.bot   { margin-top: auto; }
 
-    /* ─── File Sidebar ──────────────────────────────────── */
+    /* ─── Sidebar ───────────────────────────────────────── */
     .sidebar {
       width: 210px;
       background: var(--sidebar-bg);
@@ -139,40 +122,34 @@
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      transition: background 0.25s, border-color 0.25s;
     }
 
     .sb-title {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--sidebar-text);
       padding: 12px 14px 8px;
       border-bottom: 1px solid var(--sidebar-border);
+      transition: color 0.25s, border-color 0.25s;
     }
 
     .file-tree {
-      flex: 1;
-      overflow-y: auto;
+      flex: 1; overflow-y: auto;
       padding: 6px 0 12px;
       font-size: 12.5px;
-      font-family: var(--font-ui);
     }
-
     .file-tree::-webkit-scrollbar { width: 3px; }
     .file-tree::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.15); border-radius: 2px; }
 
     .tr {
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      display: flex; align-items: center; gap: 5px;
       padding: 3.5px 14px;
       color: var(--sidebar-text);
-      cursor: pointer;
-      user-select: none;
+      cursor: pointer; user-select: none;
       border-left: 2px solid transparent;
+      transition: background 0.12s, color 0.12s;
     }
-
     .tr:hover { background: var(--sidebar-hover); }
     .tr.sel   { background: var(--sidebar-sel-bg); color: var(--sidebar-sel-txt); border-left-color: var(--accent); }
     .tr.fdr   { color: var(--text-muted); font-weight: 500; }
@@ -180,323 +157,230 @@
 
     /* ─── Editor ────────────────────────────────────────── */
     .editor {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
+      flex: 1; display: flex; flex-direction: column;
       background: var(--editor-bg);
       min-width: 0;
-      position: relative;
-      z-index: 1;
-      /* Elevation: editor is the primary surface */
-      box-shadow: -1px 0 0 var(--editor-border), 1px 0 0 var(--editor-border), 0 0 20px rgba(0,0,0,0.3);
+      position: relative; z-index: 1;
+      box-shadow: -1px 0 0 var(--editor-border), 1px 0 0 var(--editor-border), 0 0 24px rgba(0,0,0,0.25);
+      transition: background 0.25s, box-shadow 0.25s;
     }
 
     .ed-tabs {
-      display: flex;
-      align-items: center;
+      display: flex; align-items: center;
       background: var(--editor-tabs-bg);
       border-bottom: 1px solid var(--editor-border);
-      height: 35px;
-      padding: 0 6px;
-      gap: 2px;
+      height: 35px; padding: 0 6px; gap: 2px;
       flex-shrink: 0;
+      transition: background 0.25s;
     }
 
     .tab {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0 12px;
-      height: 27px;
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 12px; height: 27px;
       border-radius: 5px 5px 0 0;
-      font-size: 12px;
-      cursor: pointer;
+      font-size: 12px; cursor: pointer;
       color: var(--editor-muted);
-      font-family: var(--font-ui);
+      transition: background 0.15s, color 0.15s;
     }
-
     .tab.on {
       background: var(--editor-bg);
       color: var(--editor-text);
       font-weight: 500;
-      /* Accent top border on active tab */
       box-shadow: inset 0 2px 0 var(--accent);
     }
-
     .tab .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 
     .ed-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 2px;
+      display: flex; align-items: center; gap: 2px;
       padding: 7px 36px;
       border-bottom: 1px solid var(--editor-border);
       flex-shrink: 0;
-      font-family: var(--font-ui);
+      transition: border-color 0.25s;
     }
 
     .ms-tag {
-      font-size: 9.5px;
-      font-weight: 700;
+      font-size: 9.5px; font-weight: 700;
       letter-spacing: 0.08em;
       color: var(--editor-muted);
       background: var(--accent-sub);
       border: 1px solid rgba(201,168,76,0.2);
-      padding: 3px 7px;
-      border-radius: 4px;
+      padding: 3px 7px; border-radius: 4px;
       margin-right: 8px;
+      transition: color 0.25s, background 0.25s;
     }
 
     .tb {
-      width: 27px;
-      height: 25px;
-      border-radius: 4px;
-      border: none;
-      background: none;
+      width: 27px; height: 25px; border-radius: 4px;
+      border: none; background: none;
       color: var(--editor-muted);
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 12.5px; font-weight: 500;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-ui);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Inter', system-ui, sans-serif;
+      transition: color 0.15s, background 0.15s;
     }
-
     .tb:hover { background: rgba(128,128,128,0.1); color: var(--editor-text); }
-    .tb-sep   { width: 1px; height: 14px; background: var(--editor-border); margin: 0 3px; }
+    .tb-sep   { width: 1px; height: 14px; background: var(--editor-border); margin: 0 3px; transition: background 0.25s; }
 
-    /* Font toggle — right side of toolbar */
     .font-toggle {
       margin-left: auto;
-      display: flex;
-      align-items: center;
+      display: flex; align-items: center;
       background: rgba(128,128,128,0.08);
-      border-radius: 6px;
-      padding: 2px;
-      gap: 1px;
+      border-radius: 6px; padding: 2px; gap: 1px;
     }
-
     .ft-btn {
-      padding: 3px 9px;
-      border-radius: 4px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 12px;
+      padding: 3px 9px; border-radius: 4px;
+      border: none; background: none;
+      cursor: pointer; font-size: 12px;
       color: var(--editor-muted);
-      transition: background .15s, color .15s;
-      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
     }
-
     .ft-btn.on {
       background: var(--editor-bg);
       color: var(--editor-text);
       font-weight: 500;
       box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
-
     .ft-btn.serif-btn { font-family: 'Lora', Georgia, serif; font-size: 13px; }
     .ft-btn.sans-btn  { font-family: 'Inter', system-ui, sans-serif; }
 
-    /* Typewriter toggle */
     .tw-wrap {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: flex; align-items: center; gap: 6px;
       margin-left: 10px;
-      font-size: 11.5px;
-      color: var(--editor-muted);
-      font-family: var(--font-ui);
+      font-size: 11.5px; color: var(--editor-muted);
+      transition: color 0.25s;
     }
-
     .tw-box {
       width: 13px; height: 13px;
-      border: 1.5px solid var(--accent);
-      border-radius: 3px;
+      border: 1.5px solid var(--accent); border-radius: 3px;
       background: var(--accent-sub);
       display: flex; align-items: center; justify-content: center;
       font-size: 8px; color: var(--accent);
     }
 
-    /* Prose */
-    .ed-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 50px 80px;
-    }
-
+    .ed-scroll { flex: 1; overflow-y: auto; padding: 50px 80px; }
     .ed-scroll::-webkit-scrollbar { width: 6px; }
     .ed-scroll::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.12); border-radius: 3px; }
 
-    /* Serif version */
-    .prose-serif {
-      font-family: var(--font-serif);
+    .prose {
       color: var(--editor-text);
-      font-size: 17px;
-      line-height: 1.9;
+      transition: color 0.25s, font-family 0.1s;
     }
-
-    /* Sans version */
-    .prose-sans {
-      font-family: var(--font-sans);
-      color: var(--editor-text);
-      font-size: 16px;
-      line-height: 1.8;
-    }
-
-    .prose-serif p, .prose-sans p { margin-bottom: 1.3em; }
-    .prose-serif .ind, .prose-sans .ind { text-indent: 2.2em; }
-    .prose-serif em, .prose-sans em { font-style: italic; }
+    .prose.serif { font-family: 'Lora', Georgia, serif; font-size: 17px; line-height: 1.9; }
+    .prose.sans  { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; line-height: 1.8; }
+    .prose p { margin-bottom: 1.3em; }
+    .prose .ind { text-indent: 2.2em; }
+    .prose em { font-style: italic; }
 
     .ch-label {
-      font-family: var(--font-ui);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
       color: var(--editor-muted);
       margin-bottom: 2.8em;
+      transition: color 0.25s;
     }
-
     .scene-brk {
-      text-align: center;
-      color: var(--editor-scene);
-      letter-spacing: 0.4em;
-      margin: 1.8em 0;
-      font-family: var(--font-ui);
+      text-align: center; color: var(--editor-scene);
+      letter-spacing: 0.4em; margin: 1.8em 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      transition: color 0.25s;
     }
 
     /* ─── Chat Pane ─────────────────────────────────────── */
     .chat {
-      width: 330px;
-      display: flex;
-      flex-direction: column;
+      width: 330px; display: flex; flex-direction: column;
       background: var(--chat-bg);
       border-left: 1px solid var(--col-sep);
       flex-shrink: 0;
+      transition: background 0.25s, border-color 0.25s;
     }
 
-    /* Header */
     .chat-hd {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       padding: 11px 14px;
       border-bottom: 1px solid var(--col-sep);
       flex-shrink: 0;
-      font-family: var(--font-ui);
+      background: var(--chat-bg);
+      transition: background 0.25s, border-color 0.25s;
     }
 
-    .wordmark { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+    .wordmark { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); transition: color 0.25s; }
     .wordmark span { color: var(--accent); }
 
     .hd-right { display: flex; align-items: center; gap: 7px; }
 
     .credits {
-      font-size: 11px;
-      color: var(--text-muted);
+      font-size: 11px; color: var(--text-muted);
       background: rgba(128,128,128,0.1);
-      padding: 3px 9px;
-      border-radius: 20px;
+      padding: 3px 9px; border-radius: 20px;
+      transition: color 0.25s;
     }
 
-    /* Theme pill */
+    /* ─── Theme pill ────────────────────────────────────── */
     .theme-pill {
       display: flex;
       background: rgba(128,128,128,0.1);
-      border-radius: 20px;
-      padding: 2px;
+      border-radius: 20px; padding: 2px;
     }
-
     .th-btn {
-      width: 25px; height: 21px;
-      border-radius: 14px;
+      width: 26px; height: 22px; border-radius: 14px;
       border: none; background: none;
       cursor: pointer; font-size: 11px;
       display: flex; align-items: center; justify-content: center;
       color: var(--text-dim);
-      transition: background .15s, color .15s;
+      transition: background 0.15s, color 0.15s;
     }
-
     .th-btn:hover { color: var(--text-muted); }
-    .th-btn.on { background: var(--accent); color: #111; }
+    .th-btn.on    { background: var(--accent); color: #111; }
 
-    /* Stage rail — clearly darker than thread */
+    /* ─── Stage rail ────────────────────────────────────── */
     .stage-rail {
       background: var(--chat-rail-bg);
       border-bottom: 1px solid var(--col-sep);
       flex-shrink: 0;
+      transition: background 0.25s, border-color 0.25s;
     }
 
     .rail-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 9px 14px 9px;
-      font-family: var(--font-ui);
-      cursor: pointer;
-      user-select: none;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 14px;
+      cursor: pointer; user-select: none;
     }
 
-    .rail-head-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .rail-head-left { display: flex; align-items: center; gap: 8px; }
 
     .rail-label {
       font-size: 9.5px; font-weight: 700;
       letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--text-dim);
+      transition: color 0.25s;
     }
 
-    /* Active stage shown inline when collapsed */
     .rail-active-hint {
-      font-size: 11.5px;
-      color: var(--accent);
+      font-size: 11.5px; color: var(--accent);
       font-weight: 500;
-      opacity: 0;
-      transition: opacity 0.2s;
+      opacity: 0; max-width: 0; overflow: hidden;
       white-space: nowrap;
-      overflow: hidden;
-      max-width: 0;
       transition: opacity 0.2s, max-width 0.25s;
     }
-
-    .stage-rail.collapsed .rail-active-hint {
-      opacity: 1;
-      max-width: 160px;
-    }
+    .stage-rail.collapsed .rail-active-hint { opacity: 1; max-width: 160px; }
 
     .rail-chevron {
-      font-size: 10px;
-      color: var(--text-dim);
-      transition: transform 0.22s ease;
-      flex-shrink: 0;
+      font-size: 10px; color: var(--text-dim);
+      transition: transform 0.22s ease, color 0.25s;
     }
-
-    .stage-rail.collapsed .rail-chevron {
-      transform: rotate(-90deg);
-    }
+    .stage-rail.collapsed .rail-chevron { transform: rotate(-90deg); }
 
     .s-list {
       list-style: none;
-      max-height: 148px;
-      overflow-y: auto;
-      padding-bottom: 6px;
       overflow: hidden;
-      max-height: 148px;
-      transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
+      max-height: 155px;
+      padding-bottom: 6px;
+      transition: max-height 0.28s ease, opacity 0.2s ease, padding 0.2s ease;
       opacity: 1;
     }
-
-    .stage-rail.collapsed .s-list {
-      max-height: 0;
-      opacity: 0;
-      padding-bottom: 0;
-    }
-
+    .stage-rail.collapsed .s-list { max-height: 0; opacity: 0; padding-bottom: 0; }
     .s-list::-webkit-scrollbar { width: 3px; }
     .s-list::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.12); border-radius: 2px; }
 
@@ -506,9 +390,8 @@
       font-size: 12.5px; cursor: pointer;
       color: var(--text-dim);
       border-left: 2px solid transparent;
-      font-family: var(--font-ui);
+      transition: background 0.12s, color 0.12s;
     }
-
     .sr:hover { background: rgba(128,128,128,0.05); }
     .sr.done  { color: var(--text-muted); }
     .sr.now   { color: var(--text); background: var(--accent-sub); border-left-color: var(--accent); padding-left: 12px; }
@@ -517,41 +400,34 @@
       width: 18px; height: 18px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 9px; flex-shrink: 0; font-weight: 600;
-      font-family: var(--font-ui);
     }
-
     .sd.done { background: var(--accent-sub); color: var(--accent); }
     .sd.now  { background: var(--accent); color: #111; }
     .sd.todo { border: 1.5px solid var(--text-dim); }
 
-    /* Chat thread */
+    /* ─── Chat thread ───────────────────────────────────── */
     .chat-thread {
       flex: 1; overflow-y: auto;
       padding: 18px 14px;
       display: flex; flex-direction: column; gap: 16px;
       background: var(--chat-bg);
-      font-family: var(--font-ui);
+      transition: background 0.25s;
     }
-
     .chat-thread::-webkit-scrollbar { width: 3px; }
     .chat-thread::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.1); border-radius: 2px; }
 
-    .msg-ai {
-      font-size: 13.5px; line-height: 1.75;
-      color: var(--text);
-    }
-
-    .msg-ai strong { color: var(--text); font-weight: 600; }
-    .msg-ai em     { color: var(--text-muted); font-style: italic; }
+    .msg-ai { font-size: 13.5px; line-height: 1.75; color: var(--text); transition: color 0.25s; }
+    .msg-ai strong { font-weight: 600; }
+    .msg-ai em     { color: var(--text-muted); font-style: italic; transition: color 0.25s; }
 
     .msg-user { display: flex; justify-content: flex-end; }
-
     .bubble {
       background: var(--bubble-bg);
       border-radius: 16px 16px 3px 16px;
       padding: 9px 13px;
       font-size: 13.5px; line-height: 1.6;
       color: var(--text); max-width: 88%;
+      transition: background 0.25s, color 0.25s;
     }
 
     .cursor {
@@ -560,35 +436,30 @@
       margin-left: 1px; vertical-align: middle;
       animation: blink 1s step-end infinite;
     }
-
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* Input footer — clearly distinct bg from thread */
+    /* ─── Input footer ──────────────────────────────────── */
     .chat-foot {
       background: var(--chat-foot-bg);
       border-top: 1px solid var(--col-sep);
       padding: 10px 12px 9px;
       flex-shrink: 0;
-      font-family: var(--font-ui);
+      transition: background 0.25s, border-color 0.25s;
     }
-
     .inp-wrap {
       background: var(--chat-bg);
-      border-radius: 11px;
-      padding: 9px 11px;
+      border-radius: 11px; padding: 9px 11px;
       display: flex; align-items: flex-end; gap: 8px;
       border: 1px solid var(--col-sep);
       box-shadow: 0 0 0 2px var(--accent-glow);
+      transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
     }
-
     .inp-wrap textarea {
-      flex: 1; background: none; border: none; outline: none;
-      resize: none;
-      font-family: var(--font-ui);
-      font-size: 13px; color: var(--text);
-      line-height: 1.5; height: 38px;
+      flex: 1; background: none; border: none; outline: none; resize: none;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px; color: var(--text); line-height: 1.5; height: 38px;
+      transition: color 0.25s;
     }
-
     .inp-wrap textarea::placeholder { color: var(--text-dim); }
 
     .send-btn {
@@ -596,28 +467,21 @@
       background: var(--accent); border: none;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; flex-shrink: 0;
+      transition: background 0.25s;
     }
 
-    .hint {
-      font-size: 10px; color: var(--text-dim);
-      text-align: center; margin-top: 6px;
-    }
-
+    .hint { font-size: 10px; color: var(--text-dim); text-align: center; margin-top: 6px; transition: color 0.25s; }
     .hint kbd {
       background: rgba(128,128,128,0.12); border-radius: 3px;
-      padding: 1px 4px; font-family: var(--font-ui); font-size: 9.5px;
+      padding: 1px 4px; font-family: 'Inter', sans-serif; font-size: 9.5px;
     }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════
-     DARK MODE  ·  Serif writing font (default)
-═══════════════════════════════════════════════════════ -->
-<div class="section-label" style="color:#333">Dark · Serif</div>
+<div class="shell" id="shell">
 
-<div class="shell">
-
+  <!-- Activity Bar -->
   <div class="activity-bar">
     <div class="ai on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
     <div class="ai"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
@@ -625,14 +489,15 @@
     <div class="ai bot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
   </div>
 
+  <!-- File Sidebar -->
   <div class="sidebar">
     <div class="sb-title">The Winter Cipher</div>
     <div class="file-tree">
       <div class="tr fdr"><span class="ic">▾</span> docs</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#C9A84C">◆</span>&thinsp;01-genre.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#C9A84C">◆</span>&thinsp;02-premise.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#C9A84C">◆</span>&thinsp;03-protagonist.md</div>
-      <div class="tr sel" style="padding-left:26px"><span class="ic" style="color:#C9A84C">◆</span>&thinsp;04-supporting-cast.md</div>
+      <div class="tr" style="padding-left:26px"><span class="ic" style="color:var(--accent)">◆</span>&thinsp;01-genre.md</div>
+      <div class="tr" style="padding-left:26px"><span class="ic" style="color:var(--accent)">◆</span>&thinsp;02-premise.md</div>
+      <div class="tr" style="padding-left:26px"><span class="ic" style="color:var(--accent)">◆</span>&thinsp;03-protagonist.md</div>
+      <div class="tr sel" style="padding-left:26px"><span class="ic" style="color:var(--accent)">◆</span>&thinsp;04-supporting-cast.md</div>
       <div class="tr" style="padding-left:26px"><span class="ic" style="color:#4A6880">◆</span>&thinsp;05-relationship-web.md</div>
       <div class="tr" style="padding-left:26px"><span class="ic" style="color:#4A6880">◆</span>&thinsp;06-beat-sheet.md</div>
       <div class="tr fdr" style="margin-top:5px"><span class="ic">▾</span> manuscript</div>
@@ -643,6 +508,7 @@
     </div>
   </div>
 
+  <!-- Editor -->
   <div class="editor">
     <div class="ed-tabs">
       <div class="tab"><span style="color:#5A7A9A;font-size:10px">◆</span>&thinsp;chapter-01.md</div>
@@ -659,13 +525,13 @@
       <button class="tb">"</button>
       <button class="tb" style="letter-spacing:-1px;font-size:11px">***</button>
       <div class="font-toggle">
-        <button class="ft-btn serif-btn on">Serif</button>
-        <button class="ft-btn sans-btn">Sans</button>
+        <button class="ft-btn serif-btn on" onclick="setFont('serif')">Serif</button>
+        <button class="ft-btn sans-btn" onclick="setFont('sans')">Sans</button>
       </div>
       <div class="tw-wrap"><div class="tw-box">✓</div>Typewriter</div>
     </div>
     <div class="ed-scroll">
-      <div class="prose-serif">
+      <div class="prose serif" id="prose">
         <div class="ch-label">Chapter Two</div>
         <p class="ind">The next morning, the refectory was a different world.</p>
         <p class="ind">Three hundred boys at the long oak tables, the noise of cutlery and china and the low roar of voices that never quite became words. Sun coming in hard through the high windows. The smell of fried bread and weak tea. Everything too bright, loud, and <em>public</em> after the icy quiet of the computer room.</p>
@@ -673,24 +539,27 @@
         <p class="ind">The boys further up the table ate without looking at him. That was the usual arrangement. It was also, this morning, a small mercy. Theo did not feel like being looked at.</p>
         <div class="scene-brk">*&ensp;&ensp;*&ensp;&ensp;*</div>
         <p class="ind">He had not slept. Not properly. He had lain in his narrow bed and listened to the breathing of the other boys — Patterson, deep and steady; Crane, who talked sometimes in his sleep about cricket — and stared at the ceiling and thought about his father.</p>
+        <p class="ind">Not the fear of having done something wrong so much as something worse: the fear of having understood something correctly.</p>
       </div>
     </div>
   </div>
 
+  <!-- Chat Pane -->
   <div class="chat">
     <div class="chat-hd">
       <div class="wordmark">story<span>line</span></div>
       <div class="hd-right">
         <div class="credits">847 credits</div>
         <div class="theme-pill">
-          <button class="th-btn" title="Light">☀️</button>
-          <button class="th-btn on" title="Dark">🌙</button>
-          <button class="th-btn" title="System">💻</button>
+          <button class="th-btn" data-mode="light" onclick="setTheme('light')" title="Light">☀️</button>
+          <button class="th-btn on" data-mode="dark" onclick="setTheme('dark')" title="Dark">🌙</button>
+          <button class="th-btn" data-mode="auto" onclick="setTheme('auto')" title="Follow system">💻</button>
         </div>
       </div>
     </div>
-    <div class="stage-rail">
-      <div class="rail-head" onclick="toggleRail(this)">
+
+    <div class="stage-rail" id="rail">
+      <div class="rail-head" onclick="toggleRail()">
         <div class="rail-head-left">
           <span class="rail-label">Planning stages</span>
           <span class="rail-active-hint">4 · Supporting Cast</span>
@@ -705,131 +574,23 @@
         <li class="sr"><div class="sd todo"></div>Relationship Web</li>
         <li class="sr"><div class="sd todo"></div>Logline Refinement</li>
         <li class="sr"><div class="sd todo"></div>Beat Sheet</li>
-        <li class="sr"><div class="sd todo"></div>B Story</li>
+        <li class="sr"><div class="sd todo"></div>B Story &amp; Subplots</li>
+        <li class="sr"><div class="sd todo"></div>Scene Outline</li>
       </ul>
     </div>
+
     <div class="chat-thread">
       <div class="msg-ai">Good — Theo is solid. A boy who notices everything and says almost nothing is exactly the kind of protagonist this story needs.<br><br><strong>Now let's build the people around him.</strong> Each supporting character should make Theo's central question harder to answer, not easier.<br><br>Start with the person closest to him at school. Who does Theo actually talk to?</div>
       <div class="msg-user"><div class="bubble">There's Oliver Arden — a year above, seems to know more than he lets on. And Iris, his father's former student, now at the school for unclear reasons.</div></div>
-      <div class="msg-ai">Two good instincts. Let me push on both.<br><br><strong>Oliver</strong> — "knows more than he lets on" is promising, but it's a function not a character. What does Oliver <em>want</em> from Theo specifically?<br><br><strong>Iris</strong> is more interesting — she carries the father's world into the school. Threat, ally, or does she not know herself yet?<span class="cursor"></span></div>
+      <div class="msg-ai">Two good instincts. Let me push on both.<br><br><strong>Oliver</strong> — "knows more than he lets on" is a function, not a character yet. What does Oliver <em>want</em> from Theo specifically? The best supporting characters want something the protagonist can't simply give.<br><br><strong>Iris</strong> is more interesting — she carries the father's world into the school. Is she a threat, an ally, or does she not know herself yet?<span class="cursor"></span></div>
     </div>
+
     <div class="chat-foot">
       <div class="inp-wrap">
         <textarea placeholder="Reply to Storyline…"></textarea>
-        <button class="send-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
-      </div>
-      <div class="hint"><kbd>⌘↵</kbd> to send &nbsp;·&nbsp; Enter for new line</div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ═══════════════════════════════════════════════════════
-     LIGHT MODE  ·  Serif writing font
-═══════════════════════════════════════════════════════ -->
-<div class="section-label" style="color:#333;margin-top:8px">Light · Serif</div>
-
-<div class="shell light">
-
-  <div class="activity-bar">
-    <div class="ai on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-    <div class="ai"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-    <div class="ai"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
-    <div class="ai bot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
-  </div>
-
-  <div class="sidebar">
-    <div class="sb-title">The Winter Cipher</div>
-    <div class="file-tree">
-      <div class="tr fdr"><span class="ic">▾</span> docs</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#B8922A">◆</span>&thinsp;01-genre.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#B8922A">◆</span>&thinsp;02-premise.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#B8922A">◆</span>&thinsp;03-protagonist.md</div>
-      <div class="tr sel" style="padding-left:26px"><span class="ic" style="color:#B8922A">◆</span>&thinsp;04-supporting-cast.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#7A9EBB">◆</span>&thinsp;05-relationship-web.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#7A9EBB">◆</span>&thinsp;06-beat-sheet.md</div>
-      <div class="tr fdr" style="margin-top:5px"><span class="ic">▾</span> manuscript</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#7A9EBB">◆</span>&thinsp;chapter-01.md</div>
-      <div class="tr" style="padding-left:26px"><span class="ic" style="color:#7A9EBB">◆</span>&thinsp;chapter-02.md</div>
-      <div class="tr fdr" style="margin-top:5px"><span class="ic">▸</span> output</div>
-      <div class="tr fdr"><span class="ic">▸</span> .storyline</div>
-    </div>
-  </div>
-
-  <div class="editor">
-    <div class="ed-tabs">
-      <div class="tab"><span style="color:#7A9EBB;font-size:10px">◆</span>&thinsp;chapter-01.md</div>
-      <div class="tab on"><span class="dot"></span>chapter-02.md</div>
-    </div>
-    <div class="ed-toolbar">
-      <span class="ms-tag">MANUSCRIPT</span>
-      <button class="tb" style="font-weight:700">B</button>
-      <button class="tb" style="font-style:italic;font-family:'Lora',Georgia,serif;font-size:14px">I</button>
-      <div class="tb-sep"></div>
-      <button class="tb" style="font-size:11px;font-weight:700">H1</button>
-      <button class="tb" style="font-size:11px;font-weight:700">H2</button>
-      <div class="tb-sep"></div>
-      <button class="tb">"</button>
-      <button class="tb" style="letter-spacing:-1px;font-size:11px">***</button>
-      <div class="font-toggle">
-        <button class="ft-btn serif-btn on">Serif</button>
-        <button class="ft-btn sans-btn">Sans</button>
-      </div>
-      <div class="tw-wrap"><div class="tw-box">✓</div>Typewriter</div>
-    </div>
-    <div class="ed-scroll">
-      <div class="prose-serif">
-        <div class="ch-label">Chapter Two</div>
-        <p class="ind">The next morning, the refectory was a different world.</p>
-        <p class="ind">Three hundred boys at the long oak tables, the noise of cutlery and china and the low roar of voices that never quite became words. Sun coming in hard through the high windows. The smell of fried bread and weak tea. Everything too bright, loud, and <em>public</em> after the icy quiet of the computer room.</p>
-        <p class="ind">Theo sat at the end of one of the long tables, alone. He always sat alone. A bowl of cornflakes in front of him. A jug of milk he had not poured. A glass of orange juice he had not touched.</p>
-        <p class="ind">The boys further up the table ate without looking at him. That was the usual arrangement. It was also, this morning, a small mercy. Theo did not feel like being looked at.</p>
-        <div class="scene-brk">*&ensp;&ensp;*&ensp;&ensp;*</div>
-        <p class="ind">He had not slept. Not properly. He had lain in his narrow bed and listened to the breathing of the other boys — Patterson, deep and steady; Crane, who talked sometimes in his sleep about cricket — and stared at the ceiling and thought about his father.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="chat">
-    <div class="chat-hd">
-      <div class="wordmark">story<span>line</span></div>
-      <div class="hd-right">
-        <div class="credits">847 credits</div>
-        <div class="theme-pill">
-          <button class="th-btn on" title="Light">☀️</button>
-          <button class="th-btn" title="Dark">🌙</button>
-          <button class="th-btn" title="System">💻</button>
-        </div>
-      </div>
-    </div>
-    <div class="stage-rail">
-      <div class="rail-head" onclick="toggleRail(this)">
-        <div class="rail-head-left">
-          <span class="rail-label">Planning stages</span>
-          <span class="rail-active-hint">4 · Supporting Cast</span>
-        </div>
-        <span class="rail-chevron">▾</span>
-      </div>
-      <ul class="s-list">
-        <li class="sr done"><div class="sd done">✓</div>Genre &amp; Foundations</li>
-        <li class="sr done"><div class="sd done">✓</div>Story Seed &amp; Premise</li>
-        <li class="sr done"><div class="sd done">✓</div>Protagonist Deep Dive</li>
-        <li class="sr now"><div class="sd now">4</div>Supporting Cast</li>
-        <li class="sr"><div class="sd todo"></div>Relationship Web</li>
-        <li class="sr"><div class="sd todo"></div>Logline Refinement</li>
-        <li class="sr"><div class="sd todo"></div>Beat Sheet</li>
-        <li class="sr"><div class="sd todo"></div>B Story</li>
-      </ul>
-    </div>
-    <div class="chat-thread">
-      <div class="msg-ai">Good — Theo is solid. A boy who notices everything and says almost nothing is exactly the kind of protagonist this story needs.<br><br><strong>Now let's build the people around him.</strong> Each supporting character should make Theo's central question harder to answer, not easier.<br><br>Start with the person closest to him at school. Who does Theo actually talk to?</div>
-      <div class="msg-user"><div class="bubble">There's Oliver Arden — a year above, seems to know more than he lets on. And Iris, his father's former student, now at the school for unclear reasons.</div></div>
-      <div class="msg-ai">Two good instincts. Let me push on both.<br><br><strong>Oliver</strong> — "knows more than he lets on" is a function not a character. What does Oliver <em>want</em> from Theo specifically?<br><br><strong>Iris</strong> is more interesting — she carries the father's world into the school. Threat, ally, or does she not know herself yet?<span class="cursor"></span></div>
-    </div>
-    <div class="chat-foot">
-      <div class="inp-wrap">
-        <textarea placeholder="Reply to Storyline…"></textarea>
-        <button class="send-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        <button class="send-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
       </div>
       <div class="hint"><kbd>⌘↵</kbd> to send &nbsp;·&nbsp; Enter for new line</div>
     </div>
@@ -838,9 +599,35 @@
 </div>
 
 <script>
-  function toggleRail(headEl) {
-    headEl.closest('.stage-rail').classList.toggle('collapsed');
+  const shell = document.getElementById('shell');
+  const mq    = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function setTheme(mode) {
+    const isDark = mode === 'dark' || (mode === 'auto' && mq.matches);
+    shell.classList.toggle('light', !isDark);
+    document.body.style.background = isDark ? '#080808' : '#C8C6C2';
+    document.querySelectorAll('.th-btn').forEach(b => b.classList.remove('on'));
+    document.querySelector(`.th-btn[data-mode="${mode}"]`).classList.add('on');
   }
+
+  function toggleRail() {
+    document.getElementById('rail').classList.toggle('collapsed');
+  }
+
+  function setFont(f) {
+    const prose = document.getElementById('prose');
+    prose.classList.toggle('serif', f === 'serif');
+    prose.classList.toggle('sans',  f === 'sans');
+    document.querySelectorAll('.ft-btn').forEach(b => b.classList.remove('on'));
+    document.querySelector(`.ft-btn.${f}-btn`).classList.add('on');
+  }
+
+  // Follow OS if auto is active
+  mq.addEventListener('change', () => {
+    const active = document.querySelector('.th-btn.on');
+    if (active && active.dataset.mode === 'auto') setTheme('auto');
+  });
 </script>
+
 </body>
 </html>
