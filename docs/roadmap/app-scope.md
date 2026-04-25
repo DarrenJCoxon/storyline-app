@@ -50,13 +50,13 @@ Files left, editor centre, planning chat right (VS Code secondary sidebar).
 
 ## AI integration
 
-### Managed subscription
+### Credit packs
 
 The extension sends messages to **our backend proxy** (`POST /chat`).
-The proxy validates the licence key, routes to the appropriate AI model,
-and streams the response back. Writers never interact with any AI
-provider directly — OpenRouter (or any future provider) is a backend
-implementation detail invisible to the extension and to the writer.
+The proxy validates the licence key, checks the writer's credit balance,
+routes to the AI model, streams the response, then deducts credits.
+Writers never interact with any AI provider directly — OpenRouter is a
+backend implementation detail invisible to the extension and the writer.
 
 The only credential the extension ever holds is the licence key.
 
@@ -64,10 +64,10 @@ The only credential the extension ever holds is the licence key.
 Extension  →  POST /chat (licence key + messages)
                   ↓
            Our backend proxy (Cloudflare Worker)
-                  ↓  validates licence, routes model
+                  ↓  validates key, checks credits, routes model
            OpenRouter / AI provider  (our master key, never exposed)
                   ↓  SSE stream
-Extension  ←  streamed response
+Extension  ←  streamed response  (credits deducted on completion)
 ```
 
 ### BYOK
@@ -77,48 +77,59 @@ from the extension. The backend is not involved in AI calls. The licence
 key is used only to validate they have a software licence.
 
 ```
-managed subscription  →  our backend proxy (POST /chat)
-BYOK Anthropic        →  Anthropic API direct
-BYOK OpenAI-compat    →  Together / LM Studio / OpenRouter (their key)
-BYOK local            →  Ollama (localhost:11434, no key)
+credit pack writers  →  our backend proxy (POST /chat)
+BYOK Anthropic       →  Anthropic API direct
+BYOK OpenAI-compat   →  Together / LM Studio / OpenRouter (their key)
+BYOK local           →  Ollama (localhost:11434, no key)
 ```
 
 ### Model routing
 
-Lives on the backend for managed subscribers — we control it, we can
-change models without an extension update.
+Lives on the backend — we control it, we can change models without
+an extension update.
 
-| Tier   | Current model                 | Stages                    | Approx cost/call |
-|--------|-------------------------------|---------------------------|------------------|
-| Light  | deepseek/deepseek-v4-flash    | Stages 1–12, beat sheet   | ~$0.001          |
-| Heavy  | deepseek/deepseek-v4-pro      | Critique, master document | ~$0.010          |
+| Model                       | Stages    | Our cost/full plan |
+|-----------------------------|-----------|-------------------|
+| deepseek/deepseek-v4-flash  | All 1–14  | ~$0.05            |
 
-Full 14-stage plan end-to-end: ~$0.14 in API costs.
+Single model for all stages. Flash matches Pro on every benchmark
+relevant to creative planning (MMLU-Pro gap: 1.3 pts; SWE gap: 1.6 pts).
+Pro's advantages are in factual recall and terminal tool use — neither
+applies here. Routing config lives in the Worker; model can be changed
+without touching the extension.
 
 ## Business model
 
-| Plan    | Price   | AI access             | Backend needed       |
-|---------|---------|-----------------------|----------------------|
-| Starter | £9/mo   | 200 calls/mo via proxy| Licence + proxy      |
-| Pro     | £19/mo  | 600 calls/mo via proxy| Licence + proxy      |
-| BYOK    | £5/mo   | Their own key, direct | Licence only         |
-| Free    | £0      | 10 calls via proxy    | None (hardcoded key) |
+| Tier    | Price      | AI access                        | Backend needed   |
+|---------|------------|----------------------------------|------------------|
+| Free    | £0         | Credits for one complete plan    | Proxy (free key) |
+| Credits | £10 / £20  | ~6 / ~12 full book journeys      | Proxy            |
+| BYOK    | £20/yr     | Their own key, unlimited         | Licence only     |
 
-200 calls = ~14 complete book plans. Most Starter writers never hit the limit.
+**Free tier:** enough credits to plan one complete book end-to-end
+(all 14 stages, planning only). No card required. Writing mentor chat
+requires a paid credit pack. One free allocation per installation.
+
+**Credit packs:** bought once, no expiry, no subscription. Writers top
+up when they run low. £10 buys roughly 6 complete book journeys at our
+10× markup on AI cost (~$0.05/plan → $0.50 charged).
+
+**BYOK:** annual software licence only. No AI costs to us. Writer
+supplies their own API key and calls their provider directly.
 
 ## Backend (minimal)
 
 One Cloudflare Worker with three routes:
 
-- `POST /validate` — licence key → plan info (no AI credentials returned)
+- `POST /validate` — licence key → type + credit balance (no AI credentials)
 - `POST /chat` — licence key + messages → streamed AI response (proxied)
-- `POST /stripe-webhook` — subscription lifecycle → KV store
+- `POST /stripe-webhook` — payment events → credit top-up in KV
 
 OpenRouter master API key stored as a Worker secret. Never in source
 control, never sent to clients.
 
 No user table. No session management. No auth system beyond the licence
-key. Stripe is the subscription database.
+key. Stripe handles one-time credit purchases; KV is the credit ledger.
 
 ## Design language
 

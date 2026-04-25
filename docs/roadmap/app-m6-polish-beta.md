@@ -17,8 +17,8 @@ messages, no blank screens.
 |---------|----|
 | AI call fails (transient) | Inline retry button, "Something went wrong — try again" |
 | AI call fails (bad key) | Banner: "Your API key was rejected. Update it in settings." |
-| OpenRouter spend cap reached | Banner: "AI limit reached for this month — resets on [date]" |
-| Licence key expired | Prompt: "Your subscription has ended." + Stripe portal link |
+| Credits exhausted | Banner: "You're out of credits — [Buy more] to continue" |
+| Free plan complete | Banner: "Your free plan is complete — [Buy credits] to continue with the writing mentor" |
 | Network offline | Subtle banner: "You're offline — planning resumes when reconnected" |
 | State save fails | Toast: "Save failed — your conversation is still here, try again" |
 
@@ -43,18 +43,20 @@ After real usage data from beta writers:
 Privacy-first — no PII, no message content, no manuscript text ever sent.
 
 Events tracked:
-- `session_start` — extension activated, plan type (managed/byok/free)
+- `session_start` — extension activated, type (credits/byok/free)
 - `stage_opened` — writer enters a new stage
-- `stage_saved` — stage saved (+ stage_id, model_used)
-- `all_stages_complete` — all 14 stages done
+- `stage_saved` — stage saved (+ stage_id)
+- `all_stages_complete` — all 14 planning stages done
 - `compile_triggered` — EPUB or PDF (+ format)
 - `compile_completed` — (+ duration_seconds)
-- `onboarding_completed` — plan type chosen
-- `free_limit_reached` — 10 free calls exhausted
-- `upgrade_prompted` — upgrade CTA shown
+- `onboarding_completed` — type chosen (credits/byok/free)
+- `free_plan_complete` — free credits exhausted after full plan
+- `credits_exhausted` — paid credit balance hits zero
+- `buy_credits_prompted` — top-up CTA shown
+- `credits_purchased` — pack size (£10/£20)
 
-Dashboards: weekly active users, stage completion funnel, compile usage,
-free-to-paid conversion rate.
+Dashboards: weekly active writers, stage completion funnel, free-to-paid
+conversion, credits purchased per cohort, compile usage.
 
 ### In-app feedback
 
@@ -83,7 +85,7 @@ free-to-paid conversion rate.
 ## Technical tasks
 
 - [ ] Build error boundary components for all failure modes
-- [ ] Build "spend cap reached" and "licence expired" banners
+- [ ] Build "credits exhausted" and "free plan complete" banners with top-up CTA
 - [ ] Build empty states for all listed contexts
 - [ ] Instrument Posthog events at each touchpoint
 - [ ] Build in-app feedback form (Formspree or equivalent)
@@ -91,11 +93,11 @@ free-to-paid conversion rate.
 - [ ] Write quick start guide (in-app component)
 - [ ] Write stage reference content
 - [ ] Write FAQ (prominently answer the data ownership question)
-- [ ] Tune model routing based on beta token data
+- [ ] Tune model routing based on beta token data (Flash for all stages confirmed)
 - [ ] Load test `/validate` endpoint (concurrent activations)
-- [ ] Verify OpenRouter spend caps are enforced correctly
+- [ ] Verify credit deduction is atomic — no double-deduct on retry
 - [ ] Review Stripe webhook for idempotency (duplicate events must not
-      double-provision OpenRouter keys)
+      double-provision credit balances)
 
 ## Dependencies
 
@@ -106,7 +108,8 @@ M1–M5 complete.
 - 10 beta writers reach Stage 5 without filing a data loss report
 - No unhandled errors in Posthog error tracking
 - Average session length > 15 minutes
-- Actual AI cost per active Starter user ≤ $2.00/month (within spend cap)
-- Free-to-paid conversion rate ≥ 15% within 30 days of first use
+- Actual AI cost per free user ≤ $0.05 (one full plan)
+- Free-to-paid conversion rate ≥ 20% (writers who complete the plan buy credits)
 - In-app feedback average rating ≥ 3.5/5
 - FAQ data ownership question answered clearly and accurately
+- Credit deduction correct on 100% of completed streams in load test

@@ -9,12 +9,16 @@ within 3 minutes. No docs, no terminal, no configuration file to edit.
 
 **BYOK writers:** no backend, no account, no licence key. Enter key → start.
 
-**Managed subscription writers:** buy via Stripe → receive licence key by
-email → enter key once in the extension → validated against the serverless
-function → scoped OpenRouter key cached in SecretStorage → start.
+**Credit pack writers:** buy a pack via Stripe → receive licence key by
+email → enter key once in the extension → validated against the Worker →
+credit balance cached in `globalState` → start.
+
+**Free writers:** no purchase, no card, no email. Open extension → start
+planning immediately. One free allocation per installation, sufficient for
+one complete 14-stage plan.
 
 The extension never asks for an email address or password. The licence key
-is the credential.
+is the only credential for paid writers.
 
 ## Deliverables
 
@@ -37,14 +41,14 @@ Welcome → Choose Plan → Setup → New Project → [ChatPanel opens]
 - Two primary CTAs: "Subscribe" / "Bring your own key"
 - "What is this?" expander (one-paragraph explainer)
 
-**Screen 2a: Subscribe**
-- Plan cards — Starter (£9/mo) / Pro (£19/mo)
-- "Continue free" link below (10 free AI calls, no card required)
-- On plan select: opens Stripe Checkout in system browser
+**Screen 2a: Buy credits**
+- Two options: Credits £10 / Credits £20
+- Brief description of what each covers ("~6 complete book journeys")
+- On select: opens Stripe Checkout in system browser
 - After payment: Stripe sends licence key by email
 - Writer pastes licence key into field: "Enter your licence key"
-- Extension calls `POST /validate`, receives scoped OpenRouter key,
-  stores both in SecretStorage
+- Extension calls `POST /validate`, receives credit balance,
+  stores licence key in SecretStorage, balance in `globalState`
 - Advances to Screen 3
 
 **Screen 2b: BYOK**
@@ -78,10 +82,15 @@ until it fails at the API level.
 
 ### Free tier
 
-10 free AI calls using a shared rate-limited OpenRouter key hardcoded in the
-extension. No Stripe, no licence key, no email. When the 10 calls are
-exhausted, a gentle upgrade prompt appears above the input box. The writer's
-local state is always intact — only new AI calls are gated.
+Free credits sufficient for one complete 14-stage plan — hardcoded free
+key in the extension, no Stripe, no licence key, no email required.
+Planning only: all 14 stages work in full. Writing mentor chat is not
+available on the free tier.
+
+When the free credits are exhausted, a gentle prompt appears above the
+input box: "Your plan is complete — buy credits to continue with the
+writing mentor." The writer's local state is always intact — all planning
+is saved to `.storyline/state.json`. Only new AI calls are gated.
 
 ### Re-configuration paths
 
@@ -90,30 +99,30 @@ local state is always intact — only new AI calls are gated.
 - "Enter licence key" command → re-runs licence validation
 - No sign-out concept — just replace the key in SecretStorage
 
-### Plan display
+### Credit display
 
 Shown compactly in the ChatPanel header:
-- Managed: "Starter plan"
+- Credits: "950 credits remaining"
 - BYOK: "BYOK — [provider name]"
-- Free: "Free — 4 calls remaining"
-- Limit reached: banner above input with upgrade CTA
+- Free: "Free plan — Stage 3 of 14"  (progress, not credit count)
+- Exhausted: banner above input with "Buy credits" CTA
 
 ## Technical tasks
 
 - [ ] Build `OnboardingPanel` webview with four-screen flow
 - [ ] Build Welcome screen component (Subscribe / BYOK CTAs)
 - [ ] Build plan card components (Starter / Pro)
-- [ ] Implement Stripe Checkout redirect (opens system browser)
-- [ ] Build licence key input + validation call to `POST /validate`
+- [ ] Implement Stripe Checkout redirect for £10 / £20 credit packs (opens system browser)
+- [ ] Build licence key input + validation call to `POST /validate` (store balance in globalState)
 - [ ] Build BYOK setup component (provider dropdown, key input, test connection)
 - [ ] Build new project wizard component
 - [ ] Implement project scaffold function (all local writes)
 - [ ] Implement SecretStorage read/write for licence key + OpenRouter key
 - [ ] Implement activation-time validation with offline cache fallback
-- [ ] Implement free tier call counter (stored in `globalState`)
-- [ ] Build plan display in ChatPanel header
-- [ ] Build "limit reached" banner + upgrade CTA
-- [ ] Implement "Manage subscription" command (Stripe portal redirect)
+- [ ] Implement free tier tracking (planning-only, capped at one plan, stored in `globalState`)
+- [ ] Build credit display in ChatPanel header (balance for paid, stage progress for free)
+- [ ] Build "credits exhausted" banner + "Buy credits" CTA (opens Stripe Checkout)
+- [ ] Implement "Top up credits" command (opens Stripe Checkout for existing key holder)
 - [ ] Implement "Change AI provider" command
 - [ ] Implement "Enter licence key" command
 
