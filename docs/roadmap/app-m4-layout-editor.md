@@ -26,14 +26,34 @@ own panel drag system — we don't fight it.
 ### EditorPanel (ported from storyline-vsc)
 
 The TipTap webview from `storyline-vsc`'s VS Code extension, ported to the new
-extension with minimal changes. Key behaviours:
+extension with the toolbar and font toggle added. Key behaviours:
 
 - Opens when a `.md` file in `manuscript/` is clicked in the file tree
 - Auto-save every 1.5 seconds after last keystroke
 - Word count streamed to VS Code status bar (this file / total manuscript/)
 - Scene break (`* * *` on its own line) renders as a centred rule
-- No toolbar — distraction-free by default. Commands via ⌘K or right-click.
 - Markdown source editable via "Open Source" context menu item
+
+### Editor toolbar
+
+Compact toolbar above the writing surface. Left to right:
+
+```
+[ MANUSCRIPT ]  B  I  |  H1  H2  |  "  ***  [ Serif | Sans ]  ☑ Typewriter
+```
+
+- **MANUSCRIPT tag** — amber-tinted label, confirms the file context
+- **B / I** — bold / italic. `I` renders in the currently active font
+- **H1 / H2** — chapter title and scene heading styles
+- **`"`** — smart quote insert
+- **`***`** — scene break (renders as centred `* * *`)
+- **Serif / Sans toggle** — switches manuscript font between Lora (serif,
+  default) and Inter (sans). Stored in `globalState`, applied immediately.
+  Serif is the default — warm, traditional, suits long-form fiction.
+- **Typewriter** — centres the active line vertically; dims surrounding text
+
+The toolbar is intentionally minimal. No colour pickers, no font size
+selectors, no paragraph menus. Writers format prose, not documents.
 
 ### Layout initialisation
 
@@ -94,6 +114,10 @@ A right-click "Open as text" option preserves raw markdown access.
 - [ ] Open default layout on first post-onboarding activation
 - [ ] Show one-time layout tip (stored in `globalState`, shown once)
 - [ ] Port `writeAllChapterCards` from `storyline-vsc` into extension save flow
+- [ ] Build editor toolbar (MANUSCRIPT tag, B, I, H1, H2, scene break, Serif/Sans, Typewriter)
+- [ ] Implement Serif/Sans font toggle — store in `globalState`, apply to prose only
+- [ ] Load Lora (serif) and Inter (sans) — Lora as default
+- [ ] Apply dark/light editor colours from design tokens (not VS Code theme colours)
 - [ ] Register all commands in `package.json` contributes.commands
 - [ ] Implement `New Chapter` command with sequential numbering
 - [ ] Implement `Open to the side` file tree context menu item

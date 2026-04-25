@@ -133,12 +133,67 @@ key. Stripe handles one-time credit purchases; KV is the credit ledger.
 
 ## Design language
 
-- **Layout:** Sans-serif throughout (Inter). User messages in rounded bubbles,
-  AI responses free-flowing (no bubble). Stage rail top of chat pane.
-- **Light mode:** `#F5F3EF` background, `#1C1C1E` text
-- **Dark mode:** `#1A1A1A` background, `#E8E6E1` text
-- **Accent:** `#C9A84C` (warm amber — consistent across both modes)
-- **Input box:** Shadow on focus, no border colour
+### Layout
+Three columns: file explorer (left) · manuscript editor (centre) · planning
+chat (right). UI chrome uses Inter throughout. Manuscript prose uses the
+writer's chosen font — Serif or Sans — toggled from the editor toolbar.
+
+### Theme
+A three-button pill in the chat pane header switches modes instantly:
+
+| Button | Behaviour |
+|--------|-----------|
+| ☀️ Light | Moleskine paper palette |
+| 🌙 Dark | Near-black with warm grey text |
+| 💻 System | Follows OS `prefers-color-scheme` |
+
+Preference stored in `globalState` — survives restarts.
+
+### Colour palette
+
+**Dark mode**
+
+| Zone | Background | Text |
+|------|-----------|------|
+| Activity bar | `#0D0D0D` | — |
+| File sidebar | `#161616` | `#6A6866` |
+| Editor | `#1C1C1C` | `#CCC8C0` |
+| Chat pane | `#1A1A1A` | `#E8E6E1` |
+| Stage rail | `#141414` | — |
+| Input footer | `#111111` | — |
+
+**Light mode — Moleskine paper**
+
+| Zone | Background | Text |
+|------|-----------|------|
+| Activity bar | `#2A2A2A` | — |
+| File sidebar | `#E8E7E4` | `#7A7875` |
+| Editor | `#F7F6F4` | `#1E1C1A` |
+| Chat pane | `#F2F1EF` | `#1E1C1A` |
+| Stage rail | `#E9E8E5` | — |
+| Input footer | `#E2E1DE` | — |
+
+Activity bar stays dark in light mode — icon contrast requires it.
+
+**Accent:** `#C9A84C` (dark) / `#B8922A` (light) — warm amber throughout.
+
+### Typography
+
+- **UI font:** Inter (labels, stage rail, chat, input hints)
+- **Manuscript font:** Writer-selectable
+  - *Serif* — Lora (default). Warm, traditional, suits long-form fiction.
+  - *Sans* — Inter. Clean, contemporary.
+  - Toggle sits in the editor toolbar. Preference stored in `globalState`.
+
+### Chat pane details
+
+- **User messages:** Rounded bubble — `#252525` (dark) / `#E6E4E0` (light),
+  radius `16px 16px 3px 16px`, right-aligned
+- **AI responses:** Free-flowing, no bubble, no background, left-aligned
+- **Stage rail:** Collapsible — click the header to toggle open/closed.
+  A smooth CSS transition slides the list. When collapsed, the active stage
+  name appears inline in the header so the writer always knows where they are.
+- **Input box:** Amber focus ring (`rgba(201,168,76,0.20)`), no border colour
 
 ## Milestones
 

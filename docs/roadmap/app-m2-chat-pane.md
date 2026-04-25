@@ -18,32 +18,38 @@ The AI provider call is the only network request in the conversation loop.
 Registered in VS Code's secondary sidebar (right side). Contains:
 
 ```
-┌────────────────────────────────┐
-│  Stage Rail                    │  ← top section, always visible
-│  ● Stage 1: Genre ✓            │
-│  ● Stage 2: Premise ✓          │
-│  ◉ Stage 3: Protagonist ←active│
-│  ○ Stage 4: Characters         │
-│  ...                           │
-├────────────────────────────────┤
-│  Chat thread                   │  ← scrollable, fills remaining space
-│                                │
-│  [AI free-flowing response]    │
-│  Here's what we need to build  │
-│  for your protagonist...       │
-│                                │
-│  ╭──────────────────────────╮  │
-│  │ User bubble — their text │  │
-│  ╰──────────────────────────╯  │
-│                                │
-│  [AI response continues...]    │
-│                                │
-├────────────────────────────────┤
-│  ┌──────────────────────────┐  │  ← input, pinned to bottom
-│  │  Type here...            │  │     shadow on focus
-│  └──────────────────────────┘  │
-└────────────────────────────────┘
+┌────────────────────────────────────┐
+│  storyline          847 credits ☀🌙💻│  ← header: wordmark, credits, theme
+├────────────────────────────────────┤
+│  PLANNING STAGES            ▾      │  ← collapsible rail header
+│  ✓ Genre & Foundations             │
+│  ✓ Premise                         │
+│  ◉ Supporting Cast  ← active       │
+│  ○ Relationship Web                │
+│  ○ ...                             │
+├────────────────────────────────────┤
+│  Chat thread               ↕ scroll│
+│                                    │
+│  [AI free-flowing response]        │
+│                                    │
+│        ╭────────────────────────╮  │
+│        │ User bubble — indented │  │
+│        ╰────────────────────────╯  │
+│                                    │
+│  [AI continues...]                 │
+│                                    │
+├────────────────────────────────────┤
+│  [darker footer bg]                │
+│  ┌──────────────────────────────┐  │  ← input with amber focus ring
+│  │  Reply to Storyline…     ➤  │  │
+│  └──────────────────────────────┘  │
+│        ⌘↵ to send · Enter for line │
+└────────────────────────────────────┘
 ```
+
+**Header** (always visible, does not scroll):
+- Left: "storyline" wordmark — `story` in body colour, `line` in amber
+- Right: credit badge + theme toggle pill (☀️ / 🌙 / 💻)
 
 ### Conversation loop
 
@@ -92,10 +98,23 @@ Compact — stage name, local file path written. No network call on save.
 
 ### Stage progress rail
 
-Vertical list at the top of the pane. Each stage shows:
-- Completion state: `○` not started, `◉` active, `●` complete
+Collapsible panel at the top of the chat pane. Collapsed by default once
+the writer is mid-project — gives maximum room to the conversation.
+
+**Header row** (always visible):
+- "Planning stages" label (small caps)
+- When collapsed: active stage shown inline — e.g. `4 · Supporting Cast`
+- Chevron rotates 90° when collapsed
+- Click anywhere on the header to toggle
+
+**Expanded list** — each stage shows:
+- State indicator: `○` not started · `◉` active (amber fill) · `●` complete (amber tick)
 - Stage name
-- Clicking a completed stage expands/collapses its chat history
+- Active stage: amber left border + subtle amber background tint
+- Smooth CSS `max-height` transition on open/close
+
+Clicking a completed stage in the expanded list collapses/expands its
+chat history in the thread below. Collapse state stored in `globalState`.
 
 ### Input box
 
@@ -114,19 +133,36 @@ Content appended to a pre-rendered container, not re-rendered per token.
 ## Design tokens
 
 ```css
---bg-light:       #F5F3EF;
---bg-dark:        #1A1A1A;
---text-light:     #1C1C1E;
---text-dark:      #E8E6E1;
---accent:         #C9A84C;
---accent-subtle:  rgba(201, 168, 76, 0.12);
---bubble-light:   #E8E3D8;
---bubble-dark:    #2A2A2A;
---font:           'Inter', system-ui, sans-serif;
---font-size-body: 15px;
---line-height:    1.7;
---radius-bubble:  18px;
---radius-card:    10px;
+/* ── Dark mode ───────────────────────────────── */
+--chat-bg-dark:        #1A1A1A;
+--chat-rail-bg-dark:   #141414;
+--chat-foot-bg-dark:   #111111;
+--text-dark:           #E8E6E1;
+--text-muted-dark:     #787573;
+--bubble-dark:         #252525;
+
+/* ── Light mode — Moleskine paper ───────────── */
+--chat-bg-light:       #F2F1EF;
+--chat-rail-bg-light:  #E9E8E5;
+--chat-foot-bg-light:  #E2E1DE;
+--text-light:          #1E1C1A;
+--text-muted-light:    #6B6865;
+--bubble-light:        #E6E4E0;
+
+/* ── Shared ──────────────────────────────────── */
+--accent-dark:         #C9A84C;
+--accent-light:        #B8922A;
+--accent-glow:         rgba(201, 168, 76, 0.20);
+--accent-sub:          rgba(201, 168, 76, 0.11);
+--font-ui:             'Inter', system-ui, sans-serif;
+--font-serif:          'Lora', Georgia, 'Times New Roman', serif;
+--font-sans:           'Inter', system-ui, sans-serif;
+--font-size-body:      13.5px;
+--line-height:         1.75;
+--radius-bubble:       16px 16px 3px 16px;
+--radius-card:         10px;
+--col-sep-dark:        rgba(255, 255, 255, 0.08);
+--col-sep-light:       rgba(0, 0, 0, 0.09);
 ```
 
 ## Technical tasks
@@ -139,11 +175,17 @@ Content appended to a pre-rendered container, not re-rendered per token.
 - [ ] Build user bubble component
 - [ ] Build AI free-flow response component
 - [ ] Build option card, beat card, critique badge, stage complete card
-- [ ] Build stage progress rail component
+- [ ] Build collapsible stage rail (CSS max-height transition, chevron rotation)
+- [ ] Store rail collapsed/expanded state in `globalState`
+- [ ] Show active stage name inline in rail header when collapsed
+- [ ] Build theme toggle pill (☀️/🌙/💻) in chat header
+- [ ] Implement theme switching (add/remove `light` class, store in `globalState`)
+- [ ] Wire `auto` mode to `prefers-color-scheme` media query listener
+- [ ] Build credit badge in chat header (reads from `globalState` credit balance)
 - [ ] Build shadow-focus input component with ⌘↵ send
 - [ ] Wire save intent → local state.json write → stage complete card
 - [ ] Wire chapterOutline save → writeAllChapterCards (local write)
-- [ ] Apply design tokens, light/dark mode via VS Code theme kind
+- [ ] Apply dark/light design tokens — do NOT inherit from VS Code theme colours
 - [ ] Framer Motion: stage complete card entrance, message fade-in
 
 ## Dependencies
@@ -156,6 +198,9 @@ M1 complete (AI provider abstraction, @storyline/core).
 - state.json is written correctly on save with correct field values
 - No network call is made on save (local write only)
 - Streaming feels smooth — no jank, no flicker
-- Light and dark mode both presentable to an external user
+- Light mode (Moleskine paper) and dark mode both presentable to an external user
+- Theme toggle switches instantly with smooth CSS transitions on all colour values
+- Stage rail collapses and expands smoothly; active stage visible when collapsed
+- Credit balance displayed correctly in chat header
 - `⌘↵` sends, `Enter` inserts newline
 - Stage rail updates immediately after save
