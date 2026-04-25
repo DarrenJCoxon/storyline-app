@@ -264,6 +264,18 @@ Capabilities:
 - Support revision-guide patterns such as concise explanations, memory aids, common mistakes, practice questions, mark-scheme guidance, and spaced recap.
 - Add critique checks for pedagogical sequence, cognitive load, concept scaffolding, assessment alignment, and missing prerequisite knowledge.
 - Extend compile output with academic front/back matter such as learning objectives, chapter summaries, glossaries, answer keys, references, and indexes.
+- Extend image generation beyond covers so textbooks and revision guides can create interior learning visuals.
+
+Academic image generation needs:
+
+- Labelled diagrams for science, geography, history, design, technology, anatomy, and other visual subjects.
+- Process diagrams, flowcharts, lifecycle diagrams, timelines, maps, and cause-effect chains.
+- Mathematical and technical visuals such as geometry figures, coordinate graphs, data charts, circuit diagrams, tables, and schematic layouts.
+- Worked-example visuals that show steps, annotations, callouts, common mistakes, and corrected versions.
+- Revision assets such as flashcards, memory maps, summary posters, icon sets, visual mnemonics, and quick-reference sheets.
+- Practice-question visuals such as source images, diagrams to label, graph interpretation prompts, and answer-key variants.
+- Consistent textbook illustration styles across a whole project, with reusable visual rules for line weight, color, labels, captions, and accessibility.
+- Safety and accuracy checks for generated educational images, especially where diagrams could misteach science, medicine, maths, geography, or exam content.
 
 ## Suggested Milestones
 
@@ -319,6 +331,7 @@ Capabilities:
 - Add planning stages or stage variants for concept sequence, worked examples, practice questions, chapter summaries, and answer keys.
 - Add critique checks for pedagogy, scaffolding, cognitive load, exam alignment, and revision effectiveness.
 - Extend compile templates for textbook/revision-guide conventions such as objectives, exercises, glossaries, answer sections, and indexes.
+- Extend image generation for academic interior visuals, including labelled diagrams, process flows, maps, graphs, worked examples, revision posters, flashcards, practice-question images, and answer-key variants.
 
 ## Engineering Quality Gates
 
