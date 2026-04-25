@@ -37,10 +37,6 @@ as in `storyline-vsc`.
 
 `storyline-app` — cloned from `storyline-vsc` at v1.3.5, then diverges.
 
-Shared planning logic (`lib/state`, `lib/ai/stage-guides`, `lib/ai/story-traps`,
-`lib/ai/coaching-personas`) is copied at fork time and extracted into a private
-`@storyline/core` npm package once both products have settled.
-
 ## The three-column layout
 
 ```
@@ -51,66 +47,79 @@ Shared planning logic (`lib/state`, `lib/ai/stage-guides`, `lib/ai/story-traps`,
 ```
 
 Files left, editor centre, planning chat right (VS Code secondary sidebar).
-The writer can draft prose in the centre and glance right to see exactly
-where they are in the planning process.
 
 ## AI integration
 
-The planning conversation runs directly from the extension — no Claude Code
-skill system. The extension builds a system prompt from the stage guides,
-maintains turn history, streams AI responses, and saves state on stage
-completion (to local `state.json`).
+### Managed subscription
 
-### Provider abstraction
+The extension sends messages to **our backend proxy** (`POST /chat`).
+The proxy validates the licence key, routes to the appropriate AI model,
+and streams the response back. Writers never interact with any AI
+provider directly — OpenRouter (or any future provider) is a backend
+implementation detail invisible to the extension and to the writer.
+
+The only credential the extension ever holds is the licence key.
 
 ```
-managed subscription  → OpenRouter (multi-model, single API key server-side)
-BYOK Anthropic        → Anthropic API direct
-BYOK OpenAI-compat    → Together / OpenRouter / LM Studio / any compatible endpoint
-BYOK local            → Ollama (localhost:11434)
+Extension  →  POST /chat (licence key + messages)
+                  ↓
+           Our backend proxy (Cloudflare Worker)
+                  ↓  validates licence, routes model
+           OpenRouter / AI provider  (our master key, never exposed)
+                  ↓  SSE stream
+Extension  ←  streamed response
 ```
 
-BYOK users: zero backend. Key stored in VS Code SecretStorage. AI called
-directly. Nothing touches a server.
+### BYOK
+
+Writers who bring their own API key call their chosen provider directly
+from the extension. The backend is not involved in AI calls. The licence
+key is used only to validate they have a software licence.
+
+```
+managed subscription  →  our backend proxy (POST /chat)
+BYOK Anthropic        →  Anthropic API direct
+BYOK OpenAI-compat    →  Together / LM Studio / OpenRouter (their key)
+BYOK local            →  Ollama (localhost:11434, no key)
+```
 
 ### Model routing
 
-Stage-aware: cheap models for conversational turns, stronger models for critique
-and master document generation.
+Lives on the backend for managed subscribers — we control it, we can
+change models without an extension update.
 
-| Tier   | Managed model                        | Approx cost/stage |
-|--------|--------------------------------------|-------------------|
-| Light  | qwen/qwen3-30b-a3b (OpenRouter)      | ~$0.003           |
-| Medium | deepseek/deepseek-chat-v3-0324       | ~$0.005           |
-| Strong | anthropic/claude-haiku-4-5           | ~$0.015           |
+| Tier   | Current model                        | Approx cost/call |
+|--------|--------------------------------------|------------------|
+| Light  | qwen/qwen3-30b-a3b                   | ~$0.003          |
+| Medium | deepseek/deepseek-chat-v3-0324       | ~$0.005          |
+| Strong | anthropic/claude-haiku-4-5           | ~$0.015          |
 
 Full 14-stage plan end-to-end: ~$0.05–0.10 in API costs.
 
 ## Business model
 
-| Plan    | Price   | AI access          | Backend needed |
-|---------|---------|--------------------|----------------|
-| Starter | £9/mo   | Managed OpenRouter | Licence key    |
-| Pro     | £19/mo  | Managed OpenRouter | Licence key    |
-| BYOK    | £5/mo   | Their own key      | Licence key    |
-| Free    | £0      | 10 free AI calls   | None           |
+| Plan    | Price   | AI access             | Backend needed       |
+|---------|---------|-----------------------|----------------------|
+| Starter | £9/mo   | 200 calls/mo via proxy| Licence + proxy      |
+| Pro     | £19/mo  | 600 calls/mo via proxy| Licence + proxy      |
+| BYOK    | £5/mo   | Their own key, direct | Licence only         |
+| Free    | £0      | 10 calls via proxy    | None (hardcoded key) |
 
-Stripe handles all subscription state. A single serverless function validates
-licence keys and provisions scoped OpenRouter keys. No database of our own.
+200 calls = ~14 complete book plans. Most Starter writers never hit the limit.
 
 ## Backend (minimal)
 
-One serverless function (Cloudflare Worker or Vercel Edge Function):
+One Cloudflare Worker with three routes:
 
-- `POST /validate` — given a licence key, returns: valid/invalid, plan tier,
-  and a scoped OpenRouter API key (monthly spend-capped per tier)
+- `POST /validate` — licence key → plan info (no AI credentials returned)
+- `POST /chat` — licence key + messages → streamed AI response (proxied)
+- `POST /stripe-webhook` — subscription lifecycle → KV store
 
-Stripe webhooks update a simple KV store (Cloudflare KV or Vercel KV) when
-subscriptions are created, renewed, or cancelled. The KV store maps
-`licence_key → { plan, valid, expires }`. That's it.
+OpenRouter master API key stored as a Worker secret. Never in source
+control, never sent to clients.
 
-No user table. No session management. No auth system. Stripe is the
-subscription database.
+No user table. No session management. No auth system beyond the licence
+key. Stripe is the subscription database.
 
 ## Design language
 
