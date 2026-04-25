@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 2,
+  "mode": "nonfiction",
+  "pipeline": "B",
+  "subMode": "idea-led",
+  "projectTitle": "The Silence That Built Us",
+  "nfStages": {
+    "dna-category": {
+      "primaryCategory": "History",
+      "subCategory": "Social & Cultural History",
+      "amazonCategory": "History > World > Social History",
+      "completed": true,
+      "completedAt": "2026-02-01T09:00:00.000Z"
+    },
+    "dna-reader": {
+      "readerDescription": "Educated general reader, 35–60, curious about how social systems form and fail. Reads longform journalism and popular history. Interested in understanding present-day dynamics through their historical roots. Not an academic.",
+      "readerProblem": "Wants to understand why communities fracture along lines that seem arbitrary — and whether those fractures are inevitable",
+      "completed": true,
+      "completedAt": "2026-02-01T09:30:00.000Z"
+    },
+    "dna-transform": {
+      "beforeState": "Sees community collapse as random or driven by bad actors",
+      "afterState": "Understands the specific structural conditions that make communities vulnerable, and what the historical record says about prevention",
+      "completed": true,
+      "completedAt": "2026-02-01T10:00:00.000Z"
+    },
+    "dna-idea": {
+      "bigIdea": "Communities don't fracture because of bad actors — they fracture because of broken information flows that make collective sensemaking impossible.",
+      "completed": true,
+      "completedAt": "2026-02-01T10:30:00.000Z"
+    },
+    "dna-author": {
+      "authorAngle": "Investigative journalist who spent 18 months embedded in three communities during periods of acute social fracture. First-hand reporting combined with historical analysis.",
+      "authorityType": "investigative",
+      "completed": true,
+      "completedAt": "2026-02-01T11:00:00.000Z"
+    },
+    "dna-promise": {
+      "corePromise": "A historically grounded account of why communities fracture — and what the evidence says about prevention.",
+      "workingSubtitle": "Information, Trust, and the Hidden Conditions of Community Collapse",
+      "completed": true,
+      "completedAt": "2026-02-01T11:30:00.000Z"
+    },
+    "dna-comps": {
+      "comps": [
+        { "title": "Bowling Alone", "author": "Robert Putnam", "year": "2000", "whatItDoes": "Definitive account of declining social capital", "gap": "Academic pace; data-heavy; 25 years old" },
+        { "title": "The Enigma of Reason", "author": "Mercier & Sperber", "year": "2017", "whatItDoes": "Why humans reason in groups, not individually", "gap": "Cognitive science framing; no historical case studies" }
+      ],
+      "gap": "First-hand reported account of community fracture from inside, combined with historical pattern analysis. Neither Putnam nor Mercier has the narrative texture.",
+      "completed": true,
+      "completedAt": "2026-02-01T12:00:00.000Z"
+    },
+    "dna-voice": {
+      "voiceAdjectives": ["curious", "empathetic", "rigorous", "patient", "occasionally dark"],
+      "voiceReferences": ["Elizabeth Kolbert", "Katherine Boo"],
+      "completed": true,
+      "completedAt": "2026-02-01T12:30:00.000Z"
+    },
+    "dna-evidence": {
+      "primaryEvidenceType": "primary-source",
+      "secondaryEvidenceType": "peer-reviewed",
+      "uncertaintyHandling": "First-person sources named where possible; anonymised where necessary. Clear distinction between what was observed and what documents say.",
+      "completed": true,
+      "completedAt": "2026-02-01T13:00:00.000Z"
+    },
+    "dna-commercial": {
+      "commercialModel": "standalone",
+      "successMetric": "15,000 sales in 12 months; review coverage in quality press",
+      "completed": true,
+      "completedAt": "2026-02-01T13:30:00.000Z"
+    },
+    "dna-title": {
+      "northStar": "The Silence That Built Us",
+      "completed": true,
+      "completedAt": "2026-02-01T14:00:00.000Z"
+    },
+    "dna-consolidate": {
+      "confirmedPipeline": "B",
+      "positioningStatement": "For general readers curious about social fracture and its historical roots, The Silence That Built Us combines first-hand reporting from inside three fracturing communities with historical analysis to argue that community collapse follows a predictable information-failure pattern — and is therefore preventable.",
+      "completed": true,
+      "completedAt": "2026-02-01T14:30:00.000Z"
+    },
+    "pb-thesis": {
+      "centralQuestion": "Why do communities fracture — and does the historical record reveal any conditions that make fracture preventable?",
+      "thesisAnswer": "Community collapse follows a predictable sequence: first, information flows break down; then, collective sensemaking fails; then, trust collapses faster than institutions can repair it. The sequence is not random, and it is interrupcible.",
+      "completed": true,
+      "completedAt": "2026-02-02T09:00:00.000Z"
+    },
+    "pb-cast": {
+      "castMembers": [
+        { "name": "Maria S.", "role": "Community organiser, Site 1", "prominence": "high", "chapters": [2, 4, 7] },
+        { "name": "Dr. James H.", "role": "Sociologist, historical analysis thread", "prominence": "medium", "chapters": [3, 5, 8] },
+        { "name": "The Town Council, Site 2", "role": "Institutional actors in fracture sequence", "prominence": "high", "chapters": [3, 5] }
+      ],
+      "completed": true,
+      "completedAt": "2026-02-02T09:30:00.000Z"
+    },
+    "pb-timeline": {
+      "timelineSpan": "2018–2024",
+      "pivotMoment": "2021 — Site 1 community meeting where information was deliberately withheld by institutional actors",
+      "timelineEvents": [
+        { "date": "2018-03", "description": "Site 1 founding; community information systems established", "significance": "Baseline for comparison", "cast": ["Maria S."] },
+        { "date": "2020-11", "description": "Site 2 fracture begins — council withholds budget information", "significance": "First documented information failure in sequence", "cast": ["The Town Council, Site 2"], "isPivotMoment": false },
+        { "date": "2021-06", "description": "Site 1 fracture trigger — information withheld at town hall", "significance": "Pivot moment — marks start of collapse sequence", "cast": ["Maria S."], "isPivotMoment": true },
+        { "date": "2023-09", "description": "Site 3 successful repair — transparency mechanisms restored trust", "significance": "Counter-case: interruption of fracture sequence", "cast": [] }
+      ],
+      "completed": true,
+      "completedAt": "2026-02-02T10:00:00.000Z"
+    },
+    "pb-fork": {
+      "subMode": "idea-led",
+      "rationale": "Three sites are used as evidence for an argument about information failure — the argument organises the structure, not the chronology of events.",
+      "completed": true,
+      "completedAt": "2026-02-02T10:30:00.000Z"
+    }
+  }
+}

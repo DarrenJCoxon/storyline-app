@@ -85,17 +85,48 @@ describe('deriveCurrentStage', () => {
 // ─────────────────────────────────────────────────────────────
 
 describe('calculateProgress', () => {
-  it('counts skippable stages with no requirements as complete', () => {
-    const state = { genre: {}, premise: {}, protagonist: {}, characters: [], relationships: [], logline: {}, beatSheet: { beats: {} }, bStory: {}, subplots: [], sceneOutline: { highLevel: [], approved: false }, plotThreads: [], chapterOutline: [], critique: { flaggedIssues: [] }, masterDoc: {} };
-    const progress = calculateProgress(state);
-    // Skippable stages with no requirements (subplots, critique, masterDoc) count as complete
-    expect(progress).toBeGreaterThan(0);
+  it('reports 0% for a fresh scaffold — skippable-empty stages do NOT auto-complete', () => {
+    // Regression: before the fix, this returned ~21% because subplots,
+    // critique, and masterDoc (all skippable with no required fields) were
+    // being counted as complete on a pristine scaffold. They now only count
+    // when explicitly marked in `state.stages[id].completed`.
+    const state = {
+      genre: {}, premise: {}, protagonist: {}, characters: [], relationships: [],
+      logline: {}, beatSheet: { beats: {} }, bStory: {}, subplots: [],
+      sceneOutline: { highLevel: [], approved: false }, plotThreads: [],
+      chapterOutline: [], critique: { flaggedIssues: [] }, masterDoc: {},
+      stages: {},
+    };
+    expect(calculateProgress(state)).toBe(0);
   });
 
-  it('increases when genre is complete', () => {
-    const state = { genre: { primaryGenre: 'thriller', tone: 'dark', audience: 'adult' }, premise: {}, protagonist: {}, characters: [], relationships: [], logline: {}, beatSheet: { beats: {} }, bStory: {}, subplots: [], sceneOutline: { highLevel: [], approved: false }, plotThreads: [], chapterOutline: [], critique: { flaggedIssues: [] }, masterDoc: {} };
-    const progress = calculateProgress(state);
-    expect(progress).toBeGreaterThan(0);
+  it('counts a skippable-empty stage as complete once state.stages[id].completed is set', () => {
+    const state = {
+      genre: {}, premise: {}, protagonist: {}, characters: [], relationships: [],
+      logline: {}, beatSheet: { beats: {} }, bStory: {}, subplots: [],
+      sceneOutline: { highLevel: [], approved: false }, plotThreads: [],
+      chapterOutline: [], critique: { flaggedIssues: [] }, masterDoc: {},
+      stages: {
+        subplots: { completed: true, completedAt: '2026-04-24' },
+      },
+    };
+    expect(calculateProgress(state)).toBeGreaterThan(0);
+  });
+
+  it('increases when genre fields are populated', () => {
+    const base = {
+      genre: {}, premise: {}, protagonist: {}, characters: [], relationships: [],
+      logline: {}, beatSheet: { beats: {} }, bStory: {}, subplots: [],
+      sceneOutline: { highLevel: [], approved: false }, plotThreads: [],
+      chapterOutline: [], critique: { flaggedIssues: [] }, masterDoc: {},
+      stages: {},
+    };
+    const before = calculateProgress(base);
+    const after = calculateProgress({
+      ...base,
+      genre: { primaryGenre: 'thriller', tone: 'dark', audience: 'adult' },
+    });
+    expect(after).toBeGreaterThan(before);
   });
 });
 

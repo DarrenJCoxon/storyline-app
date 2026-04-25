@@ -123,54 +123,83 @@ function preflight() {
   console.log('');
 }
 
+function sleep(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {} // synchronous; fine for a one-shot lifecycle script
+}
+
 function postflight() {
   console.log('');
   console.log('README publish guard (post):');
 
-  // Read package.json for name + version
   const pkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf-8'));
   const spec = `${pkg.name}@${pkg.version}`;
 
-  // npm CDN propagation — give the registry a moment.
-  console.log(`  waiting 5s for npm registry propagation...`);
-  const wait = Date.now() + 5000;
-  while (Date.now() < wait) {} // small busy-wait; fine for a one-shot script
+  // npm's registry can take 30-90s to process and expose a new publish via
+  // `npm view`. Checking after 5s routinely returns a stale empty README,
+  // which was firing the LOUD warning incorrectly on every single publish.
+  // We now wait 45s up front, then retry up to 3 times at 20s intervals
+  // before concluding the README is genuinely missing.
+  const INITIAL_WAIT_MS = 45_000;
+  const RETRY_WAIT_MS = 20_000;
+  const MAX_RETRIES = 3;
 
-  let readme;
-  try {
-    readme = execSync(`npm view ${spec} readme`, { encoding: 'utf-8' });
-  } catch (e) {
-    console.warn(YELLOW(`  could not fetch ${spec} from registry: ${e.message}`));
-    console.warn(YELLOW('  skipping post-publish check (registry may not have propagated yet)'));
-    return;
+  console.log(`  waiting ${INITIAL_WAIT_MS / 1000}s for npm registry to process the publish...`);
+  sleep(INITIAL_WAIT_MS);
+
+  let readme = '';
+  let attempt = 0;
+  while (attempt <= MAX_RETRIES) {
+    try {
+      readme = execSync(`npm view ${spec} readme`, { encoding: 'utf-8' });
+    } catch (e) {
+      console.warn(YELLOW(`  attempt ${attempt + 1}: could not fetch ${spec} — ${e.message}`));
+    }
+    if (Buffer.byteLength(readme || '', 'utf-8') >= MIN_REGISTRY_README_BYTES) break;
+
+    if (attempt < MAX_RETRIES) {
+      console.log(`  attempt ${attempt + 1}: README not visible yet, retrying in ${RETRY_WAIT_MS / 1000}s...`);
+      sleep(RETRY_WAIT_MS);
+    }
+    attempt++;
   }
 
   const readmeBytes = Buffer.byteLength(readme || '', 'utf-8');
   if (readmeBytes < MIN_REGISTRY_README_BYTES) {
-    // Cannot fail the script — the publish has already happened. Print
-    // a LOUD warning telling the user what to do.
+    // npmjs.com web UI can take a few extra minutes to update even after
+    // the registry API returns the README. Before concluding there is a
+    // real problem, wait a little and check manually:
+    //   npm view storyline-vsc@<version> readme | head -5
+    // If that returns content, the README is fine — npmjs.com just needs
+    // more time to propagate. Only bump and republish if `npm view` is
+    // also empty after ~5 minutes.
     console.error('');
-    console.error(RED('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.error(RED(`  CRITICAL — npm registry has empty README for ${spec}`));
-    console.error(RED('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.error(YELLOW('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.error(YELLOW(`  WARNING — could not confirm README for ${spec} after retries`));
+    console.error(YELLOW('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
     console.error('');
-    console.error(`  Registry-side README size: ${readmeBytes} bytes (expected > ${MIN_REGISTRY_README_BYTES}).`);
-    console.error(`  npmjs.com will display "This package does not have a README."`);
+    console.error(`  Registry-side README size: ${readmeBytes} bytes after ${MAX_RETRIES + 1} attempts.`);
     console.error('');
-    console.error('  IMMEDIATE ACTION:');
-    console.error(`    1. Bump the version (e.g. ${pkg.version} → patch+1)`);
+    console.error('  VERIFY FIRST (the registry may just need more time):');
+    console.error(`    npm view ${spec} readme | head -5`);
+    console.error('');
+    console.error('  If that command returns content → README is fine, npmjs.com will');
+    console.error('  update within a few minutes. No action needed.');
+    console.error('');
+    console.error('  If that command returns NOTHING → bump and republish:');
+    const [maj, min, pat] = pkg.version.split('.').map(Number);
+    console.error(`    1. Bump version: ${pkg.version} → ${maj}.${min}.${pat + 1}`);
     console.error('    2. Re-run npm publish');
     console.error('');
-    console.error('  This is a known intermittent npm-side bug. Republishing the same');
-    console.error('  tarball under a new version usually succeeds.');
+    console.error(YELLOW('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
     console.error('');
-    console.error(RED('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.error('');
-    process.exitCode = 2; // signal failure but don't throw
+    process.exitCode = 2;
     return;
   }
 
-  ok(`registry README for ${spec}: ${readmeBytes.toLocaleString()} bytes`);
+  ok(`registry README for ${spec}: ${readmeBytes.toLocaleString()} bytes — confirmed`);
+  console.log('');
+  console.log(GREEN('README is live on the registry. npmjs.com web UI may take a few more minutes to show it.'));
   console.log('');
 }
 

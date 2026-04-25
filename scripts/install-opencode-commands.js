@@ -43,6 +43,13 @@ const COMMANDS = [
     role: 'draft-faithfulness critic',
     description: 'Faithfulness critique of a drafted manuscript chapter against the Storyline plan. Reads the prose and the matching plan slice; delegates to the storyline-critic-draft subagent for structured findings on beat function, POV, conflict, and what-changes.',
   },
+  {
+    src: 'skill-nf',
+    slug: 'storyline-nf',
+    name: 'storyline-nf',
+    role: 'non-fiction planning coach',
+    description: 'Start or resume a Storyline NF non-fiction book planning session. Guides authors through Book DNA (12 stages) then one of three pipelines: A (Prescriptive), B (Narrative Non-Fiction), or C (How-To / Skill Ladder).',
+  },
 ];
 
 export default function installOpenCodeCommands(packageRoot, targetDir, { log } = {}) {

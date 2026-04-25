@@ -15,6 +15,8 @@ import { registerUpgrade } from './commands/upgrade.js';
 import { registerCritique } from './commands/critique.js';
 import { registerReseed } from './commands/reseed.js';
 import { registerVerifyStage } from './commands/verify-stage.js';
+import { registerResearch } from './commands/research.js';
+import { registerNf } from './commands/nf.js';
 import { STAGE_ORDER, STAGE_BY_ID } from '../lib/state/project-state.js';
 import { deriveCurrentStage, calculateProgress, getMissingRequirements, checkStageGate, getDownstreamImpacts } from '../lib/state/transitions.js';
 import { getStageGuide, getAllStageGuides } from '../lib/ai/stage-guides.js';
@@ -26,7 +28,7 @@ const program = new Command();
 program
   .name('storyline')
   .description('Storyline — plan and write your novel using Save the Cat. Use /storyline inside Claude Code for the planning conversation.')
-  .version('1.0.2');
+  .version('1.3.5');
 
 registerInit(program);
 registerCompile(program);
@@ -34,6 +36,8 @@ registerUpgrade(program);
 registerCritique(program);
 registerReseed(program);
 registerVerifyStage(program);
+registerResearch(program);
+registerNf(program);
 
 // ── start — show status and next action (NOT interactive) ──────
 program
@@ -308,6 +312,28 @@ program
       }
     }
 
+    // Auto-generate per-chapter planning cards after chapterOutline save.
+    // One file per chapter under docs/chapters/ — the writer opens these
+    // alongside manuscript/chapter-NN.md while drafting. Replaces the
+    // previous single docs/13-chapter-flesh-out.md combined file.
+    let chapterCards = null;
+    if (stageId === 'chapterOutline') {
+      try {
+        const { writeAllChapterCards } = await import('../lib/output/chapter-doc.js');
+        chapterCards = await writeAllChapterCards(state);
+        // Remove the legacy combined flesh-out doc so there is no
+        // stale parallel source of truth. Leaves any other docs/*.md alone.
+        try {
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          await fs.unlink(path.resolve(process.cwd(), 'docs', '13-chapter-flesh-out.md'));
+          chapterCards.removed = [...(chapterCards.removed || []), 'docs/13-chapter-flesh-out.md'];
+        } catch { /* not present — fine */ }
+      } catch (err) {
+        warnings.push(`chapter-cards: ${err.message}`);
+      }
+    }
+
     try {
       const built = buildMemoryEntries(stageId, state);
       const result = await appendMemoryLog(built);
@@ -317,11 +343,35 @@ program
       warnings.push(`memory: ${err.message}`);
     }
 
+    // Push to odd-flow directly — the CLI-to-CLI handoff replaces the
+    // old "skill must call mcp__odd-flow__memory_store per entry" prose
+    // contract. Runs in-process; failures degrade to pending-in-jsonl
+    // which next save retries.
+    let oddFlow = null;
+    if (memoryEntries.length) {
+      try {
+        const { pushEntriesToOddFlow } = await import('../lib/memory/odd-flow-push.js');
+        oddFlow = await pushEntriesToOddFlow(memoryEntries);
+        if (oddFlow.failed > 0) {
+          warnings.push(`odd-flow: ${oddFlow.failed}/${memoryEntries.length} entries failed to push — will retry next save`);
+        }
+      } catch (err) {
+        warnings.push(`odd-flow: ${err.message}`);
+      }
+    }
+
     // Emit structured JSON so the /storyline skill can push memoryEntries to
     // mcp__odd-flow__memory_store. Human-readable status goes to stderr.
     console.error(chalk.green(`Saved ${stageId} data`));
     if (stageDocPath) console.error(chalk.dim(`  ↳ stage doc: ${stageDocPath}`));
     if (memoryLogPath) console.error(chalk.dim(`  ↳ memory log: ${memoryLogPath} (${memoryEntries.length} entries)`));
+    if (oddFlow && !oddFlow.skipped) console.error(chalk.dim(`  ↳ odd-flow: pushed ${oddFlow.pushed}, failed ${oddFlow.failed} (${oddFlow.cli})`));
+    if (chapterCards?.written?.length) {
+      console.error(chalk.dim(`  ↳ chapter cards: ${chapterCards.written.length} written under ${chapterCards.chaptersDir}/`));
+      if (chapterCards.removed?.length) {
+        console.error(chalk.dim(`     (removed ${chapterCards.removed.length} stale: ${chapterCards.removed.join(', ')})`));
+      }
+    }
     warnings.forEach(w => console.error(chalk.yellow(`  ⚠ ${w}`)));
 
     // The verifyCommand is the skill's contract: after save returns,
@@ -342,7 +392,9 @@ program
       stageDocPath,
       memoryLogPath,
       memoryEntries,
+      oddFlow,
       seriesPotential,
+      chapterCards,
       warnings,
       verifyCommand,
       stateAfterSave: {
@@ -351,6 +403,24 @@ program
       },
       nextAction: `Run \`${verifyCommand}\` and confirm exit 0 before composing any docs/ artefact for this stage or advancing.`,
     }, null, 2));
+  });
+
+// ── chapters — regenerate per-chapter planning cards from state ─
+const chapters = program.command('chapters').description('Per-chapter planning-card commands');
+
+chapters
+  .command('regenerate')
+  .description('Regenerate docs/chapters/NN-slug.md from state.chapterOutline. Safe — never touches manuscript/.')
+  .action(async () => {
+    const state = loadState();
+    if (!state) { console.error(chalk.red('No project found.')); process.exit(1); }
+    const { writeAllChapterCards } = await import('../lib/output/chapter-doc.js');
+    const result = await writeAllChapterCards(state);
+    console.error(chalk.green(`Regenerated ${result.written.length} chapter card${result.written.length === 1 ? '' : 's'} under ${result.chaptersDir}/`));
+    if (result.removed.length) {
+      console.error(chalk.dim(`  ↳ removed ${result.removed.length} stale file${result.removed.length === 1 ? '' : 's'}: ${result.removed.join(', ')}`));
+    }
+    console.log(JSON.stringify(result, null, 2));
   });
 
 // ── detect-series — run series detection on current premise ───

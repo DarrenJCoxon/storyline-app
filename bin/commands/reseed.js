@@ -81,13 +81,13 @@ const STAGE_SCHEMAS = {
   },
   characters: {
     shape: 'array',
-    fields: ['Array of character objects: { name, role (protagonist/antagonist/mentor/etc), wantInStory, arc }'],
-    example: `'[{"name":"Alex","role":"mentor","wantInStory":"Redeem past failure","arc":"jaded → hopeful"}]'`,
+    fields: ['Array of character objects: { name, role (antagonist/love interest/mentor/buddy/skeptic/etc), want, need, flaw, ghost, arcSummary, relationshipToProtagonist, meetsProtagonistAt }. Fields after `role` are optional but strongly encouraged — empty fields render as `-` in generate.'],
+    example: `'[{"name":"Alex","role":"mentor","want":"Redeem past failure","need":"Forgive himself","flaw":"Martyr complex","ghost":"Let down former protégé","arcSummary":"jaded → hopeful","relationshipToProtagonist":"Former teacher","meetsProtagonistAt":"Beat 3 - Catalyst"}]'`,
   },
   relationships: {
     shape: 'array',
-    fields: ['Array of relationship pairs: { a, b, connection, conflict, sharedNeed }'],
-    example: `'[{"a":"Jane","b":"Alex","connection":"mentor","conflict":"Alex withholds truth","sharedNeed":"Redemption"}]'`,
+    fields: ['Array of relationship pairs: { characterA, characterB, connection, conflict, whatTheyWantFromEachOther }. characterA and characterB are the two character names; connection is required; conflict and whatTheyWantFromEachOther are optional but recommended.'],
+    example: `'[{"characterA":"Jane","characterB":"Alex","connection":"mentor and former student — he trained her for five years","conflict":"Alex withholds the truth about her father","whatTheyWantFromEachOther":"Jane wants absolution; Alex wants redemption through her success"}]'`,
   },
   logline: {
     shape: 'object',
@@ -106,8 +106,8 @@ const STAGE_SCHEMAS = {
   },
   subplots: {
     shape: 'array',
-    fields: ['Array of subplot objects: { name, arc: { setup, complication, resolution }, purpose, connection }'],
-    example: `'[{"name":"Office politics","arc":{"setup":"...","complication":"...","resolution":"..."},"purpose":"raises stakes","connection":"complicates A story"}]'`,
+    fields: ['Array of subplot objects: { name, character (which cast member drives it — required; otherwise the heading renders as "(undefined)"), purpose, premise, beats: { setup, complication, resolution } (optional beats object) }'],
+    example: `'[{"name":"Office politics","character":"Alex","purpose":"raises stakes and complicates the A story","premise":"A rival partner angles for the case Jane is working","beats":{"setup":"Rival introduces themselves as an ally","complication":"Rival leaks case detail to the press","resolution":"Jane outmanoeuvres them at midpoint"}}]'`,
   },
   sceneOutline: {
     shape: 'object',

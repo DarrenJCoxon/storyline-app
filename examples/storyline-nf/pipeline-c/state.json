@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "mode": "nonfiction",
+  "pipeline": "C",
+  "subMode": null,
+  "projectTitle": "Knife Skills from Zero",
+  "nfStages": {
+    "dna-category": {
+      "primaryCategory": "Cooking",
+      "subCategory": "Techniques & Reference",
+      "amazonCategory": "Cookbooks, Food & Wine > Cooking by Ingredient > Vegetables",
+      "completed": true,
+      "completedAt": "2026-03-01T09:00:00.000Z"
+    },
+    "dna-reader": {
+      "readerDescription": "Home cook, 25–45, confident enough to follow recipes but frustrated by the gap between recipe instructions and actual execution. Has a decent knife but no formal training. Wants to cook faster and waste less.",
+      "readerProblem": "Slow, inconsistent knife work makes cooking feel laborious and creates uneven results",
+      "existingKnowledge": "Can follow a recipe; knows a chef's knife from a paring knife; has no formal technique",
+      "completed": true,
+      "completedAt": "2026-03-01T09:30:00.000Z"
+    },
+    "dna-transform": {
+      "beforeState": "Treats the knife as a blunt instrument; hacks rather than cuts; loses confidence when a recipe says 'finely dice'",
+      "afterState": "Uses a chef's knife with a stable grip and controlled motion; produces consistent cuts on demand; reduces prep time by 40%",
+      "completed": true,
+      "completedAt": "2026-03-01T10:00:00.000Z"
+    },
+    "dna-idea": {
+      "bigIdea": "Every knife skill that matters in a home kitchen is learnable in under 20 hours — if you practice in the right order.",
+      "completed": true,
+      "completedAt": "2026-03-01T10:30:00.000Z"
+    },
+    "dna-author": {
+      "authorAngle": "Culinary school instructor who has taught knife skills to 800+ adult learners. Knows exactly where beginners get stuck and what drills unlock progress fastest.",
+      "authorityType": "practitioner",
+      "completed": true,
+      "completedAt": "2026-03-01T11:00:00.000Z"
+    },
+    "dna-promise": {
+      "corePromise": "Learn every knife skill you need for home cooking — in the right order, with concrete drills and clear milestones.",
+      "workingSubtitle": "A Skill-by-Skill Guide to Confident, Fast Knife Work",
+      "completed": true,
+      "completedAt": "2026-03-01T11:30:00.000Z"
+    },
+    "dna-comps": {
+      "comps": [
+        { "title": "Jacques Pépin: New Complete Techniques", "author": "Jacques Pépin", "year": "2012", "whatItDoes": "Comprehensive technique reference with photos", "gap": "Reference format — not structured as a skill ladder; assumes reader selects what they need" },
+        { "title": "Salt, Fat, Acid, Heat", "author": "Samin Nosrat", "year": "2017", "whatItDoes": "Framework-based cooking education", "gap": "Covers all cooking elements; knife skills are one chapter, not the focus" }
+      ],
+      "gap": "First book structured as a progressive skill ladder specifically for knife technique — not a reference, not a technique encyclopedia, but a deliberate learning sequence.",
+      "completed": true,
+      "completedAt": "2026-03-01T12:00:00.000Z"
+    },
+    "dna-voice": {
+      "voiceAdjectives": ["clear", "encouraging", "exact", "no-nonsense", "warm"],
+      "voiceReferences": ["Samin Nosrat", "Delia Smith"],
+      "completed": true,
+      "completedAt": "2026-03-01T12:30:00.000Z"
+    },
+    "dna-evidence": {
+      "primaryEvidenceType": "demonstrated-skill",
+      "secondaryEvidenceType": "case-study",
+      "uncertaintyHandling": "Claim only what drills have been tested on real learners. Mark professional-standard targets vs. home-cook targets clearly.",
+      "completed": true,
+      "completedAt": "2026-03-01T13:00:00.000Z"
+    },
+    "dna-commercial": {
+      "commercialModel": "standalone",
+      "successMetric": "8,000 sales in 12 months; cookery school adoption",
+      "completed": true,
+      "completedAt": "2026-03-01T13:30:00.000Z"
+    },
+    "dna-title": {
+      "northStar": "Knife Skills from Zero",
+      "completed": true,
+      "completedAt": "2026-03-01T14:00:00.000Z"
+    },
+    "dna-consolidate": {
+      "confirmedPipeline": "C",
+      "positioningStatement": "For home cooks frustrated by slow, inconsistent prep, Knife Skills from Zero delivers a structured 20-hour skill ladder — the only knife book organised as a deliberate learning sequence rather than a technique encyclopedia.",
+      "completed": true,
+      "completedAt": "2026-03-01T14:30:00.000Z"
+    },
+    "pc-skill": {
+      "targetSkill": "Home kitchen knife work: grip, motion, and all essential cuts for vegetable and protein prep",
+      "completed": true,
+      "completedAt": "2026-03-02T09:00:00.000Z"
+    },
+    "pc-start-level": {
+      "startingLevel": "Can hold a chef's knife and make rough cuts. Has no formal grip technique. Slow and unsure on fine cuts (julienne, brunoise, chiffonade).",
+      "assumptions": ["Has a chef's knife (200mm minimum)", "Can follow written instructions", "Has basic cooking experience"],
+      "completed": true,
+      "completedAt": "2026-03-02T09:30:00.000Z"
+    },
+    "pc-end-state": {
+      "endStateDescription": "Reader can perform all standard home-kitchen cuts — slice, chop, mince, julienne, brunoise, chiffonade — with a stable grip and controlled motion, producing consistent results at a pace that doesn't slow recipe execution.",
+      "measurableCriteria": [
+        "Julienne a carrot to 3mm x 3mm x 60mm in under 4 minutes",
+        "Mince a shallot without crying (correct technique prevents cell rupture)",
+        "Fabricate a whole chicken in under 10 minutes"
+      ],
+      "completed": true,
+      "completedAt": "2026-03-02T10:00:00.000Z"
+    },
+    "pc-decompose": {
+      "subSkills": [
+        { "id": "knife-grip", "label": "Pinch grip", "description": "The foundational hold — pinch the blade between thumb and forefinger, curl remaining fingers around the handle" },
+        { "id": "knife-claw", "label": "The claw (guide hand)", "description": "Curl guide-hand fingers so knuckles guide the blade and fingertips are protected" },
+        { "id": "knife-draw", "label": "Draw cut (slicing motion)", "description": "Pull the knife toward you through the ingredient — most efficient for most ingredients" },
+        { "id": "knife-chop", "label": "Rocking chop", "description": "Pivot on the tip; used for herbs and aromatics" },
+        { "id": "knife-slice", "label": "Round slice", "description": "Uniform round slices of cylindrical vegetables; requires stable claw and consistent draw" },
+        { "id": "knife-julienne", "label": "Julienne", "description": "Matchstick cut: planks → sticks. Requires draw cut and consistent thickness" },
+        { "id": "knife-brunoise", "label": "Brunoise (fine dice)", "description": "3mm cube: planks → sticks → dice. Requires julienne as prerequisite" },
+        { "id": "knife-chiffonade", "label": "Chiffonade", "description": "Fine ribbon cut for leafy herbs and greens; requires rocking chop motion" },
+        { "id": "knife-mince", "label": "Mince (aromatics)", "description": "Very fine chop for garlic, shallots, ginger; two-stage: rough chop → gather → fine chop" },
+        { "id": "knife-fabricate", "label": "Whole-bird fabrication", "description": "Breaking down a whole chicken into parts; requires confidence with the joint" }
+      ],
+      "completed": true,
+      "completedAt": "2026-03-02T10:30:00.000Z"
+    },
+    "pc-prereqs": {
+      "prereqEdges": [
+        { "skillId": "knife-draw",      "requires": "knife-grip, knife-claw" },
+        { "skillId": "knife-chop",      "requires": "knife-grip, knife-claw" },
+        { "skillId": "knife-slice",     "requires": "knife-draw" },
+        { "skillId": "knife-julienne",  "requires": "knife-draw, knife-slice" },
+        { "skillId": "knife-brunoise",  "requires": "knife-julienne" },
+        { "skillId": "knife-chiffonade","requires": "knife-chop" },
+        { "skillId": "knife-mince",     "requires": "knife-chop" },
+        { "skillId": "knife-fabricate", "requires": "knife-draw, knife-chop" }
+      ],
+      "completed": true,
+      "completedAt": "2026-03-02T11:00:00.000Z"
+    }
+  }
+}

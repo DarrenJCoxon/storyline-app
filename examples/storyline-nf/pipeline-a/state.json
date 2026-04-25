@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "mode": "nonfiction",
+  "pipeline": "A",
+  "subMode": "argument",
+  "projectTitle": "The Clarity Habit",
+  "nfStages": {
+    "dna-category": {
+      "primaryCategory": "Self-Help",
+      "subCategory": "Productivity & Time Management",
+      "amazonCategory": "Self-Help > Personal Transformation",
+      "completed": true,
+      "completedAt": "2026-01-10T09:00:00.000Z"
+    },
+    "dna-reader": {
+      "readerDescription": "Mid-career professional, 30–45, technically competent but overwhelmed by competing priorities. Has read productivity books before (GTD, Essentialism) but found them too system-heavy to sustain. Reads on commutes and before bed. Wants permission to simplify, not another system to maintain.",
+      "readerProblem": "Overwhelmed by volume of work and unable to focus on what actually matters long-term",
+      "existingKnowledge": "Familiar with GTD, time-blocking, the Eisenhower matrix. Has tried and abandoned several systems.",
+      "objections": [
+        "Another productivity book won't help — I've tried everything",
+        "My job is too chaotic for any system to work",
+        "I don't have time to implement a new approach"
+      ],
+      "completed": true,
+      "completedAt": "2026-01-10T09:30:00.000Z"
+    },
+    "dna-transform": {
+      "beforeState": "Reacts to everything, owns nothing. Ends each day with a list of done tasks and a feeling of having missed what mattered.",
+      "afterState": "Has a reliable daily practice for identifying one thing that actually matters, and a framework for saying no to everything else without guilt.",
+      "completed": true,
+      "completedAt": "2026-01-10T10:00:00.000Z"
+    },
+    "dna-idea": {
+      "bigIdea": "Clarity is not a talent or a personality trait — it is a daily practice of subtraction, and anyone can learn it.",
+      "oneLineSummary": "The clear person is not smarter, they just remove more noise.",
+      "completed": true,
+      "completedAt": "2026-01-10T10:30:00.000Z"
+    },
+    "dna-author": {
+      "authorAngle": "10 years as a strategy consultant helping executives cut through organisational noise to find the one decision that matters per quarter. The insight: the tools that work for CEOs work for individuals — they're just never taught at the personal level.",
+      "authorityType": "practitioner",
+      "completed": true,
+      "completedAt": "2026-01-10T11:00:00.000Z"
+    },
+    "dna-promise": {
+      "corePromise": "A 15-minute daily practice that cuts decision noise and frees mental capacity for what actually matters.",
+      "workingSubtitle": "The One-Sentence Daily Practice That Cuts Noise and Restores Focus",
+      "completed": true,
+      "completedAt": "2026-01-10T11:30:00.000Z"
+    },
+    "dna-comps": {
+      "comps": [
+        { "title": "Essentialism", "author": "Greg McKeown", "year": "2014", "whatItDoes": "Permission to do less; strong philosophy", "gap": "No practical daily mechanism — philosophy without implementation" },
+        { "title": "Deep Work", "author": "Cal Newport", "year": "2016", "whatItDoes": "Rigorous case for focused work", "gap": "Assumes reader has scheduling control; doesn't address reactive work environments" },
+        { "title": "Four Thousand Weeks", "author": "Oliver Burkeman", "year": "2021", "whatItDoes": "Reframes time as finite and meaning-laden", "gap": "Philosophical — reader feels better but doesn't know what to do differently on Monday" }
+      ],
+      "gap": "All three shift mindset but none give a repeatable daily practice. The Clarity Habit is the operational layer that Essentialism, Deep Work, and Four Thousand Weeks need.",
+      "completed": true,
+      "completedAt": "2026-01-10T12:00:00.000Z"
+    },
+    "dna-voice": {
+      "voiceAdjectives": ["precise", "dry", "demanding", "clear", "unsentimental"],
+      "voiceRange": "Warmest: the worked examples showing what clarity looks like in practice. Most rigorous: the critique of conventional productivity advice.",
+      "voiceReferences": ["Cal Newport", "Paul Graham"],
+      "completed": true,
+      "completedAt": "2026-01-10T12:30:00.000Z"
+    },
+    "dna-evidence": {
+      "primaryEvidenceType": "case-study",
+      "secondaryEvidenceType": "peer-reviewed",
+      "uncertaintyHandling": "Distinguish clearly between observed patterns from consulting work and peer-reviewed claims. Use 'in my experience' for the former, cite sources for the latter.",
+      "completed": true,
+      "completedAt": "2026-01-10T13:00:00.000Z"
+    },
+    "dna-commercial": {
+      "commercialModel": "lead-gen",
+      "targetAudience": "Executives and senior professionals who could become consulting clients",
+      "successMetric": "5,000 sales in 12 months; 10 new consulting inquiries attributable to the book",
+      "seriesPlanned": false,
+      "completed": true,
+      "completedAt": "2026-01-10T13:30:00.000Z"
+    },
+    "dna-title": {
+      "workingTitles": [
+        "The Clarity Habit",
+        "One Thing Clear",
+        "Subtract: The Daily Practice of Clarity",
+        "The Noise Problem"
+      ],
+      "northStar": "The Clarity Habit",
+      "completed": true,
+      "completedAt": "2026-01-10T14:00:00.000Z"
+    },
+    "dna-consolidate": {
+      "confirmedPipeline": "A",
+      "positioningStatement": "For overwhelmed mid-career professionals who have tried productivity systems and found them unsustainable, The Clarity Habit teaches a 15-minute daily subtraction practice — derived from executive strategy work — that reliably surfaces the one thing that matters. Unlike Essentialism or Deep Work, it provides an operational daily mechanism, not just a philosophy.",
+      "completedAt": "2026-01-10T14:30:00.000Z",
+      "completed": true
+    },
+    "pa-thesis": {
+      "thesis": "Clarity is a practice of subtraction, not addition — and anyone can learn it in 15 minutes a day.",
+      "completed": true,
+      "completedAt": "2026-01-11T09:00:00.000Z"
+    },
+    "pa-objections": {
+      "objections": [
+        { "objection": "My job is too reactive for any daily practice", "addressedInChapter": 2 },
+        { "objection": "I've tried clarity practices and they don't stick", "addressedInChapter": 5 },
+        { "objection": "15 minutes isn't enough time to matter", "addressedInChapter": 1 }
+      ],
+      "completed": true,
+      "completedAt": "2026-01-11T09:30:00.000Z"
+    },
+    "pa-framework": {
+      "frameworkName": "The Clarity Stack",
+      "frameworkShape": "three-layer",
+      "layers": ["Remove (subtract noise)", "Reveal (surface what matters)", "Respond (act on it)"],
+      "subMode": "argument",
+      "completed": true,
+      "completedAt": "2026-01-11T10:00:00.000Z"
+    },
+    "pa-principles": {
+      "principles": [
+        { "id": "p1", "name": "The Subtraction Principle", "claim": "Every decision you remove creates capacity for a better one" },
+        { "id": "p2", "name": "The Reveal Principle", "claim": "What matters most is invisible until noise is removed" },
+        { "id": "p3", "name": "The Commitment Principle", "claim": "Clarity without a committed response is just planning" }
+      ],
+      "completed": true,
+      "completedAt": "2026-01-11T10:30:00.000Z"
+    },
+    "pa-chapters": {
+      "chapters": [
+        { "chapterNumber": 1, "title": "The Noise Problem", "principle": "p1", "wordCountTarget": 4000 },
+        { "chapterNumber": 2, "title": "The 15-Minute Practice", "principle": "p1", "wordCountTarget": 5000 },
+        { "chapterNumber": 3, "title": "Reveal: What Actually Matters", "principle": "p2", "wordCountTarget": 5000 },
+        { "chapterNumber": 4, "title": "Respond: The Committed Act", "principle": "p3", "wordCountTarget": 4000 },
+        { "chapterNumber": 5, "title": "When It Doesn't Stick", "principle": null, "wordCountTarget": 3500 },
+        { "chapterNumber": 6, "title": "Clarity at Scale", "principle": null, "wordCountTarget": 3500 }
+      ],
+      "completed": true,
+      "completedAt": "2026-01-11T11:00:00.000Z"
+    }
+  }
+}

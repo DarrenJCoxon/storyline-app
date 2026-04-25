@@ -235,6 +235,12 @@ echo '[
    "scenes":[{"sceneNumber":1,"pov":"Jane","summary":"...","conflict":"...","whatChanges":"..."}]},
   ...
 ]' | npx storyline-vsc save chapterOutline
+# After save, the CLI auto-generates one planning card per chapter under
+# docs/chapters/NN-slug.md — this is what the writer drafts from (opened
+# alongside manuscript/chapter-NN.md in a second VS Code pane). Do NOT
+# hand-write a single combined docs/13-chapter-flesh-out.md — the CLI
+# deletes that legacy file on chapterOutline save. The receipt's
+# `chapterCards` field lists every card written and any stale ones removed.
 
 # Stage 13 — critique (captures flagged issues + pacing / arc / beat notes)
 npx storyline-vsc save critique '{
@@ -281,41 +287,17 @@ The JSON stdout shape is:
 
 After every save, **run the `verifyCommand` and confirm exit code 0.** If verify fails, halt — do not write a `docs/<NN>-<stage>.md`, do not advance to the next stage. Surface the error to the writer and use the `recover` field in verify's error payload (typically `npx storyline-vsc reseed <stageId>`) to fix it.
 
-### Memory sync — the non-negotiable contract
+### Memory — handled by the CLI, not by you
 
-**Memory must be written through the whole planning process, or the plan is lost between sessions.** The CLI can't call MCP tools, so the skill (you) does the push. Because that's fragile, we use a durable log + sync cursor so nothing is ever lost.
-
-**On every `/storyline` activation, FIRST thing after `npx storyline-vsc next`, run this reconciliation:**
-
-```bash
-npx storyline-vsc memory sync
-```
-
-This returns `{ pending: [...], count: N }`. If `count > 0`:
-
-1. For each entry, call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }` from the entry
-2. After each successful push, collect the entry's `id`
-3. Once all pushes complete, call: `npx storyline-vsc memory mark-synced <id1> <id2> ...`
-
-This catches up any writes missed in previous sessions, MCP outages, or interrupted runs.
+The CLI pushes every memory entry to odd-flow directly during `save`. You do **not** need to call `mcp__odd-flow__memory_store`, and you do **not** need to run `memory sync` / `mark-synced` / `memory status` — those are internal utilities now. The save receipt includes an `oddFlow` field (`{ pushed, failed, cli }`) for transparency; if `failed > 0`, it's already been logged as a warning and will auto-retry on the next save.
 
 **After every `npx storyline-vsc save`:**
 
 1. Parse the JSON payload from stdout
-2. For each entry in `memoryEntries`, call `mcp__odd-flow__memory_store` with `{ key, value, namespace, tags }`
-3. After all pushes complete, call `npx storyline-vsc memory mark-synced <id1> <id2> ...` with every entry's `id`
-4. Mention the stage doc path to the writer in your transition message
-5. **If `seriesPotential` is present and `seriesPotential.detected === true`** (only returned after `npx storyline-vsc save premise`), raise it with the writer before moving to the next stage. Show the indicators and the suggestion, then ask whether they want to explore this as a series. If yes, capture their intent into `premise.seriesContext` via another `npx storyline-vsc save premise`.
+2. Mention the stage doc path to the writer in your transition message
+3. **If `seriesPotential` is present and `seriesPotential.detected === true`** (only returned after `npx storyline-vsc save premise`), raise it with the writer before moving to the next stage. Show the indicators and the suggestion, then ask whether they want to explore this as a series. If yes, capture their intent into `premise.seriesContext` via another `npx storyline-vsc save premise`.
 
 Series detection can also be re-run on demand with `npx storyline-vsc detect-series` (useful after the writer revises the premise).
-
-**At the end of each session / before a stage transition, sanity-check:**
-
-```bash
-npx storyline-vsc memory status
-```
-
-Returns `{ totalEntries, syncedEntries, pendingEntries, ... }`. If `pendingEntries > 0`, run `npx storyline-vsc memory sync` and push them before moving on.
 
 ### Writing-session protocol (manuscript memory — runs after drafting prose)
 

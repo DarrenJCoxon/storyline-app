@@ -1,18 +1,24 @@
 # Storyline
 
-**A planning and writing environment for novelists.**
+**A planning and writing environment for novelists and non-fiction authors.**
 
-Storyline combines a conversational Save-the-Cat planning harness (powered by Claude) with a distraction-free VS Code writing surface and a one-command compile pipeline to EPUB and print-ready PDF. You plan your book end-to-end, draft the prose in the same environment, and export a shop-ready file when you're done.
+Storyline combines a conversational planning harness (powered by Claude) with a distraction-free VS Code writing surface and a one-command compile pipeline to EPUB and print-ready PDF. It covers two kinds of books:
 
-It does not write your novel for you. It helps you plan it, structure it, and draft it.
+- **Fiction** — a Save-the-Cat beat-sheet harness (`/storyline`). Fourteen stages from genre through master document; character-first, beat-driven, AI critique at every stage.
+- **Non-Fiction** — a three-pipeline commercial harness (`/storyline-nf`). Twelve Book DNA stages shared by all pipelines, then one of: Pipeline A (Prescriptive — self-help, business, health), Pipeline B (Narrative Non-Fiction — popular science, history, true crime), or Pipeline C (How-To / Skill Ladder).
+
+You plan end-to-end, draft prose in the same environment, and export a shop-ready file when you're done.
+
+Storyline does not write your book for you. It helps you plan it, structure it, and draft it.
 
 * * *
 
 ## Who this is for
 
-- Novelists who want a single, coherent environment rather than Scrivener + a separate AI tool + a separate compile tool.
+- Fiction writers who want a single, coherent environment rather than Scrivener + a separate AI tool + a separate compile tool.
+- Non-fiction authors who need commercial positioning, reader avatar work, framework design, and a proper chapter plan before they write a word.
 - Writers comfortable running two commands in a terminal once, to install.
-- Anyone who has tried to plan a book with ChatGPT and watched the conversation drift, lose the beat sheet, or forget the character names three prompts later.
+- Anyone who has tried to plan a book with ChatGPT and watched the conversation drift, lose the structure, or forget the core promise three prompts later.
 
 If you don't have a terminal open right now and the word "npx" doesn't mean anything to you, don't panic. This guide walks you through everything assuming zero prior knowledge.
 
@@ -202,6 +208,45 @@ You don't write prose in the harness. You plan in the harness, then write prose 
 
 * * *
 
+## Planning a non-fiction book — `/storyline-nf`
+
+`/storyline-nf` is a parallel planning harness for non-fiction. It runs the same way as `/storyline` but covers the commercial and structural decisions that fiction planning doesn't need: reader avatar, market positioning, comps, evidence philosophy, framework design, chapter architecture.
+
+### The three pipelines
+
+Every non-fiction project starts with **Book DNA** — 12 deep stages that apply to all books regardless of genre. They answer: who is this reader, what exactly does this book promise, why is this author the right person to write it, and what is the one big idea that makes it different from what's already on the shelf?
+
+After Book DNA, you route into one of three pipelines:
+
+| Pipeline | Best for | Stages after Book DNA |
+|----------|----------|-----------------------|
+| **A — Prescriptive** | Self-help, business, health, money, relationships | 11 stages: thesis → objections → framework design → principles → evidence → application → chapter plan → opener/closer → critique → master document |
+| **B — Narrative NF** | Popular science, history, true crime, narrative journalism | 10 stages: central question → cast → timeline → structural fork → scene list → sourcing register → thematic through-line → chapter outline → critique → master document |
+| **C — How-To / Skill Ladder** | Practical skills, step-by-step guides, instructional content | 11 stages: target skill → starting level → end-state competency → skill decomposition → prerequisite graph → lesson plan → drills → milestones → worked examples → critique → master document |
+
+### Starting a non-fiction project
+
+1. Create and open an empty folder in VS Code, open the integrated terminal, and run:
+   ```bash
+   npx storyline-vsc init
+   ```
+2. In your AI agent (Claude Code, OpenCode, or Codex), type `/storyline-nf`.
+3. If it's a new project, the harness asks which pipeline you need and sets it up.
+4. Work through Book DNA (twelve stages), then your pipeline stages. Every stage saves state and produces a stage doc in `output/stages/`.
+5. When all stages are done, run:
+   ```bash
+   npx storyline-vsc nf generate
+   ```
+   This produces `output/nf-master-document.md` — the complete planning document.
+
+Pipeline A has a fork at Framework Design (argument structure vs. narrative braid). Pipeline B has a fork at Structural Fork (idea-led vs. event-led chronology). Pipeline C has no fork — it's linear.
+
+### Research integration
+
+At any stage in either harness, use `npx storyline-vsc research add` to link a research item to the current stage. The research panel in VS Code (`storyline.showResearch`) shows all items filtered by stage. For non-fiction, this is where you log the statistics, case studies, interviews, and source material you'll need to make your claims land.
+
+* * *
+
 ## Writing prose
 
 Once you've planned a beat (say, the Opening Image), you can go write it. Open the relevant chapter file, and type. The editor:
@@ -332,7 +377,7 @@ Press the same shortcut again — or `Esc` — to return to the normal layout.
 
 This recovery class is automatically prevented for new projects by the PreToolUse hook installed by `init` — it refuses any write to `docs/<NN>-*.md` before the matching `save` has committed.
 
-**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline/vscode-extension/storyline-vscode-0.33.0.vsix`.
+**The VS Code extension isn't active**Look at the bottom-right of VS Code. If you don't see a "Storyline" indicator, the extension didn't install. From the Command Palette, run **"Extensions: Install from VSIX…"** and pick the file in your project at `node_modules/storyline-vsc/vscode-extension/storyline-vscode-0.33.1.vsix`.
 
 **`.md` files don't open in non-Storyline projects, or "Storyline" appears in right-click menus there**This package (`storyline-vsc`) replaces the earlier `storyline-cli` package, whose extension registered itself as a `.md` editor system-wide via a `customEditors` contribution and leaked into every VS Code workspace. `storyline-vsc` contributes nothing globally: the rich editor is opened only via the explicit "Storyline: Open in Rich Editor" command (right-click in the Explorer or via the Command Palette), and every command, menu item, and keybinding is gated behind a `storyline.active` context key that is only set after the workspace check passes. Non-Storyline workspaces see zero Storyline entries in any menu. If you previously installed `storyline-cli`, uninstall the old VS Code extension first (Extensions panel → search "Storyline" → uninstall), then run `npx storyline-vsc@latest init .` from inside any Storyline project to install the clean replacement. A future release will restore single-click auto-routing in Storyline projects via tab interception.
 

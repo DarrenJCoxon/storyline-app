@@ -339,63 +339,42 @@ body.nw-manuscript.vscode-high-contrast .toolbar {
 }
 
 /* ══════════════════════════════════════════════════════════════════
- * Compose Mode — Scrivener-style distraction-free writing surface.
- *
- * Triggered by Cmd/Ctrl+Shift+Enter. Adds .compose-mode to <html> and
- * <body>; the host also toggles VS Code Zen Mode in parallel so the
- * activity bar, side bar, panel and tabs all collapse out of view.
- *
- * Visual model: a centred "paper" surface (light-cream in light theme,
- * warm dark in dark theme) sits on a much darker / much lighter gutter
- * background, mimicking Scrivener's composition view. The top toolbar
- * vanishes; a slim icon bar pins to the bottom of the viewport with
- * just the controls a writer needs in flow (typewriter toggle, word
- * count, save status, exit).
- *
- * Esc exits. Cmd/Ctrl+Shift+Enter also toggles back out.
+ * Compose Mode — distraction-free writing, always dark.
+ * Esc or Cmd/Ctrl+Shift+Enter exits.
  * ══════════════════════════════════════════════════════════════════ */
 
 html.compose-mode,
-body.compose-mode {
-  background: #1c1a17 !important;   /* warm near-black gutters */
+body.compose-mode,
+html.compose-mode.nw-manuscript,
+body.compose-mode.nw-manuscript {
+  background: #17150f !important;
 }
 
 body.compose-mode .toolbar {
-  display: none !important;          /* the top toolbar is the very thing we're hiding */
+  display: none !important;
 }
 
 body.compose-mode .novel-editor {
-  max-width: 760px;
+  width: clamp(480px, 72vw, 1100px);
   margin: 0 auto;
-  /* Cream "paper" surface — same warmth across light and dark VS Code
-   * themes, since compose mode is its own self-contained surface. */
-  background: #f5f1e8;
-  color: #1f1d1a;
+  background: transparent;
+  color: #cec9bd;
   min-height: 100vh;
-  padding: 9vh 8vw 30vh;             /* generous top + bottom for typewriter scroll */
-  box-shadow: 0 0 80px rgba(0, 0, 0, 0.45);
+  padding: 8vh 0 30vh;
 }
 
-/* Override the manuscript-tint rule so compose paper wins over the
- * normal manuscript surface. Both the html and body class variants
- * were applied earlier — knock both of them back here. */
-html.compose-mode.nw-manuscript,
-body.compose-mode.nw-manuscript {
-  background: #1c1a17 !important;
-}
 body.compose-mode .ProseMirror,
 body.compose-mode .ProseMirror p,
 body.compose-mode .ProseMirror h1,
 body.compose-mode .ProseMirror h2,
 body.compose-mode .ProseMirror h3 {
-  color: #1f1d1a;
+  color: #cec9bd;
 }
-body.compose-mode .ProseMirror hr.scene-break::before {
-  color: #6b655a;
-}
+
+body.compose-mode .ProseMirror hr.scene-break::before { color: #7a7468; }
 body.compose-mode .ProseMirror blockquote {
-  color: #5a564f;
-  border-left-color: rgba(0, 0, 0, 0.2);
+  color: #968e80;
+  border-left-color: rgba(255, 255, 255, 0.12);
 }
 
 /* The bottom strip — fixed to the viewport, slim, semi-transparent so

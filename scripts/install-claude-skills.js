@@ -12,9 +12,10 @@ import { existsSync, mkdirSync, cpSync } from 'fs';
 import { resolve, dirname } from 'path';
 
 const SKILLS = [
-  { src: 'skill',           slug: 'storyline', slash: '/storyline' },
-  { src: 'skill-follow-up', slug: 'follow-up', slash: '/follow-up' },
-  { src: 'skill-critique',  slug: 'critique',  slash: '/critique'  },
+  { src: 'skill',           slug: 'storyline',    slash: '/storyline'    },
+  { src: 'skill-follow-up', slug: 'follow-up',    slash: '/follow-up'    },
+  { src: 'skill-critique',  slug: 'critique',     slash: '/critique'     },
+  { src: 'skill-nf',        slug: 'storyline-nf', slash: '/storyline-nf' },
 ];
 
 export default function installClaudeSkills(packageRoot, targetDir, { log } = {}) {

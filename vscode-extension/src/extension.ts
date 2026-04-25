@@ -9,6 +9,7 @@ import { openPreview } from './preview-command';
 import { openLivePreview } from './live-preview-command';
 import { BackupService } from './backup-service';
 import { readBackupSettings, writeBackupPath } from './backup-settings';
+import { ResearchPanel } from './research-panel';
 
 // Module-scoped so deactivate() can reach them for the final flush.
 let backupService: BackupService | null = null;
@@ -156,6 +157,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       }
       panel.webview.postMessage({ type: 'request-compose-toggle' });
+    }),
+    vscode.commands.registerCommand('storyline.showResearch', async () => {
+      const researchPanel = ResearchPanel.create(context);
+      await researchPanel.show(context);
     }),
     vscode.commands.registerCommand('storyline.showWordCountBreakdown', async () => {
       const breakdown = statusBar.getBreakdown();
