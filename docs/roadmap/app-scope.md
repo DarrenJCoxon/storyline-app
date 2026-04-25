@@ -88,13 +88,12 @@ BYOK local            →  Ollama (localhost:11434, no key)
 Lives on the backend for managed subscribers — we control it, we can
 change models without an extension update.
 
-| Tier   | Current model                        | Approx cost/call |
-|--------|--------------------------------------|------------------|
-| Light  | qwen/qwen3-30b-a3b                   | ~$0.003          |
-| Medium | deepseek/deepseek-chat-v3-0324       | ~$0.005          |
-| Strong | anthropic/claude-haiku-4-5           | ~$0.015          |
+| Tier   | Current model                 | Stages                    | Approx cost/call |
+|--------|-------------------------------|---------------------------|------------------|
+| Light  | deepseek/deepseek-v4-flash    | Stages 1–12, beat sheet   | ~$0.001          |
+| Heavy  | deepseek/deepseek-v4-pro      | Critique, master document | ~$0.010          |
 
-Full 14-stage plan end-to-end: ~$0.05–0.10 in API costs.
+Full 14-stage plan end-to-end: ~$0.14 in API costs.
 
 ## Business model
 

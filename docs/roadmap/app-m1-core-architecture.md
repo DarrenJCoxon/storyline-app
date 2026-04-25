@@ -71,14 +71,15 @@ This is how managed AI calls work:
 
 1. Validate licence key against KV (fast — in-memory cache in the Worker)
 2. Check plan is active and not rate-limited
-3. Route to correct model based on `stageId` and plan tier (routing logic
-   lives on the server, not the extension)
+3. Route to correct model based on `stageId`:
+   - `deepseek/deepseek-v4-flash` — all stages except critique and masterDoc
+   - `deepseek/deepseek-v4-pro` — Stage 13 (Consistency & Critique) and Stage 14 (Master Document)
 4. Call OpenRouter with the master API key (Worker secret)
 5. Stream the response back to the extension via SSE
 
-The extension knows nothing about OpenRouter. It sends messages and
-receives a stream. The AI provider is a backend implementation detail
-that can be changed without touching the extension.
+The extension knows nothing about OpenRouter or which model was used. It sends
+messages and receives a stream. Model assignments can change without any
+extension update — routing lives entirely on the server.
 
 ---
 
@@ -172,7 +173,7 @@ GitHub Actions on every push to `main` and all PRs:
 - [ ] Implement per-licence call counting in KV
 - [ ] Implement `POST /stripe-webhook` with full subscription lifecycle
 - [ ] Store OpenRouter master key as Worker secret (`wrangler secret put`)
-- [ ] Implement server-side model routing (stageId → tier → model)
+- [ ] Implement server-side model routing (stageId → flash or pro; config in Worker)
 - [ ] Create Stripe products (Starter / Pro / BYOK)
 - [ ] Wire Stripe Checkout → webhook → KV → licence key email
 - [ ] Implement `ManagedProvider` in extension (SSE consumer)
