@@ -24,7 +24,33 @@
       --bubble:       #2A2A2A;
       --border:       rgba(255,255,255,0.06);
       --font:         'Inter', system-ui, sans-serif;
+
+      /* Editor light pane vars (always light) */
+      --editor-bg:       #F5F3EF;
+      --editor-tabs-bg:  #ECEAE6;
+      --editor-border:   #D8D5CF;
+      --editor-text:     #1C1C1E;
+      --editor-muted:    #9B8B6E;
     }
+
+    /* ── Light mode override ────────────────────────────── */
+    .light {
+      --bg:           #F5F3EF;
+      --bg-mid:       #ECEAE6;
+      --bg-panel:     #F0EDE8;
+      --bg-sidebar:   #E8E5DF;
+      --bg-activity:  #DDD9D2;
+      --text:         #1C1C1E;
+      --text-muted:   #6B6865;
+      --text-dim:     #A8A5A0;
+      --accent:       #C9A84C;
+      --accent-sub:   rgba(201,168,76,0.12);
+      --accent-glow:  rgba(201,168,76,0.25);
+      --bubble:       #E4E0D8;
+      --border:       rgba(0,0,0,0.08);
+    }
+
+    .light body { background: #DDD9D2; }
 
     html, body {
       height: 100%;
@@ -277,13 +303,53 @@
 
     .chat-wordmark span { color: var(--accent); }
 
+    .chat-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .credit-badge {
       font-size: 11px;
       color: var(--text-muted);
-      background: rgba(255,255,255,0.05);
+      background: rgba(128,128,128,0.1);
       padding: 3px 8px;
       border-radius: 20px;
     }
+
+    /* Theme toggle */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      background: rgba(128,128,128,0.1);
+      border-radius: 20px;
+      padding: 2px;
+      gap: 0;
+    }
+
+    .theme-btn {
+      width: 26px;
+      height: 22px;
+      border-radius: 16px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 12px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .theme-btn:hover { color: var(--text-muted); }
+
+    .theme-btn.active {
+      background: var(--accent);
+      color: #111;
+    }
+
+    .light .theme-btn.active { color: #fff; }
 
     /* Stage rail */
     .stage-rail {
@@ -607,7 +673,14 @@
     <!-- Header -->
     <div class="chat-header">
       <div class="chat-wordmark">story<span>line</span></div>
-      <div class="credit-badge">847 credits</div>
+      <div class="chat-header-right">
+        <div class="credit-badge">847 credits</div>
+        <div class="theme-toggle" id="themeToggle">
+          <button class="theme-btn" id="btn-light" title="Light mode" onclick="setTheme('light')">☀️</button>
+          <button class="theme-btn active" id="btn-dark" title="Dark mode" onclick="setTheme('dark')">🌙</button>
+          <button class="theme-btn" id="btn-auto" title="Follow system" onclick="setTheme('auto')">💻</button>
+        </div>
+      </div>
     </div>
 
     <!-- Stage Rail -->
@@ -685,5 +758,23 @@
 
 </div>
 
+<script>
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  let current = 'dark';
+
+  function setTheme(mode) {
+    current = mode;
+    applyTheme();
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + mode).classList.add('active');
+  }
+
+  function applyTheme() {
+    const isDark = current === 'dark' || (current === 'auto' && mq.matches);
+    document.querySelector('.shell').classList.toggle('light', !isDark);
+  }
+
+  mq.addEventListener('change', () => { if (current === 'auto') applyTheme(); });
+</script>
 </body>
 </html>
