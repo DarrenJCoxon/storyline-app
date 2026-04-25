@@ -40,32 +40,32 @@
       --font-sans:       'Inter', system-ui, sans-serif;
     }
 
-    /* ─── Light tokens ──────────────────────────────────── */
+    /* ─── Light tokens — Moleskine paper palette ────────── */
     .light {
-      --activity-bg:     #2A2A2A;
-      --sidebar-bg:      #EAE6DF;
-      --sidebar-border:  rgba(0,0,0,0.09);
+      --activity-bg:     #2A2A2A;   /* always dark for icon contrast */
+      --sidebar-bg:      #E8E7E4;   /* stone — noticeably darker than paper */
+      --sidebar-border:  rgba(0,0,0,0.08);
       --sidebar-text:    #7A7875;
       --sidebar-hover:   rgba(0,0,0,0.04);
-      --sidebar-sel-bg:  rgba(201,168,76,0.13);
-      --sidebar-sel-txt: #9B7220;
-      --editor-bg:       #FFFFFF;
-      --editor-tabs-bg:  #F0EDE8;
-      --editor-border:   rgba(0,0,0,0.08);
-      --editor-text:     #1C1C1E;
-      --editor-muted:    #9B8B6E;
-      --editor-scene:    #B0A090;
-      --chat-bg:         #F5F3EF;
-      --chat-rail-bg:    #ECE9E2;
-      --chat-foot-bg:    #E5E2DB;
-      --text:            #1C1C1E;
+      --sidebar-sel-bg:  rgba(180,148,60,0.1);
+      --sidebar-sel-txt: #8B6E1A;
+      --editor-bg:       #F7F6F4;   /* warm paper grey — Moleskine page */
+      --editor-tabs-bg:  #EDECEA;   /* slightly darker than paper */
+      --editor-border:   rgba(0,0,0,0.07);
+      --editor-text:     #1E1C1A;   /* near-black ink */
+      --editor-muted:    #8A8480;   /* cooler grey, less golden */
+      --editor-scene:    #AEAAA6;
+      --chat-bg:         #F2F1EF;   /* paper-adjacent, distinct from editor */
+      --chat-rail-bg:    #E9E8E5;   /* stone rail */
+      --chat-foot-bg:    #E2E1DE;   /* darker stone footer */
+      --text:            #1E1C1A;
       --text-muted:      #6B6865;
-      --text-dim:        #C0BCBA;
+      --text-dim:        #BEBCBA;
       --accent:          #B8922A;
       --accent-sub:      rgba(184,146,42,0.1);
       --accent-glow:     rgba(184,146,42,0.22);
-      --bubble-bg:       #E5E1D9;
-      --col-sep:         rgba(0,0,0,0.1);
+      --bubble-bg:       #E6E4E0;   /* stone bubble */
+      --col-sep:         rgba(0,0,0,0.09);
     }
 
     /* ─── Page ──────────────────────────────────────────── */
@@ -430,14 +430,73 @@
     }
 
     .rail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 14px 9px;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .rail-head-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rail-label {
       font-size: 9.5px; font-weight: 700;
       letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--text-dim);
-      padding: 9px 14px 6px;
-      font-family: var(--font-ui);
     }
 
-    .s-list { list-style: none; max-height: 148px; overflow-y: auto; padding-bottom: 6px; }
+    /* Active stage shown inline when collapsed */
+    .rail-active-hint {
+      font-size: 11.5px;
+      color: var(--accent);
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 0;
+      transition: opacity 0.2s, max-width 0.25s;
+    }
+
+    .stage-rail.collapsed .rail-active-hint {
+      opacity: 1;
+      max-width: 160px;
+    }
+
+    .rail-chevron {
+      font-size: 10px;
+      color: var(--text-dim);
+      transition: transform 0.22s ease;
+      flex-shrink: 0;
+    }
+
+    .stage-rail.collapsed .rail-chevron {
+      transform: rotate(-90deg);
+    }
+
+    .s-list {
+      list-style: none;
+      max-height: 148px;
+      overflow-y: auto;
+      padding-bottom: 6px;
+      overflow: hidden;
+      max-height: 148px;
+      transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
+      opacity: 1;
+    }
+
+    .stage-rail.collapsed .s-list {
+      max-height: 0;
+      opacity: 0;
+      padding-bottom: 0;
+    }
+
     .s-list::-webkit-scrollbar { width: 3px; }
     .s-list::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.12); border-radius: 2px; }
 
@@ -631,7 +690,13 @@
       </div>
     </div>
     <div class="stage-rail">
-      <div class="rail-head">Planning stages</div>
+      <div class="rail-head" onclick="toggleRail(this)">
+        <div class="rail-head-left">
+          <span class="rail-label">Planning stages</span>
+          <span class="rail-active-hint">4 · Supporting Cast</span>
+        </div>
+        <span class="rail-chevron">▾</span>
+      </div>
       <ul class="s-list">
         <li class="sr done"><div class="sd done">✓</div>Genre &amp; Foundations</li>
         <li class="sr done"><div class="sd done">✓</div>Story Seed &amp; Premise</li>
@@ -738,7 +803,13 @@
       </div>
     </div>
     <div class="stage-rail">
-      <div class="rail-head">Planning stages</div>
+      <div class="rail-head" onclick="toggleRail(this)">
+        <div class="rail-head-left">
+          <span class="rail-label">Planning stages</span>
+          <span class="rail-active-hint">4 · Supporting Cast</span>
+        </div>
+        <span class="rail-chevron">▾</span>
+      </div>
       <ul class="s-list">
         <li class="sr done"><div class="sd done">✓</div>Genre &amp; Foundations</li>
         <li class="sr done"><div class="sd done">✓</div>Story Seed &amp; Premise</li>
@@ -766,5 +837,10 @@
 
 </div>
 
+<script>
+  function toggleRail(headEl) {
+    headEl.closest('.stage-rail').classList.toggle('collapsed');
+  }
+</script>
 </body>
 </html>
