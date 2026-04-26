@@ -1,6 +1,7 @@
 import type { Env } from './types.js'
 import { handleValidate } from './validate.js'
 import { handleChat } from './chat.js'
+import { handleCritique } from './critique.js'
 import { handleIllustrate } from './illustrate.js'
 import { handleStripeWebhook } from './stripe-webhook.js'
 
@@ -28,6 +29,8 @@ export default {
         return handleValidate(req, env)
       case '/chat':
         return handleChat(req, env)
+      case '/critique':
+        return handleCritique(req, env)
       case '/illustrate':
         return handleIllustrate(req, env)
       case '/stripe-webhook':

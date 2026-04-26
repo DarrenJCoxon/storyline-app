@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import type { ChatMessage } from '../App.js'
 import { UserBubble } from './MessageBubble.js'
 import { AIMessage } from './AIMessage.js'
-import { StageCompleteCard } from './Cards.js'
+import { StageCompleteCard, FindingsCard, SeriesDetectedCard, DownstreamImpactsCard, CritiqueCard } from './Cards.js'
 
 interface Props {
   messages: ChatMessage[]
@@ -43,6 +43,18 @@ export function ChatThread({ messages, streamingId }: Props) {
                 statePath={msg.stageCompleteCard.statePath}
               />
             )
+          }
+          if (msg.findingsCard) {
+            return <FindingsCard key={msg.id} findings={msg.findingsCard.findings} />
+          }
+          if (msg.seriesDetectedCard) {
+            return <SeriesDetectedCard key={msg.id} suggestion={msg.seriesDetectedCard.suggestion} indicators={msg.seriesDetectedCard.indicators} />
+          }
+          if (msg.downstreamImpactsCard) {
+            return <DownstreamImpactsCard key={msg.id} stageId={msg.downstreamImpactsCard.stageId} impacts={msg.downstreamImpactsCard.impacts} />
+          }
+          if (msg.critiqueCard) {
+            return <CritiqueCard key={msg.id} findings={msg.critiqueCard.findings} tier={msg.critiqueCard.tier} stageId={msg.critiqueCard.stageId} />
           }
           if (msg.role === 'user') {
             return <UserBubble key={msg.id} text={msg.content} />

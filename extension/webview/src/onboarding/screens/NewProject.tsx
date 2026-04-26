@@ -7,13 +7,20 @@ const GENRE_HINTS = [
   'Mystery', 'Historical Fiction', 'Horror', 'Young Adult', 'Other',
 ]
 
+interface ReturningUser {
+  creditBalance?: number
+  licenceType?: string
+  providerName?: string
+}
+
 interface Props {
   workspaceName: string
   scaffolded: boolean
+  returningUser?: ReturningUser | null
   onScaffold: (name: string, genreHint?: string) => void
 }
 
-export function NewProject({ workspaceName, scaffolded, onScaffold }: Props) {
+export function NewProject({ workspaceName, scaffolded, returningUser, onScaffold }: Props) {
   const [name, setName] = useState(workspaceName)
   const [genre, setGenre] = useState('')
   const [pending, setPending] = useState(false)
@@ -36,9 +43,38 @@ export function NewProject({ workspaceName, scaffolded, onScaffold }: Props) {
     )
   }
 
+  // Friendly returning-user banner so a writer with credits / BYOK / Ollama
+  // already configured doesn't get pushed through the plan-picker again.
+  const banner = (() => {
+    if (!returningUser) return null
+    if (returningUser.providerName) {
+      return `Welcome back. Using your ${returningUser.providerName} key from a previous project — no plan picker needed.`
+    }
+    if (typeof returningUser.creditBalance === 'number') {
+      const credits = returningUser.creditBalance.toLocaleString()
+      const tier = returningUser.licenceType === 'free' ? 'free' : 'paid'
+      return `Welcome back. Picking up your existing ${tier} plan — ${credits} credits available.`
+    }
+    return 'Welcome back — using your existing plan.'
+  })()
+
   return (
     <div style={{ maxWidth: '400px', width: '100%' }}>
-      <h2 style={headingStyle}>Create your project</h2>
+      <h2 style={headingStyle}>{returningUser ? 'Start a new project' : 'Create your project'}</h2>
+
+      {banner && (
+        <div style={{
+          background: 'var(--accent-sub, rgba(201,168,76,0.08))',
+          border: '1px solid rgba(201,168,76,0.3)',
+          borderRadius: 6,
+          padding: '10px 12px',
+          fontSize: 12,
+          color: 'var(--text)',
+          marginBottom: 18,
+        }}>
+          {banner}
+        </div>
+      )}
 
       <label style={labelStyle}>Project name</label>
       <input

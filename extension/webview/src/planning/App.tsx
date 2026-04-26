@@ -15,12 +15,25 @@ export interface StageInfo {
   active: boolean
 }
 
+export interface StoryTrapFinding {
+  id: string
+  name: string
+  severity: 'error' | 'warning' | 'suggestion'
+  description: string
+  details?: string
+  fixProtocol?: string[]
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   streaming?: boolean
   stageCompleteCard?: { stageId: string; stageName: string; statePath: string }
+  findingsCard?: { findings: StoryTrapFinding[] }
+  seriesDetectedCard?: { suggestion: string; indicators: string[] }
+  downstreamImpactsCard?: { stageId: string; impacts: string[] }
+  critiqueCard?: { findings: string; tier: string; stageId: string }
 }
 
 export interface CreditInfo {
@@ -52,6 +65,10 @@ type Action =
   | { type: 'TOGGLE_RAIL' }
   | { type: 'CREDITS_EXHAUSTED' }
   | { type: 'ERROR'; message: string }
+  | { type: 'FINDINGS_CARD'; findings: StoryTrapFinding[] }
+  | { type: 'SERIES_DETECTED'; suggestion: string; indicators: string[] }
+  | { type: 'DOWNSTREAM_IMPACTS'; stageId: string; impacts: string[] }
+  | { type: 'CRITIQUE_CARD'; findings: string; tier: string; stageId: string }
 
 function uid(): string {
   return Math.random().toString(36).slice(2)
@@ -150,6 +167,30 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ERROR':
       return { ...state, error: action.message }
 
+    case 'FINDINGS_CARD':
+      return {
+        ...state,
+        messages: [...state.messages, { id: uid(), role: 'system', content: '', findingsCard: { findings: action.findings } }],
+      }
+
+    case 'SERIES_DETECTED':
+      return {
+        ...state,
+        messages: [...state.messages, { id: uid(), role: 'system', content: '', seriesDetectedCard: { suggestion: action.suggestion, indicators: action.indicators } }],
+      }
+
+    case 'DOWNSTREAM_IMPACTS':
+      return {
+        ...state,
+        messages: [...state.messages, { id: uid(), role: 'system', content: '', downstreamImpactsCard: { stageId: action.stageId, impacts: action.impacts } }],
+      }
+
+    case 'CRITIQUE_CARD':
+      return {
+        ...state,
+        messages: [...state.messages, { id: uid(), role: 'system', content: '', critiqueCard: { findings: action.findings, tier: action.tier, stageId: action.stageId } }],
+      }
+
     default:
       return state
   }
@@ -190,6 +231,10 @@ export function App() {
       ),
       on<{ stages: StageInfo[] }>('stageAdvance', m => dispatch({ type: 'STAGE_ADVANCE', stages: m.stages })),
       on<{ message: string }>('error', m => dispatch({ type: 'ERROR', message: m.message })),
+      on<{ findings: StoryTrapFinding[] }>('findingsCard', m => dispatch({ type: 'FINDINGS_CARD', findings: m.findings })),
+      on<{ suggestion: string; indicators: string[] }>('seriesDetected', m => dispatch({ type: 'SERIES_DETECTED', suggestion: m.suggestion, indicators: m.indicators })),
+      on<{ stageId: string; impacts: string[] }>('downstreamImpacts', m => dispatch({ type: 'DOWNSTREAM_IMPACTS', stageId: m.stageId, impacts: m.impacts })),
+      on<{ findings: string; tier: string; stageId: string }>('critiqueCard', m => dispatch({ type: 'CRITIQUE_CARD', findings: m.findings, tier: m.tier, stageId: m.stageId })),
     ]
     return () => offs.forEach(off => off())
   }, [on])

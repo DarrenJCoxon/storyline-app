@@ -66,3 +66,19 @@ export interface ChatRequest {
   stageId: string
   systemPrompt?: string
 }
+
+export interface CritiqueRequest {
+  licenceKey: string
+  stageId: string
+  state: Record<string, unknown>
+  tier?: 'haiku' | 'sonnet' | 'opus' | 'draft'
+  qualityMode?: 'economy' | 'balanced' | 'premium'
+  brief?: Record<string, unknown>
+}
+
+export interface CritiqueResponse {
+  findings: string
+  modelUsed: string
+  tier: string
+  tokensUsed?: number
+}

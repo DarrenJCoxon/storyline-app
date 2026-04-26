@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, AlertCircle, AlertTriangle, Lightbulb } from 'lucide-react'
+import { Check, AlertCircle, AlertTriangle, Lightbulb, BookOpen, GitBranch, Zap } from 'lucide-react'
+import type { StoryTrapFinding } from '../App.js'
 
 // ── Stage complete card ────────────────────────────────────────────────────
 
@@ -167,5 +168,172 @@ export function CritiqueBadge({ severity, message, fixProtocol }: CritiqueBadgeP
         </ol>
       )}
     </div>
+  )
+}
+
+// ── Story traps findings card ──────────────────────────────────────────────────
+
+interface FindingsCardProps {
+  findings: StoryTrapFinding[]
+}
+
+export function FindingsCard({ findings }: FindingsCardProps) {
+  if (findings.length === 0) return null
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{ margin: '8px 0' }}
+    >
+      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <AlertTriangle size={11} strokeWidth={2} />
+        Story traps check
+      </div>
+      {findings.map(f => (
+        <CritiqueBadge
+          key={f.id}
+          severity={f.severity}
+          message={f.name + (f.description ? ` — ${f.description}` : '')}
+          fixProtocol={f.fixProtocol}
+        />
+      ))}
+    </motion.div>
+  )
+}
+
+// ── Series detected card ───────────────────────────────────────────────────────
+
+interface SeriesDetectedCardProps {
+  suggestion: string
+  indicators: string[]
+}
+
+export function SeriesDetectedCard({ suggestion, indicators }: SeriesDetectedCardProps) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        margin: '8px 0',
+        padding: '10px 12px',
+        borderRadius: 'var(--radius-card)',
+        background: 'rgba(100,116,139,0.07)',
+        border: '1px solid rgba(100,116,139,0.25)',
+        cursor: indicators.length > 0 ? 'pointer' : 'default',
+      }}
+      onClick={() => setExpanded(e => !e)}
+    >
+      <div style={{ fontSize: '12px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <BookOpen size={13} strokeWidth={2} color="var(--text-muted)" />
+        <span>{suggestion}</span>
+      </div>
+      {expanded && indicators.length > 0 && (
+        <ul style={{ margin: '8px 0 0', paddingLeft: '16px' }}>
+          {indicators.map((ind, i) => (
+            <li key={i} style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px' }}>{ind}</li>
+          ))}
+        </ul>
+      )}
+    </motion.div>
+  )
+}
+
+// ── Downstream impacts card ────────────────────────────────────────────────────
+
+interface DownstreamImpactsCardProps {
+  stageId: string
+  impacts: string[]
+}
+
+export function DownstreamImpactsCard({ stageId, impacts }: DownstreamImpactsCardProps) {
+  if (impacts.length === 0) return null
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        margin: '8px 0',
+        padding: '10px 12px',
+        borderRadius: 'var(--radius-card)',
+        background: 'rgba(217,119,6,0.06)',
+        border: '1px solid rgba(217,119,6,0.2)',
+      }}
+    >
+      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <GitBranch size={11} strokeWidth={2} />
+        Changing {stageId} may affect
+      </div>
+      <ul style={{ margin: 0, paddingLeft: '16px' }}>
+        {impacts.map((imp, i) => (
+          <li key={i} style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px' }}>{imp}</li>
+        ))}
+      </ul>
+    </motion.div>
+  )
+}
+
+// ── Critique card ──────────────────────────────────────────────────────────────
+
+interface CritiqueCardProps {
+  findings: string
+  tier: string
+  stageId: string
+}
+
+function parseCritiqueLine(line: string): { severity: CritiqueSeverity; text: string } | null {
+  if (line.startsWith('🔴') || line.toLowerCase().includes('error:')) {
+    return { severity: 'error', text: line.replace(/^🔴\s*(ERROR:\s*)?/i, '').trim() }
+  }
+  if (line.startsWith('🟡') || line.toLowerCase().includes('warning:')) {
+    return { severity: 'warning', text: line.replace(/^🟡\s*(WARNING:\s*)?/i, '').trim() }
+  }
+  if (line.startsWith('💡') || line.toLowerCase().includes('suggestion:')) {
+    return { severity: 'suggestion', text: line.replace(/^💡\s*(SUGGESTION:\s*)?/i, '').trim() }
+  }
+  return null
+}
+
+export function CritiqueCard({ findings, tier, stageId }: CritiqueCardProps) {
+  const lines = findings.split('\n').map(l => l.trim()).filter(Boolean)
+  const parsed = lines.map(parseCritiqueLine).filter(Boolean) as Array<{ severity: CritiqueSeverity; text: string }>
+  const passing = findings.includes('✅')
+  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{ margin: '8px 0' }}
+    >
+      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <Zap size={11} strokeWidth={2} />
+        {tierLabel} critique — {stageId}
+      </div>
+      {passing && parsed.length === 0 ? (
+        <div style={{
+          padding: '8px 12px',
+          borderRadius: 'var(--radius-card)',
+          background: 'rgba(34,197,94,0.07)',
+          border: '1px solid rgba(34,197,94,0.2)',
+          fontSize: '12px',
+          color: '#4ADE80',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+        }}>
+          <Check size={13} strokeWidth={2.5} />
+          {lines.find(l => l.includes('✅'))?.replace('✅', '').trim() ?? 'Structurally sound.'}
+        </div>
+      ) : (
+        parsed.map((item, i) => (
+          <CritiqueBadge key={i} severity={item.severity} message={item.text} />
+        ))
+      )}
+    </motion.div>
   )
 }

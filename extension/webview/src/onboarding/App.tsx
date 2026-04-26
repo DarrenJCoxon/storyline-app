@@ -19,6 +19,12 @@ interface TestResult {
   error?: string
 }
 
+interface ReturningUser {
+  creditBalance?: number
+  licenceType?: string
+  providerName?: string
+}
+
 interface AppState {
   screen: Screen
   workspaceName: string
@@ -26,10 +32,11 @@ interface AppState {
   testResult: TestResult | null
   scaffolded: boolean
   error: string | null
+  returningUser: ReturningUser | null
 }
 
 type Action =
-  | { type: 'INIT'; workspaceName: string; initialScreen: Screen }
+  | { type: 'INIT'; workspaceName: string; initialScreen: Screen; returningUser?: ReturningUser | null }
   | { type: 'NAVIGATE'; to: Screen }
   | { type: 'VALIDATE_RESULT'; success: boolean; creditBalance?: number; error?: string }
   | { type: 'TEST_RESULT'; success: boolean; error?: string }
@@ -39,7 +46,7 @@ type Action =
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'INIT':
-      return { ...state, workspaceName: action.workspaceName, screen: action.initialScreen }
+      return { ...state, workspaceName: action.workspaceName, screen: action.initialScreen, returningUser: action.returningUser ?? null }
     case 'NAVIGATE':
       return { ...state, screen: action.to, validateResult: null, testResult: null }
     case 'VALIDATE_RESULT':
@@ -62,6 +69,7 @@ const INITIAL: AppState = {
   testResult: null,
   scaffolded: false,
   error: null,
+  returningUser: null,
 }
 
 export function App() {
@@ -70,8 +78,22 @@ export function App() {
 
   useEffect(() => {
     const offs = [
-      on<{ workspaceName: string; initialScreen: Screen }>('init', m =>
-        dispatch({ type: 'INIT', workspaceName: m.workspaceName, initialScreen: m.initialScreen ?? 'welcome' }),
+      on<{
+        workspaceName: string
+        initialScreen: Screen
+        returningUser?: boolean
+        creditBalance?: number
+        licenceType?: string
+        providerName?: string
+      }>('init', m =>
+        dispatch({
+          type: 'INIT',
+          workspaceName: m.workspaceName,
+          initialScreen: m.initialScreen ?? 'welcome',
+          returningUser: m.returningUser
+            ? { creditBalance: m.creditBalance, licenceType: m.licenceType, providerName: m.providerName }
+            : null,
+        }),
       ),
       on<{ to: Screen }>('navigate', m => dispatch({ type: 'NAVIGATE', to: m.to })),
       on<{ success: boolean; creditBalance?: number; error?: string }>('validateResult', m =>
@@ -88,7 +110,16 @@ export function App() {
 
   const navigate = useCallback((to: Screen) => dispatch({ type: 'NAVIGATE', to }), [])
 
-  const { screen, workspaceName, validateResult, testResult, scaffolded } = state
+  // Once a licence key has been validated successfully — wherever it was
+  // entered (Welcome's "I already have a key" or the BuyCredits flow's
+  // post-purchase activation) — skip straight to the project setup screen.
+  useEffect(() => {
+    if (state.validateResult?.success && state.screen !== 'new-project') {
+      navigate('new-project')
+    }
+  }, [state.validateResult, state.screen, navigate])
+
+  const { screen, workspaceName, validateResult, testResult, scaffolded, returningUser } = state
 
   return (
     <div style={{
@@ -104,6 +135,9 @@ export function App() {
         <Welcome
           onNavigate={navigate}
           onUseFree={() => { send({ type: 'useFree' }); navigate('new-project') }}
+          onActivateKey={key => send({ type: 'validateLicence', key })}
+          validating={false}
+          validateError={validateResult && !validateResult.success ? validateResult.error ?? 'Activation failed.' : null}
         />
       )}
       {screen === 'buy-credits' && (
@@ -128,6 +162,7 @@ export function App() {
         <NewProject
           workspaceName={workspaceName}
           scaffolded={scaffolded}
+          returningUser={returningUser}
           onScaffold={(name, genreHint) => send({ type: 'scaffold', name, genreHint })}
         />
       )}

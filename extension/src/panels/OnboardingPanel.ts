@@ -51,9 +51,68 @@ export class OnboardingPanel {
     this.panel.webview.onDidReceiveMessage(msg => this.handleMessage(msg))
     this.panel.onDidDispose(() => { OnboardingPanel.instance = undefined })
 
+    void this.sendInit(initialScreen)
+  }
+
+  /**
+   * Recognise a returning user. If we already have a licence key in
+   * SecretStorage AND the backend confirms it's valid with credits (or BYOK
+   * configured, or Ollama enabled), skip every payment / activation screen
+   * and jump straight to "name your new project". Returning writers
+   * shouldn't have to pick a plan they already have.
+   */
+  private async sendInit(requested: Screen): Promise<void> {
     const folders = vscode.workspace.workspaceFolders
     const workspaceName = folders?.[0]?.name ?? 'My Novel'
-    this.post({ type: 'init', workspaceName, initialScreen })
+
+    // Honour an explicit screen override (e.g. when the user chose
+    // "Storyline: Top Up Credits" from the command palette).
+    if (requested !== 'welcome') {
+      this.post({ type: 'init', workspaceName, initialScreen: requested })
+      return
+    }
+
+    let resolvedScreen: Screen = 'welcome'
+    let creditBalance: number | undefined
+    let licenceType: string | undefined
+    let providerName: string | undefined
+
+    try {
+      const existingKey = await this.licenceManager.getLicenceKey()
+      if (existingKey) {
+        const info = await this.licenceManager.validate({ useCache: true })
+        if (info.valid) {
+          resolvedScreen = 'new-project'
+          creditBalance = info.creditBalance
+          licenceType = info.type
+        }
+      }
+      // BYOK / Ollama paths are also "already set up" — no plan picker needed.
+      if (resolvedScreen === 'welcome') {
+        const byok = this.context.globalState.get<{ kind: string }>('storyline.byokConfig')
+        const ollama = this.context.globalState.get<boolean>('storyline.ollamaEnabled')
+        if (ollama) {
+          resolvedScreen = 'new-project'
+          providerName = 'Ollama (local)'
+        } else if (byok) {
+          resolvedScreen = 'new-project'
+          providerName = byok.kind === 'anthropic' ? 'Anthropic' : 'OpenAI-compatible'
+        }
+      }
+    } catch {
+      // Network / backend hiccup — fall through to the welcome screen so
+      // the user can pick a plan or enter a key manually.
+    }
+
+    this.post({
+      type: 'init',
+      workspaceName,
+      initialScreen: resolvedScreen,
+      returningUser: resolvedScreen === 'new-project',
+      creditBalance,
+      licenceType,
+      providerName,
+    })
   }
 
   public static show(

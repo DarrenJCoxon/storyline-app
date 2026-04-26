@@ -125,10 +125,8 @@ async function* readAnthropicStream(response: Response): AsyncIterable<string> {
   if (!reader) return
   const decoder = new TextDecoder()
   let buffer = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
+
+  function* processBuffer(): Iterable<string> {
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
     for (const line of lines) {
@@ -141,5 +139,19 @@ async function* readAnthropicStream(response: Response): AsyncIterable<string> {
         }
       } catch { /* ignore */ }
     }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      // Flush any remaining buffered data
+      if (buffer.trim()) {
+        buffer += '\n'
+        yield* processBuffer()
+      }
+      break
+    }
+    buffer += decoder.decode(value, { stream: true })
+    yield* processBuffer()
   }
 }

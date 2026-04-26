@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
-import { deriveCurrentStage, stageOrderFor, type ProjectState } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -11,6 +11,7 @@ import { ManagedProvider } from '../ai/managed-provider.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
 import type { AIProvider, Message } from '../ai/provider.js'
+import { getQualityMode } from '../ai/quality-config.js'
 
 function getBackendUrl(): string {
   return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.app').replace(/\/$/, '')
@@ -86,7 +87,10 @@ export class ChatPanel {
       this.turnHistory.setStorePath(path.join(workspaceFolder, '.storyline', 'conversation.json'))
     }
 
-    const licenceInfo = await this.licenceManager.validate({ useCache: true })
+    // Force a fresh /validate call on panel open so the displayed credit
+    // balance is what the backend will actually accept on /chat — never a
+    // stale cache from a previous session or a wrangler KV reset.
+    const licenceInfo = await this.licenceManager.validate({ useCache: false })
     this.provider = await this.resolveProvider(licenceInfo)
 
     const state = await this.store.read()
@@ -209,6 +213,41 @@ export class ChatPanel {
       writeAllChapterCards(finalState, projectDir).catch(() => { /* non-fatal */ })
     }
 
+    // 1. Story traps check
+    const trapResults = runStoryTraps(finalState)
+    if (trapResults.length > 0) {
+      this.post({ type: 'findingsCard', findings: trapResults.map(t => ({
+        id: t.id,
+        name: t.name,
+        severity: t.severity,
+        description: t.description,
+        details: t.details,
+        fixProtocol: t.fixProtocol,
+      })) })
+    }
+
+    // 2. Series detector (fiction only, after premise)
+    if (stageId === 'premise' && finalState.mode === 'fiction') {
+      const seriesResult = detectSeriesPotential(finalState.premise ?? {}, finalState.genre ?? {})
+      if (seriesResult.detected && seriesResult.suggestion) {
+        this.post({ type: 'seriesDetected', suggestion: seriesResult.suggestion, indicators: seriesResult.indicators })
+      }
+    }
+
+    // 3. Downstream impacts warning
+    const impacts = getDownstreamImpacts(stageId)
+    if (impacts.length > 0) {
+      this.post({ type: 'downstreamImpacts', stageId, impacts })
+    }
+
+    // 4. Write stage doc
+    if (projectDir) {
+      writeStageDoc(stageId, finalState, projectDir).catch(() => { /* non-fatal */ })
+    }
+
+    // 5. Tier-routed critique via backend /critique endpoint (managed provider only)
+    this.runCritique(stageId, finalState).catch(() => { /* non-fatal */ })
+
     const nextStage = deriveCurrentStage(finalState)
     if (nextStage) {
       this.post({
@@ -279,6 +318,15 @@ export class ChatPanel {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('402') || /credit|quota|exhausted/i.test(msg)) {
         this.post({ type: 'creditsExhausted' })
+      } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
+        // Stale cached credit balance was masking a backend rejection.
+        // Drop the cache so the next validate hits /validate fresh, then
+        // tell the user they need to re-activate.
+        await this.licenceManager.clearCache()
+        this.post({
+          type: 'streamError',
+          message: 'Your licence key is no longer recognised by the backend. Run "Storyline: Enter Licence Key" to re-activate (the credits shown above were cached from a previous session).',
+        })
       } else {
         this.post({ type: 'streamError', message: msg })
       }
@@ -322,6 +370,29 @@ export class ChatPanel {
     }
 
     return new ManagedProvider(getBackendUrl(), () => this.licenceManager.getLicenceKey())
+  }
+
+  private async runCritique(stageId: string, state: ProjectState): Promise<void> {
+    if (!(this.provider instanceof ManagedProvider)) return
+    const licenceKey = await this.licenceManager.getLicenceKey()
+    if (!licenceKey) return
+
+    const response = await fetch(`${getBackendUrl()}/critique`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        licenceKey,
+        stageId,
+        state,
+        qualityMode: getQualityMode(),
+      }),
+    })
+
+    if (!response.ok) return
+    const data = await response.json() as { findings?: string; tier?: string }
+    if (data.findings) {
+      this.post({ type: 'critiqueCard', findings: data.findings, tier: data.tier ?? 'sonnet', stageId })
+    }
   }
 
   private post(msg: Record<string, unknown>): void {

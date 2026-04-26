@@ -12,11 +12,20 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.storyline/state.json"
+    "workspaceContains:.storyline/state.json",
+    "onWalkthrough:storyline.welcome"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "storyline.startNew",
+        "title": "Storyline: Start New Project",
+        "icon": {
+          "light": "media/icon.svg",
+          "dark": "media/icon.svg"
+        }
+      },
       {
         "command": "storyline.openPlanning",
         "title": "Storyline: Open Planning Chat",
@@ -87,6 +96,62 @@
         "command": "storyline.research",
         "title": "Storyline: Open Research",
         "icon": "$(library)"
+      },
+      {
+        "command": "storyline.doctor",
+        "title": "Storyline: Doctor"
+      },
+      {
+        "command": "storyline.generateMasterDoc",
+        "title": "Storyline: Generate Master Document"
+      },
+      {
+        "command": "storyline.notes",
+        "title": "Storyline: View Manuscript Notes"
+      },
+      {
+        "command": "storyline.snapshotDraft",
+        "title": "Storyline: Snapshot Draft"
+      },
+      {
+        "command": "storyline.compareToPlan",
+        "title": "Storyline: Compare to Plan"
+      },
+      {
+        "command": "storyline.editBookInfo",
+        "title": "Storyline: Edit Book Info"
+      },
+      {
+        "command": "storyline.backupNow",
+        "title": "Storyline: Backup Project"
+      },
+      {
+        "command": "storyline.github.connect",
+        "title": "Storyline: Connect GitHub"
+      },
+      {
+        "command": "storyline.github.syncNow",
+        "title": "Storyline: Sync to GitHub Now"
+      },
+      {
+        "command": "storyline.github.pause",
+        "title": "Storyline: Pause GitHub Sync"
+      },
+      {
+        "command": "storyline.github.resume",
+        "title": "Storyline: Resume GitHub Sync"
+      },
+      {
+        "command": "storyline.github.openInBrowser",
+        "title": "Storyline: Open Project on GitHub"
+      },
+      {
+        "command": "storyline.github.disconnect",
+        "title": "Storyline: Disconnect GitHub"
+      },
+      {
+        "command": "storyline.github.openFromGitHub",
+        "title": "Storyline: Open Project from GitHub…"
       }
     ],
     "menus": {
@@ -119,9 +184,55 @@
           "type": "string",
           "default": "https://api.storyline.app",
           "description": "Backend URL for AI calls. Override to http://localhost:8787 for local development."
+        },
+        "storyline.aiQuality": {
+          "type": "string",
+          "enum": [
+            "economy",
+            "balanced",
+            "premium"
+          ],
+          "default": "balanced",
+          "description": "AI critique quality tier. economy = faster/cheaper, balanced = default, premium = deeper critique."
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "storyline.welcome",
+        "title": "Storyline — Plan and write your book",
+        "description": "Set up a new novel or non-fiction project, or open an existing one.",
+        "steps": [
+          {
+            "id": "storyline.start",
+            "title": "Start a new project",
+            "description": "Scaffold a new Storyline project in this folder — manuscript, planning state, compile config.\n[Start New Project](command:storyline.startNew)",
+            "media": {
+              "image": "media/icon.svg",
+              "altText": "Storyline"
+            }
+          },
+          {
+            "id": "storyline.openPlanning",
+            "title": "Open the planning chat",
+            "description": "Walk through Save the Cat (fiction) or Book DNA (non-fiction) with the AI planning coach.\n[Open Planning Chat](command:storyline.openPlanning)",
+            "media": {
+              "image": "media/icon.svg",
+              "altText": "Planning"
+            }
+          },
+          {
+            "id": "storyline.openLivePreview",
+            "title": "Preview as paperback / iPad / Kindle",
+            "description": "See how your chapter looks on a real device frame as you type.\n[Open Live Preview](command:storyline.openLivePreview)",
+            "media": {
+              "image": "media/icon.svg",
+              "altText": "Preview"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./tsconfig.json",
@@ -136,6 +247,7 @@
   },
   "dependencies": {
     "@storyline/core": "file:../packages/core",
+    "isomorphic-git": "^1.37.5",
     "lucide-react": "^1.11.0",
     "markdown-it": "^14.1.0",
     "openai": "^4.52.0",

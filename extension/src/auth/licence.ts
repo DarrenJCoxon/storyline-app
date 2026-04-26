@@ -28,6 +28,12 @@ export class LicenceManager {
     this.context.globalState.update(CACHE_KEY, undefined)
   }
 
+  /** Drop the cached validation info — call after a 401 from /chat or
+   *  /illustrate so we don't keep displaying stale credit balances. */
+  async clearCache(): Promise<void> {
+    await this.context.globalState.update(CACHE_KEY, undefined)
+  }
+
   async validate(opts: { useCache?: boolean } = {}): Promise<LicenceInfo> {
     const fallback: LicenceInfo = { valid: false, type: 'free', creditBalance: 0 }
 
@@ -35,8 +41,12 @@ export class LicenceManager {
     if (!key) return fallback
 
     if (opts.useCache) {
-      const cached = this.context.globalState.get<LicenceInfo>(CACHE_KEY)
-      if (cached) return cached
+      const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)
+      // Only use the cache if it was recorded against THIS licence key.
+      // Without this check a stale cache (from a previous key, or from
+      // before a wrangler KV reset) keeps showing fake credits while
+      // /chat 401s on every send.
+      if (cached?.key === key) return cached.info
     }
 
     try {
@@ -46,15 +56,19 @@ export class LicenceManager {
         body: JSON.stringify({ licenceKey: key }),
       })
 
-      if (!response.ok) return fallback
+      if (!response.ok) {
+        // Clear any stale cache so we don't keep returning the old "valid" record.
+        await this.context.globalState.update(CACHE_KEY, undefined)
+        return fallback
+      }
 
       const info = await response.json() as LicenceInfo
-      // Cache the result so activation works offline after first success
-      await this.context.globalState.update(CACHE_KEY, info)
+      await this.context.globalState.update(CACHE_KEY, { key, info })
       return info
     } catch {
-      // Offline — return last cached result if available
-      return this.context.globalState.get<LicenceInfo>(CACHE_KEY) ?? fallback
+      // Offline — return last cached result only if it matches the current key.
+      const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)
+      return cached?.key === key ? cached.info : fallback
     }
   }
 }

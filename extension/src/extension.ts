@@ -2,6 +2,10 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import * as fs from 'fs'
 import { ChatPanel } from './panels/ChatPanel.js'
+import { GitHubAuth } from './github/auth.js'
+import { GitHubSyncService } from './github/sync.js'
+import { GitHubSyncStatusBar } from './github/status-bar.js'
+import { registerGitHubCommands, maybeOfferConnect } from './github/commands.js'
 import { OnboardingPanel, STRIPE_PORTAL_URL } from './panels/OnboardingPanel.js'
 import { EditorPanel } from './panels/EditorPanel.js'
 import { CompilePanel } from './panels/CompilePanel.js'
@@ -14,9 +18,47 @@ import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
+import { LocalStore } from './state/local-store.js'
 
 function getBackendUrl(): string {
   return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.app').replace(/\/$/, '')
+}
+
+function doctorHtml(report: unknown, formatted: string): string {
+  const r = report as { ok: boolean; drift: boolean }
+  const status = r.ok ? '✓ No drift detected' : '✗ Drift detected — review findings below'
+  return `<!DOCTYPE html><html><body style="font-family:monospace;padding:20px;background:#1e1e1e;color:#d4d4d4">
+<h2>${status}</h2><pre style="white-space:pre-wrap">${formatted.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+</body></html>`
+}
+
+function notesHtml(count: number, report: string): string {
+  return `<!DOCTYPE html><html><body style="font-family:monospace;padding:20px;background:#1e1e1e;color:#d4d4d4">
+<h2>${count} inline note${count === 1 ? '' : 's'} in manuscript</h2>
+<pre style="white-space:pre-wrap">${report.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+</body></html>`
+}
+
+function compareHtml(count: number, findings: string): string {
+  return `<!DOCTYPE html><html><body style="font-family:monospace;padding:20px;background:#1e1e1e;color:#d4d4d4">
+<h2>${count} finding${count === 1 ? '' : 's'}</h2>
+<pre style="white-space:pre-wrap">${findings.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+</body></html>`
+}
+
+async function copyDir(src: string, dest: string, exclude: string[]): Promise<void> {
+  const entries = fs.readdirSync(src, { withFileTypes: true })
+  for (const entry of entries) {
+    if (exclude.includes(entry.name)) continue
+    const srcPath = path.join(src, entry.name)
+    const destPath = path.join(dest, entry.name)
+    if (entry.isDirectory()) {
+      fs.mkdirSync(destPath, { recursive: true })
+      await copyDir(srcPath, destPath, exclude)
+    } else {
+      fs.copyFileSync(srcPath, destPath)
+    }
+  }
 }
 
 /**
@@ -63,6 +105,13 @@ export function activate(context: vscode.ExtensionContext): void {
   researchStatusBar.show()
   context.subscriptions.push(researchStatusBar)
 
+  const notesStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 96)
+  notesStatusBar.text = '$(note) Notes'
+  notesStatusBar.tooltip = 'View inline manuscript notes'
+  notesStatusBar.command = 'storyline.notes'
+  notesStatusBar.show()
+  context.subscriptions.push(notesStatusBar)
+
   // Auto-reroute manuscript/ markdown files to the rich TipTap editor.
   // Workspace-scoped: only fires when this is a Storyline project (the
   // extension activation gate already enforced workspaceContains:.storyline/state.json).
@@ -93,6 +142,16 @@ export function activate(context: vscode.ExtensionContext): void {
   )
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('storyline.startNew', () => {
+      // Always-available entry point — works in any workspace including
+      // empty folders that have no .storyline/state.json yet. Opens the
+      // onboarding wizard which scaffolds the project layout, then runs
+      // initLayout so the rich editor + chat panel come up.
+      OnboardingPanel.show(context, context.extensionUri, {
+        onScaffolded: () => void initLayout(context),
+      })
+    }),
+
     vscode.commands.registerCommand('storyline.openPlanning', () => {
       ChatPanel.show(context, context.extensionUri, vscode.ViewColumn.Beside)
     }),
@@ -208,7 +267,171 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showErrorMessage('Storyline: invalid or expired key.')
       }
     }),
+
+    vscode.commands.registerCommand('storyline.doctor', async () => {
+      const store = LocalStore.fromWorkspace()
+      if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
+      const state = await store.read()
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) return
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore – lib/*.js are plain JS with no declaration files
+      const { runDoctor, formatDoctorReport } = await import('../../lib/doctor.js')
+      const report = await runDoctor(state, projectDir)
+
+      const panel = vscode.window.createWebviewPanel('storyline.doctor', 'Storyline Doctor', vscode.ViewColumn.Beside, { enableScripts: false })
+      panel.webview.html = doctorHtml(report, formatDoctorReport(report))
+    }),
+
+    vscode.commands.registerCommand('storyline.generateMasterDoc', async () => {
+      const store = LocalStore.fromWorkspace()
+      if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
+      const state = await store.read()
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) return
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Storyline: generating master document…' },
+        async () => {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore – lib/*.js are plain JS with no declaration files
+          const { generateMasterDocument } = await import('../../lib/output/master-doc.js')
+          const origCwd = process.cwd()
+          try {
+            process.chdir(projectDir)
+            const result = await generateMasterDocument(state)
+            vscode.window.showInformationMessage(`Master document generated: ${result.path}`)
+            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.path))
+          } finally {
+            process.chdir(origCwd)
+          }
+        }
+      )
+    }),
+
+    vscode.commands.registerCommand('storyline.notes', async () => {
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore – lib/*.js are plain JS with no declaration files
+      const { scanManuscriptNotes, formatNotesReport } = await import('../../lib/manuscript/notes.js')
+      const notes = await scanManuscriptNotes(projectDir)
+      const report = formatNotesReport(notes)
+
+      const panel = vscode.window.createWebviewPanel('storyline.notes', `Storyline Notes (${notes.length})`, vscode.ViewColumn.Beside, { enableScripts: false })
+      panel.webview.html = notesHtml(notes.length, report)
+    }),
+
+    vscode.commands.registerCommand('storyline.snapshotDraft', async () => {
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) return
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Storyline: creating draft snapshot…' },
+        async () => {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore – lib/*.js are plain JS with no declaration files
+          const { snapshotManuscript } = await import('../../lib/manuscript/snapshot.js')
+          const snapshot = await snapshotManuscript(projectDir)
+          vscode.window.showInformationMessage(
+            `Snapshot: ${snapshot.chapterCount} chapters, ${snapshot.totalWords.toLocaleString()} words`
+          )
+        }
+      )
+    }),
+
+    vscode.commands.registerCommand('storyline.compareToPlan', async () => {
+      const store = LocalStore.fromWorkspace()
+      if (!store) return
+      const state = await store.read()
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) return
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Storyline: comparing manuscript to plan…' },
+        async () => {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore – lib/*.js are plain JS with no declaration files
+          const { compareManuscriptToPlan } = await import('../../lib/manuscript/compare.js')
+          const report = await compareManuscriptToPlan(state, projectDir)
+          const panel = vscode.window.createWebviewPanel('storyline.compare', 'Storyline: Compare to Plan', vscode.ViewColumn.Beside, { enableScripts: false })
+          const findings = report.findings.map((f: Record<string,unknown>) => `${f.severity === 'error' ? '✗' : f.severity === 'warning' ? '⚠' : 'ℹ'} ${f.message}`).join('\n')
+          panel.webview.html = compareHtml(report.findings.length, findings)
+        }
+      )
+    }),
+
+    vscode.commands.registerCommand('storyline.editBookInfo', async () => {
+      const store = LocalStore.fromWorkspace()
+      if (!store) return
+      const state = await store.read()
+      const meta = (state as unknown as Record<string,unknown>)._meta as Record<string,unknown> | undefined ?? {}
+
+      const title = await vscode.window.showInputBox({
+        title: 'Storyline — Book Title',
+        value: String(meta.projectTitle ?? ''),
+        placeHolder: 'My Novel',
+        ignoreFocusOut: true,
+      })
+      if (title === undefined) return
+
+      const author = await vscode.window.showInputBox({
+        title: 'Storyline — Author Name',
+        value: String(meta.author ?? ''),
+        placeHolder: 'Author Name',
+        ignoreFocusOut: true,
+      })
+      if (author === undefined) return
+
+      const isbn = await vscode.window.showInputBox({
+        title: 'Storyline — ISBN (optional)',
+        value: String(meta.isbn ?? ''),
+        placeHolder: '978-...',
+        ignoreFocusOut: true,
+      })
+
+      await store.merge({ _meta: { ...meta, projectTitle: title, author, isbn: isbn ?? meta.isbn } } as unknown as Parameters<typeof store.merge>[0])
+      vscode.window.showInformationMessage(`Book info saved: "${title}" by ${author}`)
+    }),
+
+    vscode.commands.registerCommand('storyline.backupNow', async () => {
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) return
+
+      const dest = await vscode.window.showOpenDialog({
+        canSelectFolders: true,
+        canSelectFiles: false,
+        openLabel: 'Choose backup folder',
+      })
+      if (!dest?.length) return
+
+      const backupDir = path.join(dest[0].fsPath, `storyline-backup-${new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)}`)
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Storyline: backing up project…' },
+        async () => {
+          fs.mkdirSync(backupDir, { recursive: true })
+          await copyDir(projectDir, backupDir, ['node_modules', '.git', 'output'])
+          vscode.window.showInformationMessage(`Backup complete: ${backupDir}`)
+        }
+      )
+    }),
   )
+
+  // GitHub auto-sync subsystem
+  const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri
+  if (workspaceUri) {
+    const githubAuth = new GitHubAuth(context)
+    const githubSync = new GitHubSyncService(workspaceUri, githubAuth)
+    const githubStatusBar = new GitHubSyncStatusBar(context, githubSync, githubAuth)
+    registerGitHubCommands(context, githubAuth, githubSync, githubStatusBar)
+    context.subscriptions.push(githubSync, githubStatusBar)
+
+    // Silently offer connect on first open (only if user hasn't dismissed)
+    maybeOfferConnect(context, githubAuth, githubSync).catch(() => { /* non-fatal */ })
+  }
 
   // First-run check — async, non-blocking
   shouldShowOnboarding(context).then(async show => {
