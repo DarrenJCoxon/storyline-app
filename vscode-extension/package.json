@@ -129,7 +129,17 @@
         "mac": "cmd+k cmd+m",
         "when": "storyline.active"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Storyline",
+      "properties": {
+        "storyline.backendUrl": {
+          "type": "string",
+          "default": "https://api.storyline.app",
+          "description": "Backend URL for AI calls. Override to http://localhost:8787 for local development."
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "npm run copy-assets && npm run compile:host && npm run compile:webview",

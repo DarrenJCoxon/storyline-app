@@ -1,0 +1,14 @@
+/*
+ * Hawthorn — Print/PDF overrides (Paged.js)
+ * Applies on top of opener.css for print output.
+ * Only contains print-specific adjustments.
+ */
+
+h1 {
+  margin: 0 0 5em 0;             /* largest print drop — classical, generous page */
+}
+
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  font-size: 4.2em;              /* larger drop cap in print */
+}

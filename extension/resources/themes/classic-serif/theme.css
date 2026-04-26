@@ -1,0 +1,283 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Classic Serif — default theme for Storyline EPUB compile
+ *
+ * Traditional fiction typography. Works on Apple Books, Kindle (all
+ * devices), Kobo, Nook, and any reflowable EPUB reader. Uses system
+ * serif fonts so no embedding is required. Designed to degrade
+ * gracefully under Kindle's aggressive CSS stripping.
+ *
+ * Conventions targeted:
+ *   <h1>                   — chapter heading
+ *   <p class="first">      — first paragraph of a chapter (gets drop cap)
+ *   <hr class="scene-break"> — between-scenes ornament ('* * *')
+ *   hr + p                 — first paragraph of new scene (no indent)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Reset + base ─────────────────────────────────────────────────────── */
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
+  font-size: 1em;
+  line-height: 1.55;
+  text-align: justify;
+  -webkit-hyphens: auto;
+  -epub-hyphens: auto;
+  hyphens: auto;
+  orphans: 2;
+  widows: 2;
+}
+
+/* Chapter heading ──────────────────────────────────────────────────── */
+
+/* Chapter heading — the defaults below reflect the theme's canonical
+ * style (italic + centred). Individual properties are overridable via
+ * --nw-chapter-* CSS custom properties so compile.config.json's
+ * chapterHeadingStyle override can flip the heading to bold-left,
+ * small-caps, etc. without editing this theme. */
+h1 {
+  font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
+  font-size: 1.6em;
+  font-weight: var(--nw-chapter-font-weight, normal);
+  font-style: var(--nw-chapter-font-style, italic);
+  font-variant: var(--nw-chapter-font-variant, normal);
+  letter-spacing: var(--nw-chapter-letter-spacing, normal);
+  text-align: var(--nw-chapter-text-align, center);
+  text-transform: var(--nw-chapter-text-transform, none);
+  margin: 3em 0 2em 0;
+  line-height: 1.3;
+  page-break-before: always;
+  break-before: page;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+/* Smaller section headings inside chapters — rare in fiction but supported */
+
+/* Section headings (H2/H3) share one typographic family — left-aligned,
+   small-caps, hierarchy by size only. Trade-book convention. */
+h2, h3 {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  text-transform: none;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-indent: 0;
+  margin: 2em 0 0.8em 0;
+  line-height: 1.3;
+}
+
+h2 { font-size: 1.3em; }
+h3 { font-size: 1.1em; letter-spacing: 0.08em; }
+
+/* Paragraphs ───────────────────────────────────────────────────────── */
+
+/* Default: first-line indent, no vertical margin (prose flows continuously) */
+p {
+  text-indent: 1.5em;
+  margin: 0;
+  orphans: 2;
+  widows: 2;
+}
+
+/* First paragraph of chapter — no indent, drop cap follows */
+p.first {
+  text-indent: 0;
+  margin-top: 0;
+}
+
+/* First paragraph after a scene break — no indent (new scene begins) */
+hr.scene-break + p {
+  text-indent: 0;
+}
+
+/* Drop cap ─────────────────────────────────────────────────────────── */
+
+/* Kindle and Apple Books both support ::first-letter with float.
+ * The 0.85 line-height pulls the cap down so its baseline sits on the
+ * third line of text; subtle right margin prevents collision with
+ * the second letter. */
+p.first::first-letter {
+  float: left;
+  font-size: 3.2em;
+  line-height: 0.85;
+  margin: 0.02em 0.06em 0 0;
+  padding: 0;
+  font-weight: bold;
+  font-style: normal;
+}
+
+/* Scene break ornament ─────────────────────────────────────────────── */
+
+hr.scene-break {
+  border: none;
+  text-align: center;
+  margin: 2em 0;
+  height: auto;
+  page-break-after: avoid;
+  page-break-before: avoid;
+  break-after: avoid;
+  break-before: avoid;
+}
+
+hr.scene-break::before {
+  content: var(--nw-scene-break-ornament, "* * *");
+  display: block;
+  letter-spacing: 0.5em;
+  font-size: 0.95em;
+  color: #666;
+}
+
+/* Emphasis ─────────────────────────────────────────────────────────── */
+
+em, i {
+  font-style: italic;
+}
+
+strong, b {
+  font-weight: bold;
+}
+
+/* Block quotes ─────────────────────────────────────────────────────── */
+
+blockquote {
+  margin: 1em 2em;
+  padding: 0;
+  font-style: italic;
+  text-indent: 0;
+  background: transparent;
+  color: inherit;
+  border: none;
+}
+
+blockquote p {
+  text-indent: 0;
+  background: transparent;
+  color: inherit;
+}
+
+/* Lists (rare in fiction but possible in non-fiction / front matter) ── */
+
+ul, ol {
+  margin: 1em 0 1em 2em;
+  padding: 0;
+  /* Kindle's KFX renderer defaults to page-break-before: always on
+   * block-level lists, which forces every bullet block onto a new
+   * page. Explicitly let lists flow with surrounding prose — they
+   * only break when pagination genuinely needs the space. */
+  page-break-before: auto;
+  break-before: auto;
+  page-break-after: auto;
+  break-after: auto;
+}
+
+li {
+  margin: 0.2em 0;
+  text-indent: 0;
+}
+
+/* Paragraphs nested inside list items — prose indent rules would put a
+   huge gap between the bullet and the text, so reset them. */
+li p {
+  text-indent: 0;
+  margin: 0;
+}
+
+/* Inline code + fenced blocks (for non-fiction or author notes) ─────── */
+
+code, pre {
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+  background: transparent;
+  color: inherit;
+  border: none;
+  padding: 0;
+}
+
+pre {
+  margin: 1em 0;
+  white-space: pre-wrap;
+  text-indent: 0;
+}
+
+/* Links — sometimes appear in front/back matter ────────────────────── */
+
+a {
+  color: #333;
+  text-decoration: underline;
+}
+
+/* Tables — rare in fiction but common in non-fiction and worldbuilding
+   appendices. Kept simple for maximum Kindle compatibility (Kindle strips
+   fancy table styles aggressively; keep borders and padding sober). */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #aaa;
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+
+/* Cell paragraphs — reset prose defaults (no indent, no vertical margin,
+   left-aligned rather than justified). */
+th p, td p {
+  text-indent: 0;
+  margin: 0;
+  text-align: left;
+}
+
+/* Front matter — title page, copyright, dedication ─────────────────── */
+
+/* Front matter sections are less "bookish" — no drop caps, no first-line
+ * indents. The EPUB packager tags them with class="front-matter". */
+.front-matter {
+  text-align: center;
+}
+
+.front-matter p {
+  text-indent: 0;
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+.front-matter h1 {
+  page-break-before: auto;
+  break-before: auto;
+  margin-top: 6em;
+  font-size: 1.8em;
+  font-style: normal;
+}
+
+/* Back matter — acknowledgements, about the author ─────────────────── */
+
+.back-matter p {
+  text-indent: 0;
+  margin: 0.8em 0;
+}
+
+.back-matter h1 {
+  font-size: 1.4em;
+  font-style: italic;
+  text-align: center;
+  margin: 3em 0 2em 0;
+}

@@ -5,6 +5,16 @@ node_modules/
 .env
 .env.local
 .env.production
+# Cloudflare Wrangler dev secrets (OPENAI_API_KEY, OPENROUTER_API_KEY)
+.dev.vars
+**/.dev.vars
+.wrangler/
+**/.wrangler/
+
+# VSIX build output (rebuilt locally; bulky native sharp bindings inside)
+*.vsix
+extension/dist/
+extension/storyline-extension-*.vsix
 
 # Generated output (root-level only — lib/output/ is source code)
 /output/

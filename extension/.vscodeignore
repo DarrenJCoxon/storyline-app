@@ -1,0 +1,39 @@
+# Source — bundled into dist/extension.js, dist/webview/*
+src/**
+webview/**
+node_modules/**
+!node_modules/sharp/**
+# Sharp v0.33+ keeps platform-specific native bindings in @img/sharp-*
+# Both the JS wrapper (sharp-<platform>) and the libvips binary
+# (sharp-libvips-<platform>) MUST ship — without them sharp's import
+# throws and we silently fall back to writing the un-resized model
+# output (which can be square instead of the requested 6×9).
+!node_modules/@img/**
+!node_modules/detect-libc/**
+!node_modules/semver/**
+!node_modules/color/**
+!node_modules/color-convert/**
+!node_modules/color-name/**
+!node_modules/color-string/**
+!node_modules/is-arrayish/**
+!node_modules/simple-swizzle/**
+
+# Tooling and configs
+tsconfig.json
+esbuild.config.mjs
+.vscode/**
+.gitignore
+.eslintrc*
+*.tsbuildinfo
+package-lock.json
+**/*.map
+**/*.test.ts
+**/__tests__/**
+
+# Dev backend (not part of the extension)
+../backend/**
+../packages/**
+
+# Build leftovers
+dist/**/*.tsbuildinfo
+dist/**/*.d.ts

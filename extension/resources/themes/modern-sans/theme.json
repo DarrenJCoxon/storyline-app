@@ -1,0 +1,12 @@
+{
+  "id": "modern-sans",
+  "name": "Modern Sans",
+  "version": "1.0.0",
+  "description": "Contemporary sans-serif typography for thrillers, upmarket commercial fiction, and anything that wants to feel modern rather than literary. Left-aligned bold chapter headings, three-dot scene breaks, small-caps first three words instead of a drop cap. Uses system sans fonts — no embedding.",
+  "sceneBreakOrnament": "· · ·",
+  "fonts": [],
+  "license": "MIT",
+  "defaultFor": [],
+  "defaultOpener": "meridian",
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}

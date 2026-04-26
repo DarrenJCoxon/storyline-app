@@ -1,0 +1,78 @@
+/*
+ * Cinder — Chapter Opener
+ * Character: Minimalist, modern literary.
+ * Tiny numeral, left-aligned lowercase slab-serif title.
+ * No caps, no drop cap, no ornament.
+ *
+ * Targets: h1, h2.first-section, h2:not(.first-section), p.first-paragraph
+ * Does NOT style: body paragraphs, scene breaks, margins/padding on body, page layout.
+ */
+
+/* ── Chapter Number ─────────────────────────────────────────────────────── */
+
+.chapter-number {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
+  font-size: 0.6em;
+  font-weight: 400;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  text-align: left;
+  margin: 4em 0 0.8em 0;
+  text-indent: 0;
+  opacity: 0.5;
+}
+
+/* ── Chapter Title ──────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  text-align: left;
+  margin: 0 0 1.5em 0;
+  font-size: 2.4em;
+  line-height: 1.1;
+}
+
+/* ── First Section Heading ──────────────────────────────────────────────── */
+
+/* Section headings (H2/H3) share one typographic family — left-aligned,
+   uppercase, hierarchy by size only. */
+h2,
+h2.first-section,
+h2:not(.first-section),
+h3 {
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
+  font-weight: 700;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.25;
+}
+
+h2.first-section { font-size: 1.3em; margin: 2em 0 1em 0; }
+h2:not(.first-section) { font-size: 1.15em; margin: 1.8em 0 0.8em 0; }
+h3 { font-size: 1.05em; letter-spacing: 0.12em; margin: 1.5em 0 0.5em 0; }
+
+/* ── First Paragraph Treatment: flush-left, no decoration ──────────────── */
+
+p.first-paragraph,
+p.first {
+  text-indent: 0;
+  font-variant: normal;         /* no small-caps — flush left, clean */
+}
+
+/* Explicitly cancel any theme drop-cap on ::first-letter */
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  float: none;
+  font-size: 1em;
+}

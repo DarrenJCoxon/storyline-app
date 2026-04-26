@@ -1,0 +1,94 @@
+/*
+ * Edgewood — Chapter Opener
+ * Character: Traditional trade. Ornate serif. Centred.
+ * Chapter label + title. Drop cap on first paragraph. Penguin/NYRB feel.
+ *
+ * Targets: h1, h2.first-section, h2:not(.first-section), p.first-paragraph
+ * Does NOT style: body paragraphs, scene breaks, margins/padding on body, page layout.
+ *
+ * EPUB compat notes:
+ * - ::first-letter is broadly supported in Apple Books and most readers.
+ * - Kindle renders ::first-letter with font fallback quirks — final serif fallback
+ *   in font-family ensures graceful rendering.
+ * - font-variant: small-caps works in Apple Books; on Kindle renders as normal caps
+ *   (acceptable, not broken).
+ */
+
+/* ── Chapter Number ─────────────────────────────────────────────────────── */
+
+.chapter-number {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.8em;
+  font-weight: normal;
+  font-variant: small-caps;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin: 5em 0 0.8em 0;
+  text-indent: 0;
+}
+
+/* ── Chapter Title ──────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  text-transform: none;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin: 0 0 2.5em 0;
+  font-size: 2.2em;
+  line-height: 1.2;
+}
+
+/* Subtle ornamental rule above chapter title */
+h1::before {
+  content: "";
+  display: block;
+  width: 3em;
+  height: 1px;
+  background: currentColor;
+  margin: 0 auto 1.2em;
+  opacity: 0.4;
+}
+
+/* ── First Section Heading (prominent/decorated) ────────────────────────── */
+
+/* Section headings (H2/H3) share one typographic family — small-caps,
+   left-aligned, hierarchy by size only. */
+h2,
+h2.first-section,
+h2:not(.first-section),
+h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: small-caps;
+  text-transform: none;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.3;
+}
+
+h2.first-section { font-size: 1.3em; margin: 2.2em 0 1em 0; }
+h2:not(.first-section) { font-size: 1.15em; margin: 1.8em 0 0.8em 0; }
+h3 { font-size: 1.05em; letter-spacing: 0.1em; margin: 1.5em 0 0.5em 0; }
+
+/* ── First Paragraph Treatment: drop cap ────────────────────────────────── */
+
+p.first-paragraph,
+p.first {
+  text-indent: 0;               /* no indent — standard for post-drop-cap */
+}
+
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  float: left;
+  font-size: 3.2em;
+  line-height: 0.85;
+  margin: 0.05em 0.08em 0 0;
+  font-family: Georgia, 'Times New Roman', serif;  /* final serif fallback for Kindle */
+  font-weight: normal;
+}

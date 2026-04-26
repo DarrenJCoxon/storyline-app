@@ -1,0 +1,461 @@
+// Stage conversation guides for the 11 Pipeline C stages (How-To / Skill Ladder)
+// Used by /storyline-nf skill via `npx storyline-vsc nf stage-info <stageId>`
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import type { NfPipelineGuide } from './stage-guides-nf-pipeline-a.js'
+
+export const PIPELINE_C_GUIDES: Record<string, NfPipelineGuide> = {
+  'pc-skill': {
+    id: 'pc-skill',
+    name: 'Target Skill',
+    phase: 'pipeline-c',
+    index: 1,
+    persona: 'instructional-designer',
+    opening: `A how-to book teaches one skill. Not a cluster. Not a "mindset". One bounded, learnable capability.\n\nThe failure mode: writers confuse topic with skill. "Negotiation" is a topic. "Winning salary negotiations by reframing anchoring" is a skill. "Python" is a topic. "Building data pipelines in Python using pandas and dask" is a skill.\n\nWhat is the one skill this book teaches?`,
+    questions: [
+      {
+        key: 'targetSkill',
+        label: 'What is the target skill — as specifically as you can state it?',
+        hint: 'Include the domain, the specific capability, and the context if relevant. "How to bake sourdough bread at home without a starter kit" is better than "how to bake bread".',
+        required: true,
+      },
+      {
+        key: 'competencyDefinition',
+        label: 'How would you define competency in this skill? What can a competent practitioner do?',
+        hint: 'Describe the demonstrable behaviour, not the feeling. "Can conduct a 30-minute negotiation without accepting the first offer" beats "feels confident in negotiations".',
+        required: true,
+      },
+      {
+        key: 'whyThisSkill',
+        label: 'Why is this skill worth a full book — not a blog post or YouTube video?',
+        hint: 'The answer determines scope and depth. If you can\'t answer this, the book may be too narrow.',
+        required: true,
+      },
+      {
+        key: 'skillCategory',
+        label: 'What category of skill is this?',
+        hint: 'e.g. physical (sport, craft), cognitive (writing, coding, design), interpersonal (communication, negotiation, teaching), or hybrid.',
+        required: false,
+      },
+    ],
+    validation: ['targetSkill', 'competencyDefinition', 'whyThisSkill'],
+    summary: [
+      { label: 'Target skill', key: 'targetSkill' },
+      { label: 'Competency definition', key: 'competencyDefinition' },
+      { label: 'Why a book', key: 'whyThisSkill' },
+      { label: 'Skill category', key: 'skillCategory' },
+    ],
+    transition: 'Skill defined. Now where does the reader start?',
+  },
+
+  'pc-start-level': {
+    id: 'pc-start-level',
+    name: 'Reader Starting Level',
+    phase: 'pipeline-c',
+    index: 2,
+    persona: 'instructional-designer',
+    opening: `Every teaching decision — vocabulary, assumed knowledge, pace, example complexity — depends on where the reader starts.\n\nMost how-to books underestimate their reader (condescending) or overestimate them (confusing). Both lose people. The fix is radical specificity about entry level.`,
+    questions: [
+      {
+        key: 'startingLevel',
+        label: 'Describe the reader\'s starting level as specifically as possible',
+        hint: 'What do they already know? What can they already do? What mistakes do they currently make? A concrete person is better than a demographic.',
+        required: true,
+      },
+      {
+        key: 'assumedKnowledge',
+        label: 'What knowledge or experience does this book assume the reader already has?',
+        hint: 'Be honest. If you assume basic Python, say so. Unacknowledged assumptions are the most common source of reader confusion.',
+        required: true,
+      },
+      {
+        key: 'entryBarrier',
+        label: 'Is there a prerequisite the reader must have before benefiting from this book?',
+        hint: 'e.g. "Must be able to cook a basic meal before attempting this" or "No prerequisites — starts from zero".',
+        required: false,
+      },
+      {
+        key: 'commonMisconceptions',
+        label: 'What misconceptions about this skill do beginners typically arrive with?',
+        hint: 'Naming these early lets you pre-empt them throughout the book.',
+        required: false,
+      },
+    ],
+    validation: ['startingLevel', 'assumedKnowledge'],
+    summary: [
+      { label: 'Starting level', key: 'startingLevel' },
+      { label: 'Assumed knowledge', key: 'assumedKnowledge' },
+      { label: 'Entry barrier', key: 'entryBarrier' },
+      { label: 'Common misconceptions', key: 'commonMisconceptions' },
+    ],
+    transition: 'Starting point established. Now the destination — what does mastery look like?',
+  },
+
+  'pc-end-state': {
+    id: 'pc-end-state',
+    name: 'End-State Competency',
+    phase: 'pipeline-c',
+    index: 3,
+    persona: 'instructional-designer',
+    opening: `The end-state is the contract you make with the reader on page one. A vague end-state ("you'll understand X better") is a contract you can't honour. A measurable end-state ("you'll be able to do Y in Z minutes") is a contract you can — and must.\n\nThe end-state also determines the entire skill tree. Every sub-skill, every lesson, every drill either contributes to it or it doesn't belong in this book.`,
+    questions: [
+      {
+        key: 'endStateDescription',
+        label: 'Describe the reader\'s end state after completing this book',
+        hint: 'What can they do? In what context? With what reliability? Specificity is a promise. Make one you can keep.',
+        required: true,
+      },
+      {
+        key: 'measurableOutcome',
+        label: 'What is the single most measurable outcome — the "I can do this" test?',
+        hint: 'If the reader wants to know if the book worked, what do they attempt? Be concrete: build X, write Y, negotiate Z, cook A without a recipe.',
+        required: true,
+      },
+      {
+        key: 'timeToCompetency',
+        label: 'Realistic time from starting the book to reaching end-state competency (including practice time outside the book)',
+        hint: 'Honest estimates build trust. "6 months of daily 20-minute practice" is more credible than "just follow the steps!"',
+        required: false,
+      },
+      {
+        key: 'expertCeiling',
+        label: 'Where does this book\'s teaching end — what does it not claim to teach?',
+        hint: 'A book that claims to take you from zero to professional in 200 pages will disappoint. Know your ceiling and state it.',
+        required: false,
+      },
+    ],
+    validation: ['endStateDescription', 'measurableOutcome'],
+    summary: [
+      { label: 'End state', key: 'endStateDescription' },
+      { label: 'Measurable outcome', key: 'measurableOutcome' },
+      { label: 'Time to competency', key: 'timeToCompetency' },
+      { label: 'Expert ceiling', key: 'expertCeiling' },
+    ],
+    transition: 'End state defined. Now decompose the skill — what must the reader learn to get there?',
+  },
+
+  'pc-decompose': {
+    id: 'pc-decompose',
+    name: 'Skill Decomposition',
+    phase: 'pipeline-c',
+    index: 4,
+    persona: 'curriculum-designer',
+    opening: `The skill tree starts here. Break the target skill into the sub-skills the reader must master to reach the end state. These sub-skills become nodes in the prerequisite graph and, eventually, lessons in the book.\n\nThe test for a good decomposition: if you taught only these sub-skills, and the reader mastered all of them, would they have the target skill? If yes, the decomposition is correct. If there's a gap, you're missing a sub-skill.`,
+    questions: [
+      {
+        key: 'subSkills',
+        label: 'List the sub-skills that together constitute the target skill',
+        hint: 'For each: give it a short ID (e.g. "knife-grip"), a name, and a brief description of what mastery looks like. Aim for 5–15. Too few = coarse; too many = a course, not a book.',
+        type: 'array',
+        itemSchema: {
+          id: 'Short identifier (e.g. "active-listening", "loop-syntax")',
+          name: 'Sub-skill name',
+          description: 'What does mastery of this sub-skill look like?',
+          chapterAssignment: 'Which chapter or section will cover this? (rough)',
+        },
+        required: true,
+      },
+      {
+        key: 'coreSubSkill',
+        label: 'Which single sub-skill is the most foundational — the one everything else builds on?',
+        hint: 'This is the first lesson. If the reader doesn\'t master this, nothing else sticks.',
+        required: true,
+      },
+      {
+        key: 'hardestSubSkill',
+        label: 'Which sub-skill will most readers struggle most with?',
+        hint: 'The answer tells you where to invest the most teaching time, drills, and examples.',
+        required: false,
+      },
+    ],
+    skillTreeOutput: {
+      note: 'Sub-skills defined here become nodes in the skill tree. Prerequisites are defined in Stage 5.',
+      generates: ['skill-tree.json (nodes)'],
+    },
+    validation: ['subSkills', 'coreSubSkill'],
+    summary: [
+      { label: 'Sub-skills', key: 'subSkills' },
+      { label: 'Most foundational', key: 'coreSubSkill' },
+      { label: 'Hardest', key: 'hardestSubSkill' },
+    ],
+    transition: 'Sub-skills defined. Now the prerequisite graph — what must be learned before what?',
+  },
+
+  'pc-prereqs': {
+    id: 'pc-prereqs',
+    name: 'Prerequisite Graph',
+    phase: 'pipeline-c',
+    index: 5,
+    persona: 'curriculum-designer',
+    opening: `The prerequisite graph is what separates a skill tree from a list. Some sub-skills depend on others — you can\'t teach loops until you\'ve taught variables. Map those dependencies.\n\nThe graph must be a DAG (directed acyclic graph): no cycles. A cycle means "you must know A to learn B, and B to learn A" — a pedagogical paradox. We catch and reject cycles here.\n\nRun \`npx storyline-vsc nf skill-tree\` after this stage to generate and validate the graph.`,
+    questions: [
+      {
+        key: 'prereqEdges',
+        label: 'For each sub-skill that has prerequisites, list what it requires',
+        hint: 'Format: "skill-id requires: [dep1-id, dep2-id]". Use the IDs you defined in Stage 4. If a sub-skill has no prerequisites, it\'s a root node — the reader can learn it first.',
+        type: 'array',
+        itemSchema: {
+          skillId: 'Sub-skill ID (from Stage 4)',
+          requires: 'Comma-separated IDs of prerequisite sub-skills (blank if none)',
+        },
+        required: true,
+      },
+      {
+        key: 'rootSkills',
+        label: 'Which sub-skills have no prerequisites — where can the reader start?',
+        hint: 'Good books have 1–3 root nodes. Too many roots means the skill isn\'t well decomposed.',
+        required: true,
+      },
+      {
+        key: 'learningOrder',
+        label: 'What is the natural reading order given the prerequisites?',
+        hint: 'Write out the chapter sequence. This is derived from a topological sort of the graph — prerequisites always come before the skills that need them.',
+        required: false,
+      },
+    ],
+    skillTreeOutput: {
+      generates: ['skill-tree.json', 'skill-tree.md'],
+      note: 'Run `npx storyline-vsc nf skill-tree` to validate the graph (cycle detection, orphan check) and generate the artifacts.',
+    },
+    validation: ['prereqEdges', 'rootSkills'],
+    summary: [
+      { label: 'Prerequisite edges', key: 'prereqEdges' },
+      { label: 'Root skills (no prerequisites)', key: 'rootSkills' },
+      { label: 'Learning order', key: 'learningOrder' },
+    ],
+    transition: 'Graph defined. Now map it to lessons — one lesson per sub-skill.',
+  },
+
+  'pc-lessons': {
+    id: 'pc-lessons',
+    name: 'Lesson Plan',
+    phase: 'pipeline-c',
+    index: 6,
+    persona: 'curriculum-designer',
+    opening: `Each sub-skill becomes a lesson. Each lesson becomes a chapter or section. The lesson order follows the prerequisite graph — roots first, dependent skills after the skills they depend on.\n\nA lesson has three jobs: explain the concept, demonstrate it (worked example), and prompt practice (drills). Design all three — the explanation without the drill produces readers who understand but can\'t do.`,
+    questions: [
+      {
+        key: 'lessons',
+        label: 'Plan each lesson (one per sub-skill, in teaching order)',
+        hint: 'For each: sub-skill covered, learning objective (what can the reader do after this lesson?), key concept explained, worked example planned, and drill type.',
+        type: 'array',
+        itemSchema: {
+          skillId: 'Sub-skill ID this lesson covers',
+          lessonTitle: 'Working lesson/chapter title',
+          learningObjective: 'In one sentence: after this lesson, the reader can...',
+          keyConceptsCount: 'How many distinct concepts does this lesson introduce? (aim for ≤3)',
+          exampleType: 'What kind of worked example? (solved problem, annotated case, before/after)',
+          drillType: 'What kind of drill? (reproduction, variation, application, composition)',
+        },
+        required: true,
+      },
+      {
+        key: 'lessonPacing',
+        label: 'Roughly how long should each lesson take the reader to complete, including practice?',
+        hint: 'Honest pacing makes a better book. Readers who complete lessons feel progress; readers who stall quit.',
+        required: false,
+      },
+      {
+        key: 'longestLesson',
+        label: 'Which lesson requires the most teaching time and why?',
+        hint: 'This lesson may need to be split across multiple chapters or given additional support material.',
+        required: false,
+      },
+    ],
+    validation: ['lessons'],
+    summary: [
+      { label: 'Lessons', key: 'lessons' },
+      { label: 'Lesson pacing', key: 'lessonPacing' },
+      { label: 'Most demanding lesson', key: 'longestLesson' },
+    ],
+    transition: 'Lesson plan complete. Now design the drills — concrete practice for each lesson.',
+  },
+
+  'pc-drills': {
+    id: 'pc-drills',
+    name: 'Exercise / Drill Design',
+    phase: 'pipeline-c',
+    index: 7,
+    persona: 'instructional-designer',
+    opening: `Drills are where learning actually happens. An explanation without a drill produces a reader who thinks they understand. A drill reveals whether they do.\n\nThe failure mode: abstract drills. "Practice your knife skills" teaches nothing. "Julienne one carrot into 3mm sticks in under 4 minutes without looking at the knife" teaches everything. The more specific the task, the expected outcome, and the failure mode, the better the drill.`,
+    questions: [
+      {
+        key: 'drills',
+        label: 'Design the drill for each lesson (or the primary drill, if multiple)',
+        hint: 'For each: the specific task, what success looks like, what failure looks like, and the most common mistake beginners make.',
+        type: 'array',
+        itemSchema: {
+          skillId: 'Sub-skill this drill practices',
+          drillTitle: 'Drill name',
+          setup: 'What the reader needs before starting (materials, environment, preconditions)',
+          task: 'Exactly what the reader does — specific enough to attempt without coaching',
+          expectedOutcome: 'What does success look like? How does the reader know they got it right?',
+          commonMistake: 'The most common failure mode and how to recognise it',
+          difficulty: 'beginner / intermediate / stretch',
+        },
+        required: true,
+      },
+      {
+        key: 'drillProgression',
+        label: 'How do the drills progress in difficulty across the book?',
+        hint: 'Scaffolded practice: early drills isolate sub-skills, later drills combine them. Is that pattern present here?',
+        required: false,
+      },
+    ],
+    validation: ['drills'],
+    summary: [
+      { label: 'Drills', key: 'drills' },
+      { label: 'Drill progression', key: 'drillProgression' },
+    ],
+    transition: 'Drills designed. Now the milestone checkpoints — how does the reader know they\'re ready for the next section?',
+  },
+
+  'pc-milestones': {
+    id: 'pc-milestones',
+    name: 'Milestone / Assessment Design',
+    phase: 'pipeline-c',
+    index: 8,
+    persona: 'curriculum-designer',
+    opening: `Milestones are checkpoints where the reader self-assesses whether they\'ve genuinely mastered the skills covered so far. They gatekeep progress — a reader who can\'t pass the milestone shouldn\'t move on yet.\n\nThe test for a good milestone: it should be possible to fail it. If every reader will pass every milestone, the milestone isn\'t testing anything.`,
+    questions: [
+      {
+        key: 'milestones',
+        label: 'Design the milestone assessments (typically 2–4 across the book)',
+        hint: 'For each: which sub-skills it covers, what the reader must demonstrate, and the specific pass criteria.',
+        type: 'array',
+        itemSchema: {
+          milestoneTitle: 'Assessment name (e.g. "Mid-book checkpoint: Core fundamentals")',
+          afterLesson: 'After which lesson/chapter does this milestone appear?',
+          subSkillsCovered: 'Which sub-skill IDs does this milestone assess?',
+          task: 'What must the reader do to complete the milestone?',
+          passCriteria: 'How does the reader know they passed? Be specific.',
+          failureGuidance: 'If they can\'t pass this, what should they revisit?',
+        },
+        required: true,
+      },
+      {
+        key: 'finalAssessment',
+        label: 'What is the final assessment — the proof that the reader has reached the end-state competency?',
+        hint: 'This should be equivalent to the measurable outcome defined in Stage 3.',
+        required: true,
+      },
+    ],
+    validation: ['milestones', 'finalAssessment'],
+    summary: [
+      { label: 'Milestones', key: 'milestones' },
+      { label: 'Final assessment', key: 'finalAssessment' },
+    ],
+    transition: 'Milestones designed. Now the worked examples and anti-patterns.',
+  },
+
+  'pc-examples': {
+    id: 'pc-examples',
+    name: 'Worked Examples & Common Mistakes',
+    phase: 'pipeline-c',
+    index: 9,
+    persona: 'master-practitioner',
+    opening: `Worked examples are the proof that the technique works. Anti-patterns are the traps that catch readers who think they understand but don\'t.\n\nThe best how-to books have both. The worked example shows the full technique correctly executed. The anti-pattern shows what it looks like when a reader goes wrong — and why. Without anti-patterns, readers don\'t recognise their own mistakes.`,
+    questions: [
+      {
+        key: 'workedExamples',
+        label: 'Plan a worked example for each sub-skill (or the most important ones)',
+        hint: 'For each: what it demonstrates, the starting condition, each step the practitioner takes, and the final result. Think "show your work" — don\'t skip steps.',
+        type: 'array',
+        itemSchema: {
+          skillId: 'Which sub-skill this example demonstrates',
+          exampleTitle: 'Example name or scenario',
+          scenario: 'The realistic context — who is doing this and why?',
+          demonstrates: 'What specific technique or decision does this example highlight?',
+          antiPatternNote: 'What would a beginner get wrong here, and what would it look like?',
+        },
+        required: true,
+      },
+      {
+        key: 'canonicalAntiPatterns',
+        label: 'What are the 3 most important anti-patterns in this skill — mistakes that look correct until they fail?',
+        hint: 'These belong in their own sidebar, callout, or dedicated section. They are often the most memorable part of a how-to book.',
+        required: true,
+      },
+    ],
+    validation: ['workedExamples', 'canonicalAntiPatterns'],
+    summary: [
+      { label: 'Worked examples', key: 'workedExamples' },
+      { label: 'Key anti-patterns', key: 'canonicalAntiPatterns' },
+    ],
+    transition: 'Examples and anti-patterns planned. Now the structural critique.',
+  },
+
+  'pc-critique': {
+    id: 'pc-critique',
+    name: 'Consistency & Critique',
+    phase: 'pipeline-c',
+    index: 10,
+    persona: 'instructional-reviewer',
+    opening: `How-to books fail in specific ways: skill trees with gaps, drills that are too abstract to practice, milestones that everything passes, and an end-state that the book doesn\'t actually deliver.\n\nWe check all four.`,
+    questions: [
+      {
+        key: 'skillTreeGapCheck',
+        label: 'Does the skill tree cover all sub-skills needed to reach the end-state? Are there gaps?',
+        hint: 'Take the measurable outcome from Stage 3. Walk the tree. Can a reader who mastered every node perform the outcome? If not, what\'s missing?',
+        required: true,
+      },
+      {
+        key: 'drillSpecificityCheck',
+        label: 'Are all drills specific enough to attempt without a coach? Walk the weakest one.',
+        hint: 'A drill that contains "practice", "explore", or "experiment with" without a specific task is probably too vague.',
+        required: true,
+      },
+      {
+        key: 'milestoneRigorCheck',
+        label: 'Could a reader who hasn\'t actually mastered the skills pass all milestones? If yes, tighten them.',
+        hint: 'The milestone should be passable only by doing the work. If thinking about it is enough, the milestone is decorative.',
+        required: true,
+      },
+      {
+        key: 'endStateDeliveryCheck',
+        label: 'Does completing every lesson and drill in this book deliver the end-state competency from Stage 3?',
+        hint: 'This is the core promise of the book. If there are gaps, the book fails its reader.',
+        required: true,
+      },
+      {
+        key: 'critiqueSummary',
+        label: 'What is the single biggest pedagogical risk before drafting?',
+        required: true,
+      },
+    ],
+    validation: [
+      'skillTreeGapCheck', 'drillSpecificityCheck',
+      'milestoneRigorCheck', 'endStateDeliveryCheck', 'critiqueSummary',
+    ],
+    summary: [
+      { label: 'Skill tree gaps', key: 'skillTreeGapCheck' },
+      { label: 'Drill specificity', key: 'drillSpecificityCheck' },
+      { label: 'Milestone rigor', key: 'milestoneRigorCheck' },
+      { label: 'End-state delivery', key: 'endStateDeliveryCheck' },
+      { label: 'Biggest risk', key: 'critiqueSummary' },
+    ],
+    transition: 'Critique complete. Generating the Pipeline C master document.',
+  },
+
+  'pc-master': {
+    id: 'pc-master',
+    name: 'Master Document',
+    phase: 'pipeline-c',
+    index: 11,
+    persona: 'editorial-director',
+    opening: `All 11 Pipeline C stages complete. Run: \`npx storyline-vsc nf generate\` to create the master document including skill tree, lesson plan, drill catalogue, and milestone map.\n\nRun \`npx storyline-vsc nf skill-tree\` to regenerate the skill tree artifacts.`,
+    questions: [],
+    generationTarget: 'pipeline-c-master.md',
+    validation: [],
+    summary: [],
+    transition: 'Pipeline C complete. Your how-to book is ready to draft.',
+  },
+};
+
+export function getPipelineCGuide(stageId: string): NfPipelineGuide | null {
+  return PIPELINE_C_GUIDES[stageId] ?? null;
+}
+
+export const PIPELINE_C_GUIDE_ORDER: NfPipelineGuide[] = Object.values(PIPELINE_C_GUIDES)
+  .sort((a, b) => a.index - b.index);

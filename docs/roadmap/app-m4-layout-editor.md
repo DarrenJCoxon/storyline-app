@@ -36,24 +36,63 @@ extension with the toolbar and font toggle added. Key behaviours:
 
 ### Editor toolbar
 
-Compact toolbar above the writing surface. Left to right:
+Compact toolbar above the writing surface. Two tiers of items:
 
+**Always visible (fiction + non-fiction):**
 ```
-[ MANUSCRIPT ]  B  I  |  H1  H2  |  "  ***  [ Serif | Sans ]  ☑ Typewriter
+B  I  ~~  |  H1  H2  "  ***  ❝  |  ≡  1.  |  [ Serif | Sans ]  ☑ Typewriter
 ```
 
-- **MANUSCRIPT tag** — amber-tinted label, confirms the file context
-- **B / I** — bold / italic. `I` renders in the currently active font
-- **H1 / H2** — chapter title and scene heading styles
-- **`"`** — smart quote insert
-- **`***`** — scene break (renders as centred `* * *`)
-- **Serif / Sans toggle** — switches manuscript font between Lora (serif,
-  default) and Inter (sans). Stored in `globalState`, applied immediately.
-  Serif is the default — warm, traditional, suits long-form fiction.
-- **Typewriter** — centres the active line vertically; dims surrounding text
+**Non-fiction projects only (shown when `state.mode === 'nonfiction'`):**
+```
+H3  |  fn
+```
 
-The toolbar is intentionally minimal. No colour pickers, no font size
-selectors, no paragraph menus. Writers format prose, not documents.
+Full button reference:
+
+| Button | Label | Behaviour |
+|--------|-------|-----------|
+| `B` | Bold | Strong emphasis |
+| `I` | Italic | Rendered in the active prose font |
+| `~~` | Strikethrough | Cross-outs without deleting — useful for revision tracking |
+| `H1` | Chapter title | Largest heading; one per chapter file |
+| `H2` | Scene heading | Sub-section title (common in non-fiction) |
+| `H3` | Sub-heading | Third level — non-fiction only |
+| `"` | Smart quote | Inserts `"` / `"` pair, cursor inside |
+| `***` | Scene break | Renders as centred `* * *` rule |
+| `❝` | Blockquote | Epigraph styling (fiction) / long quotation (non-fiction) |
+| `≡` | Bullet list | Unordered list |
+| `1.` | Numbered list | Ordered list |
+| `fn` | Footnote | Inserts inline footnote marker; see below — non-fiction only |
+| `Serif / Sans` | Font toggle | Switches between Lora and Inter for prose only |
+| `Typewriter` | Focus mode | Centres active line; dims surrounding paragraphs |
+
+No colour pickers, no font size selectors, no paragraph menus.
+Writers format prose, not documents.
+
+### Footnotes in the editor
+
+Footnote markers appear as superscript numbers (`¹ ² ³`) inline in the
+prose. Clicking the number opens a small inline popover where the writer
+types or edits the footnote text. The marker is stored in TipTap's
+document model as a node containing the footnote body.
+
+Footnote content is **not** visible in the main prose flow — only the
+superscript marker. This keeps the writing surface clean.
+
+**Rendering at compile time:**
+- **EPUB:** Footnotes rendered as chapter endnotes (standard for reflowable
+  ebooks — page-bottom footnotes don't work in EPUB). Each chapter's notes
+  appear on a dedicated page after the chapter text.
+- **Print PDF:** Footnotes rendered at the bottom of the page on which the
+  marker appears (traditional print convention), with a rule separating them
+  from the body text.
+- **Citation style** (for research-linked footnotes): Chicago (default),
+  APA, or MLA — selected in the CompilePanel.
+
+The endnote system from `storyline-vsc` (`lib/research/compile.js`) is
+fully implemented and generates per-chapter endnotes plus a bibliography.
+Port directly — no rebuild required.
 
 ### Layout initialisation
 
