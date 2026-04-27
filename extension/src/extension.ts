@@ -21,7 +21,7 @@ import { LicenceManager } from './auth/licence.js'
 import { LocalStore } from './state/local-store.js'
 
 function getBackendUrl(): string {
-  return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.app').replace(/\/$/, '')
+  return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
 }
 
 function doctorHtml(report: unknown, formatted: string): string {
@@ -153,6 +153,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand('storyline.openPlanning', () => {
+      // If no Storyline project exists in this workspace yet, divert to the
+      // onboarding flow so the user has a coherent way in. Without this the
+      // chat panel would just sit there showing "Open a Storyline project
+      // folder to get started."
+      const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      const hasProject = folder ? fs.existsSync(path.join(folder, '.storyline', 'state.json')) : false
+      if (!hasProject) {
+        void vscode.commands.executeCommand('storyline.startNew')
+        return
+      }
       ChatPanel.show(context, context.extensionUri, vscode.ViewColumn.Beside)
     }),
 

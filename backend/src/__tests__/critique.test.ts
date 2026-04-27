@@ -42,7 +42,7 @@ function validState(): Record<string, unknown> {
   return { genre: { primaryGenre: 'Thriller' } }
 }
 
-function mockOpenRouterSuccess(findings = 'MODEL: sonnet\n✅ Structurally sound.') {
+function mockOpenRouterSuccess(findings = 'TIER: structural\n✅ Structurally sound.') {
   return vi.fn(async () =>
     new Response(
       JSON.stringify({
@@ -68,30 +68,30 @@ describe('POST /critique', () => {
     vi.restoreAllMocks()
   })
 
-  // ── Happy path — explicit haiku tier ──────────────────────────────────────
+  // ── Happy path — explicit validate tier ──────────────────────────────────────
 
-  it('returns findings for a valid request with explicit haiku tier', async () => {
+  it('returns findings for a valid request with explicit validate tier', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(50) })
-    vi.stubGlobal('fetch', mockOpenRouterSuccess('MODEL: haiku\n✅ Schema check passes.'))
+    vi.stubGlobal('fetch', mockOpenRouterSuccess('TIER: validate\n✅ Schema check passes.'))
 
     const res = await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'haiku', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'validate', state: validState() }),
       env,
     )
 
     expect(res.status).toBe(200)
     const body = await res.json() as { findings: string; modelUsed: string; tier: string; tokensUsed: number }
-    expect(body.findings).toContain('haiku')
-    expect(body.tier).toBe('haiku')
+    expect(body.findings).toContain('validate')
+    expect(body.tier).toBe('validate')
     expect(body.modelUsed).toBe('deepseek/test')
     expect(body.tokensUsed).toBe(123)
   })
 
   // ── Tier derived from stageId ─────────────────────────────────────────────
 
-  it('derives haiku tier when tier is omitted and stageId is "genre"', async () => {
+  it('derives validate tier when tier is omitted and stageId is "genre"', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(50) })
-    const fetchMock = mockOpenRouterSuccess('MODEL: haiku\n✅ Schema check passes.')
+    const fetchMock = mockOpenRouterSuccess('TIER: validate\n✅ Schema check passes.')
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await handleCritique(
@@ -101,18 +101,18 @@ describe('POST /critique', () => {
 
     expect(res.status).toBe(200)
     const body = await res.json() as { tier: string }
-    expect(body.tier).toBe('haiku')
+    expect(body.tier).toBe('validate')
 
-    // Verify system prompt sent to OpenRouter contained 'haiku' indicator
+    // Verify system prompt sent to OpenRouter contained 'validate' indicator
     const callArgs = fetchMock.mock.calls[0] as unknown as [string, { body: string }]
     const requestBody = JSON.parse(callArgs[1].body)
     expect(requestBody.messages[0].role).toBe('system')
     expect(requestBody.messages[0].content).toContain('schema validator')
   })
 
-  it('derives opus tier for stageId "critique"', async () => {
+  it('derives synthesis tier for stageId "critique"', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(50) })
-    const fetchMock = mockOpenRouterSuccess('MODEL: opus\n✅ Cross-stage check passes.')
+    const fetchMock = mockOpenRouterSuccess('TIER: synthesis\n✅ Cross-stage check passes.')
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await handleCritique(
@@ -122,12 +122,12 @@ describe('POST /critique', () => {
 
     expect(res.status).toBe(200)
     const body = await res.json() as { tier: string }
-    expect(body.tier).toBe('opus')
+    expect(body.tier).toBe('synthesis')
   })
 
-  it('derives draft tier for stageId "draftCritique"', async () => {
+  it('derives prose tier for stageId "draftCritique"', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(50) })
-    const fetchMock = mockOpenRouterSuccess('MODEL: sonnet\n✅ Faithful to the plan.')
+    const fetchMock = mockOpenRouterSuccess('TIER: structural\n✅ Faithful to the plan.')
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await handleCritique(
@@ -137,12 +137,12 @@ describe('POST /critique', () => {
 
     expect(res.status).toBe(200)
     const body = await res.json() as { tier: string }
-    expect(body.tier).toBe('draft')
+    expect(body.tier).toBe('prose')
   })
 
-  it('derives sonnet tier for an unrecognised stageId', async () => {
+  it('derives structural tier for an unrecognised stageId', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(50) })
-    const fetchMock = mockOpenRouterSuccess('MODEL: sonnet\n✅ Structurally sound.')
+    const fetchMock = mockOpenRouterSuccess('TIER: structural\n✅ Structurally sound.')
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await handleCritique(
@@ -152,7 +152,7 @@ describe('POST /critique', () => {
 
     expect(res.status).toBe(200)
     const body = await res.json() as { tier: string }
-    expect(body.tier).toBe('sonnet')
+    expect(body.tier).toBe('structural')
   })
 
   // ── Auth / credit checks ──────────────────────────────────────────────────
@@ -178,10 +178,10 @@ describe('POST /critique', () => {
   })
 
   it('returns 402 when credit balance is below tier cost', async () => {
-    // haiku costs 1 credit — 0 balance should 402
+    // validate costs 1 credit — 0 balance should 402
     const env = makeEnv({ 'SL-BROKE': validRecord(0) })
     const res = await handleCritique(
-      makeReq({ licenceKey: 'SL-BROKE', stageId: 'genre', tier: 'haiku', state: validState() }),
+      makeReq({ licenceKey: 'SL-BROKE', stageId: 'genre', tier: 'validate', state: validState() }),
       env,
     )
     expect(res.status).toBe(402)
@@ -189,10 +189,10 @@ describe('POST /critique', () => {
     expect(body.error).toContain('Credits exhausted')
   })
 
-  it('returns 402 when balance is less than opus cost (8)', async () => {
+  it('returns 402 when balance is less than synthesis cost (8)', async () => {
     const env = makeEnv({ 'SL-LOW': validRecord(5) }) // 5 < 8
     const res = await handleCritique(
-      makeReq({ licenceKey: 'SL-LOW', stageId: 'critique', tier: 'opus', state: validState() }),
+      makeReq({ licenceKey: 'SL-LOW', stageId: 'critique', tier: 'synthesis', state: validState() }),
       env,
     )
     expect(res.status).toBe(402)
@@ -200,12 +200,12 @@ describe('POST /critique', () => {
 
   // ── Credit deduction amounts ──────────────────────────────────────────────
 
-  it('deducts 1 credit for haiku tier', async () => {
+  it('deducts 1 credit for validate tier', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(10) })
     vi.stubGlobal('fetch', mockOpenRouterSuccess())
 
     await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'haiku', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'validate', state: validState() }),
       env,
     )
 
@@ -215,12 +215,12 @@ describe('POST /critique', () => {
     expect(stored.creditBalance).toBe(9) // 10 - 1
   })
 
-  it('deducts 3 credits for sonnet tier', async () => {
+  it('deducts 3 credits for structural tier', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(10) })
     vi.stubGlobal('fetch', mockOpenRouterSuccess())
 
     await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'beatSheet', tier: 'sonnet', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'beatSheet', tier: 'structural', state: validState() }),
       env,
     )
 
@@ -229,12 +229,12 @@ describe('POST /critique', () => {
     expect(stored.creditBalance).toBe(7) // 10 - 3
   })
 
-  it('deducts 8 credits for opus tier', async () => {
+  it('deducts 8 credits for synthesis tier', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(20) })
     vi.stubGlobal('fetch', mockOpenRouterSuccess())
 
     await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'critique', tier: 'opus', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'critique', tier: 'synthesis', state: validState() }),
       env,
     )
 
@@ -243,12 +243,12 @@ describe('POST /critique', () => {
     expect(stored.creditBalance).toBe(12) // 20 - 8
   })
 
-  it('deducts 5 credits for draft tier', async () => {
+  it('deducts 5 credits for prose tier', async () => {
     const env = makeEnv({ 'SL-GOOD': validRecord(10) })
     vi.stubGlobal('fetch', mockOpenRouterSuccess())
 
     await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'draftCritique', tier: 'draft', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'draftCritique', tier: 'prose', state: validState() }),
       env,
     )
 
@@ -264,7 +264,7 @@ describe('POST /critique', () => {
     vi.stubGlobal('fetch', mockOpenRouterFailure(503))
 
     const res = await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'haiku', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'validate', state: validState() }),
       env,
     )
 
@@ -341,7 +341,7 @@ describe('POST /critique', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'haiku', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'validate', state: validState() }),
       env,
     )
 
@@ -359,7 +359,7 @@ describe('POST /critique', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await handleCritique(
-      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'haiku', state: validState() }),
+      makeReq({ licenceKey: 'SL-GOOD', stageId: 'genre', tier: 'validate', state: validState() }),
       env,
     )
 

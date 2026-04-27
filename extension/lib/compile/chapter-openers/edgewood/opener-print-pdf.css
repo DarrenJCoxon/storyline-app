@@ -1,0 +1,14 @@
+/*
+ * Edgewood — Print/PDF overrides (Paged.js)
+ * Applies on top of opener.css for print output.
+ * Only contains print-specific adjustments.
+ */
+
+h1 {
+  margin: 0 0 4em 0;             /* larger print drop — generous on the page */
+}
+
+p.first-paragraph::first-letter,
+p.first::first-letter {
+  font-size: 3.8em;              /* slightly larger drop cap in print */
+}

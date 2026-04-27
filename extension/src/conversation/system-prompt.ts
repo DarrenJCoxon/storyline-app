@@ -1,5 +1,5 @@
-import type { ProjectState, StageGuide, NfDnaGuide, StageQuestion } from '@storyline/core'
-import { getStageGuide, getNfStageGuide, GENRE_VARIANTS, getPersonaForStage } from '@storyline/core'
+import type { ProjectState } from '@storyline/core'
+import { getStageGuide, getNfStageGuide, getPersonaForStage } from '@storyline/core'
 import { getFictionSkill, getNonfictionSkill, getExtensionPath } from './skill-loader.js'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -22,53 +22,34 @@ Use \`"fiction"\` or \`"nonfiction"\` based on their answer. If their answer is 
 
 Do NOT ask any other planning questions on this turn. Do NOT discuss genre, premise, characters, or anything else. Only the mode gate.`
 
-// MUST sit ABOVE the harness body in the final prompt. The harness assumes
-// a CLI (`npx storyline-vsc save`, `next`, `stage-info`); the chat panel
-// has none of that. These rules override anything in the harness about
-// invoking the CLI.
-const EXTENSION_OVERRIDE = `# Storyline runtime override (read FIRST — supersedes the harness below where they conflict)
+// Minimal CLI→JSON-block translation. The harness body (the original
+// SKILL.md, loaded verbatim below this) is the authority on stage flow,
+// pacing, persona, and depth — same as the original Claude Code /storyline.
+// The only adaptation: there is no CLI here, so wherever the harness says
+// `npx storyline-vsc save`, emit a JSON code block instead.
+const EXTENSION_OVERRIDE = `# Runtime adapter (CLI → chat panel)
 
-You are running inside a VS Code chat panel. The Save the Cat harness below is the AUTHORITY on persona, stage flow, questions, gates, and critique — follow it precisely. The only thing the chat panel changes is HOW state is persisted: there is no CLI here.
+You are running inside a VS Code chat panel — not Claude Code. There is no CLI. The harness skill below was originally written for Claude Code; follow it precisely, with one adaptation: wherever it tells you to run a CLI command, do this instead:
 
-## CLI translation table — apply EVERY time the harness mentions one of these
+- \`npx storyline-vsc stage-info <id>\` → the brief is already injected below as \`stageInfo\`. Use it.
+- \`npx storyline-vsc save <id> '<json>'\` → emit a fenced \`\`\`json\`\`\` code block of \`{ "<stageId>": { …data… } }\`. That IS the save.
+- \`npx storyline-vsc next\` / \`status\` / \`stages\` / \`route\` / \`record-model\` / \`verify-stage\` / \`traps\` / \`checklist\` / \`doctor\` / \`generate\` / \`config get\` → the extension runs these automatically. Do nothing. Do not mention CLI commands to the writer.
+- Subagent / Task tool invocation → the extension calls the backend critique endpoint after each save. Do not invoke or mention it.
+- **Banner / startup display blocks** the harness asks you to "Display" (e.g. \`Storyline — Save the Cat Planning Harness / Character-first…\` or \`Storyline — Returning to <Project Title>\`) → **do not display them.** They were CLI-init flourishes for the original terminal harness. The extension's onboarding handles project-state messaging; jumping straight into the active stage is the right behaviour here.
+- **Persona introduction**: introduce your coaching persona once on the FIRST chat turn of the project (the mode-gate or first non-mode stage). Subsequent stages of the same persona — and any time \`stages.completed\` already shows prior stages — must continue the conversation directly without "I'm The Strategist…" / "Before we build anything…" preamble. Look at the prior assistant turns in the conversation history; if you've already introduced yourself, don't do it again.
 
-| Harness instruction | What you actually do |
-| --- | --- |
-| \`npx storyline-vsc init\` | Already done. The project state file exists. Do nothing. |
-| \`npx storyline-vsc next\` / \`status\` / \`stages\` | The current stage is named under "Active stage" below. The project state is in "Current state". Do not ask the writer to run anything. |
-| \`npx storyline-vsc stage-info <stageId>\` | The harness body below already contains the stage brief. Use it. |
-| \`npx storyline-vsc save <stageId>\` | **Emit a fenced JSON code block of the form below.** This IS the save. Nothing else persists state. |
-| \`npx storyline-vsc traps\` / \`checklist\` | Run the critique conversationally — talk to the writer, don't ask them to run a command. |
-| \`npx storyline-vsc generate\` | The extension generates the master document. Don't mention the command. |
-| Writing \`docs/<NN>-<stage>.md\` files | The chat IS the artefact. Don't write to docs/. The extension handles output. |
-
-## Save block — the exact shape
-
-When the harness tells you to call \`save\`, emit ONLY this — no preamble, no postscript, no acknowledgement, just the block:
-
-\`\`\`json
-{ "<stageId>": { "<fieldKey>": <value>, ... } }
-\`\`\`
-
-The \`<stageId>\` is the value under "Active stage" below (e.g. "genre", "protagonist"). Field keys come from the harness's stage brief. Once you emit the block the extension persists it, advances to the next stage, and gives you a fresh system prompt — so do not write further commentary on the same turn.
-
-## Hard rules
-
-1. **NEVER mention \`npx\`, \`storyline-vsc\`, or any other CLI command** in your replies to the writer. They cannot run them. The extension does everything programmatically.
-2. **NEVER ask the writer to paste CLI output, switch tools, or run a script.**
-3. **NEVER write to \`docs/\` or any file.** Your output is the chat reply (and the JSON save block when due).
-4. The harness's \`save-then-compose\` rule still applies, but \`save\` means **emit the JSON block** and \`compose\` means **continue the conversation in this chat** — not write a markdown file.
-5. **Follow the harness's persona, questions, gates, and critique exactly.** Conversational delivery, one or two questions per turn, no bulleted questionnaires — just like the harness specifies.
-6. **Reference Current state below** instead of re-asking for data already saved.
+Everything else — depth, conversational pacing, question coverage, gates, critique behaviour, transitions — comes straight from the harness skill below. Mirror it exactly.
 
 ---
 `
 
 export function buildSystemPrompt(stageId: string, state: ProjectState): string {
-  // Stage 0: mode gate — runs before anything else if mode hasn't been confirmed yet
+  // Stage 0: mode gate — runs before anything else if mode hasn't been confirmed yet.
+  // The mode gate is self-contained — no harness, no CLI startup protocol
+  // needed (the original startup-protocol.md is CLI-flavoured and only
+  // confuses the model in our chat-panel context).
   if (stageId === 'mode' || !state.stages?.mode?.completed) {
-    const startupProtocol = readSideDoc('skill-content/startup-protocol.md')
-    return [MODE_GATE_PROMPT, startupProtocol].filter(Boolean).join('\n\n---\n\n')
+    return MODE_GATE_PROMPT
   }
 
   const extensionPath = getExtensionPath()
@@ -76,176 +57,48 @@ export function buildSystemPrompt(stageId: string, state: ProjectState): string 
     ? getNonfictionSkill(extensionPath)
     : getFictionSkill(extensionPath)
 
+  // Mirror exactly what `npx storyline-vsc stage-info <id>` returns in the
+  // original harness — the full guide as JSON plus persona overlay and
+  // currentState. The skill above already tells the AI how to use this.
+  const stageInfoBlock = buildStageInfoBlock(stageId, state)
+
   const stateBlock = '```json\n' + JSON.stringify(stripStateForPrompt(state), null, 2) + '\n```'
+
+  // Trigger-based reference docs — only side-loaded when the active stage
+  // actually needs them. Mirrors the original harness's CLI pattern where
+  // /storyline calls `stage-info` (gets the brief) and then opens specific
+  // reference docs only when the stage demands them.
+  const triggerDocs = collectTriggerDocs(stageId)
 
   const stageContext = `
 ---
 
-## Current planning context
+## stageInfo (output of \`stage-info ${stageId}\`)
 
-- **Mode:** ${state.mode}
-- **Active stage:** ${stageId}
-- **Stages completed:** ${listCompleted(state)}
+${stageInfoBlock}
 
-## Current state
+## Current state (output of \`next\`)
 
 ${stateBlock}
+${triggerDocs ? '\n---\n\n' + triggerDocs : ''}
 `
 
-  // The original `/storyline` flow has Claude Code invoke
-  //   `npx storyline-vsc stage-info <stageId>`
-  // at the start of every stage — the CLI returns a rich brief from
-  // lib/ai/stage-guides.js (persona, questions, hints, sections, beat
-  // guidance). The AI then runs the stage with both the harness AND
-  // that brief. Without the brief the conversation feels thin.
-  //
-  // The chat panel has no CLI, so we inject the brief here directly.
-  const brief = buildStageBrief(stageId, state)
-
-  // Side-load routing docs so the AI knows which tier/model context it's in
-  const confidenceCheck = readSideDoc('skill-content/confidence-check.md')
-  const stageModelMap = readSideDoc('skill-content/stage-model-map.md')
-  const startupProtocol = readSideDoc('skill-content/startup-protocol.md')
-
-  const routingContext = [confidenceCheck, stageModelMap].filter(Boolean).join('\n\n---\n\n')
-
-  // Order: override first (chat-panel adapter), then harness (Save the
-  // Cat / Book DNA authority), then routing context (model/tier docs),
-  // then the stage brief (what `stage-info` would have returned), then
-  // current state. startupProtocol is held here for future use (e.g.
-  // surfacing routing mode to the AI on the first non-mode stage).
-  void startupProtocol
-  return [EXTENSION_OVERRIDE, skill, routingContext, brief, stageContext].filter(Boolean).join('\n\n')
+  return [EXTENSION_OVERRIDE, skill, stageContext].filter(Boolean).join('\n\n')
 }
 
 /**
- * Build the rich stage brief — equivalent to what
- * `npx storyline-vsc stage-info <stageId>` would return in the original
- * /storyline harness. Includes persona, every question with its hint,
- * sectioned intros, repeatable item structure, transition cue, research
- * tip, save schema. Plus side-loaded docs (beat-guide for beat sheet,
- * GENRE_VARIANTS for the genre stage variant question).
+ * Side-load reference docs based on the active stage. Mirrors the original
+ * /storyline harness's per-stage doc triggers — beat-guide.md when the
+ * writer reaches the beat sheet or scene outline, etc. Anything not in
+ * the trigger list stays out of the prompt entirely.
  */
-function buildStageBrief(stageId: string, state: ProjectState): string {
-  const guide = state.mode === 'nonfiction'
-    ? getNfStageGuide(stageId)
-    : getStageGuide(stageId)
-  if (!guide) return ''
-
-  const lines: string[] = []
-  lines.push(`# Stage brief — ${guide.name}`)
-  const persona = getPersonaForStage(stageId)
-  if (persona) {
-    lines.push('')
-    lines.push(`**Your coaching persona for this stage:** ${persona.name} — ${persona.tagline}`)
-  }
-  lines.push('')
-  lines.push(`This is the detailed brief for the **${guide.name}** stage. Use it to drive a deep, conversational planning session — exactly the way the original storyline harness does when it calls \`stage-info\` via the CLI. Do NOT bullet-list these questions to the writer; weave them into the conversation, asking one or two at a time, adapting wording to what they just said, brainstorming with them when they're unsure.`)
-  lines.push('')
-  if ('persona' in guide && guide.persona) lines.push(`**Persona:** ${guide.persona}`)
-  if ('opening' in guide && guide.opening) {
-    lines.push('')
-    lines.push(`**Opening (already shown to the writer — do not repeat verbatim):**`)
-    lines.push(`> ${guide.opening.split('\n').join('\n> ')}`)
-  }
-
-  // Flat questions
-  const flat: StageQuestion[] = (guide as StageGuide).questions ?? []
-  if (flat.length) {
-    lines.push('')
-    lines.push('**Questions to cover this stage:**')
-    for (const q of flat) lines.push(formatQuestion(q))
-  }
-
-  // Sectioned questions (NF DNA + protagonist)
-  const sections = (guide as StageGuide).sections ?? []
-  for (const sec of sections) {
-    lines.push('')
-    lines.push(`### Section: ${sec.title}`)
-    if (sec.intro) lines.push(`> ${sec.intro}`)
-    for (const q of sec.questions ?? []) lines.push(formatQuestion(q))
-  }
-
-  // Repeatable items (e.g. supporting cast — up to 6)
-  const repeatable = (guide as StageGuide).repeatable
-  if (repeatable) {
-    lines.push('')
-    lines.push(`**Repeatable per item — up to ${repeatable.max} ${repeatable.itemLabel}(s).**`)
-    lines.push('For each item ask the writer to fill these fields. Capture them one item at a time, not all in parallel.')
-    for (const q of repeatable.fields) lines.push(formatQuestion(q))
-    if (repeatable.nested) {
-      lines.push('')
-      lines.push(`Each ${repeatable.itemLabel} can have nested ${repeatable.nested.itemLabel}(s) (up to ${repeatable.nested.max}):`)
-      for (const q of repeatable.nested.fields) lines.push(formatQuestion(q))
-    }
-  }
-
-  // Genre stage — inline the genre-variant catalogue so the AI can
-  // describe each variant when the writer is unsure.
-  if (stageId === 'genre') {
-    lines.push('')
-    lines.push('**Save the Cat genre variants (use these to help the writer pick `genreVariant`):**')
-    for (const [key, v] of Object.entries(GENRE_VARIANTS)) {
-      lines.push(`  • \`${key}\` — **${v.name}**: ${v.description}`)
-    }
-  }
-
-  // Beat sheet stage — side-load the harness's beat-guide if present
+function collectTriggerDocs(stageId: string): string {
+  const docs: string[] = []
   if (stageId === 'beatSheet' || stageId === 'sceneOutline') {
-    const beatGuide = readSideDoc('skill-content/beat-guide.md') ?? readSideDoc('skill/docs/planning/beat-guide.md')
-    if (beatGuide) {
-      lines.push('')
-      lines.push('## Beat Sheet reference (Save the Cat 15 beats)')
-      lines.push(beatGuide)
-    }
+    const beatGuide = readSideDoc('skill-content/beat-guide.md')
+    if (beatGuide) docs.push('## Beat Sheet reference (Save the Cat 15 beats)\n\n' + beatGuide)
   }
-
-  if ('researchTip' in guide && guide.researchTip) {
-    lines.push('')
-    lines.push(`**Research tip:** ${guide.researchTip}`)
-  }
-  if ('transition' in guide && guide.transition) {
-    lines.push('')
-    lines.push(`**Transition (use AFTER you've emitted the save block, on the next turn):** "${guide.transition}"`)
-  }
-
-  // Save schema — the exact JSON shape the AI must emit when all required
-  // fields are captured.
-  const requiredKeys = collectAllFields(guide).filter(f => f.required)
-  if (requiredKeys.length) {
-    lines.push('')
-    lines.push('**Save block (emit when ALL required fields are captured — and nothing else on that turn):**')
-    lines.push('```json')
-    const example: Record<string, unknown> = {}
-    for (const f of collectAllFields(guide)) example[f.key] = placeholderFor(f)
-    lines.push(JSON.stringify({ [stageId]: example }, null, 2))
-    lines.push('```')
-  }
-
-  return lines.join('\n')
-}
-
-function formatQuestion(q: StageQuestion): string {
-  const reqMark = q.required ? '**required**' : 'optional'
-  const typeNote = q.type ? ` (${q.type})` : ''
-  const hint = q.hint ? `\n    *Hint:* ${q.hint}` : ''
-  return `  • \`${q.key}\`${typeNote} — ${reqMark}: ${q.label}${hint}`
-}
-
-function collectAllFields(guide: StageGuide | NfDnaGuide): StageQuestion[] {
-  const out: StageQuestion[] = []
-  const g = guide as StageGuide
-  if (g.questions) out.push(...g.questions)
-  if (g.sections) for (const s of g.sections) out.push(...(s.questions ?? []))
-  if (g.repeatable) out.push(...g.repeatable.fields)
-  return out
-}
-
-function placeholderFor(q: StageQuestion): unknown {
-  if (q.type === 'number') return 0
-  if (q.type === 'multiline') return '...'
-  if (q.type === 'variant') return 'standard'
-  return '...'
+  return docs.join('\n\n---\n\n')
 }
 
 function readSideDoc(rel: string): string | null {
@@ -254,6 +107,27 @@ function readSideDoc(rel: string): string | null {
     if (!ext) return null
     return fs.readFileSync(path.join(ext, rel), 'utf-8')
   } catch { return null }
+}
+
+/**
+ * Reproduces the original `npx storyline-vsc stage-info <stageId>` JSON
+ * output exactly: the full guide object plus a persona overlay and
+ * currentState (progress, missingRequirements, gateBlocked). The harness
+ * skill knows how to read this — same shape it always has.
+ */
+function buildStageInfoBlock(stageId: string, state: ProjectState): string {
+  const guide = state.mode === 'nonfiction'
+    ? getNfStageGuide(stageId)
+    : getStageGuide(stageId)
+  if (!guide) return '```json\n{ "error": "No guide for this stage" }\n```'
+
+  const persona = getPersonaForStage(stageId)
+  const output: Record<string, unknown> = {
+    ...guide,
+    persona: persona ? { name: persona.name, tagline: persona.tagline, activation: persona.activation } : null,
+  }
+
+  return '```json\n' + JSON.stringify(output, null, 2) + '\n```'
 }
 
 function stripStateForPrompt(state: ProjectState): Record<string, unknown> {

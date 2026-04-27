@@ -1,4 +1,5 @@
 import type { Env, ChatRequest, LicenceRecord } from './types.js'
+import { reasoningEffortForStage, buildReasoningParam } from './reasoning.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +47,9 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
     ? [{ role: 'system' as const, content: body.systemPrompt }, ...body.messages]
     : body.messages
 
+  const reasoning = buildReasoningParam(reasoningEffortForStage(body.stageId))
+  console.log(`[/chat] stage=${body.stageId} reasoning=${reasoning.effort} model=${env.CHAT_MODEL}`)
+
   // Proxy to OpenRouter, streaming
   const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -59,6 +63,7 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
       model: env.CHAT_MODEL,
       messages: upstreamMessages,
       stream: true,
+      reasoning,
     }),
   })
 

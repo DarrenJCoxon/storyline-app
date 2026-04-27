@@ -4,6 +4,7 @@ import { handleChat } from './chat.js'
 import { handleCritique } from './critique.js'
 import { handleIllustrate } from './illustrate.js'
 import { handleStripeWebhook } from './stripe-webhook.js'
+import { handleTranscribe } from './transcribe.js'
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -33,6 +34,8 @@ export default {
         return handleCritique(req, env)
       case '/illustrate':
         return handleIllustrate(req, env)
+      case '/transcribe':
+        return handleTranscribe(req, env)
       case '/stripe-webhook':
         return handleStripeWebhook(req, env)
       case '/dev/seed-licence':

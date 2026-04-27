@@ -8,9 +8,18 @@ import type { StoryTrapFinding } from '../App.js'
 interface StageCompleteProps {
   stageName: string
   statePath: string
+  memoryMethod?: 'odd-flow' | 'jsonl' | 'skipped'
 }
 
-export function StageCompleteCard({ stageName, statePath }: StageCompleteProps) {
+export function StageCompleteCard({ stageName, statePath, memoryMethod }: StageCompleteProps) {
+  // Hide implementation detail (odd-flow vs jsonl) from the writer.
+  // Both are "memory" — only differentiate when something failed.
+  const memoryLabel = memoryMethod === 'odd-flow' || memoryMethod === 'jsonl'
+    ? 'written to memory'
+    : memoryMethod === 'skipped'
+      ? 'memory write failed'
+      : null
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.97, y: 8 }}
@@ -36,6 +45,11 @@ export function StageCompleteCard({ stageName, statePath }: StageCompleteProps) 
         <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
           {statePath.replace(/.*\/\.storyline/, '.storyline')}
         </div>
+        {memoryLabel && (
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {memoryLabel}
+          </div>
+        )}
       </div>
     </motion.div>
   )
@@ -297,11 +311,18 @@ function parseCritiqueLine(line: string): { severity: CritiqueSeverity; text: st
   return null
 }
 
+const TIER_LABELS: Record<string, string> = {
+  validate: 'Schema check',
+  structural: 'Structural critique',
+  synthesis: 'Whole-book synthesis',
+  prose: 'Prose-vs-plan critique',
+}
+
 export function CritiqueCard({ findings, tier, stageId }: CritiqueCardProps) {
   const lines = findings.split('\n').map(l => l.trim()).filter(Boolean)
   const parsed = lines.map(parseCritiqueLine).filter(Boolean) as Array<{ severity: CritiqueSeverity; text: string }>
   const passing = findings.includes('✅')
-  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1)
+  const tierLabel = TIER_LABELS[tier] ?? tier.charAt(0).toUpperCase() + tier.slice(1)
 
   return (
     <motion.div

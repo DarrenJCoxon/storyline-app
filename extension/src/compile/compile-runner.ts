@@ -21,8 +21,10 @@ function toMessages(items: unknown[]): string[] {
 }
 
 export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
-  // Dynamic ESM import — lib/ is ESM, works from CJS extension host via import()
-  const libBase = path.resolve(__dirname, '..', '..', '..', '..', 'lib', 'compile')
+  // Dynamic ESM import — lib/ ships inside the extension (extension/lib/),
+  // alongside dist/ at the install root. After esbuild bundles to
+  // dist/extension.js, __dirname is the dist/ folder, so lib lives at ../lib.
+  const libBase = path.resolve(__dirname, '..', 'lib', 'compile')
 
   const [
     { assemble },

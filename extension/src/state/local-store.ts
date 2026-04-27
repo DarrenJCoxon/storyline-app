@@ -66,8 +66,30 @@ export function extractJsonBlock(text: string): Record<string, unknown> | null {
   const match = text.match(/```json\s*([\s\S]*?)```/)
   if (!match) return null
   try {
-    return JSON.parse(match[1].trim()) as Record<string, unknown>
+    const parsed = JSON.parse(match[1].trim()) as Record<string, unknown>
+    // Reject schema-demo blocks where every value is null/empty/placeholder.
+    // The AI sometimes regurgitates the save-block shape (with `null` or
+    // "..." placeholders) inside its conversational opener — that should
+    // not be treated as a real save.
+    if (isPlaceholderOnly(parsed)) return null
+    return parsed
   } catch {
     return null
   }
+}
+
+function isPlaceholderOnly(value: unknown): boolean {
+  if (value === null || value === undefined) return true
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed === '' || trimmed === '...' || trimmed === 'null'
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') return false
+  if (Array.isArray(value)) return value.every(isPlaceholderOnly)
+  if (typeof value === 'object') {
+    const entries = Object.values(value as Record<string, unknown>)
+    if (entries.length === 0) return true
+    return entries.every(isPlaceholderOnly)
+  }
+  return false
 }

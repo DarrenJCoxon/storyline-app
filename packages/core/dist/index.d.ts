@@ -1,6 +1,6 @@
 export type { Mode, Pipeline, SubMode, ProjectState, StageEntry, Beat, BeatSheet, Protagonist, Character, } from './state/project-state.js';
 export { DEFAULT_STATE, STAGE_ORDER, STAGE_BY_ID, NF_STAGE_ORDER, NF_STAGE_BY_ID, NF_DNA_STAGE_ORDER, NF_PIPELINE_A_STAGE_ORDER, NF_PIPELINE_B_STAGE_ORDER, NF_PIPELINE_C_STAGE_ORDER, stageOrderFor, } from './state/project-state.js';
-export { deriveCurrentStage, calculateProgress, checkStageGate, getMissingRequirements, getDownstreamImpacts, } from './state/transitions.js';
+export { deriveCurrentStage, calculateProgress, checkStageGate, getMissingRequirements, getDownstreamImpacts, isStageComplete, } from './state/transitions.js';
 export type { GateResult } from './state/transitions.js';
 export type { StageGuide, StageQuestion, BeatEntry } from './ai/stage-guides.js';
 export { STAGE_GUIDES, GENRE_VARIANTS, getStageGuide, buildSystemPrompt } from './ai/stage-guides.js';
@@ -13,6 +13,28 @@ export { PIPELINE_C_GUIDES, PIPELINE_C_GUIDE_ORDER, getPipelineCGuide } from './
 import type { NfDnaGuide as _NfDnaGuide } from './ai/stage-guides-nf-dna.js';
 /** Look up an NF stage guide by id across DNA + all 3 pipelines. */
 export declare function getNfStageGuide(stageId: string): _NfDnaGuide | null;
+/**
+ * Return the list of required field keys for a stage (fiction or NF).
+ * Used to gate saves: a stage cannot be marked complete unless every
+ * required field has a non-empty value in the patch + existing state.
+ */
+export declare function getRequiredFieldsForStage(stageId: string, mode: 'fiction' | 'nonfiction' | undefined): string[];
+/**
+ * Single authoritative gate used to decide whether a stage save can be
+ * marked complete and the planner advanced. Works for fiction and NF.
+ *
+ * Fiction stages with declarative requirements in transitions.ts (genre,
+ * premise, protagonist, characters[], beatSheet beats, sceneOutline,
+ * chapterOutline, etc.) use that. Other stages, including all NF stages,
+ * use the stage guide's required-field list — every required field must
+ * be present and non-empty in the corresponding state slot.
+ *
+ * Returns { complete, missing } so callers can surface what's missing.
+ */
+export declare function gateStageSave(stageId: string, state: import('./state/project-state.js').ProjectState): {
+    complete: boolean;
+    missing: string[];
+};
 export { critiqueBookDnaStage, critiquePipelineAStage, critiquePipelineBStage, critiquePipelineCStage, buildCritiqueSummary, buildPipelineACritiqueSummary, buildPipelineBCritiqueSummary, buildPipelineCCritiqueSummary, formatCritique, hasBlockingErrors, } from './ai/narrative-voice-nf.js';
 export { SCHEMA_VERSION, RELIABILITY_TIERS, VERIFICATION_STATES, ITEM_SUBTYPES, } from './research/schema.js';
 export { addItem, getItem, editItem, removeItem, listItems, } from './research/capture.js';

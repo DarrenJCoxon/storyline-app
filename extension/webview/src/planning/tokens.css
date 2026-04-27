@@ -78,6 +78,12 @@ p:last-child { margin-bottom: 0; }
   animation: blink 1s step-start infinite;
 }
 
+/* ── Voice dictation ───────────────────────────────────── */
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%       { box-shadow: 0 0 0 5px transparent; }
+}
+
 /* ── Transitions for theme switch ──────────────────────── */
 .theme-transition,
 .theme-transition * {

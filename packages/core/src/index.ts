@@ -14,7 +14,7 @@ export {
 } from './state/project-state.js'
 export {
   deriveCurrentStage, calculateProgress,
-  checkStageGate, getMissingRequirements, getDownstreamImpacts,
+  checkStageGate, getMissingRequirements, getDownstreamImpacts, isStageComplete,
 } from './state/transitions.js'
 export type { GateResult } from './state/transitions.js'
 export type { StageGuide, StageQuestion, BeatEntry } from './ai/stage-guides.js'
@@ -34,10 +34,77 @@ import { getPipelineAGuide as _gA } from './ai/stage-guides-nf-pipeline-a.js'
 import { getPipelineBGuide as _gB } from './ai/stage-guides-nf-pipeline-b.js'
 import { getPipelineCGuide as _gC } from './ai/stage-guides-nf-pipeline-c.js'
 import type { NfDnaGuide as _NfDnaGuide } from './ai/stage-guides-nf-dna.js'
+import { getStageGuide as _getStageGuideRaw } from './ai/stage-guides.js'
+import { isStageComplete as _isStageCompleteInternal, hasTransitionRequirement as _hasTransitionRequirement } from './state/transitions.js'
 
 /** Look up an NF stage guide by id across DNA + all 3 pipelines. */
 export function getNfStageGuide(stageId: string): _NfDnaGuide | null {
   return _getNfDnaGuide(stageId) ?? _gA(stageId) ?? _gB(stageId) ?? _gC(stageId) ?? null
+}
+
+/**
+ * Return the list of required field keys for a stage (fiction or NF).
+ * Used to gate saves: a stage cannot be marked complete unless every
+ * required field has a non-empty value in the patch + existing state.
+ */
+export function getRequiredFieldsForStage(stageId: string, mode: 'fiction' | 'nonfiction' | undefined): string[] {
+  const guide = mode === 'nonfiction' ? getNfStageGuide(stageId) : _getStageGuideRaw(stageId)
+  if (!guide) return []
+  const out: string[] = []
+  const g = guide as { questions?: Array<{ key: string; required?: boolean }>; sections?: Array<{ questions?: Array<{ key: string; required?: boolean }> }>; repeatable?: { fields?: Array<{ key: string; required?: boolean }> } }
+  for (const q of g.questions ?? []) if (q.required) out.push(q.key)
+  for (const s of g.sections ?? []) for (const q of s.questions ?? []) if (q.required) out.push(q.key)
+  // Repeatable fields are aggregated separately — we treat the array's
+  // existence as the requirement, not individual repeatable keys.
+  return out
+}
+
+/**
+ * Single authoritative gate used to decide whether a stage save can be
+ * marked complete and the planner advanced. Works for fiction and NF.
+ *
+ * Fiction stages with declarative requirements in transitions.ts (genre,
+ * premise, protagonist, characters[], beatSheet beats, sceneOutline,
+ * chapterOutline, etc.) use that. Other stages, including all NF stages,
+ * use the stage guide's required-field list — every required field must
+ * be present and non-empty in the corresponding state slot.
+ *
+ * Returns { complete, missing } so callers can surface what's missing.
+ */
+export function gateStageSave(
+  stageId: string,
+  state: import('./state/project-state.js').ProjectState,
+): { complete: boolean; missing: string[] } {
+  const mode: 'fiction' | 'nonfiction' = state.mode === 'nonfiction' ? 'nonfiction' : 'fiction'
+
+  // Fiction with declarative transitions.ts requirement → use that
+  if (mode === 'fiction' && _hasTransitionRequirement(stageId)) {
+    const ok = _isStageCompleteInternal(stageId, state)
+    if (ok) return { complete: true, missing: [] }
+    // Couldn't satisfy the predicate — surface the field-level requirements
+    // from the guide as a best-effort hint to the AI.
+    return { complete: false, missing: getRequiredFieldsForStage(stageId, mode) }
+  }
+
+  // NF and lightweight fiction stages → check the guide's required fields
+  // directly against the corresponding stage data slot in state.
+  const required = getRequiredFieldsForStage(stageId, mode)
+  if (required.length === 0) {
+    // No declarative requirement → respect explicit completed flag
+    return { complete: !!state.stages?.[stageId]?.completed, missing: [] }
+  }
+
+  const stageData = (state as unknown as Record<string, Record<string, unknown> | undefined>)[stageId] ?? {}
+  const missing = required.filter(key => _isEmpty(stageData?.[key]))
+  return { complete: missing.length === 0, missing }
+}
+
+function _isEmpty(v: unknown): boolean {
+  if (v === null || v === undefined) return true
+  if (typeof v === 'string') return v.trim().length === 0 || v.trim() === '...'
+  if (Array.isArray(v)) return v.length === 0
+  if (typeof v === 'object') return Object.keys(v as object).length === 0
+  return false
 }
 
 // NF critique layer (book DNA + all 3 pipelines)

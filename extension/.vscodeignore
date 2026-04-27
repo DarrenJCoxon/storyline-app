@@ -1,6 +1,8 @@
 # Source — bundled into dist/extension.js, dist/webview/*
 src/**
 webview/**
+# lib/ ships verbatim — compile-runner.ts dynamic-imports its modules
+# at runtime (assembler.js, epub.js, etc.). Don't ignore.
 node_modules/**
 !node_modules/sharp/**
 # Sharp v0.33+ keeps platform-specific native bindings in @img/sharp-*
@@ -17,6 +19,15 @@ node_modules/**
 !node_modules/color-string/**
 !node_modules/is-arrayish/**
 !node_modules/simple-swizzle/**
+# odd-flow durable memory — bundled CLI invoked via spawn(node, …) from
+# state/memory.ts. The published odd-flow npm package has a packaging
+# bug: its v3/* sub-packages declare deps (sql.js, @noble/ed25519) that
+# never get installed transitively, so we install them at the top level
+# and whitelist them here too.
+!node_modules/odd-flow/**
+!node_modules/zod/**
+!node_modules/sql.js/**
+!node_modules/@noble/**
 
 # Tooling and configs
 tsconfig.json

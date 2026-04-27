@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.editItem = exports.getItem = exports.addItem = exports.ITEM_SUBTYPES = exports.VERIFICATION_STATES = exports.RELIABILITY_TIERS = exports.SCHEMA_VERSION = exports.hasBlockingErrors = exports.formatCritique = exports.buildPipelineCCritiqueSummary = exports.buildPipelineBCritiqueSummary = exports.buildPipelineACritiqueSummary = exports.buildCritiqueSummary = exports.critiquePipelineCStage = exports.critiquePipelineBStage = exports.critiquePipelineAStage = exports.critiqueBookDnaStage = exports.getPipelineCGuide = exports.PIPELINE_C_GUIDE_ORDER = exports.PIPELINE_C_GUIDES = exports.getPipelineBGuide = exports.PIPELINE_B_GUIDE_ORDER = exports.PIPELINE_B_GUIDES = exports.getPipelineAGuide = exports.PIPELINE_A_GUIDE_ORDER = exports.PIPELINE_A_GUIDES = exports.inferPipelineFromCategory = exports.getNfDnaGuide = exports.CATEGORY_PIPELINE_MAP = exports.NF_DNA_GUIDE_ORDER = exports.NF_DNA_GUIDES = exports.buildSystemPrompt = exports.getStageGuide = exports.GENRE_VARIANTS = exports.STAGE_GUIDES = exports.getDownstreamImpacts = exports.getMissingRequirements = exports.checkStageGate = exports.calculateProgress = exports.deriveCurrentStage = exports.stageOrderFor = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
-exports.generateMasterDocument = exports.writeStageDoc = exports.detectSeriesPotential = exports.formatPersonaIntro = exports.runQualityChecklist = exports.getPersonaForStage = exports.PERSONAS = exports.runStoryTraps = exports.appendMemoryLog = exports.generateFactCheckReport = exports.generateAllEndnotes = exports.generateEndnotesForChapter = exports.generateBibliography = exports.formatMLA = exports.formatAPA = exports.formatChicago = exports.syncResearchToMemory = exports.rebuildIndex = exports.formatGapsReport = exports.analyzeGaps = exports.searchItems = exports.buildRetrievalPayload = exports.buildLinkSummary = exports.addLink = exports.listItems = exports.removeItem = void 0;
+exports.getItem = exports.addItem = exports.ITEM_SUBTYPES = exports.VERIFICATION_STATES = exports.RELIABILITY_TIERS = exports.SCHEMA_VERSION = exports.hasBlockingErrors = exports.formatCritique = exports.buildPipelineCCritiqueSummary = exports.buildPipelineBCritiqueSummary = exports.buildPipelineACritiqueSummary = exports.buildCritiqueSummary = exports.critiquePipelineCStage = exports.critiquePipelineBStage = exports.critiquePipelineAStage = exports.critiqueBookDnaStage = exports.getPipelineCGuide = exports.PIPELINE_C_GUIDE_ORDER = exports.PIPELINE_C_GUIDES = exports.getPipelineBGuide = exports.PIPELINE_B_GUIDE_ORDER = exports.PIPELINE_B_GUIDES = exports.getPipelineAGuide = exports.PIPELINE_A_GUIDE_ORDER = exports.PIPELINE_A_GUIDES = exports.inferPipelineFromCategory = exports.getNfDnaGuide = exports.CATEGORY_PIPELINE_MAP = exports.NF_DNA_GUIDE_ORDER = exports.NF_DNA_GUIDES = exports.buildSystemPrompt = exports.getStageGuide = exports.GENRE_VARIANTS = exports.STAGE_GUIDES = exports.isStageComplete = exports.getDownstreamImpacts = exports.getMissingRequirements = exports.checkStageGate = exports.calculateProgress = exports.deriveCurrentStage = exports.stageOrderFor = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
+exports.generateMasterDocument = exports.writeStageDoc = exports.detectSeriesPotential = exports.formatPersonaIntro = exports.runQualityChecklist = exports.getPersonaForStage = exports.PERSONAS = exports.runStoryTraps = exports.appendMemoryLog = exports.generateFactCheckReport = exports.generateAllEndnotes = exports.generateEndnotesForChapter = exports.generateBibliography = exports.formatMLA = exports.formatAPA = exports.formatChicago = exports.syncResearchToMemory = exports.rebuildIndex = exports.formatGapsReport = exports.analyzeGaps = exports.searchItems = exports.buildRetrievalPayload = exports.buildLinkSummary = exports.addLink = exports.listItems = exports.removeItem = exports.editItem = void 0;
 exports.getNfStageGuide = getNfStageGuide;
+exports.getRequiredFieldsForStage = getRequiredFieldsForStage;
+exports.gateStageSave = gateStageSave;
 var project_state_js_1 = require("./state/project-state.js");
 Object.defineProperty(exports, "DEFAULT_STATE", { enumerable: true, get: function () { return project_state_js_1.DEFAULT_STATE; } });
 Object.defineProperty(exports, "STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.STAGE_ORDER; } });
@@ -20,6 +22,7 @@ Object.defineProperty(exports, "calculateProgress", { enumerable: true, get: fun
 Object.defineProperty(exports, "checkStageGate", { enumerable: true, get: function () { return transitions_js_1.checkStageGate; } });
 Object.defineProperty(exports, "getMissingRequirements", { enumerable: true, get: function () { return transitions_js_1.getMissingRequirements; } });
 Object.defineProperty(exports, "getDownstreamImpacts", { enumerable: true, get: function () { return transitions_js_1.getDownstreamImpacts; } });
+Object.defineProperty(exports, "isStageComplete", { enumerable: true, get: function () { return transitions_js_1.isStageComplete; } });
 var stage_guides_js_1 = require("./ai/stage-guides.js");
 Object.defineProperty(exports, "STAGE_GUIDES", { enumerable: true, get: function () { return stage_guides_js_1.STAGE_GUIDES; } });
 Object.defineProperty(exports, "GENRE_VARIANTS", { enumerable: true, get: function () { return stage_guides_js_1.GENRE_VARIANTS; } });
@@ -47,9 +50,78 @@ const stage_guides_nf_dna_js_2 = require("./ai/stage-guides-nf-dna.js");
 const stage_guides_nf_pipeline_a_js_2 = require("./ai/stage-guides-nf-pipeline-a.js");
 const stage_guides_nf_pipeline_b_js_2 = require("./ai/stage-guides-nf-pipeline-b.js");
 const stage_guides_nf_pipeline_c_js_2 = require("./ai/stage-guides-nf-pipeline-c.js");
+const stage_guides_js_2 = require("./ai/stage-guides.js");
+const transitions_js_2 = require("./state/transitions.js");
 /** Look up an NF stage guide by id across DNA + all 3 pipelines. */
 function getNfStageGuide(stageId) {
     return (0, stage_guides_nf_dna_js_2.getNfDnaGuide)(stageId) ?? (0, stage_guides_nf_pipeline_a_js_2.getPipelineAGuide)(stageId) ?? (0, stage_guides_nf_pipeline_b_js_2.getPipelineBGuide)(stageId) ?? (0, stage_guides_nf_pipeline_c_js_2.getPipelineCGuide)(stageId) ?? null;
+}
+/**
+ * Return the list of required field keys for a stage (fiction or NF).
+ * Used to gate saves: a stage cannot be marked complete unless every
+ * required field has a non-empty value in the patch + existing state.
+ */
+function getRequiredFieldsForStage(stageId, mode) {
+    const guide = mode === 'nonfiction' ? getNfStageGuide(stageId) : (0, stage_guides_js_2.getStageGuide)(stageId);
+    if (!guide)
+        return [];
+    const out = [];
+    const g = guide;
+    for (const q of g.questions ?? [])
+        if (q.required)
+            out.push(q.key);
+    for (const s of g.sections ?? [])
+        for (const q of s.questions ?? [])
+            if (q.required)
+                out.push(q.key);
+    // Repeatable fields are aggregated separately — we treat the array's
+    // existence as the requirement, not individual repeatable keys.
+    return out;
+}
+/**
+ * Single authoritative gate used to decide whether a stage save can be
+ * marked complete and the planner advanced. Works for fiction and NF.
+ *
+ * Fiction stages with declarative requirements in transitions.ts (genre,
+ * premise, protagonist, characters[], beatSheet beats, sceneOutline,
+ * chapterOutline, etc.) use that. Other stages, including all NF stages,
+ * use the stage guide's required-field list — every required field must
+ * be present and non-empty in the corresponding state slot.
+ *
+ * Returns { complete, missing } so callers can surface what's missing.
+ */
+function gateStageSave(stageId, state) {
+    const mode = state.mode === 'nonfiction' ? 'nonfiction' : 'fiction';
+    // Fiction with declarative transitions.ts requirement → use that
+    if (mode === 'fiction' && (0, transitions_js_2.hasTransitionRequirement)(stageId)) {
+        const ok = (0, transitions_js_2.isStageComplete)(stageId, state);
+        if (ok)
+            return { complete: true, missing: [] };
+        // Couldn't satisfy the predicate — surface the field-level requirements
+        // from the guide as a best-effort hint to the AI.
+        return { complete: false, missing: getRequiredFieldsForStage(stageId, mode) };
+    }
+    // NF and lightweight fiction stages → check the guide's required fields
+    // directly against the corresponding stage data slot in state.
+    const required = getRequiredFieldsForStage(stageId, mode);
+    if (required.length === 0) {
+        // No declarative requirement → respect explicit completed flag
+        return { complete: !!state.stages?.[stageId]?.completed, missing: [] };
+    }
+    const stageData = state[stageId] ?? {};
+    const missing = required.filter(key => _isEmpty(stageData?.[key]));
+    return { complete: missing.length === 0, missing };
+}
+function _isEmpty(v) {
+    if (v === null || v === undefined)
+        return true;
+    if (typeof v === 'string')
+        return v.trim().length === 0 || v.trim() === '...';
+    if (Array.isArray(v))
+        return v.length === 0;
+    if (typeof v === 'object')
+        return Object.keys(v).length === 0;
+    return false;
 }
 // NF critique layer (book DNA + all 3 pipelines)
 var narrative_voice_nf_js_1 = require("./ai/narrative-voice-nf.js");

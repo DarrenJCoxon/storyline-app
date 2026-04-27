@@ -1,5 +1,12 @@
 # M7 — Tauri Desktop App
 
+> **Sequencing (decided 2026-04-26):** ship M6.5 (installer wrapper) **first** so we
+> have a real product on the market within weeks. M7 is the eventual "Storyline as
+> its own app" target — undertaken once M6.5 has validated demand and pricing,
+> typically Q2/Q3 after launch. The Tauri investment is 6–10 weeks; M6.5 is 1–2.
+> See [app-m6.5-installer-wrapper.md](./app-m6.5-installer-wrapper.md) for the
+> nearer-term plan.
+
 ## Goal
 
 True standalone desktop app. Writers download it, double-click, and it opens.

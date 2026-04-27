@@ -93,6 +93,28 @@ export function deriveCurrentStage(state: ProjectState): StageEntry | null {
   return null
 }
 
+/**
+ * Authoritative completion check for any fiction stage. Returns true iff
+ * every declarative requirement for the stage is satisfied. Stages with
+ * no declared requirement (e.g. critique, masterDoc) fall back to the
+ * `stages[id].completed` flag.
+ *
+ * Use this as the gate before marking a stage complete and advancing —
+ * it's the same logic that `deriveCurrentStage` uses to decide what's next.
+ */
+export function isStageComplete(stageId: string, state: ProjectState): boolean {
+  const req = STAGE_REQUIREMENTS[stageId]
+  if (!req) return !!state.stages?.[stageId]?.completed
+  if (req.fields.length === 0) return !!state.stages?.[stageId]?.completed
+  return req.fields.every(fn => !!fn(state))
+}
+
+/** Whether a stage has any declarative field requirement (vs only a completed flag). */
+export function hasTransitionRequirement(stageId: string): boolean {
+  const req = STAGE_REQUIREMENTS[stageId]
+  return !!req && req.fields.length > 0
+}
+
 export function calculateProgress(state: ProjectState): number {
   let completed = 0
   const total = STAGE_ORDER.length

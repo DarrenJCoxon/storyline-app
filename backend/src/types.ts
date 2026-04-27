@@ -71,7 +71,7 @@ export interface CritiqueRequest {
   licenceKey: string
   stageId: string
   state: Record<string, unknown>
-  tier?: 'haiku' | 'sonnet' | 'opus' | 'draft'
+  tier?: 'validate' | 'structural' | 'synthesis' | 'prose'
   qualityMode?: 'economy' | 'balanced' | 'premium'
   brief?: Record<string, unknown>
 }

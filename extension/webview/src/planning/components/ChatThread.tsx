@@ -41,6 +41,7 @@ export function ChatThread({ messages, streamingId }: Props) {
                 key={msg.id}
                 stageName={msg.stageCompleteCard.stageName}
                 statePath={msg.stageCompleteCard.statePath}
+                memoryMethod={msg.stageCompleteCard.memoryMethod}
               />
             )
           }

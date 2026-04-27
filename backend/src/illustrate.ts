@@ -72,7 +72,12 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
       form.set('size', oaSize)
       form.set('quality', quality)
       form.set('n', '1')
-      form.set('input_fidelity', body.inputFidelity ?? 'high')
+      // input_fidelity is only supported by gpt-image-1. The current
+      // gpt-image-2 model rejects it with a 400 (`invalid_input_fidelity_model`).
+      // Send it conditionally based on the model name.
+      if (/gpt-image-1\b/.test(oaModel)) {
+        form.set('input_fidelity', body.inputFidelity ?? 'high')
+      }
       // OpenAI's edits endpoint accepts repeated `image[]` form fields.
       refs.forEach((ref, i) => {
         const bytes = base64ToBytes(ref.base64)

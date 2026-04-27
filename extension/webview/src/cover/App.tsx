@@ -165,11 +165,15 @@ Style: continuation of front cover atmosphere — do not introduce new colours o
     return (
       <div className="cover-panel">
         <h1>Front Cover</h1>
-        <p className="subtitle">Approve to generate the back cover, or regenerate.</p>
+        <p className="subtitle">Save as ebook cover, generate the back for a print wraparound, or regenerate.</p>
         {s.frontUri && <img className="cover-preview-img" src={s.frontUri} alt="Front cover" />}
         {s.error && <div className="error-box">{s.error}</div>}
         <div className="action-row">
           <button className="btn-primary" onClick={() => {
+            vscode.postMessage({ type: 'saveFrontOnly', title: s.title, author: s.author })
+            dispatch({ type: 'init', payload: { screen: 'saving' } })
+          }}>Save (ebook only)</button>
+          <button className="btn-secondary" onClick={() => {
             const prompt = buildBackPrompt()
             dispatch({ type: 'progress', phase: '' })
             vscode.postMessage({ type: 'generateBack', prompt })

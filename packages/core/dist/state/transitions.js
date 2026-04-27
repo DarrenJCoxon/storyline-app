@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deriveCurrentStage = deriveCurrentStage;
+exports.isStageComplete = isStageComplete;
+exports.hasTransitionRequirement = hasTransitionRequirement;
 exports.calculateProgress = calculateProgress;
 exports.checkStageGate = checkStageGate;
 exports.getMissingRequirements = getMissingRequirements;
@@ -94,6 +96,28 @@ function deriveCurrentStage(state) {
         }
     }
     return null;
+}
+/**
+ * Authoritative completion check for any fiction stage. Returns true iff
+ * every declarative requirement for the stage is satisfied. Stages with
+ * no declared requirement (e.g. critique, masterDoc) fall back to the
+ * `stages[id].completed` flag.
+ *
+ * Use this as the gate before marking a stage complete and advancing —
+ * it's the same logic that `deriveCurrentStage` uses to decide what's next.
+ */
+function isStageComplete(stageId, state) {
+    const req = STAGE_REQUIREMENTS[stageId];
+    if (!req)
+        return !!state.stages?.[stageId]?.completed;
+    if (req.fields.length === 0)
+        return !!state.stages?.[stageId]?.completed;
+    return req.fields.every(fn => !!fn(state));
+}
+/** Whether a stage has any declarative field requirement (vs only a completed flag). */
+function hasTransitionRequirement(stageId) {
+    const req = STAGE_REQUIREMENTS[stageId];
+    return !!req && req.fields.length > 0;
 }
 function calculateProgress(state) {
     let completed = 0;

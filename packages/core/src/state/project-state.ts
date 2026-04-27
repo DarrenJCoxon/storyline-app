@@ -46,7 +46,11 @@ export interface ProjectState {
     createdAt: string | null
     updatedAt: string | null
   }
-  mode: Mode
+  // null until the writer picks via the mode gate. After the gate, this
+  // is always 'fiction' or 'nonfiction'. Don't pre-set it during scaffold —
+  // doing so makes deriveCurrentStage skip the mode gate while
+  // buildSystemPrompt still forces it, and the genre opener bleeds in.
+  mode: Mode | null
   pipeline: Pipeline
   subMode: SubMode
   bookDna: Record<string, unknown>
@@ -119,7 +123,7 @@ export interface ProjectState {
 
 export const DEFAULT_STATE: ProjectState = {
   _meta: { projectPath: null, createdAt: null, updatedAt: null },
-  mode: 'fiction',
+  mode: null,
   pipeline: 'novel',
   subMode: null,
   bookDna: {},

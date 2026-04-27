@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "publisher": "darrenjcoxon",
   "private": true,
   "engines": {
@@ -12,8 +12,7 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.storyline/state.json",
-    "onWalkthrough:storyline.welcome"
+    "workspaceContains:.storyline/state.json"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -29,10 +28,7 @@
       {
         "command": "storyline.openPlanning",
         "title": "Storyline: Open Planning Chat",
-        "icon": {
-          "light": "media/icon.svg",
-          "dark": "media/icon.svg"
-        }
+        "icon": "$(comment-discussion)"
       },
       {
         "command": "storyline.openEditor",
@@ -182,7 +178,7 @@
       "properties": {
         "storyline.backendUrl": {
           "type": "string",
-          "default": "https://api.storyline.app",
+          "default": "https://api.storyline.my",
           "description": "Backend URL for AI calls. Override to http://localhost:8787 for local development."
         },
         "storyline.aiQuality": {
@@ -246,13 +242,17 @@
     "package": "npm run build:dist && vsce package"
   },
   "dependencies": {
+    "@noble/ed25519": "^3.1.0",
     "@storyline/core": "file:../packages/core",
     "isomorphic-git": "^1.37.5",
     "lucide-react": "^1.11.0",
     "markdown-it": "^14.1.0",
+    "odd-flow": "^1.2.5",
     "openai": "^4.52.0",
     "react-markdown": "^10.1.0",
-    "sharp": "^0.33.0"
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.33.0",
+    "sql.js": "^1.14.1"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

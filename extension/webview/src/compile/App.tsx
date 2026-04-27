@@ -35,6 +35,9 @@ interface State {
   format: Format
   projectMode: 'fiction' | 'nonfiction'
   chapters: string[]
+  // Webview-safe URI for the cover thumbnail (built host-side via
+  // asWebviewUri). The actual cover path is in config.metadata.coverImage.
+  coverThumbUri: string | null
   phase: string
   success: boolean
   outputPath: string | null
@@ -44,11 +47,11 @@ interface State {
 }
 
 type Action =
-  | { type: 'init'; config: CompileConfig; projectMode: 'fiction' | 'nonfiction'; chapters: string[]; initialFormat?: Format }
+  | { type: 'init'; config: CompileConfig; projectMode: 'fiction' | 'nonfiction'; chapters: string[]; initialFormat?: Format; coverThumbUri?: string | null }
   | { type: 'setFormat'; format: Format }
   | { type: 'setTitle'; title: string }
   | { type: 'setAuthor'; author: string }
-  | { type: 'setCover'; coverPath: string }
+  | { type: 'setCover'; coverPath: string; coverThumbUri: string | null }
   | { type: 'setTheme'; theme: string }
   | { type: 'setCitationStyle'; style: 'chicago' | 'apa' | 'mla' }
   | { type: 'setGenerateExtras'; enabled: boolean }
@@ -66,6 +69,7 @@ function reduce(state: State, action: Action): State {
         projectMode: action.projectMode,
         chapters: action.chapters,
         format: action.initialFormat ?? state.format,
+        coverThumbUri: action.coverThumbUri ?? null,
       }
     case 'setFormat':
       return { ...state, format: action.format }
@@ -74,7 +78,19 @@ function reduce(state: State, action: Action): State {
     case 'setAuthor':
       return { ...state, config: { ...state.config, metadata: { ...state.config.metadata, author: action.author } } }
     case 'setCover':
-      return { ...state, config: { ...state.config, metadata: { ...state.config.metadata, coverImage: action.coverPath } } }
+      return {
+        ...state,
+        config: {
+          ...state.config,
+          metadata: {
+            ...state.config.metadata,
+            // Empty string from the host means "clear" — store as null so
+            // compile.config.json doesn't carry a stale path.
+            coverImage: action.coverPath ? action.coverPath : null,
+          },
+        },
+        coverThumbUri: action.coverThumbUri,
+      }
     case 'setTheme':
       return { ...state, config: { ...state.config, theme: action.theme } }
     case 'setCitationStyle':
@@ -108,6 +124,7 @@ const INITIAL: State = {
   format: 'epub',
   projectMode: 'fiction',
   chapters: [],
+  coverThumbUri: null,
   phase: '',
   success: false,
   outputPath: null,
@@ -132,13 +149,18 @@ export function App(): JSX.Element {
             projectMode: (msg.projectMode as 'fiction' | 'nonfiction') ?? 'fiction',
             chapters: (msg.chapters as string[]) ?? [],
             initialFormat: msg.initialFormat as Format | undefined,
+            coverThumbUri: (msg.coverThumbUri as string | null | undefined) ?? null,
           })
           break
         case 'setFormat':
           dispatch({ type: 'setFormat', format: msg.format as Format })
           break
         case 'coverImagePicked':
-          dispatch({ type: 'setCover', coverPath: msg.coverPath as string })
+          dispatch({
+            type: 'setCover',
+            coverPath: msg.coverPath as string,
+            coverThumbUri: (msg.coverThumbUri as string | null | undefined) ?? null,
+          })
           break
         case 'compileStart':
           dispatch({ type: 'compileStart', format: msg.format as Format })
@@ -170,7 +192,7 @@ export function App(): JSX.Element {
 // ── Form screen ───────────────────────────────────────────────────────────────
 
 function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }): JSX.Element {
-  const { config, format, projectMode, chapters } = state
+  const { config, format, projectMode, chapters, coverThumbUri } = state
   const { metadata } = config
   const coverName = metadata.coverImage ? metadata.coverImage.split('/').pop() : null
 
@@ -227,14 +249,23 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
         <div className="field">
           <label>Cover image</label>
           <div className="cover-row">
-            {coverName
-              ? <img className="cover-preview" src={`vscode-resource:${metadata.coverImage}`} alt="cover" />
+            {coverName && coverThumbUri
+              ? <img className="cover-preview" src={coverThumbUri} alt="cover" />
               : <div className="cover-placeholder"><ImageIcon size={20} strokeWidth={1.5} /></div>
             }
             <span className="cover-filename">{coverName ?? 'No image selected'}</span>
             <button className="btn-ghost" onClick={() => vscode.postMessage({ type: 'pickCoverImage' })}>
-              Choose…
+              {coverName ? 'Replace…' : 'Choose…'}
             </button>
+            {coverName && (
+              <button
+                className="btn-ghost"
+                onClick={() => vscode.postMessage({ type: 'clearCoverImage' })}
+                title="Remove cover image"
+              >
+                Remove
+              </button>
+            )}
           </div>
         </div>
       </div>

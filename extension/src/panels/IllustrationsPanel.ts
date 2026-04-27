@@ -10,7 +10,7 @@ import {
 import { LicenceManager } from '../auth/licence.js'
 import type { EditorPanel } from './EditorPanel.js'
 
-function getBackendUrl(): string { return vscode.workspace.getConfiguration("storyline").get<string>("backendUrl", "https://api.storyline.app").replace(/\/$/, "") }
+function getBackendUrl(): string { return vscode.workspace.getConfiguration("storyline").get<string>("backendUrl", "https://api.storyline.my").replace(/\/$/, "") }
 const ILLUSTRATIONS_DIR = 'assets/illustrations'
 
 export class IllustrationsPanel {

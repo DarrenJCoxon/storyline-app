@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -14,7 +14,7 @@ import type { AIProvider, Message } from '../ai/provider.js'
 import { getQualityMode } from '../ai/quality-config.js'
 
 function getBackendUrl(): string {
-  return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.app').replace(/\/$/, '')
+  return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
 }
 
 export class ChatPanel {
@@ -111,6 +111,8 @@ export class ChatPanel {
       providerName: this.getProviderName(licenceInfo),
     })
 
+    console.log('[Storyline] init: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
+
     if (currentStage) {
       const priorTurns = this.turnHistory.allForStage(currentStage.id)
       if (priorTurns.length > 0) {
@@ -119,6 +121,8 @@ export class ChatPanel {
       } else {
         await this.fireOpeningPrompt(currentStage.id, state)
       }
+    } else {
+      console.warn('[Storyline] init: no current stage derived — harness will not start')
     }
   }
 
@@ -139,6 +143,9 @@ export class ChatPanel {
         break
       case 'topUpCredits':
         await vscode.commands.executeCommand('storyline.topUpCredits')
+        break
+      case 'transcribe':
+        void this.handleTranscribe(msg.audioBase64 as string, msg.mimeType as string)
         break
     }
   }
@@ -177,6 +184,56 @@ export class ChatPanel {
     await this.applyEmittedPatches(full, currentStage.id)
   }
 
+  private async handleTranscribe(audioBase64: string, mimeType: string): Promise<void> {
+    const licenceKey = await this.licenceManager.getLicenceKey()
+    if (!licenceKey) {
+      this.post({ type: 'transcribeError', message: 'No licence key — activate Storyline first.' })
+      return
+    }
+
+    const state = this.store ? await this.store.read() : null
+    const projectContext = state ? this.buildProjectContext(state) : ''
+
+    try {
+      const body: Record<string, string> = { licenceKey, audioBase64, mimeType }
+      if (projectContext) body.projectContext = projectContext
+
+      const res = await fetch(`${getBackendUrl()}/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        this.post({ type: 'transcribeError', message: `Transcription failed (${res.status})${text ? ': ' + text : ''}` })
+        return
+      }
+
+      const data = await res.json() as { text?: string; error?: string }
+      if (data.text) {
+        this.post({ type: 'transcribeResult', text: data.text })
+      } else {
+        this.post({ type: 'transcribeError', message: data.error ?? 'Transcription returned no text.' })
+      }
+    } catch (err) {
+      this.post({ type: 'transcribeError', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  private buildProjectContext(state: ProjectState): string {
+    const parts: string[] = ['Storyline planning session.']
+    const logline = state.premise?.rawLogline ?? state.premise?.conceptHook
+    if (logline) parts.push(`Story: "${logline.slice(0, 100)}".`)
+    const genre = state.genre?.primaryGenre
+    if (genre) parts.push(`Genre: ${genre}.`)
+    const protagonist = state.protagonist?.name
+    if (protagonist) parts.push(`Protagonist: ${protagonist}.`)
+    const castNames = (state.characters ?? []).map(c => c.name).filter(Boolean).slice(0, 5).join(', ')
+    if (castNames) parts.push(`Characters: ${castNames}.`)
+    return parts.join(' ')
+  }
+
   private async applyEmittedPatches(aiText: string, stageId: string): Promise<void> {
     if (!this.store) return
     const patch = extractJsonBlock(aiText)
@@ -193,14 +250,37 @@ export class ChatPanel {
 
     const newState = await this.store.merge(normalizedPatch)
 
+    // Gate: every declarative requirement for this stage must be satisfied
+    // before we mark it complete and advance. Mirrors the original
+    // harness's `verify-stage` exit-non-zero behaviour. The captured
+    // (partial) values stay in state so the AI can build on them; we just
+    // don't advance the stage marker.
+    if (stageId !== 'mode') {
+      const gate = gateStageSave(stageId, newState)
+      if (!gate.complete) {
+        console.warn('[Storyline] Save gated — incomplete fields for', stageId, ':', gate.missing)
+        this.post({ type: 'saveGated', stageId, missing: gate.missing })
+        // Stay on the same stage. The writer's next turn carries the
+        // conversation forward — no synthetic re-prompt loop. Same shape
+        // as the original /storyline harness when verify-stage exits non-zero.
+        return
+      }
+    }
+
     const stagesPatch = {
       stages: { ...newState.stages, [stageId]: { completed: true } },
     }
     const finalState = await this.store.merge(stagesPatch)
 
-    pushToMemory(stageId, normalizedPatch).catch(() => { /* non-fatal */ })
+    // Await the memory push so we can surface the result to the webview.
+    // pushToMemory itself never throws — it returns { method, error? }.
+    pushToMemory(stageId, normalizedPatch).then(result => {
+      console.log(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
+      this.post({ type: 'memoryStored', stageId, method: result.method, error: result.error })
+    }).catch(err => console.warn('[Storyline] pushToMemory threw', err))
 
     const stageName = stageOrderFor(finalState).find(s => s.id === stageId)?.name ?? stageId
+    console.log(`[Storyline] stage SAVED: ${stageId} (${stageName}) — state.json updated`)
     this.post({
       type: 'stageComplete',
       stageId,
@@ -210,45 +290,71 @@ export class ChatPanel {
 
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (projectDir) {
-      writeAllChapterCards(finalState, projectDir).catch(() => { /* non-fatal */ })
+      writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
     }
 
+    // ── Post-save side-effects — every step is wrapped so a single failure
+    // can NEVER block the stage advance. The advance is the user-visible
+    // contract; everything else is best-effort.
+
     // 1. Story traps check
-    const trapResults = runStoryTraps(finalState)
-    if (trapResults.length > 0) {
-      this.post({ type: 'findingsCard', findings: trapResults.map(t => ({
-        id: t.id,
-        name: t.name,
-        severity: t.severity,
-        description: t.description,
-        details: t.details,
-        fixProtocol: t.fixProtocol,
-      })) })
+    try {
+      const trapResults = runStoryTraps(finalState)
+      if (trapResults.length > 0) {
+        this.post({ type: 'findingsCard', findings: trapResults.map(t => ({
+          id: t.id,
+          name: t.name,
+          severity: t.severity,
+          description: t.description,
+          details: t.details,
+          fixProtocol: t.fixProtocol,
+        })) })
+      }
+    } catch (err) {
+      console.warn('[Storyline] runStoryTraps failed', err)
     }
 
     // 2. Series detector (fiction only, after premise)
-    if (stageId === 'premise' && finalState.mode === 'fiction') {
-      const seriesResult = detectSeriesPotential(finalState.premise ?? {}, finalState.genre ?? {})
-      if (seriesResult.detected && seriesResult.suggestion) {
-        this.post({ type: 'seriesDetected', suggestion: seriesResult.suggestion, indicators: seriesResult.indicators })
+    try {
+      if (stageId === 'premise' && finalState.mode === 'fiction') {
+        const seriesResult = detectSeriesPotential(finalState.premise ?? {}, finalState.genre ?? {})
+        if (seriesResult.detected && seriesResult.suggestion) {
+          this.post({ type: 'seriesDetected', suggestion: seriesResult.suggestion, indicators: seriesResult.indicators })
+        }
       }
+    } catch (err) {
+      console.warn('[Storyline] detectSeriesPotential failed', err)
     }
 
     // 3. Downstream impacts warning
-    const impacts = getDownstreamImpacts(stageId)
-    if (impacts.length > 0) {
-      this.post({ type: 'downstreamImpacts', stageId, impacts })
+    try {
+      const impacts = getDownstreamImpacts(stageId)
+      if (impacts.length > 0) {
+        this.post({ type: 'downstreamImpacts', stageId, impacts })
+      }
+    } catch (err) {
+      console.warn('[Storyline] getDownstreamImpacts failed', err)
     }
 
     // 4. Write stage doc
     if (projectDir) {
-      writeStageDoc(stageId, finalState, projectDir).catch(() => { /* non-fatal */ })
+      writeStageDoc(stageId, finalState, projectDir)
+        .then(filePath => console.log(`[Storyline] stage doc: ${stageId} → ${filePath ?? '(no renderer)'}`))
+        .catch(err => console.warn('[Storyline] writeStageDoc failed', err))
     }
 
-    // 5. Tier-routed critique via backend /critique endpoint (managed provider only)
-    this.runCritique(stageId, finalState).catch(() => { /* non-fatal */ })
+    // ── Stage advance — MUST run, regardless of side-effect errors above.
+    let nextStage: ReturnType<typeof deriveCurrentStage> = null
+    try {
+      nextStage = deriveCurrentStage(finalState)
+    } catch (err) {
+      console.error('[Storyline] deriveCurrentStage failed after save — aborting advance', err)
+      this.post({ type: 'streamError', message: 'Could not determine next stage. Please reload the planning panel.' })
+      return
+    }
 
-    const nextStage = deriveCurrentStage(finalState)
+    console.log('[Storyline] advance:', stageId, '→', nextStage?.id ?? '(none)')
+
     if (nextStage) {
       this.post({
         type: 'stageAdvance',
@@ -256,10 +362,12 @@ export class ChatPanel {
           id: s.id,
           name: s.name,
           completed: !!finalState.stages?.[s.id]?.completed,
-          active: nextStage.id === s.id,
+          active: nextStage!.id === s.id,
         })),
       })
-      await this.fireOpeningPrompt(nextStage.id, finalState)
+      // Do NOT fire the opening prompt here. The user may want to respond to
+      // the AI's critique before moving on. The opener fires lazily on their
+      // next message via handleUserMessage → fireOpeningPrompt.
     }
   }
 
@@ -267,24 +375,23 @@ export class ChatPanel {
     if (!this.provider) return
 
     const systemPrompt = buildSystemPrompt(stageId, state)
-    const messages: Message[] = []
 
-    // Mode gate has no canned opener — the AI emits it from the system prompt.
-    if (stageId === 'mode') {
-      await this.streamResponse(stageId, systemPrompt, messages, state)
-      return
-    }
+    // OpenRouter / OpenAI-compatible APIs reject zero-message requests, so
+    // every kickoff carries a synthetic user turn that nudges the harness
+    // to begin. The harness's system prompt drives what the AI says next.
+    const kickoffText = stageId === 'mode'
+      ? "Hi — I'd like to start planning a book."
+      : `Begin the ${stageId} stage.`
 
-    // Pick the right harness for the project mode. NF projects walk Book
-    // DNA → chosen pipeline (A/B/C); fiction projects walk Save the Cat.
-    // getNfStageGuide spans DNA + all three pipelines, so we don't have
-    // to know which phase the writer is in.
-    const core = await import('@storyline/core')
-    const seed = state.mode === 'nonfiction'
-      ? core.getNfStageGuide(stageId)?.opening
-      : core.getStageGuide(stageId)?.opening
+    this.turnHistory.append(stageId, { role: 'user', content: kickoffText })
+    const messages: Message[] = this.turnHistory.allForStage(stageId)
 
-    await this.streamResponse(stageId, systemPrompt, messages, state, seed)
+    // No seed — the AI generates the opener fresh from the stage brief in
+    // the system prompt. Pre-seeding the canned `opening` caused
+    // duplication (AI re-stated the same line) and let the harness's
+    // SKILL.md persona blurb leak verbatim into the chat. The thinking
+    // indicator now covers the reasoning delay.
+    await this.streamResponse(stageId, systemPrompt, messages, state)
   }
 
   private async streamResponse(
@@ -316,6 +423,7 @@ export class ChatPanel {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      console.error('[Storyline] streamResponse failed:', err)
       if (msg.includes('402') || /credit|quota|exhausted/i.test(msg)) {
         this.post({ type: 'creditsExhausted' })
       } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
@@ -374,6 +482,12 @@ export class ChatPanel {
 
   private async runCritique(stageId: string, state: ProjectState): Promise<void> {
     if (!(this.provider instanceof ManagedProvider)) return
+    // Skip stages that have no narrative/structural content to critique.
+    // `mode` is a binary fiction/non-fiction gate; the master-doc stages
+    // are auto-generated synthesis outputs that already passed critique
+    // earlier. Running the structural critic on these produces the
+    // unhelpful "populate something first" reply.
+    if (NO_CRITIQUE_STAGES.has(stageId)) return
     const licenceKey = await this.licenceManager.getLicenceKey()
     if (!licenceKey) return
 
@@ -391,7 +505,7 @@ export class ChatPanel {
     if (!response.ok) return
     const data = await response.json() as { findings?: string; tier?: string }
     if (data.findings) {
-      this.post({ type: 'critiqueCard', findings: data.findings, tier: data.tier ?? 'sonnet', stageId })
+      this.post({ type: 'critiqueCard', findings: data.findings, tier: data.tier ?? 'structural', stageId })
     }
   }
 
@@ -440,3 +554,23 @@ function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
+
+const NO_CRITIQUE_STAGES = new Set<string>([
+  // No content to critique
+  'mode',
+  // Auto-generated synthesis output — already validated upstream
+  'masterDoc',
+  'pa-master',
+  'pb-master',
+  'pc-master',
+  // Validate-tier stages — schema-level nags that disrupt conversational
+  // flow. Required fields are already enforced by gateStageSave; the
+  // structural/synthesis tiers on later stages provide the real editorial
+  // critique. Original /storyline ran these silently; we suppress them
+  // entirely in the chat panel.
+  'genre',
+  'premise',
+  'characters',
+  'plotThreads',
+])
+

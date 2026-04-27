@@ -1,4 +1,5 @@
 import type { Env, CritiqueRequest, LicenceRecord } from './types.js'
+import { reasoningEffortForTier, buildReasoningParam } from './reasoning.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,17 +10,17 @@ const CORS = {
 // Workers cannot read from the filesystem at runtime, so prompts are inlined
 // here as string constants. Source-of-truth is backend/critique-prompts/*.md.
 
-const PROMPT_HAIKU = `You are a Storyline **schema validator**. Your job is fast, cheap, structured-capture validation for planning stages that are mostly about filling in a known shape — genre taxonomy, premise hook, supporting cast fields, plot thread registry. You do **not** provide narrative critique, character analysis, or thematic judgement. That is the Sonnet critic's job. You catch schema-level problems only.
+const PROMPT_VALIDATE = `You are a Storyline **schema validator**. Your job is fast, cheap, structured-capture validation for planning stages that are mostly about filling in a known shape — genre taxonomy, premise hook, supporting cast fields, plot thread registry. You do **not** provide narrative critique, character analysis, or thematic judgement. That is the structural critic's job. You catch schema-level problems only.
 
 ## First line of every reply
 
 Begin every response with:
 
 \`\`\`
-MODEL: haiku
+TIER: validate
 \`\`\`
 
-This line exists so the caller can verify a Haiku subagent actually ran. Never omit it.
+This line exists so the caller can verify the validate tier actually ran. Never omit it.
 
 ## Input you'll receive
 
@@ -81,17 +82,17 @@ If nothing's wrong:
 
 Terse. Direct. One sentence per marker where possible. No preamble, no summaries, no sign-off. Get in, flag the real problems, get out.`
 
-const PROMPT_SONNET = `You are a Storyline **structural critic**. Your job is the hard middle of the planning harness — the stages where a fact isn't wrong *per se* but a pattern is off. Beat function, character arc coherence, subplot interaction, scene-level dramatic change. You know Save the Cat cold and use its terminology like a working editor, not a textbook.
+const PROMPT_STRUCTURAL = `You are a Storyline **structural critic**. Your job is the hard middle of the planning harness — the stages where a fact isn't wrong *per se* but a pattern is off. Beat function, character arc coherence, subplot interaction, scene-level dramatic change. You know Save the Cat cold and use its terminology like a working editor, not a textbook.
 
 ## First line of every reply
 
 Begin every response with:
 
 \`\`\`
-MODEL: sonnet
+TIER: structural
 \`\`\`
 
-This line exists so the caller can verify a Sonnet subagent actually ran. Never omit it.
+This line exists so the caller can verify the structural tier actually ran. Never omit it.
 
 ## Input you'll receive
 
@@ -175,7 +176,7 @@ Start with the most severe issues. If something works, acknowledge it briefly �
 
 ## Scope boundaries
 
-- You do not do **whole-book cross-stage reasoning**. If the stage's critique needs you to hold every character, every beat, every subplot in mind at once and check coherence across all of them — that's the Opus critic's job (Stages 13 and 14). Decline with: "This needs cross-stage reasoning — escalate to storyline-critic-opus."
+- You do not do **whole-book cross-stage reasoning**. If the stage's critique needs you to hold every character, every beat, every subplot in mind at once and check coherence across all of them — that's the synthesis tier's job (Stages 13 and 14). Decline with: "This needs cross-stage reasoning — escalate to the synthesis tier."
 - You do not rewrite the writer's content. You flag; you suggest alternatives; you don't author.
 - You do not explain Save the Cat theory at length — the writer has a coach for that.
 - Be specific. "The midpoint feels like a setback, not a reversal" beats "needs more drama" every time.
@@ -184,17 +185,17 @@ Start with the most severe issues. If something works, acknowledge it briefly �
 
 Direct. Specific. Rooted in what makes gripping novels work. Use Save the Cat terminology naturally — midpoint flip, whiff of death, debate beat, promise of premise, second doorway. No preamble, no throat-clearing, no sign-off.`
 
-const PROMPT_OPUS = `You are a Storyline **whole-book editor**. Your job is the only part of the harness that demands every character, every beat, every subplot, every thread held in mind simultaneously. You do what the Haiku and Sonnet critics cannot — you see the *whole book*, check whether the plan coheres as one story, and you synthesise. This is reasoning-heavy, slow-by-design work. Earn the tier.
+const PROMPT_SYNTHESIS = `You are a Storyline **whole-book editor**. Your job is the only part of the harness that demands every character, every beat, every subplot, every thread held in mind simultaneously. You do what the validate and structural tiers cannot — you see the *whole book*, check whether the plan coheres as one story, and you synthesise. This is reasoning-heavy, slow-by-design work. Earn the tier.
 
 ## First line of every reply
 
 Begin every response with:
 
 \`\`\`
-MODEL: opus
+TIER: synthesis
 \`\`\`
 
-This line exists so the caller can verify an Opus subagent actually ran. Never omit it.
+This line exists so the caller can verify the synthesis tier actually ran. Never omit it.
 
 ## Input you'll receive
 
@@ -202,7 +203,7 @@ Typically the full \`.storyline/state.json\` or a large slice of it. Stages you 
 
 - **\`critique\`** (Stage 13 — Consistency & Critique) — cross-stage coherence check. Is the protagonist's flaw in Stage 3 still the thing sabotaging them at Beat 8? Is the B story's theme statement actually delivered in Act 3? Does every subplot resolve? Do chapter POVs honour the character arcs?
 - **\`masterDoc\`** (Stage 14 — Master Document) — synthesise the full plan into a narrative-readable document. Not a data dump — a writer-usable reference.
-- **Escalation from \`beatSheet\` or \`sceneOutline:critique\`** — when the Sonnet critic's output failed a confidence check. You're the second opinion; be more thorough than Sonnet was.
+- **Escalation from \`beatSheet\` or \`sceneOutline:critique\`** — when the structural critic's output failed a confidence check. You're the second opinion; be more thorough than the structural pass was.
 
 ## What to check — whole-book reasoning
 
@@ -226,11 +227,11 @@ Generate (or review the generator's output for) a *readable* master document —
 
 ### On escalation (Beat Sheet / Scene Outline critique)
 
-The Sonnet critic flagged something weak or generic. Be specific where they weren't. Cite beat numbers. Propose concrete alternatives rooted in the state snapshot, not in generic craft advice.
+The structural critic flagged something weak or generic. Be specific where they weren't. Cite beat numbers. Propose concrete alternatives rooted in the state snapshot, not in generic craft advice.
 
 ## Output format
 
-Same marker format as the Sonnet critic — Storyline parses these:
+Same marker format as the structural critic — Storyline parses these:
 
 \`\`\`
 🔴 ERROR: <story-breaking incoherence + which stages disagree>
@@ -252,17 +253,17 @@ For Stage 14 specifically: output the master document itself, sectioned, in narr
 
 Thorough but not padded. Every sentence earns its place at this tier — that's the point of using Opus. Use Save the Cat terminology naturally — midpoint flip, whiff of death, promise of premise, second doorway, break into two. Prioritise findings that would change what the writer does next. A single 🔴 that forces a Stage-3 revisit is worth more than fifteen 💡 markers.`
 
-const PROMPT_DRAFT = `You are a Storyline **draft critic**. Your job is to read a chapter of a writer's actual prose alongside the chapter's slice of the plan they made, and judge whether the prose delivers what the plan promised. You are not a prose stylist. You are not a copy editor. You are the one person in the writer's life holding both the beat sheet and the chapter open at the same time, asking: *did this scene do its job?*
+const PROMPT_PROSE = `You are a Storyline **prose-vs-plan critic**. Your job is to read a chapter of a writer's actual prose alongside the chapter's slice of the plan they made, and judge whether the prose delivers what the plan promised. You are not a prose stylist. You are not a copy editor. You are the one person in the writer's life holding both the beat sheet and the chapter open at the same time, asking: *did this scene do its job?*
 
 ## First line of every reply
 
 Begin every response with:
 
 \`\`\`
-MODEL: sonnet
+TIER: prose
 \`\`\`
 
-This line exists so the caller can verify a Sonnet subagent actually ran. Never omit it.
+This line exists so the caller can verify the prose tier actually ran. Never omit it.
 
 ## Input you'll receive
 
@@ -364,39 +365,39 @@ The writer wrote this chapter weeks or months ago. They're not in love with thei
 
 // ─── Type → system prompt map ────────────────────────────────────────────────
 
-type Tier = 'haiku' | 'sonnet' | 'opus' | 'draft'
+export type Tier = 'validate' | 'structural' | 'synthesis' | 'prose'
 
 const PROMPTS: Record<Tier, string> = {
-  haiku: PROMPT_HAIKU,
-  sonnet: PROMPT_SONNET,
-  opus: PROMPT_OPUS,
-  draft: PROMPT_DRAFT,
+  validate: PROMPT_VALIDATE,
+  structural: PROMPT_STRUCTURAL,
+  synthesis: PROMPT_SYNTHESIS,
+  prose: PROMPT_PROSE,
 }
 
 // ─── Credit costs per tier ───────────────────────────────────────────────────
 
 const CREDIT_COSTS: Record<Tier, number> = {
-  haiku: 1,
-  sonnet: 3,
-  opus: 8,
-  draft: 5,
+  validate: 1,
+  structural: 3,
+  synthesis: 8,
+  prose: 5,
 }
 
 // ─── Tier derivation from stageId ────────────────────────────────────────────
 
 function tierFromStageId(stageId: string): Tier {
-  const HAIKU_STAGES = new Set(['genre', 'premise', 'characters', 'plotThreads'])
-  const OPUS_STAGES = new Set([
+  const VALIDATE_STAGES = new Set(['genre', 'premise', 'characters', 'plotThreads'])
+  const SYNTHESIS_STAGES = new Set([
     'critique', 'masterDoc',
     'pa-critique', 'pa-master',
     'pb-critique', 'pb-master',
     'pc-critique', 'pc-master',
     'dna-consolidate', 'dna-idea',
   ])
-  if (HAIKU_STAGES.has(stageId)) return 'haiku'
-  if (OPUS_STAGES.has(stageId)) return 'opus'
-  if (stageId === 'draftCritique') return 'draft'
-  return 'sonnet'
+  if (VALIDATE_STAGES.has(stageId)) return 'validate'
+  if (SYNTHESIS_STAGES.has(stageId)) return 'synthesis'
+  if (stageId === 'draftCritique') return 'prose'
+  return 'structural'
 }
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -469,6 +470,7 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
         { role: 'user', content: userContent },
       ],
       stream: false,
+      reasoning: buildReasoningParam(reasoningEffortForTier(tier)),
     }),
   })
 

@@ -12,7 +12,7 @@ import { OllamaProvider } from '../ai/ollama-provider.js'
 import type { AIProvider } from '../ai/provider.js'
 
 function getBackendUrl(): string {
-  return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.app').replace(/\/$/, '')
+  return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
 }
 
 export class CoverPanel {
@@ -123,6 +123,9 @@ export class CoverPanel {
         break
       case 'useThisCover':
         await this.handleUseThisCover(msg)
+        break
+      case 'saveFrontOnly':
+        await this.handleSaveFrontOnly()
         break
       case 'revealFile': {
         const p = msg.path as string
@@ -357,6 +360,42 @@ export class CoverPanel {
         absolutePath: path.join(dir, name),
         isActive: name === activeName,
       }))
+  }
+
+  // Ebook-only save: take the active front cover, skip the wraparound
+  // composition entirely. Useful for writers shipping ebook only with
+  // no print plans, or who want to lock in the front before iterating
+  // on the back.
+  private async handleSaveFrontOnly(): Promise<void> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) return
+
+    const frontPath = this.activeCoverPath(projectDir, 'front')
+    if (!frontPath) {
+      this.post({ type: 'coverSaved', frontUri: null, wraparoundUri: null, wraparoundError: 'No active front cover.' })
+      return
+    }
+
+    // Mirror the front cover to assets/cover.jpg — same target the EPUB
+    // packager reads, so the ebook compile picks it up automatically.
+    try {
+      const assetsDir = path.join(projectDir, 'assets')
+      fs.mkdirSync(assetsDir, { recursive: true })
+      const ebookCoverPath = path.join(assetsDir, 'cover.jpg')
+      fs.copyFileSync(frontPath, ebookCoverPath)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      this.post({ type: 'coverSaved', frontUri: null, wraparoundUri: null, wraparoundError: `Could not save ebook cover: ${message}` })
+      return
+    }
+
+    this.post({
+      type: 'coverSaved',
+      frontUri: this.assetUri(path.join('assets', 'covers', path.basename(frontPath))),
+      wraparoundUri: null,
+      wraparoundError: null,
+    })
+    vscode.window.showInformationMessage('Ebook cover saved (assets/cover.jpg). Print wraparound not generated.')
   }
 
   private async handleUseThisCover(msg: Record<string, unknown>): Promise<void> {

@@ -41,7 +41,7 @@ export interface ProjectState {
         createdAt: string | null;
         updatedAt: string | null;
     };
-    mode: Mode;
+    mode: Mode | null;
     pipeline: Pipeline;
     subMode: SubMode;
     bookDna: Record<string, unknown>;

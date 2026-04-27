@@ -1,0 +1,207 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Heritage — Print variant (loaded on top of theme.css for 6x9 PDF)
+ *
+ * Same @page structure as the other themes (6x9, asymmetric margins,
+ * verso/recto running headers, chapter-first suppression). Heritage
+ * uses slightly more generous margins and small-caps running headers
+ * for the traditional trade-edition look.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Trim size + base margins ─────────────────────────────────────────── */
+
+/* Slightly more generous than Classic Serif — heritage typography wants
+ * more breathing room around the text block. */
+@page {
+  size: 6in 9in;
+  margin-top: 0.85in;
+  margin-bottom: 0.85in;
+  margin-outside: 0.75in;
+  margin-inside: 1in;
+}
+
+/* Verso (left) — even page numbers, book title top-left */
+@page :left {
+  margin-left: 0.75in;
+  margin-right: 1in;
+
+  @top-left {
+    content: string(book-title);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+                 Garamond, "Times New Roman", Times, serif;
+    font-size: 9pt;
+    font-variant: small-caps;
+    letter-spacing: 0.1em;
+    color: #555;
+    padding-bottom: 0.15in;
+  }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+                 Garamond, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Recto (right) — odd page numbers, chapter title top-right */
+@page :right {
+  margin-left: 1in;
+  margin-right: 0.75in;
+
+  @top-right {
+    content: string(chapter-title);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+                 Garamond, "Times New Roman", Times, serif;
+    font-size: 9pt;
+    font-variant: small-caps;
+    letter-spacing: 0.1em;
+    color: #555;
+    padding-bottom: 0.15in;
+  }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+                 Garamond, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Chapter first page: no running headers; page number stays. */
+@page chapter-first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+                 Garamond, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+@page :blank {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center { content: none; }
+}
+
+@page front-matter-page {
+  @top-left { content: none; }
+  @top-right { content: none; }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
+                 Garamond, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    color: #555;
+    padding-top: 0.15in;
+  }
+}
+
+/* Running-header string setters (shared pattern across themes). */
+
+.book-title-marker {
+  string-set: book-title content();
+  display: block;
+  height: 0;
+  line-height: 0;
+  font-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+section.chapter > h1 {
+  string-set: chapter-title content();
+}
+
+/* Section placement */
+
+section.front-matter {
+  page: front-matter-page;
+}
+
+section.chapter {
+  break-before: recto;
+}
+
+section.chapter > *:first-child {
+  page: chapter-first;
+}
+
+/* Print typography tweaks ─────────────────────────────────────────── */
+
+body {
+  font-family: var(--nw-body-font,
+               "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif);
+  font-size: 11pt;
+  line-height: 1.5;       /* a touch tighter than EPUB for fixed-page economy */
+  orphans: 3;
+  widows: 3;
+}
+
+/* Chapter heading: even more generous top margin on print — a heritage
+ * chapter page should feel like a fresh breath, about one-third down. */
+h1 {
+  margin-top: 2.75in;
+  margin-bottom: 1.25in;
+  font-size: 16pt;
+  font-variant: small-caps;
+  letter-spacing: 0.18em;
+  text-align: center;
+  page-break-before: auto;
+  break-before: auto;
+}
+
+/* Drop cap — four lines in print, slightly larger than EPUB so it reads
+ * well at fixed 11pt body text. */
+p.first::first-letter {
+  float: left;
+  font-size: 4.8em;
+  line-height: 0.82;
+  margin: 0.02em 0.1em 0 0;
+  padding: 0;
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Small-caps first line — tune slightly tighter for print */
+p.first::first-line {
+  font-variant: small-caps;
+  letter-spacing: 0.035em;
+}
+
+hr.scene-break + p::first-line {
+  font-variant: small-caps;
+  letter-spacing: 0.035em;
+}
+
+/* Scene break: tighter than EPUB */
+hr.scene-break {
+  margin: 1.5em 0;
+}
+
+hr.scene-break::before {
+  font-size: 13pt;
+  color: #777;
+}
+
+/* Table adjustments for print */
+table {
+  font-size: 10pt;
+}
+
+/* Widow-prevention: never break after a chapter heading */
+h1 + p,
+h1 + p.first {
+  break-before: avoid;
+  break-after: avoid;
+}

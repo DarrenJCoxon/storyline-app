@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Sparkles } from 'lucide-react'
 
 interface Props {
   content: string
@@ -125,10 +127,61 @@ function SaveCard({ payload }: { payload: Record<string, unknown> }): JSX.Elemen
   )
 }
 
+// ── Thinking indicator ────────────────────────────────────────────────────
+// Shown during the dead time between streamStart and the first chunk —
+// when the model is reasoning. Cycles through evocative words and pulses
+// a soft accent-coloured spark icon. Replaces the blinking cursor (which
+// looks broken when the wait is several seconds).
+
+const THINKING_WORDS = [
+  'Thinking',
+  'Considering',
+  'Reflecting',
+  'Working it through',
+  'Drafting',
+] as const
+
+function ThinkingIndicator() {
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setIdx(i => (i + 1) % THINKING_WORDS.length), 1800)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      color: 'var(--text-muted)',
+      fontSize: 'var(--font-size-body)',
+      lineHeight: 'var(--line-height)',
+      paddingTop: 2,
+    }}>
+      <motion.span
+        animate={{ opacity: [0.35, 1, 0.35], scale: [1, 1.12, 1] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ display: 'inline-flex', color: 'var(--accent)' }}
+      >
+        <Sparkles size={14} strokeWidth={2.2} />
+      </motion.span>
+      <motion.span
+        key={idx}
+        initial={{ opacity: 0, y: 3 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -3 }}
+        transition={{ duration: 0.25 }}
+      >
+        {THINKING_WORDS[idx]}…
+      </motion.span>
+    </div>
+  )
+}
+
 export function AIMessage({ content, streaming }: Props) {
   // Don't try to extract until streaming is done — partial JSON would parse-fail
   // and flicker between text and card.
   const { prose, payload } = streaming ? { prose: content, payload: null } : splitSaveBlock(content)
+  const isThinking = streaming && content.length === 0
 
   return (
     <motion.div
@@ -141,6 +194,7 @@ export function AIMessage({ content, streaming }: Props) {
         paddingRight: '14px',
       }}
     >
+      {isThinking && <ThinkingIndicator />}
       <div
         className="ai-markdown"
         style={{
@@ -152,6 +206,7 @@ export function AIMessage({ content, streaming }: Props) {
         }}
       >
         <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
           components={{
             p:    ({ node, ...props }) => <p style={{ margin: '0 0 0.6em' }} {...props} />,
             ul:   ({ node, ...props }) => <ul style={{ margin: '0 0 0.6em', paddingLeft: '1.2em' }} {...props} />,
@@ -165,13 +220,26 @@ export function AIMessage({ content, streaming }: Props) {
             strong: ({ node, ...props }) => <strong style={{ color: 'var(--text)' }} {...props} />,
             em:     ({ node, ...props }) => <em {...props} />,
             blockquote: ({ node, ...props }) => <blockquote style={{ borderLeft: '2px solid var(--accent-sub)', paddingLeft: '10px', margin: '0 0 0.6em', color: 'var(--text-muted)' }} {...props} />,
+            // GFM tables — bordered, zebra-striped, scroll horizontally on overflow
+            table: ({ node, ...props }) => (
+              <div style={{ overflowX: 'auto', margin: '0 0 0.8em' }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: '0.92em', width: '100%', border: '1px solid var(--sep)' }} {...props} />
+              </div>
+            ),
+            thead: ({ node, ...props }) => <thead style={{ background: 'var(--accent-sub)' }} {...props} />,
+            tbody: ({ node, ...props }) => <tbody {...props} />,
+            tr:    ({ node, ...props }) => <tr style={{ borderBottom: '1px solid var(--sep)' }} {...props} />,
+            th:    ({ node, ...props }) => <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, borderRight: '1px solid var(--sep)' }} {...props} />,
+            td:    ({ node, ...props }) => <td style={{ padding: '6px 10px', verticalAlign: 'top', borderRight: '1px solid var(--sep)' }} {...props} />,
+            // Strikethrough (GFM ~~text~~)
+            del:   ({ node, ...props }) => <del style={{ color: 'var(--text-muted)' }} {...props} />,
           }}
         >
           {prose}
         </ReactMarkdown>
         {payload && <SaveCard payload={payload} />}
       </div>
-      {streaming && <span className="streaming-cursor" />}
+      {streaming && !isThinking && <span className="streaming-cursor" />}
     </motion.div>
   )
 }

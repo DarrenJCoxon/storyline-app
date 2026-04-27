@@ -5,23 +5,29 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "LICENCES"
-id = "REPLACE_WITH_PRODUCTION_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "82c8f05dfd8949d5a7612e5079ad03e8"
+preview_id = "84387ea71f884b0ebbbd580a42196494"
 
 [vars]
 # Models used for all managed AI calls — can be changed without extension update
 CHAT_MODEL  = "deepseek/deepseek-v4-flash"
 IMAGE_MODEL = "openai/gpt-5.4-image-2"
 # Enables /dev/seed-licence — leave "true" only in dev. Production deploys must set this to "false".
-DEV_MODE    = "true"
+DEV_MODE    = "false"
 
 # Secrets (set via `wrangler secret put`):
 #   OPENROUTER_API_KEY   — master OpenRouter key, never leaves the Worker
 #   STRIPE_WEBHOOK_SECRET — for webhook signature verification
+#   OPENAI_API_KEY        — required for /transcribe (gpt-4o-mini-transcribe)
+
+[env.production.vars]
+CHAT_MODEL  = "deepseek/deepseek-v4-flash"
+IMAGE_MODEL = "openai/gpt-5.4-image-2"
+DEV_MODE    = "false"
 
 [dev]
 port = 8787
 
 [[routes]]
-pattern = "api.storyline.app/*"
-zone_name = "storyline.app"
+pattern = "api.storyline.my/*"
+zone_name = "storyline.my"

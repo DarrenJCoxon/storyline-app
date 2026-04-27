@@ -4,7 +4,7 @@ exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.NF_PIPELINE_C_STAGE_OR
 exports.stageOrderFor = stageOrderFor;
 exports.DEFAULT_STATE = {
     _meta: { projectPath: null, createdAt: null, updatedAt: null },
-    mode: 'fiction',
+    mode: null,
     pipeline: 'novel',
     subMode: null,
     bookDna: {},

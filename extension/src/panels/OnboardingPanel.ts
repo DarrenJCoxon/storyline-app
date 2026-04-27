@@ -4,7 +4,7 @@ import { LicenceManager } from '../auth/licence.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
 
-const BACKEND_URL = 'https://api.storyline.app'
+const BACKEND_URL = 'https://api.storyline.my'
 
 // Hardcoded free-tier key — the Worker's KV must have this seeded with
 // { type: 'free', valid: true, creditBalance: 50, totalPurchased: 50 }

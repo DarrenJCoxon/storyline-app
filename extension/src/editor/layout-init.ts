@@ -31,7 +31,7 @@ export async function initLayout(context: vscode.ExtensionContext): Promise<void
     await context.globalState.update(SETTINGS_KEY, true)
   }
 
-  // Create first chapter file if it doesn't exist
+  // Create first chapter file (silently — for later, when the user starts drafting)
   const chapter01 = path.join(root, 'manuscript', 'chapter-01.md')
   if (!fs.existsSync(chapter01)) {
     try {

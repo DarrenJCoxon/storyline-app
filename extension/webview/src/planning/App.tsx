@@ -29,7 +29,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   streaming?: boolean
-  stageCompleteCard?: { stageId: string; stageName: string; statePath: string }
+  stageCompleteCard?: { stageId: string; stageName: string; statePath: string; memoryMethod?: 'odd-flow' | 'jsonl' | 'skipped' }
   findingsCard?: { findings: StoryTrapFinding[] }
   seriesDetectedCard?: { suggestion: string; indicators: string[] }
   downstreamImpactsCard?: { stageId: string; impacts: string[] }
@@ -69,6 +69,8 @@ type Action =
   | { type: 'SERIES_DETECTED'; suggestion: string; indicators: string[] }
   | { type: 'DOWNSTREAM_IMPACTS'; stageId: string; impacts: string[] }
   | { type: 'CRITIQUE_CARD'; findings: string; tier: string; stageId: string }
+  | { type: 'MEMORY_STORED'; stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }
+  | { type: 'SAVE_GATED'; stageId: string; missing: string[] }
 
 function uid(): string {
   return Math.random().toString(36).slice(2)
@@ -191,6 +193,28 @@ function reducer(state: AppState, action: Action): AppState {
         messages: [...state.messages, { id: uid(), role: 'system', content: '', critiqueCard: { findings: action.findings, tier: action.tier, stageId: action.stageId } }],
       }
 
+    case 'SAVE_GATED': {
+      // Don't add a new card — just log via console for visibility, the AI
+      // will continue asking questions on the next turn. (We could add a
+      // muted "still gathering: X, Y, Z" inline note here later.)
+      console.warn('[Storyline] save gated', action.stageId, action.missing)
+      return state
+    }
+
+    case 'MEMORY_STORED': {
+      // Annotate the most-recent stage-complete card for this stageId
+      // with the memory method, instead of adding another card.
+      const updated = [...state.messages]
+      for (let i = updated.length - 1; i >= 0; i--) {
+        const m = updated[i]
+        if (m.stageCompleteCard?.stageId === action.stageId) {
+          updated[i] = { ...m, stageCompleteCard: { ...m.stageCompleteCard, memoryMethod: action.method } }
+          break
+        }
+      }
+      return { ...state, messages: updated }
+    }
+
     default:
       return state
   }
@@ -235,6 +259,8 @@ export function App() {
       on<{ suggestion: string; indicators: string[] }>('seriesDetected', m => dispatch({ type: 'SERIES_DETECTED', suggestion: m.suggestion, indicators: m.indicators })),
       on<{ stageId: string; impacts: string[] }>('downstreamImpacts', m => dispatch({ type: 'DOWNSTREAM_IMPACTS', stageId: m.stageId, impacts: m.impacts })),
       on<{ findings: string; tier: string; stageId: string }>('critiqueCard', m => dispatch({ type: 'CRITIQUE_CARD', findings: m.findings, tier: m.tier, stageId: m.stageId })),
+      on<{ stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }>('memoryStored', m => dispatch({ type: 'MEMORY_STORED', stageId: m.stageId, method: m.method, error: m.error })),
+      on<{ stageId: string; missing: string[] }>('saveGated', m => dispatch({ type: 'SAVE_GATED', stageId: m.stageId, missing: m.missing })),
     ]
     return () => offs.forEach(off => off())
   }, [on])
@@ -276,6 +302,36 @@ export function App() {
         messages={state.messages}
         streamingId={state.streamingId}
       />
+
+      {state.messages.length === 0 && !state.streamingId && state.stages.length > 0 && (
+        <div style={{
+          padding: '24px 28px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px',
+          flexShrink: 0,
+        }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '420px' }}>
+            Ready when you are. Storyline will walk you through Save the Cat (fiction) or Book DNA (non-fiction) one stage at a time.
+          </div>
+          <button
+            onClick={() => send({ type: 'send', text: "Hi — I'd like to start planning a book." })}
+            style={{
+              background: 'var(--accent)',
+              color: '#1A1A1A',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 18px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Begin planning
+          </button>
+        </div>
+      )}
 
       {state.creditsExhausted && (
         <div style={{

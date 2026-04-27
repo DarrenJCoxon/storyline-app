@@ -1,0 +1,7 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schemas/acl/capability.schema.json",
+  "identifier": "default",
+  "description": "Default permissions for the Storyline installer",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
