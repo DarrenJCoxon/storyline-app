@@ -1,6 +1,11 @@
 import type { Env, ValidateRequest, ValidateResponse, LicenceRecord } from './types.js'
+import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 
 export async function handleValidate(req: Request, env: Env): Promise<Response> {
+  // Rate limit: 10 attempts per IP per minute — prevents key enumeration
+  const rl = await checkRateLimit(req, env, { prefix: 'rl:validate', max: 10, windowSecs: 60 })
+  if (rl.limited) return rateLimitedResponse(rl.retryAfter)
+
   let body: ValidateRequest
   try {
     body = await req.json()

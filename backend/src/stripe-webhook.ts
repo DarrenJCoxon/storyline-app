@@ -74,8 +74,8 @@ async function handleCheckoutComplete(
   if (email) {
     const normalised = email.trim().toLowerCase()
     await env.LICENCES.put(`email:${normalised}`, licenceKey)
-    if (env.RESEND_API_KEY) {
-      await sendLicenceEmail(normalised, licenceKey, env.RESEND_API_KEY).catch(err =>
+    if (env.POSTMARK_API_KEY) {
+      await sendLicenceEmail(normalised, licenceKey, env.POSTMARK_API_KEY).catch(err =>
         console.error('[stripe-webhook] email send failed:', err),
       )
     }

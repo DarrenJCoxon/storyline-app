@@ -1,30 +1,32 @@
-const RESEND_API = 'https://api.resend.com/emails'
+const POSTMARK_API = 'https://api.postmarkapp.com/email'
 const FROM = 'Storyline <hello@storyline.my>'
 
 export async function sendLicenceEmail(
   to: string,
   licenceKey: string,
-  resendApiKey: string,
+  postmarkApiKey: string,
 ): Promise<void> {
   const body = JSON.stringify({
-    from: FROM,
-    to: [to],
-    subject: 'Your Storyline licence key',
-    html: licenceEmailHtml(licenceKey),
+    From: FROM,
+    To: to,
+    Subject: 'Your Storyline licence key',
+    HtmlBody: licenceEmailHtml(licenceKey),
+    MessageStream: 'outbound',
   })
 
-  const res = await fetch(RESEND_API, {
+  const res = await fetch(POSTMARK_API, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${resendApiKey}`,
+      'X-Postmark-Server-Token': postmarkApiKey,
       'Content-Type': 'application/json',
+      Accept: 'application/json',
     },
     body,
   })
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Resend error ${res.status}: ${text}`)
+    throw new Error(`Postmark error ${res.status}: ${text}`)
   }
 }
 

@@ -1,27 +1,51 @@
 import type { Env } from './types.js'
 import { sendLicenceEmail } from './email.js'
+import { checkRateLimit } from './rate-limit.js'
 
 export async function handleResendKey(req: Request, env: Env): Promise<Response> {
   // GET → show the self-service form
   if (req.method === 'GET') {
-    return new Response(resendFormHtml(), {
+    return new Response(resendFormHtml(env.TURNSTILE_SITE_KEY), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     })
   }
 
+  // Rate limit: 3 attempts per IP per hour
+  const rl = await checkRateLimit(req, env, { prefix: 'rl:resend', max: 3, windowSecs: 3600 })
+  if (rl.limited) {
+    return new Response(
+      resendFormHtml(env.TURNSTILE_SITE_KEY, 'Too many attempts — please try again later.'),
+      { status: 429, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+  }
+
   // POST → look up and resend
   let email: string | undefined
+  let turnstileToken: string | undefined
   const ct = req.headers.get('Content-Type') ?? ''
   if (ct.includes('application/json')) {
-    const body = await req.json().catch(() => ({})) as { email?: string }
+    const body = await req.json().catch(() => ({})) as { email?: string; token?: string }
     email = body.email
+    turnstileToken = body.token
   } else {
     const form = await req.formData().catch(() => null)
     email = form?.get('email')?.toString()
+    turnstileToken = form?.get('cf-turnstile-response')?.toString()
+  }
+
+  // Verify Turnstile token when configured
+  if (env.TURNSTILE_SECRET_KEY) {
+    const valid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, req)
+    if (!valid) {
+      return new Response(
+        resendFormHtml(env.TURNSTILE_SITE_KEY, 'Bot check failed — please try again.'),
+        { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+      )
+    }
   }
 
   if (!email?.includes('@')) {
-    return new Response(resendFormHtml('Please enter a valid email address.'), {
+    return new Response(resendFormHtml(env.TURNSTILE_SITE_KEY, 'Please enter a valid email address.'), {
       status: 400,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     })
@@ -31,11 +55,11 @@ export async function handleResendKey(req: Request, env: Env): Promise<Response>
   const licenceKey = await env.LICENCES.get(`email:${normalised}`)
 
   // Always return success — don't reveal whether an email is registered
-  if (licenceKey && env.RESEND_API_KEY) {
+  if (licenceKey && env.POSTMARK_API_KEY) {
     try {
-      await sendLicenceEmail(normalised, licenceKey, env.RESEND_API_KEY)
+      await sendLicenceEmail(normalised, licenceKey, env.POSTMARK_API_KEY)
     } catch (err) {
-      console.error('Resend error:', err)
+      console.error('Postmark error:', err)
     }
   }
 
@@ -44,7 +68,34 @@ export async function handleResendKey(req: Request, env: Env): Promise<Response>
   })
 }
 
-function resendFormHtml(error?: string): string {
+async function verifyTurnstile(
+  token: string | undefined,
+  secret: string,
+  req: Request,
+): Promise<boolean> {
+  if (!token) return false
+  const ip = req.headers.get('CF-Connecting-IP') ?? undefined
+  const body = new FormData()
+  body.append('secret', secret)
+  body.append('response', token)
+  if (ip) body.append('remoteip', ip)
+
+  const res = await fetch('https://challenges.cloudflare.com/turnstile/v1/siteverify', {
+    method: 'POST',
+    body,
+  }).catch(() => null)
+
+  if (!res?.ok) return false
+  const data = await res.json() as { success: boolean }
+  return data.success === true
+}
+
+function resendFormHtml(siteKey?: string, error?: string): string {
+  const turnstileWidget = siteKey
+    ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <div class="cf-turnstile" data-sitekey="${siteKey}" data-theme="dark" style="margin-top:16px"></div>`
+    : ''
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,6 +123,7 @@ function resendFormHtml(error?: string): string {
     <form method="POST">
       <label for="email">Email address</label>
       <input type="email" id="email" name="email" placeholder="you@example.com" required autofocus>
+      ${turnstileWidget}
       <button type="submit">Send my key</button>
     </form>
   </div>

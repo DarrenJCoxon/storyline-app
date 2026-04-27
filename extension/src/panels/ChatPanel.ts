@@ -83,6 +83,16 @@ export class ChatPanel {
   // this.initialised so it only runs once per panel lifetime. State delivery
   // to the webview always runs so a reloaded webview is never stuck.
   private async handleWebviewReady(): Promise<void> {
+    try {
+      await this._handleWebviewReady()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[Storyline] handleWebviewReady threw:', err)
+      this.post({ type: 'streamError', message: `Startup error: ${msg}` })
+    }
+  }
+
+  private async _handleWebviewReady(): Promise<void> {
     if (!this.initialised) {
       this.initialised = true
 
@@ -102,7 +112,8 @@ export class ChatPanel {
       this.provider = await this.resolveProvider(licenceInfo)
     }
 
-    if (!this.store || !this.provider) return
+    if (!this.store) { this.post({ type: 'error', message: 'DEBUG: store is null — no workspace folder open' }); return }
+    if (!this.provider) { this.post({ type: 'error', message: 'DEBUG: provider is null — licence validation failed' }); return }
 
     const licenceInfo = await this.licenceManager.validate({ useCache: true })
     const state = await this.store.read()
@@ -125,16 +136,19 @@ export class ChatPanel {
 
     console.log('[Storyline] ready: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
 
+    if (!currentStage) {
+      this.post({ type: 'error', message: `DEBUG: no active stage (mode=${state.mode ?? 'unset'})` })
+      return
+    }
+
     const displayTurns = this.turnHistory.allDisplay()
     if (displayTurns.length > 0) {
       this.post({ type: 'restoreMessages', turns: displayTurns })
-      if (currentStage && this.turnHistory.allForStage(currentStage.id).length === 0) {
+      if (this.turnHistory.allForStage(currentStage.id).length === 0) {
         await this.fireOpeningPrompt(currentStage.id, state)
       }
-    } else if (currentStage) {
-      await this.fireOpeningPrompt(currentStage.id, state)
     } else {
-      console.warn('[Storyline] ready: no current stage derived — harness will not start')
+      await this.fireOpeningPrompt(currentStage.id, state)
     }
   }
 
@@ -549,7 +563,10 @@ export class ChatPanel {
   }
 
   private async fireOpeningPrompt(stageId: string, state: ProjectState): Promise<void> {
-    if (!this.provider) return
+    if (!this.provider) {
+      this.post({ type: 'error', message: `DEBUG: fireOpeningPrompt — provider null at stage ${stageId}` })
+      return
+    }
 
     const systemPrompt = buildSystemPrompt(stageId, state)
 

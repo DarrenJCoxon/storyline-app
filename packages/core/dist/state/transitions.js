@@ -66,6 +66,7 @@ const STAGE_REQUIREMENTS = {
     critique: { fields: [], skippable: true },
     masterDoc: { fields: [], skippable: true },
 };
+const VALID_NF_PIPELINES = new Set(['A', 'B', 'C']);
 function deriveCurrentStage(state) {
     // The mode gate is universal — until that's set, no progression.
     if (!state.mode) {
@@ -94,6 +95,14 @@ function deriveCurrentStage(state) {
             if (!completed)
                 return stage;
         }
+    }
+    // Nonfiction guard: if all DNA stages are complete but no valid pipeline
+    // was chosen (LLM saved wrong value), re-enter dna-consolidate so the AI
+    // asks the pipeline question again and saves A, B, or C.
+    if (state.mode === 'nonfiction' && !VALID_NF_PIPELINES.has(state.pipeline)) {
+        const consolidate = order.find(s => s.id === 'dna-consolidate');
+        if (consolidate)
+            return consolidate;
     }
     return null;
 }
