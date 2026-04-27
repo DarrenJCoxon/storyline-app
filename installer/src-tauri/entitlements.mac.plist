@@ -10,6 +10,10 @@
   <key>com.apple.security.files.downloads.read-write</key>
   <true/>
 
+  <!-- WebKit JIT — required for WebView under hardened runtime -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+
   <!-- Not sandboxed — we need write access to /Applications -->
   <key>com.apple.security.app-sandbox</key>
   <false/>
