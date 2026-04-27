@@ -93,6 +93,40 @@ jobs:
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
           releaseName: 'Storyline ${{ github.ref_name }}'
-          releaseBody: 'Download the Storyline installer for your Mac below.'
+          releaseBody: 'Download the Storyline installer below.'
+          releaseDraft: true
+          prerelease: false
+
+  build-windows:
+    name: Build Windows
+    needs: build-vsix
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: storyline-vsix
+          path: installer/src-tauri/resources/
+
+      - name: Install frontend deps
+        working-directory: installer
+        run: npm ci
+
+      - name: Build (unsigned)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: installer
+          args: '--target x86_64-pc-windows-msvc'
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Storyline ${{ github.ref_name }}'
+          releaseBody: 'Download the Storyline installer below.'
           releaseDraft: true
           prerelease: false
