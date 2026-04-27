@@ -5,6 +5,8 @@ import { handleCritique } from './critique.js'
 import { handleIllustrate } from './illustrate.js'
 import { handleStripeWebhook } from './stripe-webhook.js'
 import { handleTranscribe } from './transcribe.js'
+import { handleSuccess } from './success.js'
+import { handleResendKey } from './resend-key.js'
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -15,10 +17,18 @@ export default {
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'content-type',
         },
       })
+    }
+
+    // GET-only and GET+POST pages
+    if (req.method === 'GET' && pathname === '/success') {
+      return handleSuccess(req, env)
+    }
+    if ((req.method === 'GET' || req.method === 'POST') && pathname === '/resend-key') {
+      return handleResendKey(req, env)
     }
 
     if (req.method !== 'POST') {
@@ -37,6 +47,7 @@ export default {
       case '/transcribe':
         return handleTranscribe(req, env)
       case '/stripe-webhook':
+      case '/stripe/webhook':
         return handleStripeWebhook(req, env)
       case '/dev/seed-licence':
         return handleDevSeed(req, env)

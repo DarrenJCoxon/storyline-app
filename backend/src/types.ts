@@ -15,6 +15,7 @@ export interface Env {
    *  substitute gpt-image-1, gpt-image-1.5, dall-e-3, etc. */
   OPENAI_IMAGE_MODEL?: string
   DEV_MODE?: string
+  RESEND_API_KEY?: string
 }
 
 export interface IllustrateRequest {

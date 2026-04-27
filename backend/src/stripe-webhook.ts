@@ -1,4 +1,5 @@
 import type { Env, LicenceRecord, LicenceType } from './types.js'
+import { sendLicenceEmail } from './email.js'
 
 // Credit allocations per product (mapped by Stripe price/product metadata)
 const PRODUCT_CREDITS: Record<string, number> = {
@@ -61,12 +62,24 @@ async function handleCheckoutComplete(
 
   await env.LICENCES.put(licenceKey, JSON.stringify(record))
 
-  // The licence key is emailed to the customer via Stripe's receipt
-  // metadata — see Stripe dashboard receipt template configuration.
-  // We store it on the session metadata so the receipt template can
-  // reference {{metadata.licence_key}}.
-  // (Actual Stripe API call to update session metadata omitted here —
-  //  do this before creating the checkout session in the purchase flow.)
+  // Store session → licence key so the /success page can look it up (48h TTL)
+  const sessionId = session.id as string | undefined
+  if (sessionId) {
+    await env.LICENCES.put(`session:${sessionId}`, licenceKey, { expirationTtl: 172800 })
+  }
+
+  // Store email → licence key for self-service key recovery
+  const customerDetails = session.customer_details as Record<string, unknown> | undefined
+  const email = customerDetails?.email as string | undefined
+  if (email) {
+    const normalised = email.trim().toLowerCase()
+    await env.LICENCES.put(`email:${normalised}`, licenceKey)
+    if (env.RESEND_API_KEY) {
+      await sendLicenceEmail(normalised, licenceKey, env.RESEND_API_KEY).catch(err =>
+        console.error('[stripe-webhook] email send failed:', err),
+      )
+    }
+  }
 }
 
 async function handleTopup(

@@ -10,6 +10,7 @@ import { TurnHistory } from '../conversation/turn-history.js'
 import { LocalStore, extractJsonBlock } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
+import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
 import { ManagedProvider } from '../ai/managed-provider.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
@@ -562,6 +563,7 @@ export class ChatPanel {
       console.error('[Storyline] streamResponse failed:', err)
       if (msg.includes('402') || /credit|quota|exhausted/i.test(msg)) {
         this.post({ type: 'creditsExhausted' })
+        void promptOnCreditsExhausted(this.context, getBackendUrl())
       } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
         // Stale cached credit balance was masking a backend rejection.
         // Drop the cache so the next validate hits /validate fresh, then

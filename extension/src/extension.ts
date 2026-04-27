@@ -16,6 +16,7 @@ import { openLivePreview } from './preview/live-preview-command.js'
 import { openPreview } from './preview/preview-command.js'
 import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
+import { checkLicencePrompt } from './onboarding/licence-prompt.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
 import { LocalStore } from './state/local-store.js'
@@ -457,6 +458,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Update check — once per 24h, non-blocking
   void checkForUpdate(context)
+
+  // Licence prompt — show on startup if no key or snooze expired
+  void checkLicencePrompt(context, getBackendUrl())
 }
 
 export function deactivate(): void {}
