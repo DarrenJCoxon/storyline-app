@@ -130,3 +130,21 @@ jobs:
           releaseBody: 'Download the Storyline installer below.'
           releaseDraft: true
           prerelease: false
+
+  upload-vsix:
+    name: Attach VSIX to Release
+    needs: [build-macos, build-vsix]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: storyline-vsix
+          path: .
+
+      - name: Upload VSIX to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: storyline.vsix
+          draft: true

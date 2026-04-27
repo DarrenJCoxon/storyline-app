@@ -11,93 +11,49 @@ interface UseDictationOptions {
 
 export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOptions) {
   const [dictState, setDictState] = useState<DictationState>('idle')
+  const [dictError, setDictError] = useState<string | null>(null)
+  const [micDevice, setMicDevice] = useState<string | null>(null)
   const { on, send } = useVSCode()
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const streamRef = useRef<MediaStream | null>(null)
-
+  const dictStateRef = useRef<DictationState>('idle')
   const altHeldRef = useRef(false)
   const altHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toggleLockedRef = useRef(false)
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cleanup on unmount
+  useEffect(() => { dictStateRef.current = dictState }, [dictState])
+
   useEffect(() => {
     return () => {
-      const rec = mediaRecorderRef.current
-      if (rec && rec.state !== 'inactive') {
-        rec.ondataavailable = null
-        rec.onstop = null
-        rec.stop()
-      }
-      streamRef.current?.getTracks().forEach(t => t.stop())
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
     }
   }, [])
 
-  const startRecording = useCallback(async () => {
-    if (dictState !== 'idle') return
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
+  // Request current device on mount
+  useEffect(() => { send({ type: 'getMicDevice' }) }, [send])
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm'
+  const showError = useCallback((msg: string) => {
+    setDictError(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setDictError(null), 6000)
+  }, [])
 
-      const recorder = new MediaRecorder(stream, { mimeType })
-      chunksRef.current = []
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-      recorder.start(250)
-      mediaRecorderRef.current = recorder
-      setDictState('recording')
-    } catch {
-      setDictState('idle')
-    }
-  }, [dictState])
+  const startRecording = useCallback(() => {
+    if (dictStateRef.current !== 'idle') return
+    setDictError(null)
+    send({ type: 'startRecording' })
+  }, [send])
 
   const stopAndTranscribe = useCallback(() => {
-    const recorder = mediaRecorderRef.current
-    if (!recorder || recorder.state === 'inactive') return
-
+    if (dictStateRef.current !== 'recording') return
     setDictState('transcribing')
-
-    recorder.onstop = async () => {
-      const mimeType = recorder.mimeType || 'audio/webm'
-      const blob = new Blob(chunksRef.current, { type: mimeType })
-
-      streamRef.current?.getTracks().forEach(t => t.stop())
-      streamRef.current = null
-      mediaRecorderRef.current = null
-
-      // Convert to base64 in chunks to avoid call stack overflow on large blobs
-      const buffer = await blob.arrayBuffer()
-      const uint8 = new Uint8Array(buffer)
-      let binary = ''
-      const CHUNK = 8192
-      for (let i = 0; i < uint8.length; i += CHUNK) {
-        binary += String.fromCharCode(...Array.from(uint8.slice(i, i + CHUNK)))
-      }
-      const audioBase64 = btoa(binary)
-
-      send({ type: 'transcribe', audioBase64, mimeType })
-    }
-
-    recorder.stop()
+    send({ type: 'stopRecording' })
   }, [send])
 
   const cancelRecording = useCallback(() => {
-    const recorder = mediaRecorderRef.current
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.ondataavailable = null
-      recorder.onstop = null
-      recorder.stop()
-    }
-    mediaRecorderRef.current = null
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-    chunksRef.current = []
+    const state = dictStateRef.current
+    if (state === 'idle') return
+    send({ type: 'cancelRecording' })
     toggleLockedRef.current = false
     altHeldRef.current = false
     if (altHoldTimerRef.current) {
@@ -105,10 +61,25 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
       altHoldTimerRef.current = null
     }
     setDictState('idle')
-  }, [])
+  }, [send])
 
-  // Receive transcript from extension host and insert at cursor
+  const selectMic = useCallback(() => {
+    send({ type: 'selectMic' })
+  }, [send])
+
+  // Messages from extension host
   useEffect(() => {
+    const offStarted = on<Record<string, never>>('recordingStarted', () => {
+      setDictState('recording')
+      setDictError(null)
+    })
+
+    const offFailed = on<{ message: string }>('recordingFailed', ({ message }) => {
+      showError(message)
+      setDictState('idle')
+      toggleLockedRef.current = false
+    })
+
     const offResult = on<{ text: string }>('transcribeResult', ({ text }) => {
       const el = textareaRef.current
       const cursorPos = el?.selectionStart ?? getValue().length
@@ -124,36 +95,40 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
       toggleLockedRef.current = false
     })
 
-    const offError = on<{ message: string }>('transcribeError', () => {
+    const offError = on<{ message: string }>('transcribeError', ({ message }) => {
+      showError(message)
       setDictState('idle')
       toggleLockedRef.current = false
     })
 
-    return () => { offResult(); offError() }
-  }, [on, textareaRef, getValue, onInsert])
+    const offDevice = on<{ device: string | null }>('micDeviceChanged', ({ device }) => {
+      setMicDevice(device)
+    })
+
+    return () => { offStarted(); offFailed(); offResult(); offError(); offDevice() }
+  }, [on, textareaRef, getValue, onInsert, showError])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // ⌥Space → toggle lock on/off
+    const state = dictStateRef.current
+
     if (e.altKey && e.code === 'Space') {
       e.preventDefault()
-      if (toggleLockedRef.current || dictState === 'recording') {
+      if (toggleLockedRef.current || state === 'recording') {
         toggleLockedRef.current = false
-        if (dictState === 'recording') stopAndTranscribe()
-      } else if (dictState === 'idle') {
+        if (state === 'recording') stopAndTranscribe()
+      } else if (state === 'idle') {
         toggleLockedRef.current = true
         startRecording()
       }
       return
     }
 
-    // Esc → cancel
-    if (e.key === 'Escape' && (dictState === 'recording' || dictState === 'transcribing')) {
+    if (e.key === 'Escape' && (state === 'recording' || state === 'transcribing')) {
       e.preventDefault()
       cancelRecording()
       return
     }
 
-    // ⌥ hold → push-to-talk (150ms threshold)
     if (e.key === 'Alt' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       if (toggleLockedRef.current) return
       if (!altHeldRef.current) {
@@ -163,7 +138,7 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
         }, 150)
       }
     }
-  }, [dictState, startRecording, stopAndTranscribe, cancelRecording])
+  }, [startRecording, stopAndTranscribe, cancelRecording])
 
   const handleKeyUp = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Alt') {
@@ -172,12 +147,11 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
         clearTimeout(altHoldTimerRef.current)
         altHoldTimerRef.current = null
       }
-      // Release ⌥ in push-to-talk mode → stop recording
-      if (!toggleLockedRef.current && dictState === 'recording') {
+      if (!toggleLockedRef.current && dictStateRef.current === 'recording') {
         stopAndTranscribe()
       }
     }
-  }, [dictState, stopAndTranscribe])
+  }, [stopAndTranscribe])
 
-  return { dictState, handleKeyDown, handleKeyUp, cancelRecording }
+  return { dictState, dictError, micDevice, handleKeyDown, handleKeyUp, cancelRecording, startRecording, selectMic }
 }

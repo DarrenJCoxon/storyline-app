@@ -101,6 +101,18 @@ fn launch_vscode(app: tauri::AppHandle) -> Result<(), String> {
         .args(["-n", &project_str])
         .spawn()
         .map_err(|e| format!("Could not open VS Code: {e}"))?;
+
+    // Close the installer window from the Rust side — more reliable than
+    // relying on JS permissions. Spawn a thread so we don't block the
+    // command return (the JS side briefly shows success before closing).
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(800));
+        if let Some(win) = app_handle.get_webview_window("main") {
+            let _ = win.close();
+        }
+    });
+
     Ok(())
 }
 

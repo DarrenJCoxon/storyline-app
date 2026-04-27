@@ -19,6 +19,7 @@ import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
 import { LocalStore } from './state/local-store.js'
+import { checkForUpdate } from './update/auto-updater.js'
 
 function getBackendUrl(): string {
   return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
@@ -453,6 +454,9 @@ export function activate(context: vscode.ExtensionContext): void {
       void initLayout(context)
     }
   })
+
+  // Update check — once per 24h, non-blocking
+  void checkForUpdate(context)
 }
 
 export function deactivate(): void {}

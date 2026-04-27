@@ -52,7 +52,11 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
   const audioBlob = new Blob([bytes], { type: body.mimeType })
 
   const oaiForm = new FormData()
-  oaiForm.append('file', audioBlob, 'audio.webm')
+  const ext = body.mimeType.includes('wav') ? 'wav'
+    : body.mimeType.includes('mp4') || body.mimeType.includes('m4a') ? 'm4a'
+    : body.mimeType.includes('ogg') ? 'ogg'
+    : 'webm'
+  oaiForm.append('file', audioBlob, `audio.${ext}`)
   oaiForm.append('model', 'gpt-4o-mini-transcribe')
   oaiForm.append('response_format', 'json')
   if (body.projectContext) {

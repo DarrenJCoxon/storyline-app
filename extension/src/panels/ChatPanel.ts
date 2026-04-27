@@ -1,5 +1,8 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
+import * as os from 'os'
+import * as fs from 'fs'
+import { spawn, type ChildProcess, execSync } from 'child_process'
 import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
@@ -27,6 +30,8 @@ export class ChatPanel {
   private store: LocalStore | null = null
   private provider: AIProvider | null = null
   private initialised = false
+  private recordingProcess: ChildProcess | null = null
+  private recordingTempFile: string | null = null
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -144,8 +149,20 @@ export class ChatPanel {
       case 'topUpCredits':
         await vscode.commands.executeCommand('storyline.topUpCredits')
         break
-      case 'transcribe':
-        void this.handleTranscribe(msg.audioBase64 as string, msg.mimeType as string)
+      case 'startRecording':
+        void this.handleStartRecording()
+        break
+      case 'stopRecording':
+        void this.handleStopRecording()
+        break
+      case 'cancelRecording':
+        this.handleCancelRecording()
+        break
+      case 'selectMic':
+        void this.handleSelectMic()
+        break
+      case 'getMicDevice':
+        this.post({ type: 'micDeviceChanged', device: this.context.globalState.get<string>('storyline.micDevice') ?? null })
         break
     }
   }
@@ -182,6 +199,125 @@ export class ChatPanel {
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     await this.applyEmittedPatches(full, currentStage.id)
+  }
+
+  private listAudioInputDevices(): string[] {
+    try {
+      const raw = execSync('system_profiler SPAudioDataType -json 2>/dev/null', { encoding: 'utf8', timeout: 5000 })
+      const data = JSON.parse(raw) as { SPAudioDataType?: Array<{ _items?: Array<Record<string, string>> }> }
+      const devices: string[] = []
+      for (const group of data.SPAudioDataType ?? []) {
+        for (const item of group._items ?? []) {
+          if ('coreaudio_device_input' in item && item._name) {
+            devices.push(item._name)
+          }
+        }
+      }
+      return devices
+    } catch {
+      return []
+    }
+  }
+
+  private async handleSelectMic(): Promise<void> {
+    const devices = this.listAudioInputDevices()
+    if (devices.length === 0) {
+      void vscode.window.showWarningMessage('No audio input devices found.')
+      return
+    }
+    const current = this.context.globalState.get<string>('storyline.micDevice')
+    const picked = await vscode.window.showQuickPick(
+      devices.map(d => ({ label: d, description: d === current ? '● active' : undefined })),
+      { placeHolder: 'Select microphone for dictation', title: 'Storyline — Choose Microphone' },
+    )
+    if (!picked) return
+    await this.context.globalState.update('storyline.micDevice', picked.label)
+    this.post({ type: 'micDeviceChanged', device: picked.label })
+  }
+
+  private findRecorder(): { cmd: string; args: (file: string) => string[] } | null {
+    const candidates = [
+      { bin: 'rec', paths: ['/opt/homebrew/bin/rec', '/usr/local/bin/rec'], args: (f: string) => ['-q', '-t', 'wav', '-r', '16000', '-c', '1', f] },
+      { bin: 'ffmpeg', paths: ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'], args: (f: string) => ['-y', '-f', 'avfoundation', '-i', ':0', '-ar', '16000', '-ac', '1', f] },
+    ]
+    for (const c of candidates) {
+      for (const p of c.paths) {
+        if (fs.existsSync(p)) return { cmd: p, args: c.args }
+      }
+      try { const found = execSync(`which ${c.bin}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); if (found) return { cmd: found, args: c.args } } catch { /* not found */ }
+    }
+    return null
+  }
+
+  private async handleStartRecording(): Promise<void> {
+    if (this.recordingProcess) return
+
+    const recorder = this.findRecorder()
+    if (!recorder) {
+      this.post({ type: 'recordingFailed', message: 'No audio recorder found — install sox: brew install sox' })
+      return
+    }
+
+    const tmpFile = path.join(os.tmpdir(), `storyline-rec-${Date.now()}.wav`)
+    this.recordingTempFile = tmpFile
+
+    const selectedDevice = this.context.globalState.get<string>('storyline.micDevice')
+    const spawnEnv = selectedDevice ? { ...process.env, AUDIODEV: selectedDevice } : process.env
+    const proc = spawn(recorder.cmd, recorder.args(tmpFile), { stdio: ['ignore', 'pipe', 'pipe'], env: spawnEnv })
+
+    proc.on('error', (err) => {
+      this.recordingProcess = null
+      this.recordingTempFile = null
+      this.post({ type: 'recordingFailed', message: `Recorder error: ${err.message}` })
+    })
+
+    // Brief pause to detect immediate exit (command not found / device busy)
+    await new Promise(r => setTimeout(r, 150))
+
+    if (proc.exitCode !== null) {
+      this.recordingProcess = null
+      this.recordingTempFile = null
+      this.post({ type: 'recordingFailed', message: `Recorder exited immediately — check microphone access for Terminal/VS Code` })
+      return
+    }
+
+    this.recordingProcess = proc
+    this.post({ type: 'recordingStarted' })
+  }
+
+  private async handleStopRecording(): Promise<void> {
+    const proc = this.recordingProcess
+    const tmpFile = this.recordingTempFile
+    this.recordingProcess = null
+    this.recordingTempFile = null
+
+    if (!proc || !tmpFile) return
+
+    proc.kill('SIGINT')
+
+    await new Promise<void>(resolve => {
+      const done = () => resolve()
+      proc.once('close', done)
+      setTimeout(done, 2000)
+    })
+
+    try {
+      const audioBuffer = fs.readFileSync(tmpFile)
+      fs.unlinkSync(tmpFile)
+      const audioBase64 = audioBuffer.toString('base64')
+      await this.handleTranscribe(audioBase64, 'audio/wav')
+    } catch (err) {
+      this.post({ type: 'transcribeError', message: `Failed to read recording: ${err instanceof Error ? err.message : String(err)}` })
+    }
+  }
+
+  private handleCancelRecording(): void {
+    const proc = this.recordingProcess
+    const tmpFile = this.recordingTempFile
+    this.recordingProcess = null
+    this.recordingTempFile = null
+    if (proc) proc.kill('SIGKILL')
+    if (tmpFile) { try { fs.unlinkSync(tmpFile) } catch { /* ignore */ } }
   }
 
   private async handleTranscribe(audioBase64: string, mimeType: string): Promise<void> {

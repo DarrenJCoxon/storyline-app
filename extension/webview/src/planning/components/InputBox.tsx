@@ -51,7 +51,7 @@ export function InputBox({ onSend, onSave, disabled }: Props) {
     })
   }, [])
 
-  const { dictState, handleKeyDown: dictKeyDown, handleKeyUp, cancelRecording } = useDictation({
+  const { dictState, dictError, micDevice, handleKeyDown: dictKeyDown, handleKeyUp, cancelRecording, startRecording, selectMic } = useDictation({
     textareaRef: ref,
     getValue: () => valueRef.current,
     onInsert: handleInsert,
@@ -83,11 +83,16 @@ export function InputBox({ onSend, onSave, disabled }: Props) {
     ? '0 0 0 1px var(--accent)'
     : 'none'
 
-  const statusText = isRecording
+  const isActive = isRecording || isTranscribing
+  const micLabel = micDevice ?? 'Choose mic'
+
+  const statusText = dictError
+    ? dictError
+    : isRecording
     ? '● Recording — release ⌥ or click mic to stop · Esc to cancel'
     : isTranscribing
     ? 'Transcribing…'
-    : '⌘↵ to send · ⌥ to dictate'
+    : '⌘↵ to send · click mic or ⌥ to dictate'
 
   return (
     <div style={{
@@ -133,7 +138,7 @@ export function InputBox({ onSend, onSave, disabled }: Props) {
             padding: 0,
           }}
         />
-        <MicIndicator state={dictState} onCancel={cancelRecording} />
+        <MicIndicator state={dictState} onCancel={cancelRecording} onStart={startRecording} />
         <button
           onClick={submit}
           disabled={!buttonEnabled}
@@ -157,15 +162,45 @@ export function InputBox({ onSend, onSave, disabled }: Props) {
           <ArrowUpIcon size={16} strokeWidth={2.5} />
         </button>
       </div>
-      <p style={{
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         margin: '5px 4px 0',
-        fontSize: '10px',
-        color: isRecording ? 'var(--accent)' : 'var(--text-muted)',
-        userSelect: 'none',
-        transition: 'color 150ms',
       }}>
-        {statusText}
-      </p>
+        <p style={{
+          margin: 0,
+          fontSize: '10px',
+          color: dictError ? 'var(--error, #e05a5a)' : isRecording ? 'var(--accent)' : 'var(--text-muted)',
+          userSelect: 'none',
+          transition: 'color 150ms',
+        }}>
+          {statusText}
+        </p>
+        {!isActive && !dictError && (
+          <button
+            onClick={selectMic}
+            title="Choose microphone"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '0 2px',
+              margin: 0,
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              userSelect: 'none',
+              opacity: 0.7,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {micLabel} ▾
+          </button>
+        )}
+      </div>
     </div>
   )
 }
