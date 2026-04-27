@@ -31,6 +31,7 @@ export class ChatPanel {
   private store: LocalStore | null = null
   private provider: AIProvider | null = null
   private initialised = false
+  private streamCancelled = false
   private recordingProcess: ChildProcess | null = null
   private recordingTempFile: string | null = null
 
@@ -164,6 +165,9 @@ export class ChatPanel {
         break
       case 'getMicDevice':
         this.post({ type: 'micDeviceChanged', device: this.context.globalState.get<string>('storyline.micDevice') ?? null })
+        break
+      case 'stop':
+        this.streamCancelled = true
         break
     }
   }
@@ -550,6 +554,7 @@ export class ChatPanel {
   ): Promise<string> {
     if (!this.provider) return ''
 
+    this.streamCancelled = false
     this.post({ type: 'streamStart' })
 
     let full = seedContent ?? ''
@@ -565,6 +570,7 @@ export class ChatPanel {
       } as Parameters<typeof this.provider.chat>[1] & { stageId: string })
 
       for await (const chunk of stream) {
+        if (this.streamCancelled) break
         full += chunk
         this.post({ type: 'streamChunk', text: chunk })
       }

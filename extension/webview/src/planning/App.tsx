@@ -280,6 +280,10 @@ export function App() {
     send({ type: 'save' })
   }, [send])
 
+  const handleStop = useCallback(() => {
+    send({ type: 'stop' })
+  }, [send])
+
   const handleToggleRail = useCallback(() => {
     dispatch({ type: 'TOGGLE_RAIL' })
     send({ type: 'setRailCollapsed', collapsed: !state.railCollapsed })
@@ -376,6 +380,8 @@ export function App() {
       <InputBox
         onSend={handleSend}
         onSave={handleSave}
+        onStop={handleStop}
+        isStreaming={!!state.streamingId}
         disabled={!!state.streamingId || state.creditsExhausted}
       />
     </div>

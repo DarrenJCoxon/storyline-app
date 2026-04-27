@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "publisher": "darrenjcoxon",
   "private": true,
   "engines": {
@@ -28,7 +28,10 @@
       {
         "command": "storyline.openPlanning",
         "title": "Storyline: Open Planning Chat",
-        "icon": "$(comment-discussion)"
+        "icon": {
+          "light": "media/planning-light.svg",
+          "dark": "media/planning-dark.svg"
+        }
       },
       {
         "command": "storyline.openEditor",
@@ -153,15 +156,15 @@
     "menus": {
       "editor/title": [
         {
-          "command": "storyline.research",
+          "command": "storyline.openPlanning",
           "group": "navigation@97"
         },
         {
-          "command": "storyline.openLivePreview",
+          "command": "storyline.research",
           "group": "navigation@98"
         },
         {
-          "command": "storyline.openPlanning",
+          "command": "storyline.openLivePreview",
           "group": "navigation@99"
         }
       ]

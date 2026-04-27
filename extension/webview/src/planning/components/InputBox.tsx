@@ -1,18 +1,20 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { ArrowUp as ArrowUpIcon } from 'lucide-react'
+import { ArrowUp as ArrowUpIcon, Square as SquareIcon } from 'lucide-react'
 import { useDictation } from '../hooks/useDictation.js'
 import { MicIndicator } from './MicIndicator.js'
 
 interface Props {
   onSend: (text: string) => void
   onSave: () => void
+  onStop?: () => void
+  isStreaming?: boolean
   disabled?: boolean
 }
 
 const MIN_TEXTAREA_HEIGHT = 56
 const MAX_TEXTAREA_HEIGHT = 160
 
-export function InputBox({ onSend, onSave, disabled }: Props) {
+export function InputBox({ onSend, onSave, onStop, isStreaming, disabled }: Props) {
   const [value, setValue] = useState('')
   const [focused, setFocused] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -139,28 +141,50 @@ export function InputBox({ onSend, onSave, disabled }: Props) {
           }}
         />
         <MicIndicator state={dictState} onCancel={cancelRecording} onStart={startRecording} />
-        <button
-          onClick={submit}
-          disabled={!buttonEnabled}
-          title="Send (⌘↵)"
-          style={{
-            background: 'var(--accent)',
-            border: 'none',
-            borderRadius: '6px',
-            width: '28px',
-            height: '28px',
-            cursor: buttonEnabled ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            opacity: buttonEnabled ? 1 : 0.5,
-            color: '#1A1A1A',
-            transition: 'opacity 150ms',
-          }}
-        >
-          <ArrowUpIcon size={16} strokeWidth={2.5} />
-        </button>
+        {isStreaming ? (
+          <button
+            onClick={onStop}
+            title="Stop generation"
+            style={{
+              background: 'var(--accent)',
+              border: 'none',
+              borderRadius: '6px',
+              width: '28px',
+              height: '28px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              color: '#1A1A1A',
+            }}
+          >
+            <SquareIcon size={12} fill="currentColor" strokeWidth={0} />
+          </button>
+        ) : (
+          <button
+            onClick={submit}
+            disabled={!buttonEnabled}
+            title="Send (⌘↵)"
+            style={{
+              background: 'var(--accent)',
+              border: 'none',
+              borderRadius: '6px',
+              width: '28px',
+              height: '28px',
+              cursor: buttonEnabled ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              opacity: buttonEnabled ? 1 : 0.5,
+              color: '#1A1A1A',
+              transition: 'opacity 150ms',
+            }}
+          >
+            <ArrowUpIcon size={16} strokeWidth={2.5} />
+          </button>
+        )}
       </div>
       <div style={{
         display: 'flex',
