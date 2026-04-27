@@ -516,9 +516,7 @@ export class ChatPanel {
           active: nextStage!.id === s.id,
         })),
       })
-      // Do NOT fire the opening prompt here. The user may want to respond to
-      // the AI's critique before moving on. The opener fires lazily on their
-      // next message via handleUserMessage → fireOpeningPrompt.
+      await this.fireOpeningPrompt(nextStage.id, finalState)
     }
   }
 
