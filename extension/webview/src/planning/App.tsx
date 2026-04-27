@@ -71,6 +71,7 @@ type Action =
   | { type: 'CRITIQUE_CARD'; findings: string; tier: string; stageId: string }
   | { type: 'MEMORY_STORED'; stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }
   | { type: 'SAVE_GATED'; stageId: string; missing: string[] }
+  | { type: 'CREDIT_UPDATE'; balance: number }
 
 function uid(): string {
   return Math.random().toString(36).slice(2)
@@ -139,23 +140,25 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       }
 
-    case 'STAGE_COMPLETE':
-      return {
-        ...state,
-        messages: [
-          ...state.messages,
-          {
-            id: uid(),
-            role: 'system',
-            content: '',
-            stageCompleteCard: {
-              stageId: action.stageId,
-              stageName: action.stageName,
-              statePath: action.statePath,
-            },
-          },
-        ],
+    case 'STAGE_COMPLETE': {
+      const card: ChatMessage = {
+        id: uid(),
+        role: 'system',
+        content: '',
+        stageCompleteCard: { stageId: action.stageId, stageName: action.stageName, statePath: action.statePath },
       }
+      // Insert the card before the last assistant message so it appears
+      // above the "Now — Stage N" transition text rather than below it.
+      const msgs = [...state.messages]
+      let idx = msgs.length - 1
+      while (idx > 0 && msgs[idx].role !== 'assistant') idx--
+      if (msgs[idx]?.role === 'assistant') {
+        msgs.splice(idx, 0, card)
+      } else {
+        msgs.push(card)
+      }
+      return { ...state, messages: msgs }
+    }
 
     case 'STAGE_ADVANCE':
       return { ...state, stages: action.stages }
@@ -192,6 +195,9 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         messages: [...state.messages, { id: uid(), role: 'system', content: '', critiqueCard: { findings: action.findings, tier: action.tier, stageId: action.stageId } }],
       }
+
+    case 'CREDIT_UPDATE':
+      return { ...state, creditInfo: { ...state.creditInfo, balance: action.balance } }
 
     case 'SAVE_GATED': {
       // Don't add a new card — just log via console for visibility, the AI
@@ -261,6 +267,7 @@ export function App() {
       on<{ findings: string; tier: string; stageId: string }>('critiqueCard', m => dispatch({ type: 'CRITIQUE_CARD', findings: m.findings, tier: m.tier, stageId: m.stageId })),
       on<{ stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }>('memoryStored', m => dispatch({ type: 'MEMORY_STORED', stageId: m.stageId, method: m.method, error: m.error })),
       on<{ stageId: string; missing: string[] }>('saveGated', m => dispatch({ type: 'SAVE_GATED', stageId: m.stageId, missing: m.missing })),
+      on<{ balance: number }>('creditUpdate', m => dispatch({ type: 'CREDIT_UPDATE', balance: m.balance })),
     ]
     return () => offs.forEach(off => off())
   }, [on])

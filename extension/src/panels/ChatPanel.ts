@@ -183,6 +183,7 @@ export class ChatPanel {
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     await this.applyEmittedPatches(full, currentStage.id)
+    this.refreshCreditBalance()
   }
 
   private async handleSaveIntent(): Promise<void> {
@@ -200,6 +201,15 @@ export class ChatPanel {
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     await this.applyEmittedPatches(full, currentStage.id)
+    this.refreshCreditBalance()
+  }
+
+  private refreshCreditBalance(): void {
+    this.licenceManager.validate({ useCache: false }).then(info => {
+      if (typeof info.creditBalance === 'number') {
+        this.post({ type: 'creditUpdate', balance: info.creditBalance })
+      }
+    }).catch(() => { /* ignore */ })
   }
 
   private listAudioInputDevices(): string[] {
