@@ -65,6 +65,7 @@ export function ChatThread({ messages, streamingId }: Props) {
               key={msg.id}
               content={msg.content}
               streaming={msg.id === streamingId}
+              usage={msg.usage}
             />
           )
         })}

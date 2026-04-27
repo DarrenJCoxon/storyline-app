@@ -7,6 +7,7 @@ import { Sparkles } from 'lucide-react'
 interface Props {
   content: string
   streaming: boolean
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number | null }
 }
 
 /**
@@ -177,7 +178,7 @@ function ThinkingIndicator() {
   )
 }
 
-export function AIMessage({ content, streaming }: Props) {
+export function AIMessage({ content, streaming, usage }: Props) {
   // Don't try to extract until streaming is done — partial JSON would parse-fail
   // and flicker between text and card.
   const { prose, payload } = streaming ? { prose: content, payload: null } : splitSaveBlock(content)
@@ -240,6 +241,19 @@ export function AIMessage({ content, streaming }: Props) {
         {payload && <SaveCard payload={payload} />}
       </div>
       {streaming && !isThinking && <span className="streaming-cursor" />}
+      {!streaming && usage && (
+        <div style={{
+          marginTop: 5,
+          fontSize: '10px',
+          color: 'var(--text-muted)',
+          opacity: 0.6,
+          userSelect: 'none',
+          letterSpacing: '0.01em',
+        }}>
+          {usage.totalTokens.toLocaleString()} tokens
+          {usage.costUsd != null && ` · $${usage.costUsd.toFixed(5)}`}
+        </div>
+      )}
     </motion.div>
   )
 }

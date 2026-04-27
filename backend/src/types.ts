@@ -1,9 +1,24 @@
+export interface OpenRouterUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  costUsd: number | null
+}
+
+export interface DailyStats {
+  requests: number
+  promptTokens: number
+  completionTokens: number
+  costUsd: number
+}
+
 export interface Env {
   LICENCES: KVNamespace
   OPENROUTER_API_KEY: string
   STRIPE_WEBHOOK_SECRET: string
   CHAT_MODEL: string
   IMAGE_MODEL: string
+  ADMIN_KEY?: string
   /** When set, image generation goes direct to OpenAI's /v1/images/generations
    *  endpoint, where size/quality are strictly enforced. When absent we fall
    *  back to routing through OpenRouter (which has been silently dropping

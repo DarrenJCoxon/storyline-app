@@ -29,6 +29,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   streaming?: boolean
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number | null }
   stageCompleteCard?: { stageId: string; stageName: string; statePath: string; memoryMethod?: 'odd-flow' | 'jsonl' | 'skipped' }
   findingsCard?: { findings: StoryTrapFinding[] }
   seriesDetectedCard?: { suggestion: string; indicators: string[] }
@@ -72,6 +73,7 @@ type Action =
   | { type: 'MEMORY_STORED'; stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }
   | { type: 'SAVE_GATED'; stageId: string; missing: string[] }
   | { type: 'CREDIT_UPDATE'; balance: number }
+  | { type: 'REQUEST_USAGE'; promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number | null }
 
 function uid(): string {
   return Math.random().toString(36).slice(2)
@@ -199,6 +201,18 @@ function reducer(state: AppState, action: Action): AppState {
     case 'CREDIT_UPDATE':
       return { ...state, creditInfo: { ...state.creditInfo, balance: action.balance } }
 
+    case 'REQUEST_USAGE': {
+      // Attach usage to the most recent assistant message
+      const msgs = [...state.messages]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          msgs[i] = { ...msgs[i], usage: { promptTokens: action.promptTokens, completionTokens: action.completionTokens, totalTokens: action.totalTokens, costUsd: action.costUsd } }
+          break
+        }
+      }
+      return { ...state, messages: msgs }
+    }
+
     case 'SAVE_GATED': {
       // Don't add a new card — just log via console for visibility, the AI
       // will continue asking questions on the next turn. (We could add a
@@ -268,6 +282,9 @@ export function App() {
       on<{ stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }>('memoryStored', m => dispatch({ type: 'MEMORY_STORED', stageId: m.stageId, method: m.method, error: m.error })),
       on<{ stageId: string; missing: string[] }>('saveGated', m => dispatch({ type: 'SAVE_GATED', stageId: m.stageId, missing: m.missing })),
       on<{ balance: number }>('creditUpdate', m => dispatch({ type: 'CREDIT_UPDATE', balance: m.balance })),
+      on<{ promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number | null }>('requestUsage', m =>
+        dispatch({ type: 'REQUEST_USAGE', promptTokens: m.promptTokens, completionTokens: m.completionTokens, totalTokens: m.totalTokens, costUsd: m.costUsd }),
+      ),
     ]
     return () => offs.forEach(off => off())
   }, [on])

@@ -567,6 +567,7 @@ export class ChatPanel {
         model: '',
         systemPrompt,
         stageId,
+        onUsage: (usage) => { this.post({ type: 'requestUsage', ...usage }) },
       } as Parameters<typeof this.provider.chat>[1] & { stageId: string })
 
       for await (const chunk of stream) {

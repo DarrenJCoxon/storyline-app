@@ -12,13 +12,13 @@ export class ManagedProvider implements AIProvider {
     private readonly getLicenceKey: () => Promise<string | undefined>,
   ) {}
 
-  async *chat(messages: Message[], _options: ChatOptions): AsyncIterable<string> {
+  async *chat(messages: Message[], options: ChatOptions): AsyncIterable<string> {
     const licenceKey = await this.getLicenceKey()
     if (!licenceKey) throw new Error('No licence key — activate Storyline first')
 
     // stageId is passed via options so the backend can log it; model is ignored
     // (routing is server-side)
-    const stageId = (_options as ChatOptions & { stageId?: string }).stageId ?? 'unknown'
+    const stageId = (options as ChatOptions & { stageId?: string }).stageId ?? 'unknown'
 
     const response = await fetch(`${this.backendUrl}/chat`, {
       method: 'POST',
@@ -27,7 +27,7 @@ export class ManagedProvider implements AIProvider {
         licenceKey,
         messages,
         stageId,
-        systemPrompt: _options.systemPrompt,
+        systemPrompt: options.systemPrompt,
       }),
     })
 
@@ -42,7 +42,7 @@ export class ManagedProvider implements AIProvider {
       throw new Error(`Backend error ${response.status}: ${text}`)
     }
 
-    yield* readSSEStream(response)
+    yield* readSSEStream(response, options.onUsage)
   }
 
   async isAvailable(): Promise<boolean> {
@@ -61,7 +61,10 @@ export class ManagedProvider implements AIProvider {
   }
 }
 
-async function* readSSEStream(response: Response): AsyncIterable<string> {
+async function* readSSEStream(
+  response: Response,
+  onUsage?: ChatOptions['onUsage'],
+): AsyncIterable<string> {
   const reader = response.body?.getReader()
   if (!reader) return
 
@@ -83,6 +86,13 @@ async function* readSSEStream(response: Response): AsyncIterable<string> {
 
       try {
         const parsed = JSON.parse(data)
+
+        // Usage sentinel emitted by the backend before [DONE]
+        if (parsed._usage && onUsage) {
+          onUsage(parsed._usage as { promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number | null })
+          continue
+        }
+
         const delta = parsed.choices?.[0]?.delta?.content
         if (delta) yield delta
       } catch {

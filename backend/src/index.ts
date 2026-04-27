@@ -1,6 +1,6 @@
 import type { Env } from './types.js'
 import { handleValidate } from './validate.js'
-import { handleChat } from './chat.js'
+import { handleChat, handleAdminStats } from './chat.js'
 import { handleCritique } from './critique.js'
 import { handleIllustrate } from './illustrate.js'
 import { handleStripeWebhook } from './stripe-webhook.js'
@@ -21,6 +21,11 @@ export default {
           'Access-Control-Allow-Headers': 'content-type',
         },
       })
+    }
+
+    // Admin endpoints
+    if (req.method === 'GET' && pathname === '/admin/stats') {
+      return handleAdminStats(req, env)
     }
 
     // GET-only and GET+POST pages
