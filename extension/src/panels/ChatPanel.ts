@@ -58,8 +58,10 @@ export class ChatPanel {
     this.panel.webview.onDidReceiveMessage(msg => this.handleMessage(msg))
     this.panel.onDidDispose(() => { ChatPanel.instance = undefined })
 
-    // Webview script loads async — defer init so the first 'init' post isn't dropped
-    setTimeout(() => { void this.init() }, 200)
+    // init() is triggered by the webview's 'ready' signal (sent when its
+    // event listener is live). The timeout is a fallback for edge cases where
+    // the signal is missed (e.g. very slow JS parse on first install).
+    setTimeout(() => { void this.init() }, 1500)
   }
 
   public static show(
@@ -141,6 +143,9 @@ export class ChatPanel {
     switch (msg.type) {
       case 'send':
         await this.handleUserMessage(msg.text as string)
+        break
+      case 'ready':
+        void this.init()
         break
       case 'beginPlanning':
         await this.handleBeginPlanning()
