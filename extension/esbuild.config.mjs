@@ -7,7 +7,7 @@ await build({
   target: 'node18',
   format: 'cjs',
   outfile: 'dist/extension.js',
-  external: ['vscode', 'sharp'],
+  external: ['vscode', 'sharp', 'chalk', 'fs-extra'],
   sourcemap: false,
   minify: true,
   treeShaking: true,
