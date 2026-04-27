@@ -244,6 +244,8 @@
   "dependencies": {
     "@noble/ed25519": "^3.1.0",
     "@storyline/core": "file:../packages/core",
+    "chalk": "^5.6.2",
+    "fs-extra": "^11.3.4",
     "isomorphic-git": "^1.37.5",
     "lucide-react": "^1.11.0",
     "markdown-it": "^14.1.0",
@@ -266,6 +268,7 @@
     "@tiptap/pm": "^2.5.0",
     "@tiptap/react": "^2.5.0",
     "@tiptap/starter-kit": "^2.5.0",
+    "@types/fs-extra": "^11.0.4",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
