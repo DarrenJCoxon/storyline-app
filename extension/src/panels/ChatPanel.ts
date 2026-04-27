@@ -58,10 +58,8 @@ export class ChatPanel {
     this.panel.webview.onDidReceiveMessage(msg => this.handleMessage(msg))
     this.panel.onDidDispose(() => { ChatPanel.instance = undefined })
 
-    // init() is triggered by the webview's 'ready' signal (sent when its
-    // event listener is live). The timeout is a fallback for edge cases where
-    // the signal is missed (e.g. very slow JS parse on first install).
-    setTimeout(() => { void this.init() }, 1500)
+    // Fallback: if the webview's 'ready' signal is somehow missed, init after 2s.
+    setTimeout(() => { void this.handleWebviewReady() }, 2000)
   }
 
   public static show(
@@ -80,29 +78,33 @@ export class ChatPanel {
     return ChatPanel.instance
   }
 
-  private async init(): Promise<void> {
-    if (this.initialised) return
-    this.initialised = true
+  // Called every time the webview signals it is ready (including after reloads).
+  // One-time setup (provider, store, turn history paths) is guarded by
+  // this.initialised so it only runs once per panel lifetime. State delivery
+  // to the webview always runs so a reloaded webview is never stuck.
+  private async handleWebviewReady(): Promise<void> {
+    if (!this.initialised) {
+      this.initialised = true
 
-    this.store = LocalStore.fromWorkspace()
-    if (!this.store) {
-      this.post({ type: 'error', message: 'Open a Storyline project folder to get started.' })
-      return
+      this.store = LocalStore.fromWorkspace()
+      if (!this.store) {
+        this.post({ type: 'error', message: 'Open a Storyline project folder to get started.' })
+        return
+      }
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (workspaceFolder) {
+        this.turnHistory.setStorePath(path.join(workspaceFolder, '.storyline', 'conversation.json'))
+        this.turnHistory.setDisplayStorePath(path.join(workspaceFolder, '.storyline', 'chat-display.json'))
+      }
+
+      const licenceInfo = await this.licenceManager.validate({ useCache: false })
+      this.provider = await this.resolveProvider(licenceInfo)
     }
 
-    // Wire conversation persistence
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-    if (workspaceFolder) {
-      this.turnHistory.setStorePath(path.join(workspaceFolder, '.storyline', 'conversation.json'))
-      this.turnHistory.setDisplayStorePath(path.join(workspaceFolder, '.storyline', 'chat-display.json'))
-    }
+    if (!this.store || !this.provider) return
 
-    // Force a fresh /validate call on panel open so the displayed credit
-    // balance is what the backend will actually accept on /chat — never a
-    // stale cache from a previous session or a wrangler KV reset.
-    const licenceInfo = await this.licenceManager.validate({ useCache: false })
-    this.provider = await this.resolveProvider(licenceInfo)
-
+    const licenceInfo = await this.licenceManager.validate({ useCache: true })
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
 
@@ -121,22 +123,23 @@ export class ChatPanel {
       providerName: this.getProviderName(licenceInfo),
     })
 
-    console.log('[Storyline] init: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
+    console.log('[Storyline] ready: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
 
     const displayTurns = this.turnHistory.allDisplay()
     if (displayTurns.length > 0) {
-      // Restore the full cross-stage display log so the user picks up where they left off.
       this.post({ type: 'restoreMessages', turns: displayTurns })
-      // If the current stage hasn't produced any AI turns yet (just advanced),
-      // fire its opener immediately after restoring so the conversation continues.
       if (currentStage && this.turnHistory.allForStage(currentStage.id).length === 0) {
         await this.fireOpeningPrompt(currentStage.id, state)
       }
     } else if (currentStage) {
       await this.fireOpeningPrompt(currentStage.id, state)
     } else {
-      console.warn('[Storyline] init: no current stage derived — harness will not start')
+      console.warn('[Storyline] ready: no current stage derived — harness will not start')
     }
+  }
+
+  private async init(): Promise<void> {
+    await this.handleWebviewReady()
   }
 
   private async handleMessage(msg: Record<string, unknown>): Promise<void> {
@@ -145,7 +148,7 @@ export class ChatPanel {
         await this.handleUserMessage(msg.text as string)
         break
       case 'ready':
-        void this.init()
+        void this.handleWebviewReady()
         break
       case 'beginPlanning':
         await this.handleBeginPlanning()
