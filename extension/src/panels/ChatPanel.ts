@@ -88,10 +88,11 @@ export class ChatPanel {
       return
     }
 
-    // Wire conversation persistence to .storyline/conversation.json
+    // Wire conversation persistence
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (workspaceFolder) {
       this.turnHistory.setStorePath(path.join(workspaceFolder, '.storyline', 'conversation.json'))
+      this.turnHistory.setDisplayStorePath(path.join(workspaceFolder, '.storyline', 'chat-display.json'))
     }
 
     // Force a fresh /validate call on panel open so the displayed credit
@@ -120,14 +121,17 @@ export class ChatPanel {
 
     console.log('[Storyline] init: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
 
-    if (currentStage) {
-      const priorTurns = this.turnHistory.allForStage(currentStage.id)
-      if (priorTurns.length > 0) {
-        // Restore prior conversation — skip the opening prompt
-        this.post({ type: 'restoreMessages', turns: priorTurns })
-      } else {
+    const displayTurns = this.turnHistory.allDisplay()
+    if (displayTurns.length > 0) {
+      // Restore the full cross-stage display log so the user picks up where they left off.
+      this.post({ type: 'restoreMessages', turns: displayTurns })
+      // If the current stage hasn't produced any AI turns yet (just advanced),
+      // fire its opener immediately after restoring so the conversation continues.
+      if (currentStage && this.turnHistory.allForStage(currentStage.id).length === 0) {
         await this.fireOpeningPrompt(currentStage.id, state)
       }
+    } else if (currentStage) {
+      await this.fireOpeningPrompt(currentStage.id, state)
     } else {
       console.warn('[Storyline] init: no current stage derived — harness will not start')
     }
@@ -137,6 +141,9 @@ export class ChatPanel {
     switch (msg.type) {
       case 'send':
         await this.handleUserMessage(msg.text as string)
+        break
+      case 'beginPlanning':
+        await this.handleBeginPlanning()
         break
       case 'save':
         await this.handleSaveIntent()
@@ -172,6 +179,17 @@ export class ChatPanel {
     }
   }
 
+  private async handleBeginPlanning(): Promise<void> {
+    if (!this.provider || !this.store) return
+    const state = await this.store.read()
+    const currentStage = deriveCurrentStage(state)
+    if (!currentStage) {
+      this.post({ type: 'streamError', message: 'Your project planning is complete. Use the compile panel to export your manuscript.' })
+      return
+    }
+    await this.fireOpeningPrompt(currentStage.id, state)
+  }
+
   private async handleUserMessage(text: string): Promise<void> {
     if (!this.provider || !this.store) return
 
@@ -180,12 +198,14 @@ export class ChatPanel {
     if (!currentStage) return
 
     this.turnHistory.append(currentStage.id, { role: 'user', content: text })
+    this.turnHistory.appendDisplay({ role: 'user', content: text })
     this.post({ type: 'userMessage', text })
 
     const systemPrompt = buildSystemPrompt(currentStage.id, state)
     const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
+    if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
     await this.applyEmittedPatches(full, currentStage.id)
     this.refreshCreditBalance()
   }
@@ -540,7 +560,9 @@ export class ChatPanel {
     // duplication (AI re-stated the same line) and let the harness's
     // SKILL.md persona blurb leak verbatim into the chat. The thinking
     // indicator now covers the reasoning delay.
-    await this.streamResponse(stageId, systemPrompt, messages, state)
+    const full = await this.streamResponse(stageId, systemPrompt, messages, state)
+    // Save the AI's opener to the display log (synthetic kickoff is intentionally excluded).
+    if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
   }
 
   private async streamResponse(

@@ -344,7 +344,7 @@ export function App() {
             Ready when you are. Storyline will walk you through Save the Cat (fiction) or Book DNA (non-fiction) one stage at a time.
           </div>
           <button
-            onClick={() => send({ type: 'send', text: "Hi — I'd like to start planning a book." })}
+            onClick={() => send({ type: 'beginPlanning' })}
             style={{
               background: 'var(--accent)',
               color: '#1A1A1A',
