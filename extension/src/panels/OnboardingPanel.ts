@@ -11,8 +11,8 @@ const BACKEND_URL = 'https://api.storyline.my'
 export const FREE_LICENCE_KEY = 'SL-FREE-0000-0000-FREE'
 
 const STRIPE_LINKS: Record<string, string> = {
-  '10': 'https://buy.stripe.com/PLACEHOLDER_10',
-  '20': 'https://buy.stripe.com/PLACEHOLDER_20',
+  '10': 'https://buy.stripe.com/7sYdR9bwndIa8Pv7Ye3wQ01',
+  '20': 'https://buy.stripe.com/cNicN5gQH7jM3vbguK3wQ02',
 }
 
 export const STRIPE_PORTAL_URL = 'https://billing.stripe.com/p/login/PLACEHOLDER'
