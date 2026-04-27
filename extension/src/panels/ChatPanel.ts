@@ -441,6 +441,19 @@ export class ChatPanel {
       normalizedPatch = patch as Partial<ProjectState>
     }
 
+    // dna-consolidate: extract confirmedPipeline → state.pipeline so that
+    // stageOrderFor returns the chosen Phase 1 pipeline stages. Without this,
+    // pipeline stays 'novel', stageOrderFor returns only Phase 0, and the
+    // planner gets stuck after all DNA stages complete.
+    if (stageId === 'dna-consolidate') {
+      const stageData = (normalizedPatch as Record<string, unknown>)?.['dna-consolidate'] as Record<string, unknown> | undefined
+      const confirmed = stageData?.confirmedPipeline as string | undefined
+      if (confirmed === 'A' || confirmed === 'B' || confirmed === 'C') {
+        normalizedPatch = { ...normalizedPatch, pipeline: confirmed } as Partial<ProjectState>
+        console.log('[Storyline] dna-consolidate: setting pipeline →', confirmed)
+      }
+    }
+
     const newState = await this.store.merge(normalizedPatch)
 
     // Gate: every declarative requirement for this stage must be satisfied
