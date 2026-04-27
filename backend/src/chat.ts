@@ -36,25 +36,8 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
     : body.messages
 
   const reasoning = buildReasoningParam(reasoningEffortForStage(body.stageId))
-  console.log(`[/chat] stage=${body.stageId} reasoning=${reasoning.effort} model=${env.CHAT_MODEL}`)
 
-  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-      'HTTP-Referer': 'https://storyline.app',
-      'X-Title': 'Storyline',
-    },
-    body: JSON.stringify({
-      model: env.CHAT_MODEL,
-      messages: upstreamMessages,
-      stream: true,
-      stream_options: { include_usage: true },
-      reasoning,
-    }),
-  })
-
+  const upstream = await fetchWithRetry(env, upstreamMessages, reasoning, body.stageId)
   if (!upstream.ok) {
     await env.LICENCES.put(body.licenceKey, JSON.stringify(record))
     const text = await upstream.text()
@@ -77,6 +60,51 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
       'Cache-Control': 'no-cache',
     },
   })
+}
+
+const FALLBACK_MODEL = 'deepseek/deepseek-chat' // DeepSeek V3 — full model, used only when primary is rate-limited
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 1500
+
+async function fetchWithRetry(
+  env: Env,
+  messages: Array<{ role: string; content: string }>,
+  reasoning: Record<string, unknown>,
+  stageId: string,
+): Promise<Response> {
+  const makeRequest = (model: string) =>
+    fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://storyline.app',
+        'X-Title': 'Storyline',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        stream_options: { include_usage: true },
+        reasoning,
+      }),
+    })
+
+  // Try the primary model up to MAX_RETRIES times
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const res = await makeRequest(env.CHAT_MODEL)
+    if (res.status !== 429) {
+      console.log(`[/chat] stage=${stageId} model=${env.CHAT_MODEL} attempt=${attempt}`)
+      return res
+    }
+    console.warn(`[/chat] 429 on attempt ${attempt}/${MAX_RETRIES} (${env.CHAT_MODEL}) — retrying in ${RETRY_DELAY_MS}ms`)
+    await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
+  }
+
+  // All retries exhausted — fall back to the pro model (temporary, one attempt)
+  const fallback = env.FALLBACK_MODEL ?? FALLBACK_MODEL
+  console.warn(`[/chat] primary rate-limited after ${MAX_RETRIES} retries — falling back to ${fallback}`)
+  return makeRequest(fallback)
 }
 
 async function parseAndForwardStream(

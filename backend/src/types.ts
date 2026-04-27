@@ -19,6 +19,7 @@ export interface Env {
   CHAT_MODEL: string
   IMAGE_MODEL: string
   ADMIN_KEY?: string
+  FALLBACK_MODEL?: string
   /** When set, image generation goes direct to OpenAI's /v1/images/generations
    *  endpoint, where size/quality are strictly enforced. When absent we fall
    *  back to routing through OpenRouter (which has been silently dropping
