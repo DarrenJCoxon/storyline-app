@@ -241,19 +241,6 @@ export function AIMessage({ content, streaming, usage }: Props) {
         {payload && <SaveCard payload={payload} />}
       </div>
       {streaming && !isThinking && <span className="streaming-cursor" />}
-      {!streaming && usage && (
-        <div style={{
-          marginTop: 5,
-          fontSize: '10px',
-          color: 'var(--text-muted)',
-          opacity: 0.6,
-          userSelect: 'none',
-          letterSpacing: '0.01em',
-        }}>
-          {usage.totalTokens.toLocaleString()} tokens
-          {usage.costUsd != null && ` · $${usage.costUsd.toFixed(5)}`}
-        </div>
-      )}
     </motion.div>
   )
 }
