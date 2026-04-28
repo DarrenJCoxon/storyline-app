@@ -22,7 +22,20 @@ export interface ClaimEvidenceItem {
     citationNeeded: boolean;
     verificationState: 'planned' | 'sourced' | 'captured' | 'verified' | 'cited';
 }
-/** A figure (diagram / chart / cast sheet / etc.) — consumed by NF-13 and fiction visual work. */
+/** Structured image-2 generation prompt — NF-13.1. */
+export interface ImagePrompt {
+    subject: string;
+    composition: string;
+    style: string;
+    textElements: Array<{
+        text: string;
+        position: string;
+    }>;
+    colourPalette: string;
+    negativeConstraints: string[];
+    aspectRatio: 'square' | 'landscape' | 'portrait' | string;
+}
+/** A figure (diagram / chart / cast sheet / etc.) — mode-agnostic, NF-13 + future fiction visual work. */
 export interface FigurePlanItem {
     id: string;
     type: string;
@@ -33,10 +46,10 @@ export interface FigurePlanItem {
     caption?: string;
     altText?: string;
     sourceRights?: string;
+    imagePrompt: ImagePrompt | null;
+    promptHistory: string[];
     status: 'planned' | 'generating' | 'produced' | 'accepted' | 'rejected';
     producedAssetPath?: string;
-    imagePrompt?: Record<string, unknown>;
-    promptHistory?: string[];
 }
 /** A scene within a fiction chapter. Captures everything the current
  *  schema captures plus contract slots (FIC-B will populate the contract

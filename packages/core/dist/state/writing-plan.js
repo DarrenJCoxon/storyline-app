@@ -403,6 +403,7 @@ function populateNonfiction(plan, state) {
     plan.nfChapters = readNfChapters(state);
     plan.nfPromise = readNfPromise(state);
     plan.claims = readClaims(state, plan.nfChapters);
+    plan.figures = readFigures(state);
     return plan;
 }
 function readNfPromise(state) {
@@ -475,6 +476,55 @@ function normalizeNfSection(s) {
         notes: stringOrUndef(s.notes ?? s.purpose),
         keyResearch: stringOrUndef(s.keyResearch),
     };
+}
+function readFigureStatus(state) {
+    const nf = (state.nfStages ?? {});
+    return nf['figure-status'] ?? {};
+}
+function readFigures(state) {
+    const figures = [];
+    const pipeline = state.pipeline;
+    let stageKey = null;
+    if (pipeline === 'A')
+        stageKey = 'pa-chapters';
+    else if (pipeline === 'B')
+        stageKey = 'pb-chapters';
+    else if (pipeline === 'C')
+        stageKey = 'pc-lessons';
+    if (!stageKey)
+        return [];
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    const stageData = (nf[stageKey] ?? top[stageKey]);
+    if (!stageData)
+        return [];
+    const raw = (stageData.chapters ?? stageData.lessons ?? []);
+    const figureStatus = readFigureStatus(state);
+    for (const chapter of raw) {
+        const chNum = numberOr(chapter.number ?? chapter.chapterNumber, 0);
+        const rawFigs = Array.isArray(chapter.figures) ? chapter.figures : [];
+        for (let i = 0; i < rawFigs.length; i++) {
+            const fig = rawFigs[i];
+            const id = `fig-ch${chNum}-${i + 1}`;
+            const persisted = figureStatus[id];
+            figures.push({
+                id,
+                type: stringOr(fig.type, 'diagram'),
+                chapterNumber: chNum,
+                sectionTitle: stringOrNull(fig.sectionTitle ?? fig.section) ?? undefined,
+                purpose: stringOr(fig.purpose ?? fig.description ?? fig.intent, ''),
+                factualConstraints: stringOrNull(fig.factualConstraints) ?? undefined,
+                caption: stringOrNull(fig.caption) ?? undefined,
+                altText: stringOrNull(fig.altText) ?? undefined,
+                sourceRights: stringOrNull(fig.sourceRights) ?? undefined,
+                imagePrompt: (persisted?.imagePrompt ?? fig.imagePrompt ?? null),
+                status: (persisted?.status ?? 'planned'),
+                producedAssetPath: persisted?.producedAssetPath ?? undefined,
+                promptHistory: persisted?.promptHistory ?? [],
+            });
+        }
+    }
+    return figures;
 }
 // ── NF-12 claim extraction ────────────────────────────────────────────────────
 function readClaims(state, nfChapters) {

@@ -1,0 +1,1 @@
+{"version":3,"file":"figure-registry.d.ts","sourceRoot":"","sources":["../../src/output/figure-registry.ts"],"names":[],"mappings":"AAQA,OAAO,KAAK,EAAE,WAAW,EAAkB,MAAM,0BAA0B,CAAA;AAE3E,MAAM,WAAW,oBAAoB;IACnC,UAAU,EAAE,MAAM,CAAA;IAClB,YAAY,EAAE,MAAM,CAAA;IACpB,aAAa,EAAE,MAAM,CAAA;CACtB;AAmBD,wBAAgB,sBAAsB,CAAC,IAAI,EAAE,WAAW,EAAE,UAAU,EAAE,MAAM,GAAG,oBAAoB,CA4ElG"}

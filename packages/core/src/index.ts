@@ -2,9 +2,13 @@ export type {
   Mode, Pipeline, SubMode, ProjectState, StageEntry,
   Beat, BeatSheet, Protagonist, Character,
 } from './state/project-state.js'
-export type { ClaimEvidenceItem } from './state/writing-plan.js'
+export type { ClaimEvidenceItem, ImagePrompt } from './state/writing-plan.js'
 export type { ClaimLedgerResult } from './output/claim-evidence-ledger.js'
 export { generateClaimEvidenceLedger } from './output/claim-evidence-ledger.js'
+export type { FigureRegistryResult } from './output/figure-registry.js'
+export { generateFigureRegistry } from './output/figure-registry.js'
+export type { FigureContext, BookContext } from './output/figure-prompt-synthesizer.js'
+export { synthesizeImagePrompt } from './output/figure-prompt-synthesizer.js'
 export {
   DEFAULT_STATE,
   STAGE_ORDER, STAGE_BY_ID,

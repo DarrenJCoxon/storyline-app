@@ -44,7 +44,18 @@ export interface ClaimEvidenceItem {
   verificationState: 'planned' | 'sourced' | 'captured' | 'verified' | 'cited'
 }
 
-/** A figure (diagram / chart / cast sheet / etc.) — consumed by NF-13 and fiction visual work. */
+/** Structured image-2 generation prompt — NF-13.1. */
+export interface ImagePrompt {
+  subject: string
+  composition: string
+  style: string
+  textElements: Array<{ text: string; position: string }>
+  colourPalette: string
+  negativeConstraints: string[]
+  aspectRatio: 'square' | 'landscape' | 'portrait' | string
+}
+
+/** A figure (diagram / chart / cast sheet / etc.) — mode-agnostic, NF-13 + future fiction visual work. */
 export interface FigurePlanItem {
   id: string
   type: string
@@ -55,11 +66,10 @@ export interface FigurePlanItem {
   caption?: string
   altText?: string
   sourceRights?: string
+  imagePrompt: ImagePrompt | null
+  promptHistory: string[]
   status: 'planned' | 'generating' | 'produced' | 'accepted' | 'rejected'
   producedAssetPath?: string
-  // imagePrompt + promptHistory live here once NF-13 lands; left optional for now.
-  imagePrompt?: Record<string, unknown>
-  promptHistory?: string[]
 }
 
 // ── Fiction shapes ───────────────────────────────────────────────────────────
@@ -773,6 +783,7 @@ function populateNonfiction(plan: WritingPlan, state: ProjectState): WritingPlan
   plan.nfChapters = readNfChapters(state)
   plan.nfPromise = readNfPromise(state)
   plan.claims = readClaims(state, plan.nfChapters)
+  plan.figures = readFigures(state)
   return plan
 }
 
@@ -845,6 +856,65 @@ function normalizeNfSection(s: Record<string, unknown>): NfChapterSection {
     notes: stringOrUndef(s.notes ?? s.purpose),
     keyResearch: stringOrUndef(s.keyResearch),
   }
+}
+
+// ── NF-13 figure extraction ───────────────────────────────────────────────────
+
+type FigureStatusMap = Record<string, {
+  status?: string
+  imagePrompt?: unknown
+  producedAssetPath?: string
+  promptHistory?: string[]
+}>
+
+function readFigureStatus(state: ProjectState): FigureStatusMap {
+  const nf = (state.nfStages ?? {}) as Record<string, unknown>
+  return (nf['figure-status'] as FigureStatusMap) ?? {}
+}
+
+function readFigures(state: ProjectState): FigurePlanItem[] {
+  const figures: FigurePlanItem[] = []
+  const pipeline = state.pipeline
+  let stageKey: string | null = null
+  if (pipeline === 'A') stageKey = 'pa-chapters'
+  else if (pipeline === 'B') stageKey = 'pb-chapters'
+  else if (pipeline === 'C') stageKey = 'pc-lessons'
+  if (!stageKey) return []
+
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  const stageData = (nf[stageKey] ?? top[stageKey]) as Record<string, unknown> | undefined
+  if (!stageData) return []
+
+  const raw = (stageData.chapters ?? stageData.lessons ?? []) as Array<Record<string, unknown>>
+  const figureStatus = readFigureStatus(state)
+
+  for (const chapter of raw) {
+    const chNum = numberOr(chapter.number ?? chapter.chapterNumber, 0)
+    const rawFigs = Array.isArray(chapter.figures) ? chapter.figures as Array<Record<string, unknown>> : []
+    for (let i = 0; i < rawFigs.length; i++) {
+      const fig = rawFigs[i]
+      const id = `fig-ch${chNum}-${i + 1}`
+      const persisted = figureStatus[id]
+      figures.push({
+        id,
+        type: stringOr(fig.type, 'diagram'),
+        chapterNumber: chNum,
+        sectionTitle: stringOrNull(fig.sectionTitle ?? fig.section) ?? undefined,
+        purpose: stringOr(fig.purpose ?? fig.description ?? fig.intent, ''),
+        factualConstraints: stringOrNull(fig.factualConstraints) ?? undefined,
+        caption: stringOrNull(fig.caption) ?? undefined,
+        altText: stringOrNull(fig.altText) ?? undefined,
+        sourceRights: stringOrNull(fig.sourceRights) ?? undefined,
+        imagePrompt: (persisted?.imagePrompt ?? fig.imagePrompt ?? null) as ImagePrompt | null,
+        status: ((persisted?.status ?? 'planned') as FigurePlanItem['status']),
+        producedAssetPath: persisted?.producedAssetPath ?? undefined,
+        promptHistory: persisted?.promptHistory ?? [],
+      })
+    }
+  }
+
+  return figures
 }
 
 // ── NF-12 claim extraction ────────────────────────────────────────────────────

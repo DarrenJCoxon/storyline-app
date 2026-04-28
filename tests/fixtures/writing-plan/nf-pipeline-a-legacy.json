@@ -146,6 +146,14 @@
             "title": "What this book will not do",
             "type": "summary"
           }
+        ],
+        "figures": [
+          {
+            "type": "flow-diagram",
+            "purpose": "Illustrate the 4-step Disappointment Ladder framework showing Name the Gap, Hold the Room, Ask Don't Lecture, and Decide Visibly",
+            "caption": "The Disappointment Ladder — four steps to leading with clarity",
+            "altText": "A horizontal flow diagram with four boxes labelled: Name the Gap, Hold the Room, Ask Don't Lecture, Decide Visibly"
+          }
         ]
       },
       {

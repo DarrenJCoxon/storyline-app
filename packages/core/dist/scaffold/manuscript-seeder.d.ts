@@ -1,9 +1,9 @@
-import type { WritingPlan, FictionChapter, NfChapter, ClaimEvidenceItem } from '../state/writing-plan.js';
+import type { WritingPlan, FictionChapter, NfChapter, ClaimEvidenceItem, FigurePlanItem } from '../state/writing-plan.js';
 export declare const MANUSCRIPT_SEED_MARKER = "<!-- storyline:seed:v1 -->";
 export declare function seedChapterContent(ch: FictionChapter): string;
 export declare function chapterManuscriptPath(ch: FictionChapter): string;
 export declare function nfChapterManuscriptPath(ch: NfChapter): string;
-export declare function seedNfChapterContent(ch: NfChapter, claims?: ClaimEvidenceItem[]): string;
+export declare function seedNfChapterContent(ch: NfChapter, claims?: ClaimEvidenceItem[], figures?: FigurePlanItem[]): string;
 /**
  * Seeds per-chapter manuscript files from a normalized WritingPlan.
  *

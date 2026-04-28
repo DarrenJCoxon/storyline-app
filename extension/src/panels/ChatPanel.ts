@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
@@ -619,6 +619,15 @@ export class ChatPanel {
             generateClaimEvidenceLedger(plan, projectDir)
           } catch (err) {
             console.warn('[Storyline] generateClaimEvidenceLedger failed', err)
+          }
+        }
+        // NF-13: Figure registry after chapter-plan saves.
+        const FIGURE_REGISTRY_STAGES = ['pa-chapters', 'pb-chapters', 'pc-lessons']
+        if (FIGURE_REGISTRY_STAGES.includes(stageId)) {
+          try {
+            generateFigureRegistry(plan, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateFigureRegistry failed', err)
           }
         }
       }

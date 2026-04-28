@@ -322,6 +322,7 @@ exports.PIPELINE_B_GUIDES = {
                     role: 'idea-led: which argument step? event-led: which period/sequence?',
                     wordCountEstimate: 'Estimated word count for this chapter (e.g. 4000)',
                     sections: 'Array of sections — each with: { title, type (hook|scene|evidence|argument|summary|transition), notes }',
+                    figures: '(Optional) Array of figures needed — each: { type (diagram|chart|table|map|timeline|illustration), purpose, sectionTitle?, caption?, altText? }',
                 },
                 required: true,
             },

@@ -335,6 +335,7 @@ exports.PIPELINE_A_GUIDES = {
                     wordCountEstimate: 'Estimated word count for this chapter (e.g. 3000)',
                     keyResearch: 'Key research items, case studies, or data sources this chapter relies on',
                     sections: 'Array of sections — each with: { title, type (hook|concept|evidence|application|summary|transition), notes }',
+                    figures: '(Optional) Array of figures needed — each: { type (diagram|chart|table|map|timeline|illustration), purpose, sectionTitle?, caption?, altText?, factualConstraints? }',
                 },
                 required: true,
             },

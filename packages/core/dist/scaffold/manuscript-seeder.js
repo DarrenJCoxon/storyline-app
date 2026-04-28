@@ -122,7 +122,7 @@ function isSeedFile(content) {
 function nfChapterManuscriptPath(ch) {
     return ch.manuscriptFile;
 }
-function seedNfChapterContent(ch, claims = []) {
+function seedNfChapterContent(ch, claims = [], figures = []) {
     const num = ch.number ?? 1;
     const title = ch.title ?? `Chapter ${num}`;
     const lines = [exports.MANUSCRIPT_SEED_MARKER, '', `# Chapter ${num} — ${title}`, ''];
@@ -141,6 +141,7 @@ function seedNfChapterContent(ch, claims = []) {
         return lines.join('\n').trimEnd() + '\n';
     }
     const chapterClaims = claims.filter(c => c.chapterNumber === ch.number);
+    const chapterFigures = figures.filter(f => f.chapterNumber === ch.number);
     for (let i = 0; i < ch.sections.length; i++) {
         const sec = ch.sections[i];
         lines.push(`## ${sec.title}`, '');
@@ -153,6 +154,10 @@ function seedNfChapterContent(ch, claims = []) {
             for (const c of chapterClaims)
                 lines.push(`{{claim: ${c.id}}}`, '');
         }
+        // NF-13.3: emit {{figure: <id>}} markers where section title matches, or in first section
+        const sectionFigures = chapterFigures.filter(f => f.sectionTitle ? f.sectionTitle === sec.title : i === 0);
+        for (const f of sectionFigures)
+            lines.push(`{{figure: ${f.id}}}`, '');
         lines.push('<!-- Write your prose below -->', '', '');
         if (i < ch.sections.length - 1)
             lines.push('---', '');
@@ -176,7 +181,7 @@ function seedManuscriptFromPlan(plan, projectDir) {
             return;
         for (const ch of plan.nfChapters) {
             const filePath = path.join(projectDir, nfChapterManuscriptPath(ch));
-            const content = seedNfChapterContent(ch, plan.claims);
+            const content = seedNfChapterContent(ch, plan.claims, plan.figures);
             writeIfMissing(filePath, content);
         }
         return;
