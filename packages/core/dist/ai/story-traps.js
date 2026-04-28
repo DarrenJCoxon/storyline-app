@@ -106,6 +106,119 @@ const STORY_TRAPS = {
             "4. Test it: describe both images to someone who hasn't read the book — can they tell which is before and which is after?",
         ],
     },
+    // FIC-B scene contract traps — fire only when contract fields exist (i.e. the
+    // writer has started filling them in). Scenes without any contract fields are
+    // silently skipped — they belong to old-shape projects.
+    sceneNoTurn: {
+        id: 'sceneNoTurn',
+        name: 'Scene Without a Turn',
+        severity: 'warning',
+        description: 'One or more scenes with a contract have no story turn — nothing reverses or reveals',
+        stcReasoning: `A scene without a turn is a scene without a point. Save the Cat requires every scene to shift the story's direction — a reversal, a revelation, or a value change. Scenes that maintain the status quo drain narrative momentum.`,
+        detection: (state) => {
+            const chapters = state.chapterOutline;
+            if (!chapters?.length)
+                return false;
+            const offenders = [];
+            for (const ch of chapters) {
+                const scenes = ch.scenes;
+                if (!scenes?.length)
+                    continue;
+                for (const sc of scenes) {
+                    // Only check scenes that have at least one contract field captured.
+                    const hasContract = sc.goal || sc.obstacle || sc.stakes;
+                    if (!hasContract)
+                        continue;
+                    if (!sc.storyTurn) {
+                        const chNum = ch.chapterNumber ?? '?';
+                        const scNum = sc.sceneNumber ?? '?';
+                        offenders.push(`Chapter ${chNum}, Scene ${scNum}: no story turn captured`);
+                    }
+                }
+            }
+            return offenders.length > 0 ? offenders : false;
+        },
+        fixProtocol: [
+            '1. Return to the scene. Ask: what is DIFFERENT about the story world after this scene ends?',
+            '2. A reversal: something the protagonist thought was true turns out to be false.',
+            '3. A revelation: new information that changes what a character (or reader) understands.',
+            '4. A value shift: the emotional charge of the scene moves from positive to negative (or vice versa).',
+            '5. If none of those apply, consider whether the scene is pulling its weight.',
+        ],
+    },
+    sceneValueShiftFlat: {
+        id: 'sceneValueShiftFlat',
+        name: 'Flat Value Shift',
+        severity: 'warning',
+        description: 'One or more scenes have the same start and end value — no emotional movement',
+        stcReasoning: `Value shifts (Robert McKee, Story Grid) are the emotional charge moving through a scene. If the value at the start and end is identical, the scene has produced no emotional change — which means it has produced no story.`,
+        detection: (state) => {
+            const chapters = state.chapterOutline;
+            if (!chapters?.length)
+                return false;
+            const offenders = [];
+            for (const ch of chapters) {
+                const scenes = ch.scenes;
+                if (!scenes?.length)
+                    continue;
+                for (const sc of scenes) {
+                    if (!sc.valueShiftStart || !sc.valueShiftEnd)
+                        continue;
+                    if (typeof sc.valueShiftStart === 'string' &&
+                        typeof sc.valueShiftEnd === 'string' &&
+                        sc.valueShiftStart.toLowerCase().trim() === sc.valueShiftEnd.toLowerCase().trim()) {
+                        const chNum = ch.chapterNumber ?? '?';
+                        const scNum = sc.sceneNumber ?? '?';
+                        offenders.push(`Chapter ${chNum}, Scene ${scNum}: value starts and ends as "${sc.valueShiftStart}"`);
+                    }
+                }
+            }
+            return offenders.length > 0 ? offenders : false;
+        },
+        fixProtocol: [
+            '1. A value shift requires the emotional charge to CHANGE — hopeful → despairing, certain → doubtful.',
+            '2. Reread the scene. Does the protagonist end in a different emotional state than they started?',
+            '3. If not, either add a development that shifts the value, or reconsider whether this scene belongs.',
+            '4. The shift can be small — "curious" to "troubled" is valid — but it must be a change.',
+        ],
+    },
+    sceneInert: {
+        id: 'sceneInert',
+        name: 'Inert Scene',
+        severity: 'warning',
+        description: 'One or more scenes have a goal but no arc function and no thread movement — nothing advances',
+        stcReasoning: `Save the Cat insists every scene advances at least one axis of the story. A scene that serves no character arc and moves no plot thread is scene-shaped filler — it occupies pages without earning them.`,
+        detection: (state) => {
+            const chapters = state.chapterOutline;
+            if (!chapters?.length)
+                return false;
+            const offenders = [];
+            for (const ch of chapters) {
+                const scenes = ch.scenes;
+                if (!scenes?.length)
+                    continue;
+                for (const sc of scenes) {
+                    // Only flag scenes where the writer has filled in goal but skipped
+                    // both arc and thread — a clear signal of under-specified contract.
+                    if (!sc.goal)
+                        continue;
+                    if (!sc.arcFunction && !sc.threadMovement) {
+                        const chNum = ch.chapterNumber ?? '?';
+                        const scNum = sc.sceneNumber ?? '?';
+                        offenders.push(`Chapter ${chNum}, Scene ${scNum}: goal set but no arc function or thread movement`);
+                    }
+                }
+            }
+            return offenders.length > 0 ? offenders : false;
+        },
+        fixProtocol: [
+            "1. For each flagged scene, ask: does this scene change what the protagonist believes about themselves?",
+            '   If yes, describe that change in the Arc Function field.',
+            '2. Ask: does this scene advance, complicate, or resolve a plot thread?',
+            '   If yes, name the thread in the Thread Movement field.',
+            '3. If the answer to both is no, the scene may be doing housekeeping (exposition, transition) — consider merging it.',
+        ],
+    },
 };
 function runStoryTraps(state) {
     return Object.values(STORY_TRAPS).flatMap(trap => {

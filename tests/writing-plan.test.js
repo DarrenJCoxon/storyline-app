@@ -394,12 +394,13 @@ describe('chapterOutline scene schema — capture matches render', () => {
     }
   });
 
-  it('every required scene field is still required (FIC-A.3 only added optional fields)', async () => {
+  it('required scene fields include core fields plus FIC-B contract fields', async () => {
     const { STAGE_GUIDES } = await import('../packages/core/dist/ai/stage-guides.js');
     const fields = STAGE_GUIDES.chapterOutline.repeatable.nested.fields;
     const required = fields.filter(f => f.required).map(f => f.key);
+    // FIC-A.3 added only optional fields; FIC-B.1 adds goal/obstacle/stakes/storyTurn as required.
     expect(required.sort()).toEqual([
-      'conflict', 'pov', 'sceneNumber', 'summary', 'whatChanges',
+      'conflict', 'goal', 'obstacle', 'pov', 'sceneNumber', 'stakes', 'storyTurn', 'summary', 'whatChanges',
     ]);
   });
 });

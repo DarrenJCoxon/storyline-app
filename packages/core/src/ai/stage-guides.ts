@@ -305,6 +305,20 @@ export const STAGE_GUIDES: Record<string, StageGuide> = {
           { key: 'beats', label: 'Which Save the Cat beat(s) does this scene serve?', hint: 'e.g. "beat03Catalyst" or "beat08Midpoint, beat06BStory"', required: false },
           { key: 'estimatedWords', label: 'Estimated word count', type: 'number', required: false },
           { key: 'notes', label: 'Any notes', required: false },
+          // FIC-B scene contract fields — goal/obstacle/stakes/storyTurn are required
+          // for the contract; the rest are optional enrichment. Only 4 required to avoid
+          // field fatigue; the optional fields capture craft vocabulary when writers know it.
+          { key: 'goal', label: 'Scene goal', hint: 'What does the POV character actively want to achieve in this scene?', required: true },
+          { key: 'obstacle', label: 'Obstacle', hint: 'What stops them getting it?', required: true },
+          { key: 'stakes', label: 'Stakes', hint: 'What does the POV character lose if they fail?', required: true },
+          { key: 'storyTurn', label: 'Story turn', hint: 'What reverses, reveals, or shifts at the end of this scene?', required: true },
+          { key: 'conflictSource', label: 'Conflict source', hint: 'Who or what provides the opposition? (person, nature, society, self)', required: false },
+          { key: 'valueShiftStart', label: 'Value at scene start', hint: 'One emotion word — e.g. "hopeful", "fearful", "certain"', required: false },
+          { key: 'valueShiftEnd', label: 'Value at scene end', hint: 'One emotion word — should differ from the start value', required: false },
+          { key: 'beatFunction', label: 'Beat function', hint: 'Which Save the Cat beat does this scene primarily serve?', required: false },
+          { key: 'arcFunction', label: 'Character arc movement', hint: "How does this scene advance the protagonist's arc?", required: false },
+          { key: 'threadMovement', label: 'Plot thread movement', hint: 'Which plot thread(s) does this scene advance?', required: false },
+          { key: 'draftStatus', label: 'Draft status', hint: 'not-started / drafting / complete', required: false },
         ],
       },
     },

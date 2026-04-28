@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -545,6 +545,11 @@ export class ChatPanel {
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (projectDir) {
       writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
+      try {
+        seedManuscriptFromPlan(getWritingPlan(finalState), projectDir)
+      } catch (err) {
+        console.warn('[Storyline] seedManuscriptFromPlan failed', err)
+      }
     }
 
     // ── Post-save side-effects — every step is wrapped so a single failure
