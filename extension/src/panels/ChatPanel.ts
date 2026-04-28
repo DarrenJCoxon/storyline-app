@@ -118,6 +118,17 @@ export class ChatPanel {
 
       const licenceInfo = await this.licenceManager.validate({ useCache: false })
       this.provider = await this.resolveProvider(licenceInfo)
+
+      // If validation returned invalid AND the user has a stored key, the key
+      // needs re-activation (expired, backend reset, etc.). Surface a friendly
+      // prompt here rather than letting the opening AI call fail with a 401.
+      if (!licenceInfo.valid && await this.licenceManager.getLicenceKey()) {
+        this.post({
+          type: 'streamError',
+          message: 'Unable to verify your Storyline licence. Run "Storyline: Enter Licence Key" to re-activate.',
+        })
+        return
+      }
     }
 
     if (!this.store) { this.post({ type: 'error', message: 'DEBUG: store is null — no workspace folder open' }); return }
@@ -738,13 +749,10 @@ export class ChatPanel {
         this.post({ type: 'creditsExhausted' })
         void promptOnCreditsExhausted(this.context, getBackendUrl())
       } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
-        // Stale cached credit balance was masking a backend rejection.
-        // Drop the cache so the next validate hits /validate fresh, then
-        // tell the user they need to re-activate.
         await this.licenceManager.clearCache()
         this.post({
           type: 'streamError',
-          message: 'Your licence key is no longer recognised by the backend. Run "Storyline: Enter Licence Key" to re-activate (the credits shown above were cached from a previous session).',
+          message: 'Licence verification failed. Run "Storyline: Enter Licence Key" to re-activate.',
         })
       } else {
         this.post({ type: 'streamError', message: msg })
