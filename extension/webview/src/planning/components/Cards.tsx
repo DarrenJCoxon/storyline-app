@@ -358,3 +358,89 @@ export function CritiqueCard({ findings, tier, stageId }: CritiqueCardProps) {
     </motion.div>
   )
 }
+
+// ── Planning-complete card (FIC-A.6) ───────────────────────────────────────
+
+export interface PlanningCompleteArtefacts {
+  mode: 'fiction' | 'nonfiction'
+  masterDocPath: string | null
+  chapterCardPaths: string[]
+  manuscriptPaths: string[]
+  firstChapterPath: string | null
+  storyBiblePath: string | null
+  arcMatrixPath: string | null
+  promiseLedgerPath: string | null
+  researchTodoPath: string | null
+  claimLedgerPath: string | null
+  figureRegistryPath: string | null
+}
+
+interface PlanningCompleteCardProps {
+  artefacts: PlanningCompleteArtefacts
+  onOpenFile: (path: string) => void
+}
+
+export function PlanningCompleteCard({ artefacts, onOpenFile }: PlanningCompleteCardProps) {
+  const a = artefacts
+  const buttons: Array<{ label: string; path: string | null; primary?: boolean }> = [
+    { label: 'Open chapter 1', path: a.firstChapterPath, primary: true },
+    { label: 'Open master document', path: a.masterDocPath },
+    { label: 'Open story bible', path: a.storyBiblePath },
+    { label: 'Open arc matrix', path: a.arcMatrixPath },
+    { label: 'Open promise/payoff ledger', path: a.promiseLedgerPath },
+    { label: 'Open research todo', path: a.researchTodoPath },
+    { label: 'Open claim ledger', path: a.claimLedgerPath },
+    { label: 'Open figure registry', path: a.figureRegistryPath },
+  ].filter(b => b.path !== null)
+
+  const chapterCount = a.manuscriptPaths.length || a.chapterCardPaths.length
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97, y: 8 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      style={{
+        margin: '14px 0',
+        padding: '16px 18px',
+        borderRadius: 'var(--radius-card)',
+        background: 'var(--accent-sub)',
+        border: '1px solid var(--accent)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <BookOpen size={16} strokeWidth={2.4} color="var(--accent)" />
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>
+          Planning complete — time to start writing
+        </span>
+      </div>
+      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+        Your {a.mode === 'fiction' ? 'novel' : 'book'} plan is ready.{' '}
+        {chapterCount > 0
+          ? `${chapterCount} chapter ${chapterCount === 1 ? 'file is' : 'files are'} scaffolded — open chapter 1 to start drafting.`
+          : 'Open the artefacts below to start drafting.'}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        {buttons.map((b) => (
+          <button
+            key={b.label}
+            onClick={() => b.path && onOpenFile(b.path)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: b.primary ? 600 : 400,
+              borderRadius: '4px',
+              border: b.primary ? '1px solid var(--accent)' : '1px solid var(--sep)',
+              background: b.primary ? 'var(--accent)' : 'transparent',
+              color: b.primary ? '#1A1A1A' : 'var(--text)',
+              cursor: 'pointer',
+              transition: 'opacity 150ms',
+            }}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  )
+}

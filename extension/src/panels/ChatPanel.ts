@@ -14,6 +14,8 @@ import {
   interpretCritiqueNetworkError,
   detectProviderKind,
 } from '../conversation/critique-wiring.js'
+import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
+import { getWritingPlan } from '@storyline/core'
 import { LocalStore, extractJsonBlock } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
@@ -193,6 +195,17 @@ export class ChatPanel {
       case 'topUpCredits':
         await vscode.commands.executeCommand('storyline.topUpCredits')
         break
+      case 'openProjectFile': {
+        // FIC-A.6: open an artefact path (relative to project root) from
+        // the planning-complete card.
+        const rel = msg.path as string
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        if (rel && root) {
+          const uri = vscode.Uri.file(path.join(root, rel))
+          await vscode.commands.executeCommand('vscode.open', uri)
+        }
+        break
+      }
       case 'startRecording':
         void this.handleStartRecording()
         break
@@ -219,10 +232,29 @@ export class ChatPanel {
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
     if (!currentStage) {
-      this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
+      this.postPlanningCompleteCard(state)
       return
     }
     await this.fireOpeningPrompt(currentStage.id, state)
+  }
+
+  /** Walk the project dir for existing artefacts and post a
+   *  `planningComplete` card. Replaces the silent null-stage return
+   *  with a concrete handoff into drafting. */
+  private postPlanningCompleteCard(state: ProjectState): void {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) {
+      this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
+      return
+    }
+    try {
+      const plan = getWritingPlan(state)
+      const artefacts = discoverPlanningArtefacts(state, plan, projectDir)
+      this.post({ type: 'planningComplete', artefacts })
+    } catch (err) {
+      console.warn('[Storyline] postPlanningCompleteCard failed', err)
+      this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
+    }
   }
 
   private async handleUserMessage(text: string): Promise<void> {
@@ -231,7 +263,7 @@ export class ChatPanel {
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
     if (!currentStage) {
-      this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
+      this.postPlanningCompleteCard(state)
       return
     }
 
@@ -596,6 +628,11 @@ export class ChatPanel {
         })),
       })
       await this.fireOpeningPrompt(nextStage.id, finalState)
+    } else {
+      // FIC-A.6: planning is complete — post the handoff card listing
+      // the artefacts the writer can open. Replaces the previous silent
+      // dead-end after the last master stage saves.
+      this.postPlanningCompleteCard(finalState)
     }
   }
 
