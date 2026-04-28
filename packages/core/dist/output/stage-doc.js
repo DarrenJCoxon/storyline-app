@@ -328,6 +328,219 @@ const renderers = {
         return md;
     },
 };
+function nfStage(state, stageId) {
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    return nf[stageId] ?? top[stageId] ?? {};
+}
+function nfLine(k, v) {
+    return v != null && v !== '' ? `**${k}:** ${v}\n\n` : '';
+}
+function nfList(items) {
+    if (!Array.isArray(items) || items.length === 0)
+        return '';
+    return items.map(i => `- ${i}\n`).join('') + '\n';
+}
+const nfRenderers = {
+    'dna-category'(state) {
+        const s = nfStage(state, 'dna-category');
+        let md = heading('Category & Market Positioning');
+        md += nfLine('Category', s.category);
+        md += nfLine('Sub-category', s.subCategory);
+        md += nfLine('Audience', s.audience);
+        md += nfLine('Market gap', s.marketGap);
+        return md;
+    },
+    'dna-reader'(state) {
+        const s = nfStage(state, 'dna-reader');
+        let md = heading('Reader Avatar');
+        md += nfLine('Reader description', s.readerDescription);
+        md += nfLine('Reader situation', s.readerSituation);
+        md += nfLine('Reader goal', s.readerGoal);
+        md += nfLine('Reader fear', s.readerFear);
+        return md;
+    },
+    'dna-transform'(state) {
+        const s = nfStage(state, 'dna-transform');
+        let md = heading('Reader Transformation');
+        md += nfLine('Before state', s.beforeState);
+        md += nfLine('After state', s.afterState);
+        md += nfLine('Transformation mechanism', s.transformationMechanism);
+        return md;
+    },
+    'dna-idea'(state) {
+        const s = nfStage(state, 'dna-idea');
+        let md = heading('The One Big Idea');
+        md += nfLine('Big idea', s.bigIdea);
+        md += nfLine('Why this idea', s.whyThisIdea);
+        md += nfLine('Counter-intuitive element', s.counterIntuitive);
+        return md;
+    },
+    'dna-author'(state) {
+        const s = nfStage(state, 'dna-author');
+        let md = heading('Author Angle & Authority');
+        md += nfLine('Author angle', s.authorAngle);
+        md += nfLine('Credibility', s.credibility);
+        md += nfLine('Unique access', s.uniqueAccess);
+        return md;
+    },
+    'dna-promise'(state) {
+        const s = nfStage(state, 'dna-promise');
+        let md = heading('Core Promise & Subtitle Engineering');
+        md += nfLine('Core promise', s.corePromise);
+        md += nfLine('Subtitle draft', s.subtitleDraft);
+        md += nfLine('Measurable outcome', s.measurableOutcome);
+        return md;
+    },
+    'dna-comps'(state) {
+        const s = nfStage(state, 'dna-comps');
+        let md = heading('Comps Deep Dive');
+        if (Array.isArray(s.comps)) {
+            md += heading('Comparable Titles', 3);
+            md += nfList(s.comps);
+        }
+        md += nfLine('Positioning statement', s.positioningStatement);
+        return md;
+    },
+    'dna-voice'(state) {
+        const s = nfStage(state, 'dna-voice');
+        let md = heading('Voice & Tone');
+        md += nfLine('Voice', s.voice);
+        md += nfLine('Tone', s.tone);
+        md += nfLine('Style notes', s.styleNotes);
+        return md;
+    },
+    'dna-evidence'(state) {
+        const s = nfStage(state, 'dna-evidence');
+        let md = heading('Evidence Philosophy');
+        md += nfLine('Evidence approach', s.evidenceApproach);
+        md += nfLine('Primary sources', s.primarySources);
+        md += nfLine('Research gaps', s.researchGaps);
+        return md;
+    },
+    'dna-commercial'(state) {
+        const s = nfStage(state, 'dna-commercial');
+        let md = heading('Commercial Model');
+        md += nfLine('Revenue model', s.revenueModel);
+        md += nfLine('Distribution', s.distribution);
+        md += nfLine('Launch strategy', s.launchStrategy);
+        return md;
+    },
+    'dna-title'(state) {
+        const s = nfStage(state, 'dna-title');
+        let md = heading('Working Title Pressure-Test');
+        md += nfLine('Working title', s.workingTitle);
+        md += nfLine('Title rationale', s.titleRationale);
+        md += nfLine('Alternatives', s.alternatives);
+        return md;
+    },
+    'dna-consolidate'(state) {
+        const s = nfStage(state, 'dna-consolidate');
+        let md = heading('Book DNA Consolidation');
+        md += nfLine('Final title', s.finalTitle);
+        md += nfLine('Core promise', s.corePromise);
+        md += nfLine('Transformation', s.transformation);
+        md += nfLine('Pipeline', s.pipeline);
+        return md;
+    },
+    // Pipeline A
+    'pa-thesis'(state) {
+        const s = nfStage(state, 'pa-thesis');
+        let md = heading('Core Thesis');
+        md += nfLine('Thesis', s.thesis);
+        md += nfLine('Supporting argument', s.supportingArgument);
+        return md;
+    },
+    'pa-framework'(state) {
+        const s = nfStage(state, 'pa-framework');
+        let md = heading('Framework Design');
+        md += nfLine('Model name', s.modelName);
+        md += nfLine('Framework description', s.frameworkDescription);
+        if (Array.isArray(s.steps)) {
+            md += heading('Steps / Phases', 3);
+            md += nfList(s.steps);
+        }
+        if (Array.isArray(s.principles)) {
+            md += heading('Principles', 3);
+            md += nfList(s.principles);
+        }
+        return md;
+    },
+    'pa-chapters'(state) {
+        const s = nfStage(state, 'pa-chapters');
+        const chapters = Array.isArray(s.chapters) ? s.chapters : [];
+        let md = heading('Chapter Plan');
+        for (const ch of chapters) {
+            const num = ch.number ?? ch.chapterNumber ?? '?';
+            const title = ch.title ?? ch.chapterTitle ?? `Chapter ${num}`;
+            md += heading(`Chapter ${num} — ${title}`, 3);
+            if (ch.linkedPrinciple)
+                md += nfLine('Principle', ch.linkedPrinciple);
+            if (ch.job ?? ch.mission)
+                md += nfLine('Job', ch.job ?? ch.mission);
+            if (ch.keyEvidence)
+                md += nfLine('Key evidence', ch.keyEvidence);
+            if (ch.wordCountEstimate)
+                md += nfLine('Word target', ch.wordCountEstimate);
+        }
+        return md;
+    },
+    'pa-master'(state) {
+        const s = nfStage(state, 'pa-master');
+        let md = heading('Pipeline A Master Document');
+        md += nfLine('Generated at', s.generatedAt);
+        md += `\nSee [nf-master-document.md](../nf-master-document.md) for the full planning output.\n`;
+        return md;
+    },
+    // Pipeline B
+    'pb-chapters'(state) {
+        const s = nfStage(state, 'pb-chapters');
+        const chapters = Array.isArray(s.chapters) ? s.chapters : [];
+        let md = heading('Chapter Plan');
+        for (const ch of chapters) {
+            const num = ch.number ?? '?';
+            const title = ch.title ?? `Chapter ${num}`;
+            md += heading(`Chapter ${num} — ${title}`, 3);
+            if (ch.chapterQuestion)
+                md += nfLine('Question', ch.chapterQuestion);
+            if (ch.mission)
+                md += nfLine('Mission', ch.mission);
+            if (ch.keyEvidence)
+                md += nfLine('Key evidence', ch.keyEvidence);
+        }
+        return md;
+    },
+    'pb-master'(state) {
+        const s = nfStage(state, 'pb-master');
+        let md = heading('Pipeline B Master Document');
+        md += nfLine('Generated at', s.generatedAt);
+        md += `\nSee [nf-master-document.md](../nf-master-document.md) for the full planning output.\n`;
+        return md;
+    },
+    // Pipeline C
+    'pc-lessons'(state) {
+        const s = nfStage(state, 'pc-lessons');
+        const lessons = Array.isArray(s.lessons) ? s.lessons : [];
+        let md = heading('Lesson / Chapter Plan');
+        for (const ch of lessons) {
+            const num = ch.number ?? '?';
+            const title = ch.lessonTitle ?? ch.title ?? `Lesson ${num}`;
+            md += heading(`Lesson ${num} — ${title}`, 3);
+            if (ch.learningObjective)
+                md += nfLine('Objective', ch.learningObjective);
+            if (ch.keyEvidence)
+                md += nfLine('Key evidence', ch.keyEvidence);
+        }
+        return md;
+    },
+    'pc-master'(state) {
+        const s = nfStage(state, 'pc-master');
+        let md = heading('Pipeline C Master Document');
+        md += nfLine('Generated at', s.generatedAt);
+        md += `\nSee [nf-master-document.md](../nf-master-document.md) for the full planning output.\n`;
+        return md;
+    },
+};
 /**
  * Write a per-stage markdown document to
  * `<projectPath>/output/stages/<stageId>.md`.
@@ -336,7 +549,7 @@ const renderers = {
  * the given stageId.
  */
 async function writeStageDoc(stageId, state, projectPath) {
-    const renderer = renderers[stageId];
+    const renderer = renderers[stageId] ?? nfRenderers[stageId];
     if (!renderer)
         return null;
     const outputDir = path.resolve(projectPath, 'output', 'stages');

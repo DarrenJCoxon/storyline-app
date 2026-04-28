@@ -1,7 +1,9 @@
-import type { WritingPlan, FictionChapter } from '../state/writing-plan.js';
+import type { WritingPlan, FictionChapter, NfChapter } from '../state/writing-plan.js';
 export declare const MANUSCRIPT_SEED_MARKER = "<!-- storyline:seed:v1 -->";
 export declare function seedChapterContent(ch: FictionChapter): string;
 export declare function chapterManuscriptPath(ch: FictionChapter): string;
+export declare function nfChapterManuscriptPath(ch: NfChapter): string;
+export declare function seedNfChapterContent(ch: NfChapter): string;
 /**
  * Seeds per-chapter manuscript files from a normalized WritingPlan.
  *
@@ -9,8 +11,7 @@ export declare function chapterManuscriptPath(ch: FictionChapter): string;
  * OR if it exists but still contains the seed marker (meaning the writer
  * has not yet touched it). Modified prose is never overwritten.
  *
- * Mode-aware: only runs for fiction projects (plan.mode === 'fiction').
- * NF seeding (NF-11.6) will use the same function with nfChapters.
+ * Mode-aware: branches on plan.mode to seed fiction scenes or NF sections.
  */
 export declare function seedManuscriptFromPlan(plan: WritingPlan, projectDir: string): void;
 //# sourceMappingURL=manuscript-seeder.d.ts.map

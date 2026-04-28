@@ -395,16 +395,14 @@ describe('seedManuscriptFromPlan', () => {
     expect(content).toContain('## Scene 1');
   });
 
-  it('is a no-op for non-fiction plans', () => {
+  it('seeds NF chapter files for non-fiction plans', () => {
     const state = loadFixture('nf-pipeline-a-canonical.json');
     const plan = getWritingPlan(state);
     seedManuscriptFromPlan(plan, tmpDir);
 
-    // No manuscript files should have been created
-    const manuscriptDir = join(tmpDir, 'manuscript');
-    const created = existsSync(manuscriptDir)
-      ? require('fs').readdirSync(manuscriptDir)
-      : [];
-    expect(created.length).toBe(0);
+    // NF chapters should be seeded under manuscript/
+    for (const ch of plan.nfChapters) {
+      expect(existsSync(join(tmpDir, ch.manuscriptFile))).toBe(true);
+    }
   });
 });

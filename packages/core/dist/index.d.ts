@@ -55,7 +55,7 @@ export { detectSeriesPotential } from './ai/series-detector.js';
 export { writeStageDoc } from './output/stage-doc.js';
 export type { MasterDocResult } from './output/master-doc.js';
 export { generateMasterDocument } from './output/master-doc.js';
-export { seedManuscriptFromPlan, seedChapterContent, chapterManuscriptPath, MANUSCRIPT_SEED_MARKER } from './scaffold/manuscript-seeder.js';
+export { seedManuscriptFromPlan, seedChapterContent, chapterManuscriptPath, seedNfChapterContent, nfChapterManuscriptPath, MANUSCRIPT_SEED_MARKER } from './scaffold/manuscript-seeder.js';
 export type { PromisePayoffItem, PromiseType, PromiseStatus, PromiseRisk } from './state/writing-plan.js';
 export type { NfCritiqueFinding, FictionPromiseGap } from './critique/promise-payoff.js';
 export { checkNfPromisePayoff, findFictionPromiseGaps } from './critique/promise-payoff.js';
@@ -65,4 +65,8 @@ export type { StoryBibleResult } from './output/story-bible.js';
 export { generateStoryBible } from './output/story-bible.js';
 export type { ArcMatrixResult } from './output/character-arc-matrix.js';
 export { generateCharacterArcMatrix } from './output/character-arc-matrix.js';
+export type { NfMasterDocResult } from './output/nf-master-doc.js';
+export { generateNfMasterDocument } from './output/nf-master-doc.js';
+export type { ResearchTodoResult } from './output/research-todo.js';
+export { generateResearchTodo } from './output/research-todo.js';
 //# sourceMappingURL=index.d.ts.map
