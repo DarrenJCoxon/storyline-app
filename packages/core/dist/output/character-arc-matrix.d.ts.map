@@ -1,0 +1,1 @@
+{"version":3,"file":"character-arc-matrix.d.ts","sourceRoot":"","sources":["../../src/output/character-arc-matrix.ts"],"names":[],"mappings":"AAQA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,0BAA0B,CAAA;AAE3D,MAAM,WAAW,eAAe;IAC9B,UAAU,EAAE,MAAM,CAAA;IAClB,cAAc,EAAE,MAAM,CAAA;CACvB;AAoBD,wBAAgB,0BAA0B,CAAC,IAAI,EAAE,WAAW,EAAE,UAAU,EAAE,MAAM,GAAG,eAAe,CA+EjG"}

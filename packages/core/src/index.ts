@@ -22,6 +22,8 @@ export type {
   WritingPlan,
   FictionScene, FictionChapter, FictionBeat, FictionCharacter,
   FictionRelationship, FictionPlotThread, FictionSubplot, FictionBStory,
+  FictionLocation, FictionRecurringObject, FictionContinuityFact, FictionStoryBible,
+  CharacterArcRow, FictionArcMatrix,
   NfChapter, NfChapterSection,
   ResearchTodoItem, FigurePlanItem,
 } from './state/writing-plan.js'
@@ -163,3 +165,7 @@ export type { NfCritiqueFinding, FictionPromiseGap } from './critique/promise-pa
 export { checkNfPromisePayoff, findFictionPromiseGaps } from './critique/promise-payoff.js'
 export type { LedgerResult } from './output/promise-payoff-ledger.js'
 export { generatePromisePayoffLedger } from './output/promise-payoff-ledger.js'
+export type { StoryBibleResult } from './output/story-bible.js'
+export { generateStoryBible } from './output/story-bible.js'
+export type { ArcMatrixResult } from './output/character-arc-matrix.js'
+export { generateCharacterArcMatrix } from './output/character-arc-matrix.js'

@@ -52,6 +52,8 @@ function getWritingPlan(state) {
         nfPromise: null,
         promises: [],
         claims: [],
+        storyBible: null,
+        arcMatrix: null,
     };
     if (mode === 'fiction') {
         return populateFiction(base, state);
@@ -84,6 +86,8 @@ function populateFiction(plan, state) {
     const rawThreads = (state.plotThreads ?? []);
     plan.plotThreads = rawThreads.map(t => normalizePlotThread(t, plan.fictionChapters));
     plan.promises = detectFictionPromises(plan.plotThreads, plan.fictionChapters);
+    plan.storyBible = deriveStoryBible(plan.fictionChapters);
+    plan.arcMatrix = deriveArcMatrix(plan.protagonist, plan.cast, plan.fictionChapters, plan.beats);
     return plan;
 }
 function normalizeProtagonist(p) {
@@ -244,6 +248,91 @@ function computeLastTouchedChapter(threadName, threadId, chapters) {
         }
     }
     return last;
+}
+// ── FIC-D derivations ────────────────────────────────────────────────────────
+function deriveStoryBible(chapters) {
+    const locMap = new Map();
+    for (const ch of chapters) {
+        for (const sc of ch.scenes) {
+            const loc = sc.location?.trim();
+            if (loc) {
+                if (!locMap.has(loc))
+                    locMap.set(loc, new Set());
+                locMap.get(loc).add(ch.chapterNumber);
+            }
+        }
+    }
+    const locations = Array.from(locMap.entries())
+        .map(([name, chSet]) => ({ name, chapters: [...chSet].sort((a, b) => a - b) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    return { locations, recurringObjects: [], continuityFacts: [] };
+}
+function deriveArcMatrix(protagonist, cast, chapters, beats) {
+    const rows = [];
+    function povChapters(name) {
+        const lower = name.toLowerCase();
+        const seen = new Set();
+        for (const ch of chapters) {
+            for (const sc of ch.scenes) {
+                if (sc.pov && sc.pov.toLowerCase().includes(lower)) {
+                    seen.add(ch.chapterNumber);
+                    break;
+                }
+            }
+        }
+        return [...seen].sort((a, b) => a - b);
+    }
+    function pressureBeats(name) {
+        const lower = name.toLowerCase();
+        return beats
+            .filter(b => {
+            const text = [b.scene ?? '', b.notes ?? '', ...Object.values(b.fields).map(v => v ?? '')].join(' ').toLowerCase();
+            return text.includes(lower);
+        })
+            .map(b => b.id);
+    }
+    function beatNotes(id) {
+        const b = beats.find(bt => bt.id === id);
+        if (!b)
+            return null;
+        return b.notes ?? b.scene ?? null;
+    }
+    if (protagonist) {
+        rows.push({
+            characterName: protagonist.name,
+            role: 'protagonist',
+            want: protagonist.want,
+            need: protagonist.need,
+            lie: protagonist.coreLie,
+            wound: protagonist.ghost,
+            chapterPresence: povChapters(protagonist.name),
+            beatPressure: pressureBeats(protagonist.name),
+            midpointShift: beatNotes('beat08Midpoint'),
+            allIsLostImpact: beatNotes('beat10AllIsLost'),
+            finaleChoice: beatNotes('beat13Finale'),
+            finalState: beatNotes('beat14FinalImage'),
+        });
+    }
+    for (const char of cast) {
+        const hasArcFields = char.want || char.need || char.ghost || char.flaw || char.arcSummary;
+        if (!hasArcFields)
+            continue;
+        rows.push({
+            characterName: char.name,
+            role: char.role,
+            want: char.want,
+            need: char.need,
+            lie: char.coreLie,
+            wound: char.ghost,
+            chapterPresence: povChapters(char.name),
+            beatPressure: pressureBeats(char.name),
+            midpointShift: null,
+            allIsLostImpact: null,
+            finaleChoice: null,
+            finalState: char.arcSummary,
+        });
+    }
+    return { characters: rows };
 }
 // ── Fiction promise detection ────────────────────────────────────────────────
 const THREAD_TYPE_TO_PROMISE_TYPE = {

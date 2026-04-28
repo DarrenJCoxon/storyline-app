@@ -133,6 +133,50 @@ export interface FictionBStory {
     themeConnection: string | null;
     beats: Record<string, unknown>;
 }
+/** A location derived from scene `location` fields, with the chapters that use it. */
+export interface FictionLocation {
+    name: string;
+    chapters: number[];
+}
+/** A recurring object the writer has explicitly captured (writer-provided, not derived). */
+export interface FictionRecurringObject {
+    name: string;
+    notes: string | null;
+}
+/** A continuity fact the writer has explicitly captured. */
+export interface FictionContinuityFact {
+    fact: string;
+    chapter: number | null;
+}
+/** Derived story-bible data — populated by normalizer; consumed by story-bible renderer. */
+export interface FictionStoryBible {
+    locations: FictionLocation[];
+    recurringObjects: FictionRecurringObject[];
+    continuityFacts: FictionContinuityFact[];
+}
+/** A single character's arc across the book. */
+export interface CharacterArcRow {
+    characterName: string;
+    role: string | null;
+    want: string | null;
+    need: string | null;
+    /** The character's core lie / false belief. */
+    lie: string | null;
+    /** The character's ghost / wound. */
+    wound: string | null;
+    /** Chapter numbers where this character appears as POV (derived from scene data). */
+    chapterPresence: number[];
+    /** Beat IDs where beats explicitly mention/pressure this character. */
+    beatPressure: string[];
+    midpointShift: string | null;
+    allIsLostImpact: string | null;
+    finaleChoice: string | null;
+    finalState: string | null;
+}
+/** Derived arc-matrix — one row per protagonist/major supporting character. */
+export interface FictionArcMatrix {
+    characters: CharacterArcRow[];
+}
 export type PromiseType = 'clue' | 'secret' | 'wound' | 'weapon-on-the-wall' | 'prophecy' | 'romance-beat' | 'subplot' | 'genre-promise';
 export type PromiseStatus = 'planned' | 'set-up' | 'paid-off' | 'unresolved';
 export type PromiseRisk = 'low' | 'medium' | 'high';
@@ -214,6 +258,8 @@ export interface WritingPlan {
     } | null;
     promises: PromisePayoffItem[];
     claims: unknown[];
+    storyBible: FictionStoryBible | null;
+    arcMatrix: FictionArcMatrix | null;
 }
 /** Single entry point. Branches on `state.mode` once; downstream code is
  *  mode-aware via the populated arrays, not by branching on raw state. */

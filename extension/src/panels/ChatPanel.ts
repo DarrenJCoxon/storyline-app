@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -567,6 +567,24 @@ export class ChatPanel {
           generatePromisePayoffLedger(plan, projectDir)
         } catch (err) {
           console.warn('[Storyline] generatePromisePayoffLedger failed', err)
+        }
+      }
+      // Regenerate story bible after cast / relationship / chapter / beat saves.
+      const STORY_BIBLE_STAGES = ['characters', 'relationships', 'chapterOutline', 'beatSheet']
+      if (finalState.mode === 'fiction' && STORY_BIBLE_STAGES.includes(stageId)) {
+        try {
+          generateStoryBible(plan, projectDir)
+        } catch (err) {
+          console.warn('[Storyline] generateStoryBible failed', err)
+        }
+      }
+      // Regenerate arc matrix after protagonist / cast / chapter / beat saves.
+      const ARC_MATRIX_STAGES = ['protagonist', 'characters', 'chapterOutline', 'beatSheet']
+      if (finalState.mode === 'fiction' && ARC_MATRIX_STAGES.includes(stageId)) {
+        try {
+          generateCharacterArcMatrix(plan, projectDir)
+        } catch (err) {
+          console.warn('[Storyline] generateCharacterArcMatrix failed', err)
         }
       }
     }

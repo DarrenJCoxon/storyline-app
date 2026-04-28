@@ -22,7 +22,14 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
     return errJson('licenceKey, messages, and stageId are required', 400)
   }
 
-  const record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  let record: LicenceRecord | null
+  try {
+    record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  } catch (e) {
+    console.error('[/chat] KV read error:', e)
+    return errJson('Service temporarily unavailable', 503)
+  }
+
   if (!record || !record.valid) return errJson('Invalid licence key', 401)
   if (record.type === 'byok') return errJson('BYOK licences do not use the managed proxy', 403)
   if (record.creditBalance <= 0) return errJson('Credits exhausted — top up to continue', 402)
@@ -37,7 +44,15 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
 
   const reasoning = buildReasoningParam(reasoningEffortForStage(body.stageId))
 
-  const upstream = await fetchWithRetry(env, upstreamMessages, reasoning, body.stageId)
+  let upstream: Response
+  try {
+    upstream = await fetchWithRetry(env, upstreamMessages, reasoning, body.stageId)
+  } catch (e) {
+    console.error('[/chat] fetchWithRetry threw:', e)
+    await env.LICENCES.put(body.licenceKey, JSON.stringify(record))
+    return errJson('Could not reach AI provider — please try again', 502)
+  }
+
   if (!upstream.ok) {
     await env.LICENCES.put(body.licenceKey, JSON.stringify(record))
     const text = await upstream.text()
@@ -51,6 +66,8 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
 
   pump.then(usage => {
     if (usage) storeUsageStats(env, body.licenceKey, body.stageId, usage).catch(() => {})
+  }).catch(e => {
+    console.error('[/chat] stream pump error:', e)
   })
 
   return new Response(readable, {

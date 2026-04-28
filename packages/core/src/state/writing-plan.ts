@@ -172,6 +172,60 @@ export interface FictionBStory {
   beats: Record<string, unknown>
 }
 
+// ── Story-bible shapes (FIC-D.1) ─────────────────────────────────────────────
+
+/** A location derived from scene `location` fields, with the chapters that use it. */
+export interface FictionLocation {
+  name: string
+  chapters: number[]
+}
+
+/** A recurring object the writer has explicitly captured (writer-provided, not derived). */
+export interface FictionRecurringObject {
+  name: string
+  notes: string | null
+}
+
+/** A continuity fact the writer has explicitly captured. */
+export interface FictionContinuityFact {
+  fact: string
+  chapter: number | null
+}
+
+/** Derived story-bible data — populated by normalizer; consumed by story-bible renderer. */
+export interface FictionStoryBible {
+  locations: FictionLocation[]
+  recurringObjects: FictionRecurringObject[]
+  continuityFacts: FictionContinuityFact[]
+}
+
+// ── Arc-matrix shapes (FIC-D.3) ──────────────────────────────────────────────
+
+/** A single character's arc across the book. */
+export interface CharacterArcRow {
+  characterName: string
+  role: string | null
+  want: string | null
+  need: string | null
+  /** The character's core lie / false belief. */
+  lie: string | null
+  /** The character's ghost / wound. */
+  wound: string | null
+  /** Chapter numbers where this character appears as POV (derived from scene data). */
+  chapterPresence: number[]
+  /** Beat IDs where beats explicitly mention/pressure this character. */
+  beatPressure: string[]
+  midpointShift: string | null
+  allIsLostImpact: string | null
+  finaleChoice: string | null
+  finalState: string | null
+}
+
+/** Derived arc-matrix — one row per protagonist/major supporting character. */
+export interface FictionArcMatrix {
+  characters: CharacterArcRow[]
+}
+
 // ── Promise / payoff shapes ──────────────────────────────────────────────────
 
 export type PromiseType =
@@ -290,6 +344,10 @@ export interface WritingPlan {
   // NF-12 populates `claims` (separate vocabulary — see 00-overview.md).
   promises: PromisePayoffItem[]
   claims: unknown[]
+
+  // FIC-D: derived artefact data — populated for fiction projects; null otherwise.
+  storyBible: FictionStoryBible | null
+  arcMatrix: FictionArcMatrix | null
 }
 
 // ── The normalizer ───────────────────────────────────────────────────────────
@@ -328,6 +386,8 @@ export function getWritingPlan(state: ProjectState): WritingPlan {
     nfPromise: null,
     promises: [],
     claims: [],
+    storyBible: null,
+    arcMatrix: null,
   }
 
   if (mode === 'fiction') {
@@ -363,6 +423,8 @@ function populateFiction(plan: WritingPlan, state: ProjectState): WritingPlan {
   const rawThreads = ((state.plotThreads ?? []) as Array<Record<string, unknown>>)
   plan.plotThreads = rawThreads.map(t => normalizePlotThread(t, plan.fictionChapters))
   plan.promises = detectFictionPromises(plan.plotThreads, plan.fictionChapters)
+  plan.storyBible = deriveStoryBible(plan.fictionChapters)
+  plan.arcMatrix = deriveArcMatrix(plan.protagonist, plan.cast, plan.fictionChapters, plan.beats)
   return plan
 }
 
@@ -531,6 +593,102 @@ function computeLastTouchedChapter(threadName: string, threadId: string, chapter
     }
   }
   return last
+}
+
+// ── FIC-D derivations ────────────────────────────────────────────────────────
+
+function deriveStoryBible(chapters: FictionChapter[]): FictionStoryBible {
+  const locMap = new Map<string, Set<number>>()
+  for (const ch of chapters) {
+    for (const sc of ch.scenes) {
+      const loc = sc.location?.trim()
+      if (loc) {
+        if (!locMap.has(loc)) locMap.set(loc, new Set())
+        locMap.get(loc)!.add(ch.chapterNumber)
+      }
+    }
+  }
+  const locations: FictionLocation[] = Array.from(locMap.entries())
+    .map(([name, chSet]) => ({ name, chapters: [...chSet].sort((a, b) => a - b) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  return { locations, recurringObjects: [], continuityFacts: [] }
+}
+
+function deriveArcMatrix(
+  protagonist: FictionCharacter | null,
+  cast: FictionCharacter[],
+  chapters: FictionChapter[],
+  beats: FictionBeat[],
+): FictionArcMatrix {
+  const rows: CharacterArcRow[] = []
+
+  function povChapters(name: string): number[] {
+    const lower = name.toLowerCase()
+    const seen = new Set<number>()
+    for (const ch of chapters) {
+      for (const sc of ch.scenes) {
+        if (sc.pov && sc.pov.toLowerCase().includes(lower)) {
+          seen.add(ch.chapterNumber)
+          break
+        }
+      }
+    }
+    return [...seen].sort((a, b) => a - b)
+  }
+
+  function pressureBeats(name: string): string[] {
+    const lower = name.toLowerCase()
+    return beats
+      .filter(b => {
+        const text = [b.scene ?? '', b.notes ?? '', ...Object.values(b.fields).map(v => v ?? '')].join(' ').toLowerCase()
+        return text.includes(lower)
+      })
+      .map(b => b.id)
+  }
+
+  function beatNotes(id: string): string | null {
+    const b = beats.find(bt => bt.id === id)
+    if (!b) return null
+    return b.notes ?? b.scene ?? null
+  }
+
+  if (protagonist) {
+    rows.push({
+      characterName: protagonist.name,
+      role: 'protagonist',
+      want: protagonist.want,
+      need: protagonist.need,
+      lie: protagonist.coreLie,
+      wound: protagonist.ghost,
+      chapterPresence: povChapters(protagonist.name),
+      beatPressure: pressureBeats(protagonist.name),
+      midpointShift: beatNotes('beat08Midpoint'),
+      allIsLostImpact: beatNotes('beat10AllIsLost'),
+      finaleChoice: beatNotes('beat13Finale'),
+      finalState: beatNotes('beat14FinalImage'),
+    })
+  }
+
+  for (const char of cast) {
+    const hasArcFields = char.want || char.need || char.ghost || char.flaw || char.arcSummary
+    if (!hasArcFields) continue
+    rows.push({
+      characterName: char.name,
+      role: char.role,
+      want: char.want,
+      need: char.need,
+      lie: char.coreLie,
+      wound: char.ghost,
+      chapterPresence: povChapters(char.name),
+      beatPressure: pressureBeats(char.name),
+      midpointShift: null,
+      allIsLostImpact: null,
+      finaleChoice: null,
+      finalState: char.arcSummary,
+    })
+  }
+
+  return { characters: rows }
 }
 
 // ── Fiction promise detection ────────────────────────────────────────────────
