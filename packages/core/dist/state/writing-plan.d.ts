@@ -96,7 +96,8 @@ export interface FictionRelationship {
     whatTheyWantFromEachOther: string | null;
 }
 /** A plot thread. Drift D2 (`t.type` vs `t.threadType`) is normalized here —
- *  consumers always read `threadType`. */
+ *  consumers always read `threadType`.
+ *  FIC-C.2 adds dossier fields; old projects get sensible defaults. */
 export interface FictionPlotThread {
     id: string;
     name: string;
@@ -104,6 +105,13 @@ export interface FictionPlotThread {
     introducedAt: string | null;
     status: string | null;
     resolutionPlan: string | null;
+    introducedScene: string | null;
+    developedScenes: string | null;
+    plannedResolutionScene: string | null;
+    payoffScene: string | null;
+    unresolvedRisk: boolean;
+    linkedPromises: string[];
+    lastTouchedChapter: number | null;
 }
 /** A subplot. */
 export interface FictionSubplot {
@@ -124,6 +132,70 @@ export interface FictionBStory {
     resolution: string | null;
     themeConnection: string | null;
     beats: Record<string, unknown>;
+}
+/** A location derived from scene `location` fields, with the chapters that use it. */
+export interface FictionLocation {
+    name: string;
+    chapters: number[];
+}
+/** A recurring object the writer has explicitly captured (writer-provided, not derived). */
+export interface FictionRecurringObject {
+    name: string;
+    notes: string | null;
+}
+/** A continuity fact the writer has explicitly captured. */
+export interface FictionContinuityFact {
+    fact: string;
+    chapter: number | null;
+}
+/** Derived story-bible data — populated by normalizer; consumed by story-bible renderer. */
+export interface FictionStoryBible {
+    locations: FictionLocation[];
+    recurringObjects: FictionRecurringObject[];
+    continuityFacts: FictionContinuityFact[];
+}
+/** A single character's arc across the book. */
+export interface CharacterArcRow {
+    characterName: string;
+    role: string | null;
+    want: string | null;
+    need: string | null;
+    /** The character's core lie / false belief. */
+    lie: string | null;
+    /** The character's ghost / wound. */
+    wound: string | null;
+    /** Chapter numbers where this character appears as POV (derived from scene data). */
+    chapterPresence: number[];
+    /** Beat IDs where beats explicitly mention/pressure this character. */
+    beatPressure: string[];
+    midpointShift: string | null;
+    allIsLostImpact: string | null;
+    finaleChoice: string | null;
+    finalState: string | null;
+}
+/** Derived arc-matrix — one row per protagonist/major supporting character. */
+export interface FictionArcMatrix {
+    characters: CharacterArcRow[];
+}
+export type PromiseType = 'clue' | 'secret' | 'wound' | 'weapon-on-the-wall' | 'prophecy' | 'romance-beat' | 'subplot' | 'genre-promise';
+export type PromiseStatus = 'planned' | 'set-up' | 'paid-off' | 'unresolved';
+export type PromiseRisk = 'low' | 'medium' | 'high';
+/** A tracked narrative promise — something the writer has signalled to the
+ *  reader that must eventually be paid off. Detected from plot threads and
+ *  scene contracts; updated as the draft progresses. */
+export interface PromisePayoffItem {
+    id: string;
+    type: PromiseType;
+    description: string;
+    setupChapter: number | null;
+    setupScene: number | null;
+    plannedPayoffChapter: number | null;
+    plannedPayoffScene: number | null;
+    actualPayoffChapter: number | null;
+    actualPayoffScene: number | null;
+    status: PromiseStatus;
+    risk: PromiseRisk;
+    notes: string | null;
 }
 /** A non-fiction chapter — a section-bearing structural unit, not a scene-bearing one.
  *  Pipeline-specific fields (`linkedPrinciple` for A, `chapterQuestion` for B,
@@ -177,8 +249,17 @@ export interface WritingPlan {
     nfChapters: NfChapter[];
     researchItems: ResearchTodoItem[];
     figures: FigurePlanItem[];
-    promises: unknown[];
+    nfPromise: {
+        corePromise: string | null;
+        subtitleDraft: string | null;
+        endStateMeasurableOutcome: string | null;
+        paThesisText: string | null;
+        paFrameworkName: string | null;
+    } | null;
+    promises: PromisePayoffItem[];
     claims: unknown[];
+    storyBible: FictionStoryBible | null;
+    arcMatrix: FictionArcMatrix | null;
 }
 /** Single entry point. Branches on `state.mode` once; downstream code is
  *  mode-aware via the populated arrays, not by branching on raw state. */

@@ -49,8 +49,11 @@ function getWritingPlan(state) {
         nfChapters: [],
         researchItems: [],
         figures: [],
+        nfPromise: null,
         promises: [],
         claims: [],
+        storyBible: null,
+        arcMatrix: null,
     };
     if (mode === 'fiction') {
         return populateFiction(base, state);
@@ -80,7 +83,11 @@ function populateFiction(plan, state) {
         : null;
     plan.subplots = (state.subplots ?? []).map(normalizeSubplot);
     plan.fictionChapters = (state.chapterOutline ?? []).map(normalizeFictionChapter);
-    plan.plotThreads = (state.plotThreads ?? []).map(normalizePlotThread);
+    const rawThreads = (state.plotThreads ?? []);
+    plan.plotThreads = rawThreads.map(t => normalizePlotThread(t, plan.fictionChapters));
+    plan.promises = detectFictionPromises(plan.plotThreads, plan.fictionChapters);
+    plan.storyBible = deriveStoryBible(plan.fictionChapters);
+    plan.arcMatrix = deriveArcMatrix(plan.protagonist, plan.cast, plan.fictionChapters, plan.beats);
     return plan;
 }
 function normalizeProtagonist(p) {
@@ -202,18 +209,189 @@ function normalizeScene(sc) {
         draftStatus: sc.draftStatus,
     };
 }
-function normalizePlotThread(t) {
+function normalizePlotThread(t, chapters) {
     // Drift D2: state was captured under either `threadType` (canonical) or
     // `type` (legacy reader). Normalize to `threadType`.
     const threadType = stringOrNull(t.threadType) ?? stringOrNull(t.type);
+    const name = stringOr(t.name, '');
+    const id = stringOr(t.id, '');
     return {
-        id: stringOr(t.id, ''),
-        name: stringOr(t.name, ''),
+        id,
+        name,
         threadType,
         introducedAt: stringOrNull(t.introducedAt),
         status: stringOrNull(t.status),
         resolutionPlan: stringOrNull(t.resolutionPlan),
+        // FIC-C.2 dossier fields
+        introducedScene: stringOrNull(t.introducedScene),
+        developedScenes: stringOrNull(t.developedScenes),
+        plannedResolutionScene: stringOrNull(t.plannedResolutionScene),
+        payoffScene: stringOrNull(t.payoffScene),
+        unresolvedRisk: t.unresolvedRisk === true,
+        linkedPromises: Array.isArray(t.linkedPromises)
+            ? t.linkedPromises.map(s => String(s))
+            : [],
+        lastTouchedChapter: computeLastTouchedChapter(name, id, chapters),
     };
+}
+function computeLastTouchedChapter(threadName, threadId, chapters) {
+    let last = null;
+    const needle = threadName.toLowerCase();
+    const needleId = threadId.toLowerCase();
+    for (const ch of chapters) {
+        for (const sc of ch.scenes) {
+            const tm = (sc.threadMovement ?? '').toLowerCase();
+            if (tm && (tm.includes(needle) || tm.includes(needleId))) {
+                if (last === null || ch.chapterNumber > last)
+                    last = ch.chapterNumber;
+            }
+        }
+    }
+    return last;
+}
+// ── FIC-D derivations ────────────────────────────────────────────────────────
+function deriveStoryBible(chapters) {
+    const locMap = new Map();
+    for (const ch of chapters) {
+        for (const sc of ch.scenes) {
+            const loc = sc.location?.trim();
+            if (loc) {
+                if (!locMap.has(loc))
+                    locMap.set(loc, new Set());
+                locMap.get(loc).add(ch.chapterNumber);
+            }
+        }
+    }
+    const locations = Array.from(locMap.entries())
+        .map(([name, chSet]) => ({ name, chapters: [...chSet].sort((a, b) => a - b) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    return { locations, recurringObjects: [], continuityFacts: [] };
+}
+function deriveArcMatrix(protagonist, cast, chapters, beats) {
+    const rows = [];
+    function povChapters(name) {
+        const lower = name.toLowerCase();
+        const seen = new Set();
+        for (const ch of chapters) {
+            for (const sc of ch.scenes) {
+                if (sc.pov && sc.pov.toLowerCase().includes(lower)) {
+                    seen.add(ch.chapterNumber);
+                    break;
+                }
+            }
+        }
+        return [...seen].sort((a, b) => a - b);
+    }
+    function pressureBeats(name) {
+        const lower = name.toLowerCase();
+        return beats
+            .filter(b => {
+            const text = [b.scene ?? '', b.notes ?? '', ...Object.values(b.fields).map(v => v ?? '')].join(' ').toLowerCase();
+            return text.includes(lower);
+        })
+            .map(b => b.id);
+    }
+    function beatNotes(id) {
+        const b = beats.find(bt => bt.id === id);
+        if (!b)
+            return null;
+        return b.notes ?? b.scene ?? null;
+    }
+    if (protagonist) {
+        rows.push({
+            characterName: protagonist.name,
+            role: 'protagonist',
+            want: protagonist.want,
+            need: protagonist.need,
+            lie: protagonist.coreLie,
+            wound: protagonist.ghost,
+            chapterPresence: povChapters(protagonist.name),
+            beatPressure: pressureBeats(protagonist.name),
+            midpointShift: beatNotes('beat08Midpoint'),
+            allIsLostImpact: beatNotes('beat10AllIsLost'),
+            finaleChoice: beatNotes('beat13Finale'),
+            finalState: beatNotes('beat14FinalImage'),
+        });
+    }
+    for (const char of cast) {
+        const hasArcFields = char.want || char.need || char.ghost || char.flaw || char.arcSummary;
+        if (!hasArcFields)
+            continue;
+        rows.push({
+            characterName: char.name,
+            role: char.role,
+            want: char.want,
+            need: char.need,
+            lie: char.coreLie,
+            wound: char.ghost,
+            chapterPresence: povChapters(char.name),
+            beatPressure: pressureBeats(char.name),
+            midpointShift: null,
+            allIsLostImpact: null,
+            finaleChoice: null,
+            finalState: char.arcSummary,
+        });
+    }
+    return { characters: rows };
+}
+// ── Fiction promise detection ────────────────────────────────────────────────
+const THREAD_TYPE_TO_PROMISE_TYPE = {
+    mystery: 'clue',
+    'character-arc': 'wound',
+    romance: 'romance-beat',
+    prophecy: 'prophecy',
+    'world-building': 'genre-promise',
+};
+function inferPromiseType(threadType) {
+    if (!threadType)
+        return 'subplot';
+    return THREAD_TYPE_TO_PROMISE_TYPE[threadType.toLowerCase()] ?? 'subplot';
+}
+function inferPromiseRisk(thread) {
+    if (thread.unresolvedRisk)
+        return 'high';
+    if (thread.payoffScene)
+        return 'low';
+    if (thread.resolutionPlan || thread.plannedResolutionScene)
+        return 'medium';
+    if (thread.status === 'resolved')
+        return 'low';
+    return 'high';
+}
+function inferPromiseStatus(thread) {
+    if (thread.status === 'resolved' && thread.payoffScene)
+        return 'paid-off';
+    if (thread.resolutionPlan || thread.plannedResolutionScene)
+        return 'planned';
+    if (thread.lastTouchedChapter !== null)
+        return 'set-up';
+    return 'unresolved';
+}
+function parseChapterRef(ref) {
+    if (!ref)
+        return null;
+    const m = ref.match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
+}
+function detectFictionPromises(threads, _chapters) {
+    return threads.map((thread, i) => {
+        const setupChapter = parseChapterRef(thread.introducedAt);
+        const payoffChapter = parseChapterRef(thread.plannedResolutionScene ?? thread.payoffScene);
+        return {
+            id: thread.id || `promise-${i + 1}`,
+            type: inferPromiseType(thread.threadType),
+            description: thread.name,
+            setupChapter,
+            setupScene: null,
+            plannedPayoffChapter: payoffChapter,
+            plannedPayoffScene: null,
+            actualPayoffChapter: thread.payoffScene ? payoffChapter : null,
+            actualPayoffScene: null,
+            status: inferPromiseStatus(thread),
+            risk: inferPromiseRisk(thread),
+            notes: thread.resolutionPlan,
+        };
+    });
 }
 // ── Non-fiction population (NF-11.1 will deepen this; FIC-A.1 stubs it) ──────
 function populateNonfiction(plan, state) {
@@ -223,7 +401,29 @@ function populateNonfiction(plan, state) {
     // path). NF-11.0 standardizes on `state.nfStages`; this normalizer
     // already reads both for forward-compat.
     plan.nfChapters = readNfChapters(state);
+    plan.nfPromise = readNfPromise(state);
     return plan;
+}
+function readNfPromise(state) {
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    function stage(key) {
+        return (nf[key] ?? top[key] ?? {});
+    }
+    const dnaPromise = stage('dna-promise');
+    const corePromise = stringOrNull(dnaPromise.corePromise);
+    if (!corePromise)
+        return null;
+    const pcEndState = stage('pc-end-state');
+    const paThesis = stage('pa-thesis');
+    const paFramework = stage('pa-framework');
+    return {
+        corePromise,
+        subtitleDraft: stringOrNull(dnaPromise.subtitleDraft),
+        endStateMeasurableOutcome: stringOrNull(pcEndState.measurableOutcome),
+        paThesisText: stringOrNull(paThesis.thesis),
+        paFrameworkName: stringOrNull(paFramework.modelName),
+    };
 }
 function readNfChapters(state) {
     const pipeline = state.pipeline;

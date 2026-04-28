@@ -134,7 +134,8 @@ export interface FictionRelationship {
 }
 
 /** A plot thread. Drift D2 (`t.type` vs `t.threadType`) is normalized here —
- *  consumers always read `threadType`. */
+ *  consumers always read `threadType`.
+ *  FIC-C.2 adds dossier fields; old projects get sensible defaults. */
 export interface FictionPlotThread {
   id: string
   name: string
@@ -142,6 +143,15 @@ export interface FictionPlotThread {
   introducedAt: string | null
   status: string | null
   resolutionPlan: string | null
+  // FIC-C.2 dossier fields — undefined for old-shape projects
+  introducedScene: string | null
+  developedScenes: string | null
+  plannedResolutionScene: string | null
+  payoffScene: string | null
+  unresolvedRisk: boolean
+  linkedPromises: string[]
+  // Computed during normalisation from scene contracts
+  lastTouchedChapter: number | null
 }
 
 /** A subplot. */
@@ -160,6 +170,93 @@ export interface FictionBStory {
   resolution: string | null
   themeConnection: string | null
   beats: Record<string, unknown>
+}
+
+// ── Story-bible shapes (FIC-D.1) ─────────────────────────────────────────────
+
+/** A location derived from scene `location` fields, with the chapters that use it. */
+export interface FictionLocation {
+  name: string
+  chapters: number[]
+}
+
+/** A recurring object the writer has explicitly captured (writer-provided, not derived). */
+export interface FictionRecurringObject {
+  name: string
+  notes: string | null
+}
+
+/** A continuity fact the writer has explicitly captured. */
+export interface FictionContinuityFact {
+  fact: string
+  chapter: number | null
+}
+
+/** Derived story-bible data — populated by normalizer; consumed by story-bible renderer. */
+export interface FictionStoryBible {
+  locations: FictionLocation[]
+  recurringObjects: FictionRecurringObject[]
+  continuityFacts: FictionContinuityFact[]
+}
+
+// ── Arc-matrix shapes (FIC-D.3) ──────────────────────────────────────────────
+
+/** A single character's arc across the book. */
+export interface CharacterArcRow {
+  characterName: string
+  role: string | null
+  want: string | null
+  need: string | null
+  /** The character's core lie / false belief. */
+  lie: string | null
+  /** The character's ghost / wound. */
+  wound: string | null
+  /** Chapter numbers where this character appears as POV (derived from scene data). */
+  chapterPresence: number[]
+  /** Beat IDs where beats explicitly mention/pressure this character. */
+  beatPressure: string[]
+  midpointShift: string | null
+  allIsLostImpact: string | null
+  finaleChoice: string | null
+  finalState: string | null
+}
+
+/** Derived arc-matrix — one row per protagonist/major supporting character. */
+export interface FictionArcMatrix {
+  characters: CharacterArcRow[]
+}
+
+// ── Promise / payoff shapes ──────────────────────────────────────────────────
+
+export type PromiseType =
+  | 'clue'
+  | 'secret'
+  | 'wound'
+  | 'weapon-on-the-wall'
+  | 'prophecy'
+  | 'romance-beat'
+  | 'subplot'
+  | 'genre-promise'
+
+export type PromiseStatus = 'planned' | 'set-up' | 'paid-off' | 'unresolved'
+export type PromiseRisk = 'low' | 'medium' | 'high'
+
+/** A tracked narrative promise — something the writer has signalled to the
+ *  reader that must eventually be paid off. Detected from plot threads and
+ *  scene contracts; updated as the draft progresses. */
+export interface PromisePayoffItem {
+  id: string
+  type: PromiseType
+  description: string
+  setupChapter: number | null
+  setupScene: number | null
+  plannedPayoffChapter: number | null
+  plannedPayoffScene: number | null
+  actualPayoffChapter: number | null
+  actualPayoffScene: number | null
+  status: PromiseStatus
+  risk: PromiseRisk
+  notes: string | null
 }
 
 // ── Non-fiction shapes ───────────────────────────────────────────────────────
@@ -231,10 +328,26 @@ export interface WritingPlan {
   researchItems: ResearchTodoItem[]
   figures: FigurePlanItem[]
 
-  // Reserved slots for later milestones — empty until they land.
-  // FIC-C populates `promises`; NF-12 populates `claims`.
-  promises: unknown[]
+  // NF promise-payoff fields — populated for nonfiction projects only.
+  // Used by the shared checkNfPromisePayoff detector in core/critique/.
+  nfPromise: {
+    corePromise: string | null
+    subtitleDraft: string | null
+    endStateMeasurableOutcome: string | null
+    // Pipeline A fields needed for subtitle-delivery check (byte-identical with
+    // original critique-api.js:checkPromisePayoff).
+    paThesisText: string | null
+    paFrameworkName: string | null
+  } | null
+
+  // FIC-C: fiction promise/payoff items detected from plot threads + scene contracts.
+  // NF-12 populates `claims` (separate vocabulary — see 00-overview.md).
+  promises: PromisePayoffItem[]
   claims: unknown[]
+
+  // FIC-D: derived artefact data — populated for fiction projects; null otherwise.
+  storyBible: FictionStoryBible | null
+  arcMatrix: FictionArcMatrix | null
 }
 
 // ── The normalizer ───────────────────────────────────────────────────────────
@@ -270,8 +383,11 @@ export function getWritingPlan(state: ProjectState): WritingPlan {
     nfChapters: [],
     researchItems: [],
     figures: [],
+    nfPromise: null,
     promises: [],
     claims: [],
+    storyBible: null,
+    arcMatrix: null,
   }
 
   if (mode === 'fiction') {
@@ -304,7 +420,11 @@ function populateFiction(plan: WritingPlan, state: ProjectState): WritingPlan {
     : null
   plan.subplots = ((state.subplots ?? []) as Array<Record<string, unknown>>).map(normalizeSubplot)
   plan.fictionChapters = ((state.chapterOutline ?? []) as Array<Record<string, unknown>>).map(normalizeFictionChapter)
-  plan.plotThreads = ((state.plotThreads ?? []) as Array<Record<string, unknown>>).map(normalizePlotThread)
+  const rawThreads = ((state.plotThreads ?? []) as Array<Record<string, unknown>>)
+  plan.plotThreads = rawThreads.map(t => normalizePlotThread(t, plan.fictionChapters))
+  plan.promises = detectFictionPromises(plan.plotThreads, plan.fictionChapters)
+  plan.storyBible = deriveStoryBible(plan.fictionChapters)
+  plan.arcMatrix = deriveArcMatrix(plan.protagonist, plan.cast, plan.fictionChapters, plan.beats)
   return plan
 }
 
@@ -434,18 +554,198 @@ function normalizeScene(sc: Record<string, unknown>): FictionScene {
   }
 }
 
-function normalizePlotThread(t: Record<string, unknown>): FictionPlotThread {
+function normalizePlotThread(t: Record<string, unknown>, chapters: FictionChapter[]): FictionPlotThread {
   // Drift D2: state was captured under either `threadType` (canonical) or
   // `type` (legacy reader). Normalize to `threadType`.
   const threadType = stringOrNull(t.threadType) ?? stringOrNull(t.type)
+  const name = stringOr(t.name, '')
+  const id = stringOr(t.id, '')
   return {
-    id: stringOr(t.id, ''),
-    name: stringOr(t.name, ''),
+    id,
+    name,
     threadType,
     introducedAt: stringOrNull(t.introducedAt),
     status: stringOrNull(t.status),
     resolutionPlan: stringOrNull(t.resolutionPlan),
+    // FIC-C.2 dossier fields
+    introducedScene: stringOrNull(t.introducedScene),
+    developedScenes: stringOrNull(t.developedScenes),
+    plannedResolutionScene: stringOrNull(t.plannedResolutionScene),
+    payoffScene: stringOrNull(t.payoffScene),
+    unresolvedRisk: t.unresolvedRisk === true,
+    linkedPromises: Array.isArray(t.linkedPromises)
+      ? (t.linkedPromises as unknown[]).map(s => String(s))
+      : [],
+    lastTouchedChapter: computeLastTouchedChapter(name, id, chapters),
   }
+}
+
+function computeLastTouchedChapter(threadName: string, threadId: string, chapters: FictionChapter[]): number | null {
+  let last: number | null = null
+  const needle = threadName.toLowerCase()
+  const needleId = threadId.toLowerCase()
+  for (const ch of chapters) {
+    for (const sc of ch.scenes) {
+      const tm = (sc.threadMovement ?? '').toLowerCase()
+      if (tm && (tm.includes(needle) || tm.includes(needleId))) {
+        if (last === null || ch.chapterNumber > last) last = ch.chapterNumber
+      }
+    }
+  }
+  return last
+}
+
+// ── FIC-D derivations ────────────────────────────────────────────────────────
+
+function deriveStoryBible(chapters: FictionChapter[]): FictionStoryBible {
+  const locMap = new Map<string, Set<number>>()
+  for (const ch of chapters) {
+    for (const sc of ch.scenes) {
+      const loc = sc.location?.trim()
+      if (loc) {
+        if (!locMap.has(loc)) locMap.set(loc, new Set())
+        locMap.get(loc)!.add(ch.chapterNumber)
+      }
+    }
+  }
+  const locations: FictionLocation[] = Array.from(locMap.entries())
+    .map(([name, chSet]) => ({ name, chapters: [...chSet].sort((a, b) => a - b) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  return { locations, recurringObjects: [], continuityFacts: [] }
+}
+
+function deriveArcMatrix(
+  protagonist: FictionCharacter | null,
+  cast: FictionCharacter[],
+  chapters: FictionChapter[],
+  beats: FictionBeat[],
+): FictionArcMatrix {
+  const rows: CharacterArcRow[] = []
+
+  function povChapters(name: string): number[] {
+    const lower = name.toLowerCase()
+    const seen = new Set<number>()
+    for (const ch of chapters) {
+      for (const sc of ch.scenes) {
+        if (sc.pov && sc.pov.toLowerCase().includes(lower)) {
+          seen.add(ch.chapterNumber)
+          break
+        }
+      }
+    }
+    return [...seen].sort((a, b) => a - b)
+  }
+
+  function pressureBeats(name: string): string[] {
+    const lower = name.toLowerCase()
+    return beats
+      .filter(b => {
+        const text = [b.scene ?? '', b.notes ?? '', ...Object.values(b.fields).map(v => v ?? '')].join(' ').toLowerCase()
+        return text.includes(lower)
+      })
+      .map(b => b.id)
+  }
+
+  function beatNotes(id: string): string | null {
+    const b = beats.find(bt => bt.id === id)
+    if (!b) return null
+    return b.notes ?? b.scene ?? null
+  }
+
+  if (protagonist) {
+    rows.push({
+      characterName: protagonist.name,
+      role: 'protagonist',
+      want: protagonist.want,
+      need: protagonist.need,
+      lie: protagonist.coreLie,
+      wound: protagonist.ghost,
+      chapterPresence: povChapters(protagonist.name),
+      beatPressure: pressureBeats(protagonist.name),
+      midpointShift: beatNotes('beat08Midpoint'),
+      allIsLostImpact: beatNotes('beat10AllIsLost'),
+      finaleChoice: beatNotes('beat13Finale'),
+      finalState: beatNotes('beat14FinalImage'),
+    })
+  }
+
+  for (const char of cast) {
+    const hasArcFields = char.want || char.need || char.ghost || char.flaw || char.arcSummary
+    if (!hasArcFields) continue
+    rows.push({
+      characterName: char.name,
+      role: char.role,
+      want: char.want,
+      need: char.need,
+      lie: char.coreLie,
+      wound: char.ghost,
+      chapterPresence: povChapters(char.name),
+      beatPressure: pressureBeats(char.name),
+      midpointShift: null,
+      allIsLostImpact: null,
+      finaleChoice: null,
+      finalState: char.arcSummary,
+    })
+  }
+
+  return { characters: rows }
+}
+
+// ── Fiction promise detection ────────────────────────────────────────────────
+
+const THREAD_TYPE_TO_PROMISE_TYPE: Record<string, PromiseType> = {
+  mystery:       'clue',
+  'character-arc': 'wound',
+  romance:       'romance-beat',
+  prophecy:      'prophecy',
+  'world-building': 'genre-promise',
+}
+
+function inferPromiseType(threadType: string | null): PromiseType {
+  if (!threadType) return 'subplot'
+  return THREAD_TYPE_TO_PROMISE_TYPE[threadType.toLowerCase()] ?? 'subplot'
+}
+
+function inferPromiseRisk(thread: FictionPlotThread): PromiseRisk {
+  if (thread.unresolvedRisk) return 'high'
+  if (thread.payoffScene) return 'low'
+  if (thread.resolutionPlan || thread.plannedResolutionScene) return 'medium'
+  if (thread.status === 'resolved') return 'low'
+  return 'high'
+}
+
+function inferPromiseStatus(thread: FictionPlotThread): PromiseStatus {
+  if (thread.status === 'resolved' && thread.payoffScene) return 'paid-off'
+  if (thread.resolutionPlan || thread.plannedResolutionScene) return 'planned'
+  if (thread.lastTouchedChapter !== null) return 'set-up'
+  return 'unresolved'
+}
+
+function parseChapterRef(ref: string | null): number | null {
+  if (!ref) return null
+  const m = ref.match(/\d+/)
+  return m ? parseInt(m[0], 10) : null
+}
+
+function detectFictionPromises(threads: FictionPlotThread[], _chapters: FictionChapter[]): PromisePayoffItem[] {
+  return threads.map((thread, i) => {
+    const setupChapter = parseChapterRef(thread.introducedAt)
+    const payoffChapter = parseChapterRef(thread.plannedResolutionScene ?? thread.payoffScene)
+    return {
+      id: thread.id || `promise-${i + 1}`,
+      type: inferPromiseType(thread.threadType),
+      description: thread.name,
+      setupChapter,
+      setupScene: null,
+      plannedPayoffChapter: payoffChapter,
+      plannedPayoffScene: null,
+      actualPayoffChapter: thread.payoffScene ? payoffChapter : null,
+      actualPayoffScene: null,
+      status: inferPromiseStatus(thread),
+      risk: inferPromiseRisk(thread),
+      notes: thread.resolutionPlan,
+    }
+  })
 }
 
 // ── Non-fiction population (NF-11.1 will deepen this; FIC-A.1 stubs it) ──────
@@ -457,7 +757,29 @@ function populateNonfiction(plan: WritingPlan, state: ProjectState): WritingPlan
   // path). NF-11.0 standardizes on `state.nfStages`; this normalizer
   // already reads both for forward-compat.
   plan.nfChapters = readNfChapters(state)
+  plan.nfPromise = readNfPromise(state)
   return plan
+}
+
+function readNfPromise(state: ProjectState): WritingPlan['nfPromise'] {
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  function stage(key: string): Record<string, unknown> {
+    return (nf[key] ?? top[key] ?? {}) as Record<string, unknown>
+  }
+  const dnaPromise = stage('dna-promise')
+  const corePromise = stringOrNull(dnaPromise.corePromise)
+  if (!corePromise) return null
+  const pcEndState = stage('pc-end-state')
+  const paThesis = stage('pa-thesis')
+  const paFramework = stage('pa-framework')
+  return {
+    corePromise,
+    subtitleDraft: stringOrNull(dnaPromise.subtitleDraft),
+    endStateMeasurableOutcome: stringOrNull(pcEndState.measurableOutcome),
+    paThesisText: stringOrNull(paThesis.thesis),
+    paFrameworkName: stringOrNull(paFramework.modelName),
+  }
 }
 
 function readNfChapters(state: ProjectState): NfChapter[] {

@@ -33,7 +33,7 @@ Storyline owns the loop between **plan / scaffold / draft / critique**. Four com
 | **FIC-PRE** | [Critique wiring fix (pre-milestone)](fic-pre-critique-wiring.md) | **DONE** (2026-04-28) | "AI critique after every stage" broken-promise bug. |
 | **FIC-A** | [Fiction normalization & lib consolidation](fic-a-normalization.md) | **DONE** (2026-04-28; FIC-A.5 lib cleanup deferred) | Scene-shape inconsistency, beat-ID drift, three-lib mess. |
 | **FIC-B** | [Scene contracts](fic-b-scene-contracts.md) | **DONE** (2026-04-28) | Thin scene model that can't carry plan-vs-draft critique. |
-| **FIC-C** | [Promises, payoffs, threads](fic-c-promises.md) | PROPOSED | "Did chapter 3's setup actually pay off?" question. |
+| **FIC-C** | [Promises, payoffs, threads](fic-c-promises.md) | **DONE** (2026-04-28) | "Did chapter 3's setup actually pay off?" question. |
 | **FIC-D** | [Story bible & arc matrix](fic-d-story-bible.md) | PROPOSED | "Who knows what when?" continuity nightmare. |
 
 Genre engines, knowledge-state tracking, series bibles, and visual story bibles are deliberately deferred to [future-work.md](future-work.md). Plan-vs-draft critique folds into the existing [Milestone 10 Drafting Companion](../milestone-10-drafting-companion.md), not a parallel implementation here.

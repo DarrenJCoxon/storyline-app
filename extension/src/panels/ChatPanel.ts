@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -15,7 +15,6 @@ import {
   detectProviderKind,
 } from '../conversation/critique-wiring.js'
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
-import { getWritingPlan } from '@storyline/core'
 import { LocalStore, extractJsonBlock } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
@@ -119,6 +118,17 @@ export class ChatPanel {
 
       const licenceInfo = await this.licenceManager.validate({ useCache: false })
       this.provider = await this.resolveProvider(licenceInfo)
+
+      // If validation returned invalid AND the user has a stored key, the key
+      // needs re-activation (expired, backend reset, etc.). Surface a friendly
+      // prompt here rather than letting the opening AI call fail with a 401.
+      if (!licenceInfo.valid && await this.licenceManager.getLicenceKey()) {
+        this.post({
+          type: 'streamError',
+          message: 'Unable to verify your Storyline licence. Run "Storyline: Enter Licence Key" to re-activate.',
+        })
+        return
+      }
     }
 
     if (!this.store) { this.post({ type: 'error', message: 'DEBUG: store is null — no workspace folder open' }); return }
@@ -545,10 +555,37 @@ export class ChatPanel {
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (projectDir) {
       writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
+      const plan = getWritingPlan(finalState)
       try {
-        seedManuscriptFromPlan(getWritingPlan(finalState), projectDir)
+        seedManuscriptFromPlan(plan, projectDir)
       } catch (err) {
         console.warn('[Storyline] seedManuscriptFromPlan failed', err)
+      }
+      // Regenerate promise/payoff ledger after any chapter-outline or plot-thread save.
+      if (finalState.mode === 'fiction' && (stageId === 'chapterOutline' || stageId === 'plotThreads')) {
+        try {
+          generatePromisePayoffLedger(plan, projectDir)
+        } catch (err) {
+          console.warn('[Storyline] generatePromisePayoffLedger failed', err)
+        }
+      }
+      // Regenerate story bible after cast / relationship / chapter / beat saves.
+      const STORY_BIBLE_STAGES = ['characters', 'relationships', 'chapterOutline', 'beatSheet']
+      if (finalState.mode === 'fiction' && STORY_BIBLE_STAGES.includes(stageId)) {
+        try {
+          generateStoryBible(plan, projectDir)
+        } catch (err) {
+          console.warn('[Storyline] generateStoryBible failed', err)
+        }
+      }
+      // Regenerate arc matrix after protagonist / cast / chapter / beat saves.
+      const ARC_MATRIX_STAGES = ['protagonist', 'characters', 'chapterOutline', 'beatSheet']
+      if (finalState.mode === 'fiction' && ARC_MATRIX_STAGES.includes(stageId)) {
+        try {
+          generateCharacterArcMatrix(plan, projectDir)
+        } catch (err) {
+          console.warn('[Storyline] generateCharacterArcMatrix failed', err)
+        }
       }
     }
 
@@ -573,7 +610,31 @@ export class ChatPanel {
       console.warn('[Storyline] runStoryTraps failed', err)
     }
 
-    // 2. Series detector (fiction only, after premise)
+    // 2. Promise/payoff gaps (fiction only, after chapter-outline or plot-threads)
+    try {
+      if (finalState.mode === 'fiction' && (stageId === 'chapterOutline' || stageId === 'plotThreads')) {
+        const gaps = findFictionPromiseGaps(getWritingPlan(finalState))
+        if (gaps.length > 0) {
+          const ledgerPath = 'output/promise-payoff-ledger.md'
+          const summary = gaps.slice(0, 3).map(g => `**${g.promise.description}**: ${g.gapDescription}`).join('; ')
+          this.post({
+            type: 'findingsCard',
+            findings: [{
+              id: 'promise-payoff-gaps',
+              name: 'Promise / Payoff Gaps',
+              severity: 'warning',
+              description: `${gaps.length} setup${gaps.length !== 1 ? 's' : ''} have no planned payoff: ${summary}`,
+              details: gaps.map(g => g.gapDescription),
+              fixProtocol: [`Open ${ledgerPath} for the full ledger`, 'Add a resolution plan to each flagged plot thread in the Plot Thread Registry stage'],
+            }],
+          })
+        }
+      }
+    } catch (err) {
+      console.warn('[Storyline] findFictionPromiseGaps failed', err)
+    }
+
+    // 3. Series detector (fiction only, after premise)
     try {
       if (stageId === 'premise' && finalState.mode === 'fiction') {
         const seriesResult = detectSeriesPotential(finalState.premise ?? {}, finalState.genre ?? {})
@@ -706,13 +767,10 @@ export class ChatPanel {
         this.post({ type: 'creditsExhausted' })
         void promptOnCreditsExhausted(this.context, getBackendUrl())
       } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
-        // Stale cached credit balance was masking a backend rejection.
-        // Drop the cache so the next validate hits /validate fresh, then
-        // tell the user they need to re-activate.
         await this.licenceManager.clearCache()
         this.post({
           type: 'streamError',
-          message: 'Your licence key is no longer recognised by the backend. Run "Storyline: Enter Licence Key" to re-activate (the credits shown above were cached from a previous session).',
+          message: 'Licence verification failed. Run "Storyline: Enter Licence Key" to re-activate.',
         })
       } else {
         this.post({ type: 'streamError', message: msg })

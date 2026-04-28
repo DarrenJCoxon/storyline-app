@@ -50,7 +50,11 @@ export function buildSystemPrompt(stageId: string, state: ProjectState): string 
   // The mode gate is self-contained — no harness, no CLI startup protocol
   // needed (the original startup-protocol.md is CLI-flavoured and only
   // confuses the model in our chat-panel context).
-  if (stageId === 'mode' || !state.stages?.mode?.completed) {
+  // Skip the mode gate if mode is already known — either via the new stages.mode
+  // flag (set by the gate itself) or via a top-level state.mode value present in
+  // projects that predate the mode gate.
+  const modeKnown = !!state.stages?.mode?.completed || !!state.mode
+  if (stageId === 'mode' || !modeKnown) {
     return MODE_GATE_PROMPT
   }
 
@@ -124,12 +128,34 @@ function buildStageInfoBlock(stageId: string, state: ProjectState): string {
   if (!guide) return '```json\n{ "error": "No guide for this stage" }\n```'
 
   const persona = getPersonaForStage(stageId)
+  // Suppress the activation intro if this persona was already introduced in a
+  // prior completed stage (e.g. 'premise' shares The Strategist with 'genre').
+  // Omitting the field removes the prompt that causes the model to re-introduce itself.
+  const alreadyIntroduced = persona != null && hasPersonaBeenIntroduced(stageId, state)
   const output: Record<string, unknown> = {
     ...guide,
-    persona: persona ? { name: persona.name, tagline: persona.tagline, activation: persona.activation } : null,
+    persona: persona
+      ? {
+          name: persona.name,
+          tagline: persona.tagline,
+          ...(alreadyIntroduced ? {} : { activation: persona.activation }),
+        }
+      : null,
   }
 
   return '```json\n' + JSON.stringify(output, null, 2) + '\n```'
+}
+
+/**
+ * Returns true if any OTHER completed stage used the same coaching persona as
+ * the given stage. Used to decide whether to omit the activation intro.
+ */
+function hasPersonaBeenIntroduced(currentStageId: string, state: ProjectState): boolean {
+  const current = getPersonaForStage(currentStageId)
+  if (!current) return false
+  return Object.entries(state.stages ?? {})
+    .filter(([id, s]) => id !== currentStageId && s?.completed)
+    .some(([id]) => getPersonaForStage(id)?.name === current.name)
 }
 
 function stripStateForPrompt(state: ProjectState): Record<string, unknown> {

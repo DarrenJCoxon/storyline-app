@@ -118,8 +118,9 @@ describe('getWritingPlan — fiction real-world fixture', () => {
     expect(plan.nfChapters).toEqual([]);
   });
 
-  it('leaves reserved slots (promises, claims, figures, researchItems) empty until later milestones populate them', () => {
-    expect(plan.promises).toEqual([]);
+  it('populates promises from plot threads (FIC-C) and leaves other slots empty', () => {
+    // promises is now populated by detectFictionPromises from plotThreads
+    expect(plan.promises).toHaveLength(3);
     expect(plan.claims).toEqual([]);
     expect(plan.figures).toEqual([]);
     expect(plan.researchItems).toEqual([]);

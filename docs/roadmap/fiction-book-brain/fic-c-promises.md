@@ -1,6 +1,6 @@
 # FIC-C — Promises, payoffs, threads
 
-*Status: **PROPOSED***
+*Status: **DONE***
 *Parent: [00-overview.md](00-overview.md)*
 *Depends on: [FIC-A](fic-a-normalization.md), [FIC-B](fic-b-scene-contracts.md). Refactors prior art in `extension/lib/ai/critique-api.js`.*
 *Anchored to: [00-fiction-audit-2026-04-28.md](00-fiction-audit-2026-04-28.md) §6*
@@ -61,6 +61,16 @@ Five stories.
 - Genre-specific promise types (romance HEA tracking, mystery fair-play solution, thriller false-victory pressure). Those are genre-engine territory — see [future-work.md](future-work.md).
 - Automated payoff detection from manuscript prose. The ledger tracks what the *plan* says; manuscript-compare (Milestone 10) is the surface that catches "the draft never paid this off."
 - Story bible / arc matrix / continuity. That's FIC-D.
+
+## What shipped
+
+- **FIC-C.1**: `PromisePayoffItem`, `PromiseType`, `PromiseStatus`, `PromiseRisk` types added to `writing-plan.ts`; `WritingPlan.promises` typed and populated via `detectFictionPromises`; `WritingPlan.nfPromise` added with `paThesisText`/`paFrameworkName` for NF parity.
+- **FIC-C.2**: `FictionPlotThread` extended with `introducedScene`, `developedScenes`, `plannedResolutionScene`, `payoffScene`, `unresolvedRisk`, `linkedPromises`, `lastTouchedChapter`; `plotThreads` stage guide updated with 6 new optional dossier fields.
+- **FIC-C.3**: `packages/core/src/critique/promise-payoff.ts` — `checkNfPromisePayoff` and `findFictionPromiseGaps` extracted; `critique-api.js:checkPromisePayoff` replaced with a one-line shim.
+- **FIC-C.4**: `packages/core/src/output/promise-payoff-ledger.ts` — `generatePromisePayoffLedger`; wired into `ChatPanel.ts` after fiction chapter/plot-thread saves.
+- **FIC-C.5**: `findFictionPromiseGaps` findings surfaced as `promise-payoff-gaps` critique card in `ChatPanel.ts`.
+- **FIC-C.6**: 45 tests across `tests/promise-payoff-detector.test.js` (NF parity, Pipeline A/B/C edge cases) and `tests/promise-payoff-fiction.test.js` (fiction promise inference, gap detection, ledger output, legacy thread compatibility).
+- **Bug fix**: `readNfPromise` extended with top-level state fallback, matching `readNfChapters` pattern — NF legacy fixtures now produce byte-identical plans to canonical fixtures.
 
 ## Closure
 

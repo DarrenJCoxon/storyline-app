@@ -1,0 +1,1 @@
+{"version":3,"file":"story-bible.d.ts","sourceRoot":"","sources":["../../src/output/story-bible.ts"],"names":[],"mappings":"AAQA,OAAO,KAAK,EAAE,WAAW,EAAoB,MAAM,0BAA0B,CAAA;AAE7E,MAAM,WAAW,gBAAgB;IAC/B,UAAU,EAAE,MAAM,CAAA;IAClB,cAAc,EAAE,MAAM,CAAA;IACtB,aAAa,EAAE,MAAM,CAAA;CACtB;AAED,wBAAgB,kBAAkB,CAAC,IAAI,EAAE,WAAW,EAAE,UAAU,EAAE,MAAM,GAAG,gBAAgB,CAkG1F"}

@@ -3,7 +3,7 @@ export { DEFAULT_STATE, STAGE_ORDER, STAGE_BY_ID, NF_STAGE_ORDER, NF_STAGE_BY_ID
 export { deriveCurrentStage, calculateProgress, checkStageGate, getMissingRequirements, getDownstreamImpacts, isStageComplete, } from './state/transitions.js';
 export type { GateResult } from './state/transitions.js';
 export { getWritingPlan } from './state/writing-plan.js';
-export type { WritingPlan, FictionScene, FictionChapter, FictionBeat, FictionCharacter, FictionRelationship, FictionPlotThread, FictionSubplot, FictionBStory, NfChapter, NfChapterSection, ResearchTodoItem, FigurePlanItem, } from './state/writing-plan.js';
+export type { WritingPlan, FictionScene, FictionChapter, FictionBeat, FictionCharacter, FictionRelationship, FictionPlotThread, FictionSubplot, FictionBStory, FictionLocation, FictionRecurringObject, FictionContinuityFact, FictionStoryBible, CharacterArcRow, FictionArcMatrix, NfChapter, NfChapterSection, ResearchTodoItem, FigurePlanItem, } from './state/writing-plan.js';
 export type { StageGuide, StageQuestion, BeatEntry } from './ai/stage-guides.js';
 export { STAGE_GUIDES, GENRE_VARIANTS, getStageGuide, buildSystemPrompt } from './ai/stage-guides.js';
 export type { NfDnaGuide } from './ai/stage-guides-nf-dna.js';
@@ -56,4 +56,13 @@ export { writeStageDoc } from './output/stage-doc.js';
 export type { MasterDocResult } from './output/master-doc.js';
 export { generateMasterDocument } from './output/master-doc.js';
 export { seedManuscriptFromPlan, seedChapterContent, chapterManuscriptPath, MANUSCRIPT_SEED_MARKER } from './scaffold/manuscript-seeder.js';
+export type { PromisePayoffItem, PromiseType, PromiseStatus, PromiseRisk } from './state/writing-plan.js';
+export type { NfCritiqueFinding, FictionPromiseGap } from './critique/promise-payoff.js';
+export { checkNfPromisePayoff, findFictionPromiseGaps } from './critique/promise-payoff.js';
+export type { LedgerResult } from './output/promise-payoff-ledger.js';
+export { generatePromisePayoffLedger } from './output/promise-payoff-ledger.js';
+export type { StoryBibleResult } from './output/story-bible.js';
+export { generateStoryBible } from './output/story-bible.js';
+export type { ArcMatrixResult } from './output/character-arc-matrix.js';
+export { generateCharacterArcMatrix } from './output/character-arc-matrix.js';
 //# sourceMappingURL=index.d.ts.map
