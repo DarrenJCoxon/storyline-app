@@ -30,6 +30,20 @@ export interface ResearchTodoItem {
   status: 'planned' | 'captured' | 'verified' | 'cited'
 }
 
+/** A tracked factual claim — NF-12. Populated from pa-evidence / pb-sourcing stages. */
+export interface ClaimEvidenceItem {
+  id: string
+  claimText: string
+  chapterNumber: number | null
+  sectionTitle: string | null
+  evidenceType: 'study' | 'case-study' | 'data' | 'interview' | 'personal' | 'sourced-claim' | 'unparsed'
+  sources: string[]
+  confidence: 'primary' | 'secondary' | 'anecdotal' | 'unknown'
+  risk: 'high' | 'medium' | 'low'
+  citationNeeded: boolean
+  verificationState: 'planned' | 'sourced' | 'captured' | 'verified' | 'cited'
+}
+
 /** A figure (diagram / chart / cast sheet / etc.) — consumed by NF-13 and fiction visual work. */
 export interface FigurePlanItem {
   id: string
@@ -274,7 +288,7 @@ export interface NfChapter {
   cardFile: string
   sections: NfChapterSection[]
   wordCountEstimate: number | null
-  keyResearch: string | null
+  keyResearch: string | null  // unified: populated from keyResearch, keyEvidence, or sourcingNote
   // Pipeline-specific anchors (only one set populated, depending on pipeline):
   linkedPrinciple?: string  // pipeline A
   chapterQuestion?: string  // pipeline B
@@ -343,7 +357,7 @@ export interface WritingPlan {
   // FIC-C: fiction promise/payoff items detected from plot threads + scene contracts.
   // NF-12 populates `claims` (separate vocabulary — see 00-overview.md).
   promises: PromisePayoffItem[]
-  claims: unknown[]
+  claims: ClaimEvidenceItem[]
 
   // FIC-D: derived artefact data — populated for fiction projects; null otherwise.
   storyBible: FictionStoryBible | null
@@ -758,6 +772,7 @@ function populateNonfiction(plan: WritingPlan, state: ProjectState): WritingPlan
   // already reads both for forward-compat.
   plan.nfChapters = readNfChapters(state)
   plan.nfPromise = readNfPromise(state)
+  plan.claims = readClaims(state, plan.nfChapters)
   return plan
 }
 
@@ -814,7 +829,7 @@ function readNfChapters(state: ProjectState): NfChapter[] {
       cardFile: `docs/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
       sections: sections.map(normalizeNfSection),
       wordCountEstimate: numberOrNull(item.wordCountEstimate ?? item.estimatedWords),
-      keyResearch: stringOrNull(item.keyResearch),
+      keyResearch: stringOrNull(item.keyResearch ?? item.keyEvidence ?? item.sourcingNote),
       linkedPrinciple: stringOrUndef(item.linkedPrinciple),
       chapterQuestion: stringOrUndef(item.chapterQuestion),
       learningObjective: stringOrUndef(item.learningObjective),
@@ -830,6 +845,103 @@ function normalizeNfSection(s: Record<string, unknown>): NfChapterSection {
     notes: stringOrUndef(s.notes ?? s.purpose),
     keyResearch: stringOrUndef(s.keyResearch),
   }
+}
+
+// ── NF-12 claim extraction ────────────────────────────────────────────────────
+
+function readClaims(state: ProjectState, nfChapters: NfChapter[]): ClaimEvidenceItem[] {
+  const claims: ClaimEvidenceItem[] = []
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  function stg(key: string): Record<string, unknown> {
+    return (nf[key] ?? top[key] ?? {}) as Record<string, unknown>
+  }
+
+  // Pipeline A: structured evidence items from pa-evidence.evidenceByPrinciple
+  const paEvidence = stg('pa-evidence')
+  const byPrinciple = Array.isArray(paEvidence.evidenceByPrinciple)
+    ? paEvidence.evidenceByPrinciple as Array<Record<string, unknown>>
+    : []
+  for (const group of byPrinciple) {
+    const principleNum = group.principleNumber as number
+    const chapterNumber = nfChapters.find(ch =>
+      String(ch.linkedPrinciple) === String(principleNum),
+    )?.number ?? null
+    const items = Array.isArray(group.evidenceItems)
+      ? group.evidenceItems as Array<Record<string, unknown>>
+      : []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const evType = normalizeEvidenceType(stringOr(item.type, ''))
+      const confidence = normalizeConfidence(stringOr(item.strength, ''))
+      const verificationState = 'planned' as const
+      claims.push({
+        id: `ev-p${principleNum}-${i + 1}`,
+        claimText: stringOr(item.supportsTheClaim ?? item.claim, '(unlabelled claim)'),
+        chapterNumber,
+        sectionTitle: null,
+        evidenceType: evType,
+        sources: item.source ? [String(item.source)] : [],
+        confidence,
+        risk: deriveClaimRisk(confidence, verificationState),
+        citationNeeded: ['study', 'case-study', 'data', 'sourced-claim'].includes(evType),
+        verificationState,
+      })
+    }
+  }
+
+  // All pipelines: chapter-level keyResearch (normalised from keyResearch / keyEvidence / sourcingNote)
+  for (const ch of nfChapters) {
+    if (!ch.keyResearch) continue
+    claims.push({
+      id: `ch${ch.number}-evidence`,
+      claimText: ch.keyResearch,
+      chapterNumber: ch.number,
+      sectionTitle: null,
+      evidenceType: 'unparsed',
+      sources: [],
+      confidence: 'unknown',
+      risk: 'high',
+      citationNeeded: true,
+      verificationState: 'planned',
+    })
+  }
+
+  return claims
+}
+
+function normalizeEvidenceType(t: string): ClaimEvidenceItem['evidenceType'] {
+  const map: Record<string, ClaimEvidenceItem['evidenceType']> = {
+    study: 'study',
+    'case-study': 'case-study',
+    'case study': 'case-study',
+    data: 'data',
+    interview: 'interview',
+    personal: 'personal',
+    'sourced-claim': 'sourced-claim',
+    'sourced claim': 'sourced-claim',
+  }
+  return map[t.toLowerCase()] ?? 'unparsed'
+}
+
+function normalizeConfidence(s: string): ClaimEvidenceItem['confidence'] {
+  const map: Record<string, ClaimEvidenceItem['confidence']> = {
+    primary: 'primary',
+    'peer-reviewed': 'primary',
+    secondary: 'secondary',
+    anecdotal: 'anecdotal',
+  }
+  return map[s.toLowerCase()] ?? 'unknown'
+}
+
+function deriveClaimRisk(
+  confidence: ClaimEvidenceItem['confidence'],
+  verificationState: ClaimEvidenceItem['verificationState'],
+): ClaimEvidenceItem['risk'] {
+  if (verificationState === 'verified' || verificationState === 'cited') return 'low'
+  if (confidence === 'primary') return 'low'
+  if (confidence === 'anecdotal' || confidence === 'unknown') return 'high'
+  return 'medium'
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

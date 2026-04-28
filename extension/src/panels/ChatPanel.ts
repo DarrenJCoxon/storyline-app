@@ -3,8 +3,9 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
+import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import {
@@ -611,6 +612,15 @@ export class ChatPanel {
             console.warn('[Storyline] generateResearchTodo failed', err)
           }
         }
+        // NF-12: Claim/evidence ledger after evidence or sourcing stage saves.
+        const CLAIM_LEDGER_STAGES = ['pa-evidence', 'pb-sourcing', 'pa-master', 'pb-master', 'pc-master']
+        if (CLAIM_LEDGER_STAGES.includes(stageId)) {
+          try {
+            generateClaimEvidenceLedger(plan, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateClaimEvidenceLedger failed', err)
+          }
+        }
       }
     }
 
@@ -785,6 +795,21 @@ export class ChatPanel {
         console.warn('[Storyline] file_write rejected (outside project):', relPath)
         continue
       }
+
+      // Guard: manuscript writes always require explicit writer confirmation.
+      // This is enforced in code — not in the prompt — so the model cannot
+      // bypass it. Planning docs (docs/, output/) are unrestricted.
+      const decision = guardFileWrite(relPath, absPath, content)
+      if (!decision.allowed) {
+        console.warn('[Storyline] file_write guarded:', relPath, '—', decision.reason)
+        this.post({ type: 'fileWriteBlocked', path: relPath, reason: decision.reason })
+        const approved = await confirmWrite(relPath, decision.stats)
+        if (!approved) {
+          console.log('[Storyline] file_write blocked by writer:', relPath)
+          continue
+        }
+      }
+
       try {
         await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
         await fs.promises.writeFile(absPath, content, 'utf-8')

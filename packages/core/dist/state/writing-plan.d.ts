@@ -9,6 +9,19 @@ export interface ResearchTodoItem {
     stageId?: string | null;
     status: 'planned' | 'captured' | 'verified' | 'cited';
 }
+/** A tracked factual claim — NF-12. Populated from pa-evidence / pb-sourcing stages. */
+export interface ClaimEvidenceItem {
+    id: string;
+    claimText: string;
+    chapterNumber: number | null;
+    sectionTitle: string | null;
+    evidenceType: 'study' | 'case-study' | 'data' | 'interview' | 'personal' | 'sourced-claim' | 'unparsed';
+    sources: string[];
+    confidence: 'primary' | 'secondary' | 'anecdotal' | 'unknown';
+    risk: 'high' | 'medium' | 'low';
+    citationNeeded: boolean;
+    verificationState: 'planned' | 'sourced' | 'captured' | 'verified' | 'cited';
+}
 /** A figure (diagram / chart / cast sheet / etc.) — consumed by NF-13 and fiction visual work. */
 export interface FigurePlanItem {
     id: string;
@@ -257,7 +270,7 @@ export interface WritingPlan {
         paFrameworkName: string | null;
     } | null;
     promises: PromisePayoffItem[];
-    claims: unknown[];
+    claims: ClaimEvidenceItem[];
     storyBible: FictionStoryBible | null;
     arcMatrix: FictionArcMatrix | null;
 }

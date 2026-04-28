@@ -402,6 +402,7 @@ function populateNonfiction(plan, state) {
     // already reads both for forward-compat.
     plan.nfChapters = readNfChapters(state);
     plan.nfPromise = readNfPromise(state);
+    plan.claims = readClaims(state, plan.nfChapters);
     return plan;
 }
 function readNfPromise(state) {
@@ -459,7 +460,7 @@ function readNfChapters(state) {
             cardFile: `docs/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
             sections: sections.map(normalizeNfSection),
             wordCountEstimate: numberOrNull(item.wordCountEstimate ?? item.estimatedWords),
-            keyResearch: stringOrNull(item.keyResearch),
+            keyResearch: stringOrNull(item.keyResearch ?? item.keyEvidence ?? item.sourcingNote),
             linkedPrinciple: stringOrUndef(item.linkedPrinciple),
             chapterQuestion: stringOrUndef(item.chapterQuestion),
             learningObjective: stringOrUndef(item.learningObjective),
@@ -474,6 +475,94 @@ function normalizeNfSection(s) {
         notes: stringOrUndef(s.notes ?? s.purpose),
         keyResearch: stringOrUndef(s.keyResearch),
     };
+}
+// ── NF-12 claim extraction ────────────────────────────────────────────────────
+function readClaims(state, nfChapters) {
+    const claims = [];
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    function stg(key) {
+        return (nf[key] ?? top[key] ?? {});
+    }
+    // Pipeline A: structured evidence items from pa-evidence.evidenceByPrinciple
+    const paEvidence = stg('pa-evidence');
+    const byPrinciple = Array.isArray(paEvidence.evidenceByPrinciple)
+        ? paEvidence.evidenceByPrinciple
+        : [];
+    for (const group of byPrinciple) {
+        const principleNum = group.principleNumber;
+        const chapterNumber = nfChapters.find(ch => String(ch.linkedPrinciple) === String(principleNum))?.number ?? null;
+        const items = Array.isArray(group.evidenceItems)
+            ? group.evidenceItems
+            : [];
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const evType = normalizeEvidenceType(stringOr(item.type, ''));
+            const confidence = normalizeConfidence(stringOr(item.strength, ''));
+            const verificationState = 'planned';
+            claims.push({
+                id: `ev-p${principleNum}-${i + 1}`,
+                claimText: stringOr(item.supportsTheClaim ?? item.claim, '(unlabelled claim)'),
+                chapterNumber,
+                sectionTitle: null,
+                evidenceType: evType,
+                sources: item.source ? [String(item.source)] : [],
+                confidence,
+                risk: deriveClaimRisk(confidence, verificationState),
+                citationNeeded: ['study', 'case-study', 'data', 'sourced-claim'].includes(evType),
+                verificationState,
+            });
+        }
+    }
+    // All pipelines: chapter-level keyResearch (normalised from keyResearch / keyEvidence / sourcingNote)
+    for (const ch of nfChapters) {
+        if (!ch.keyResearch)
+            continue;
+        claims.push({
+            id: `ch${ch.number}-evidence`,
+            claimText: ch.keyResearch,
+            chapterNumber: ch.number,
+            sectionTitle: null,
+            evidenceType: 'unparsed',
+            sources: [],
+            confidence: 'unknown',
+            risk: 'high',
+            citationNeeded: true,
+            verificationState: 'planned',
+        });
+    }
+    return claims;
+}
+function normalizeEvidenceType(t) {
+    const map = {
+        study: 'study',
+        'case-study': 'case-study',
+        'case study': 'case-study',
+        data: 'data',
+        interview: 'interview',
+        personal: 'personal',
+        'sourced-claim': 'sourced-claim',
+        'sourced claim': 'sourced-claim',
+    };
+    return map[t.toLowerCase()] ?? 'unparsed';
+}
+function normalizeConfidence(s) {
+    const map = {
+        primary: 'primary',
+        'peer-reviewed': 'primary',
+        secondary: 'secondary',
+        anecdotal: 'anecdotal',
+    };
+    return map[s.toLowerCase()] ?? 'unknown';
+}
+function deriveClaimRisk(confidence, verificationState) {
+    if (verificationState === 'verified' || verificationState === 'cited')
+        return 'low';
+    if (confidence === 'primary')
+        return 'low';
+    if (confidence === 'anecdotal' || confidence === 'unknown')
+        return 'high';
+    return 'medium';
 }
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function extractTitle(state) {

@@ -122,7 +122,7 @@ function isSeedFile(content) {
 function nfChapterManuscriptPath(ch) {
     return ch.manuscriptFile;
 }
-function seedNfChapterContent(ch) {
+function seedNfChapterContent(ch, claims = []) {
     const num = ch.number ?? 1;
     const title = ch.title ?? `Chapter ${num}`;
     const lines = [exports.MANUSCRIPT_SEED_MARKER, '', `# Chapter ${num} — ${title}`, ''];
@@ -140,6 +140,7 @@ function seedNfChapterContent(ch) {
         lines.push('*No sections planned yet. Return after the chapter-plan stage.*', '');
         return lines.join('\n').trimEnd() + '\n';
     }
+    const chapterClaims = claims.filter(c => c.chapterNumber === ch.number);
     for (let i = 0; i < ch.sections.length; i++) {
         const sec = ch.sections[i];
         lines.push(`## ${sec.title}`, '');
@@ -147,6 +148,11 @@ function seedNfChapterContent(ch) {
             lines.push(`*Section purpose: ${sec.notes}*`, '');
         if (sec.keyResearch)
             lines.push(`{{research: ${sec.keyResearch}}}`, '');
+        // NF-12.3: emit {{claim: <id>}} markers in evidence sections
+        if (sec.type === 'evidence') {
+            for (const c of chapterClaims)
+                lines.push(`{{claim: ${c.id}}}`, '');
+        }
         lines.push('<!-- Write your prose below -->', '', '');
         if (i < ch.sections.length - 1)
             lines.push('---', '');
@@ -170,7 +176,7 @@ function seedManuscriptFromPlan(plan, projectDir) {
             return;
         for (const ch of plan.nfChapters) {
             const filePath = path.join(projectDir, nfChapterManuscriptPath(ch));
-            const content = seedNfChapterContent(ch);
+            const content = seedNfChapterContent(ch, plan.claims);
             writeIfMissing(filePath, content);
         }
         return;
