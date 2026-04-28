@@ -2,6 +2,8 @@ export type { Mode, Pipeline, SubMode, ProjectState, StageEntry, Beat, BeatSheet
 export { DEFAULT_STATE, STAGE_ORDER, STAGE_BY_ID, NF_STAGE_ORDER, NF_STAGE_BY_ID, NF_DNA_STAGE_ORDER, NF_PIPELINE_A_STAGE_ORDER, NF_PIPELINE_B_STAGE_ORDER, NF_PIPELINE_C_STAGE_ORDER, stageOrderFor, } from './state/project-state.js';
 export { deriveCurrentStage, calculateProgress, checkStageGate, getMissingRequirements, getDownstreamImpacts, isStageComplete, } from './state/transitions.js';
 export type { GateResult } from './state/transitions.js';
+export { getWritingPlan } from './state/writing-plan.js';
+export type { WritingPlan, FictionScene, FictionChapter, FictionBeat, FictionCharacter, FictionRelationship, FictionPlotThread, FictionSubplot, FictionBStory, NfChapter, NfChapterSection, ResearchTodoItem, FigurePlanItem, } from './state/writing-plan.js';
 export type { StageGuide, StageQuestion, BeatEntry } from './ai/stage-guides.js';
 export { STAGE_GUIDES, GENRE_VARIANTS, getStageGuide, buildSystemPrompt } from './ai/stage-guides.js';
 export type { NfDnaGuide } from './ai/stage-guides-nf-dna.js';
