@@ -15,7 +15,6 @@ import {
   detectProviderKind,
 } from '../conversation/critique-wiring.js'
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
-import { getWritingPlan } from '@storyline/core'
 import { LocalStore, extractJsonBlock } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
