@@ -7,6 +7,15 @@ import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, de
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
+import {
+  shouldSkipCritique,
+  interpretCritiqueOk,
+  interpretCritiqueHttpError,
+  interpretCritiqueNetworkError,
+  detectProviderKind,
+} from '../conversation/critique-wiring.js'
+import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
+import { getWritingPlan } from '@storyline/core'
 import { LocalStore, extractJsonBlock } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
@@ -159,7 +168,13 @@ export class ChatPanel {
   private async handleMessage(msg: Record<string, unknown>): Promise<void> {
     switch (msg.type) {
       case 'send':
-        await this.handleUserMessage(msg.text as string)
+        try {
+          await this.handleUserMessage(msg.text as string)
+        } catch (err) {
+          const m = err instanceof Error ? err.message : String(err)
+          console.error('[Storyline] handleUserMessage threw:', err)
+          this.post({ type: 'streamError', message: m })
+        }
         break
       case 'ready':
         void this.handleWebviewReady()
@@ -180,6 +195,17 @@ export class ChatPanel {
       case 'topUpCredits':
         await vscode.commands.executeCommand('storyline.topUpCredits')
         break
+      case 'openProjectFile': {
+        // FIC-A.6: open an artefact path (relative to project root) from
+        // the planning-complete card.
+        const rel = msg.path as string
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        if (rel && root) {
+          const uri = vscode.Uri.file(path.join(root, rel))
+          await vscode.commands.executeCommand('vscode.open', uri)
+        }
+        break
+      }
       case 'startRecording':
         void this.handleStartRecording()
         break
@@ -206,10 +232,29 @@ export class ChatPanel {
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
     if (!currentStage) {
-      this.post({ type: 'streamError', message: 'Your project planning is complete. Use the compile panel to export your manuscript.' })
+      this.postPlanningCompleteCard(state)
       return
     }
     await this.fireOpeningPrompt(currentStage.id, state)
+  }
+
+  /** Walk the project dir for existing artefacts and post a
+   *  `planningComplete` card. Replaces the silent null-stage return
+   *  with a concrete handoff into drafting. */
+  private postPlanningCompleteCard(state: ProjectState): void {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) {
+      this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
+      return
+    }
+    try {
+      const plan = getWritingPlan(state)
+      const artefacts = discoverPlanningArtefacts(state, plan, projectDir)
+      this.post({ type: 'planningComplete', artefacts })
+    } catch (err) {
+      console.warn('[Storyline] postPlanningCompleteCard failed', err)
+      this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
+    }
   }
 
   private async handleUserMessage(text: string): Promise<void> {
@@ -217,7 +262,10 @@ export class ChatPanel {
 
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
-    if (!currentStage) return
+    if (!currentStage) {
+      this.postPlanningCompleteCard(state)
+      return
+    }
 
     this.turnHistory.append(currentStage.id, { role: 'user', content: text })
     this.turnHistory.appendDisplay({ role: 'user', content: text })
@@ -549,6 +597,14 @@ export class ChatPanel {
         .catch(err => console.warn('[Storyline] writeStageDoc failed', err))
     }
 
+    // 5. Model-backed critique (fire-and-forget — never blocks stage advance).
+    // Stages in NO_CRITIQUE_STAGES are deliberately suppressed (validate-tier
+    // schema nags + auto-generated master-docs). Everything else fires the
+    // backend critique endpoint at the tier the backend picks.
+    void this.runCritique(stageId, finalState).catch(err => {
+      console.warn('[Storyline] runCritique threw', err)
+    })
+
     // ── Stage advance — MUST run, regardless of side-effect errors above.
     let nextStage: ReturnType<typeof deriveCurrentStage> = null
     try {
@@ -572,6 +628,11 @@ export class ChatPanel {
         })),
       })
       await this.fireOpeningPrompt(nextStage.id, finalState)
+    } else {
+      // FIC-A.6: planning is complete — post the handoff card listing
+      // the artefacts the writer can open. Replaces the previous silent
+      // dead-end after the last master stage saves.
+      this.postPlanningCompleteCard(finalState)
     }
   }
 
@@ -694,31 +755,62 @@ export class ChatPanel {
   }
 
   private async runCritique(stageId: string, state: ProjectState): Promise<void> {
-    if (!(this.provider instanceof ManagedProvider)) return
-    // Skip stages that have no narrative/structural content to critique.
-    // `mode` is a binary fiction/non-fiction gate; the master-doc stages
-    // are auto-generated synthesis outputs that already passed critique
-    // earlier. Running the structural critic on these produces the
-    // unhelpful "populate something first" reply.
-    if (NO_CRITIQUE_STAGES.has(stageId)) return
-    const licenceKey = await this.licenceManager.getLicenceKey()
-    if (!licenceKey) return
-
-    const response = await fetch(`${getBackendUrl()}/critique`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        licenceKey,
-        stageId,
-        state,
-        qualityMode: getQualityMode(),
-      }),
+    // Decide whether to skip via the pure helper. Reasons surface to the log
+    // so silent skips are still visible during debugging, but no UI noise.
+    const providerKind = detectProviderKind(this.provider?.constructor?.name)
+    const licenceKey = providerKind === 'managed'
+      ? await this.licenceManager.getLicenceKey()
+      : null
+    const skip = shouldSkipCritique({
+      stageId,
+      providerKind,
+      hasLicenceKey: !!licenceKey,
     })
+    if (skip.skip) {
+      console.log(`[Storyline] critique: skipped — ${skip.detail}`)
+      return
+    }
 
-    if (!response.ok) return
+    let response: Response
+    try {
+      response = await fetch(`${getBackendUrl()}/critique`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          licenceKey,
+          stageId,
+          state,
+          qualityMode: getQualityMode(),
+        }),
+      })
+    } catch (err) {
+      const action = interpretCritiqueNetworkError(err)
+      console.warn(`[Storyline] critique: network error for ${stageId}`, err)
+      if (action.action === 'stream-error') {
+        this.post({ type: 'streamError', message: action.message })
+      }
+      return
+    }
+
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '')
+      console.warn(`[Storyline] critique: backend ${response.status} for ${stageId}${bodyText ? ' — ' + bodyText : ''}`)
+      const action = interpretCritiqueHttpError({ status: response.status, bodyText })
+      if (action.action === 'stream-error') {
+        this.post({ type: 'streamError', message: action.message })
+      }
+      // silent-credits-exhausted: streamResponse path will surface 402 on
+      // the next chat turn — no card here.
+      return
+    }
+
     const data = await response.json() as { findings?: string; tier?: string }
-    if (data.findings) {
-      this.post({ type: 'critiqueCard', findings: data.findings, tier: data.tier ?? 'structural', stageId })
+    const action = interpretCritiqueOk(data)
+    if (action.action === 'card') {
+      console.log(`[Storyline] critique: ${stageId} → ${action.tier} (${action.findings.length} chars)`)
+      this.post({ type: 'critiqueCard', findings: action.findings, tier: action.tier, stageId })
+    } else {
+      console.log(`[Storyline] critique: ${stageId} returned no findings`)
     }
   }
 
@@ -767,23 +859,4 @@ function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
-
-const NO_CRITIQUE_STAGES = new Set<string>([
-  // No content to critique
-  'mode',
-  // Auto-generated synthesis output — already validated upstream
-  'masterDoc',
-  'pa-master',
-  'pb-master',
-  'pc-master',
-  // Validate-tier stages — schema-level nags that disrupt conversational
-  // flow. Required fields are already enforced by gateStageSave; the
-  // structural/synthesis tiers on later stages provide the real editorial
-  // critique. Original /storyline ran these silently; we suppress them
-  // entirely in the chat panel.
-  'genre',
-  'premise',
-  'characters',
-  'plotThreads',
-])
 

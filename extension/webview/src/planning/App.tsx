@@ -35,6 +35,21 @@ export interface ChatMessage {
   seriesDetectedCard?: { suggestion: string; indicators: string[] }
   downstreamImpactsCard?: { stageId: string; impacts: string[] }
   critiqueCard?: { findings: string; tier: string; stageId: string }
+  planningCompleteCard?: PlanningCompleteArtefacts
+}
+
+export interface PlanningCompleteArtefacts {
+  mode: 'fiction' | 'nonfiction'
+  masterDocPath: string | null
+  chapterCardPaths: string[]
+  manuscriptPaths: string[]
+  firstChapterPath: string | null
+  storyBiblePath: string | null
+  arcMatrixPath: string | null
+  promiseLedgerPath: string | null
+  researchTodoPath: string | null
+  claimLedgerPath: string | null
+  figureRegistryPath: string | null
 }
 
 export interface CreditInfo {
@@ -70,6 +85,7 @@ type Action =
   | { type: 'SERIES_DETECTED'; suggestion: string; indicators: string[] }
   | { type: 'DOWNSTREAM_IMPACTS'; stageId: string; impacts: string[] }
   | { type: 'CRITIQUE_CARD'; findings: string; tier: string; stageId: string }
+  | { type: 'PLANNING_COMPLETE'; artefacts: PlanningCompleteArtefacts }
   | { type: 'MEMORY_STORED'; stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }
   | { type: 'SAVE_GATED'; stageId: string; missing: string[] }
   | { type: 'CREDIT_UPDATE'; balance: number }
@@ -198,6 +214,12 @@ function reducer(state: AppState, action: Action): AppState {
         messages: [...state.messages, { id: uid(), role: 'system', content: '', critiqueCard: { findings: action.findings, tier: action.tier, stageId: action.stageId } }],
       }
 
+    case 'PLANNING_COMPLETE':
+      return {
+        ...state,
+        messages: [...state.messages, { id: uid(), role: 'system', content: '', planningCompleteCard: action.artefacts }],
+      }
+
     case 'CREDIT_UPDATE':
       return { ...state, creditInfo: { ...state.creditInfo, balance: action.balance } }
 
@@ -286,6 +308,7 @@ export function App() {
       on<{ suggestion: string; indicators: string[] }>('seriesDetected', m => dispatch({ type: 'SERIES_DETECTED', suggestion: m.suggestion, indicators: m.indicators })),
       on<{ stageId: string; impacts: string[] }>('downstreamImpacts', m => dispatch({ type: 'DOWNSTREAM_IMPACTS', stageId: m.stageId, impacts: m.impacts })),
       on<{ findings: string; tier: string; stageId: string }>('critiqueCard', m => dispatch({ type: 'CRITIQUE_CARD', findings: m.findings, tier: m.tier, stageId: m.stageId })),
+      on<{ artefacts: PlanningCompleteArtefacts }>('planningComplete', m => dispatch({ type: 'PLANNING_COMPLETE', artefacts: m.artefacts })),
       on<{ stageId: string; method: 'odd-flow' | 'jsonl' | 'skipped'; error?: string }>('memoryStored', m => dispatch({ type: 'MEMORY_STORED', stageId: m.stageId, method: m.method, error: m.error })),
       on<{ stageId: string; missing: string[] }>('saveGated', m => dispatch({ type: 'SAVE_GATED', stageId: m.stageId, missing: m.missing })),
       on<{ balance: number }>('creditUpdate', m => dispatch({ type: 'CREDIT_UPDATE', balance: m.balance })),
@@ -306,6 +329,10 @@ export function App() {
 
   const handleStop = useCallback(() => {
     send({ type: 'stop' })
+  }, [send])
+
+  const handleOpenProjectFile = useCallback((path: string) => {
+    send({ type: 'openProjectFile', path })
   }, [send])
 
   const handleToggleRail = useCallback(() => {
@@ -336,6 +363,7 @@ export function App() {
       <ChatThread
         messages={state.messages}
         streamingId={state.streamingId}
+        onOpenProjectFile={handleOpenProjectFile}
       />
 
       {state.messages.length === 0 && !state.streamingId && state.stages.length > 0 && (

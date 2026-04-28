@@ -1,7 +1,7 @@
 # Roadmap
 
 _Outcome-led milestones with "prove it" gates. Not a feature backlog._
-_Last updated: 2026-04-20_
+_Last updated: 2026-04-28_
 
 ## How this roadmap works
 
@@ -53,6 +53,11 @@ _Last updated: 2026-04-20_
 **Outcome:** A writer drafting prose invokes `/critique` and gets expert feedback on what they wrote, measured against the plan they made. The harness reads the open chapter (or whole manuscript), pulls the matching slice of `.storyline/state.json`, and returns structured critique in two sections — **faithfulness** (did the scene deliver the planned beat function, POV, conflict, what-changes?) and optional **craft** (POV slips, tense drift, dialogue, pacing). The differentiator is faithfulness; nobody else has the plan object.
 **Prove-it gate:** (1) Faithfulness critique on a real chapter surfaces a specific issue the writer did not already know about. (2) `/critique all` catches a cross-chapter contradiction or arc drift neither drift-report nor per-chapter faithfulness would catch. (3) The writer trusts it enough to re-run it on the next chapter.
 **Status:** Exploratory — logged for a future phase. Should land after M1 and M2 prove themselves (plans must be populated and writers must actually be drafting); benefits from M8's routing primitive for Opus escalation. Detail: [roadmap/milestone-10-drafting-companion.md](roadmap/milestone-10-drafting-companion.md)
+
+### Milestone 11 — Fiction Book Brain (proposed)
+**Outcome:** A completed fiction planning run becomes a live writing system: scene contracts, story bible, character arc matrix, promise/payoff ledger, plot-thread ledger, visual story bible, planning-complete handoff, writing cockpit, and plan-vs-draft critique. The differentiator is not that Storyline writes prose; it knows what the writer planned and helps protect the story while they draft.
+**Prove-it gate:** A real novel plan produces a useful handoff into drafting, surfaces at least one meaningful promise/payoff or character-arc issue before drafting, and later catches at least one concrete plan-vs-draft divergence in a real chapter. Existing fiction chapter cards, master document, manuscript seeding, compile, preview, and compare flows remain intact.
+**Status:** Proposed — the strategic fiction counterpart to NF-11. M10 can ship first as the narrow critique proof; M11 is the wider fiction operating-system frame. Detail: [roadmap/milestone-11-fiction-book-brain.md](roadmap/milestone-11-fiction-book-brain.md)
 
 ## Meta-rules for milestones
 

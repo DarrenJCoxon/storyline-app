@@ -262,8 +262,12 @@ async function generateMasterDocument(state, projectPath) {
     md.push('## PLOT THREAD REGISTRY\n');
     md.push(`| Thread | Type | Status | Resolution |\n`);
     md.push(`|--------|------|--------|------------|\n`);
+    // Drift D2 fix (FIC-A.4): plot-thread type captured under `threadType` per
+    // schema; old reads of `t.type` produced "undefined" in the rendered table.
     threads.forEach(t => {
-        md.push(`| ${t.name} | ${t.type} | ${t.status} | ${t.resolutionPlan || '-'} |\n`);
+        const typedT = t;
+        const threadType = typedT.threadType ?? t.type ?? '-';
+        md.push(`| ${t.name} | ${threadType} | ${t.status ?? '-'} | ${t.resolutionPlan || '-'} |\n`);
     });
     md.push('\n');
     // ─── WORD COUNT ESTIMATE ───────────────────────────────────────

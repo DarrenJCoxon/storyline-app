@@ -2,22 +2,27 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { ProjectState } from '@storyline/core'
 
+// Canonical beat IDs match packages/core/src/state/project-state.ts. Drift
+// here means chapter cards display raw IDs instead of friendly names —
+// fixed in FIC-A.4 (Drift D1). The schema-coverage test in
+// tests/fiction-drift.test.js fails loudly if a beat is added/renamed in
+// the schema without updating this table.
 const BEAT_NAMES: Record<string, string> = {
-  beat01OpeningImage:        'Opening Image',
-  beat02Setup:               'Setup',
-  beat03Catalyst:            'Catalyst',
-  beat04Debate:              'Debate',
-  beat05BreakIntoTwo:        'Break Into Two',
-  beat06BStory:              'B Story',
-  beat07FunAndGames:         'Fun and Games',
-  beat08Midpoint:            'Midpoint',
-  beat09BadGuysCloseIn:      'Bad Guys Close In',
-  beat10AllIsLost:           'All Is Lost',
-  beat11DarkNightOfTheSoul:  'Dark Night of the Soul',
-  beat12BreakIntoThree:      'Break Into Three',
-  beat13Finale:              'Finale',
-  beat14FinalImage:          'Final Image',
-  beat15EndCredits:          'End Credits',
+  beat01OpeningImage:   'Opening Image',
+  beat02Setup:          'Setup',
+  beat03Catalyst:       'Catalyst',
+  beat04Debate:         'Debate',
+  beat05BreakIntoTwo:   'Break Into Two',
+  beat06BStory:         'B Story',
+  beat07FunAndGames:    'Fun and Games',
+  beat08Midpoint:       'Midpoint',
+  beat09BadGuysCloseIn: 'Bad Guys Close In',
+  beat10AllIsLost:      'All Is Lost',
+  beat11BlackMoment:    'Black Moment',
+  beat12Beat13:         'Break Into Three',
+  beat13Finale:         'Finale',
+  beat14FinalImage:     'Final Image',
+  beat15EndCredits:     'End Credits',
 }
 
 function slugify(str: string): string {

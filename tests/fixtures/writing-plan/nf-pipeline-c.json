@@ -1,0 +1,63 @@
+{
+  "_meta": { "projectPath": "/x", "projectTitle": "Knife Skills From First Cut", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-04-01T00:00:00.000Z" },
+  "mode": "nonfiction",
+  "pipeline": "C",
+  "subMode": null,
+  "bookDna": {},
+  "nfStages": {
+    "pc-skill": { "targetSkill": "Confident, accurate knife work in a home kitchen" },
+    "pc-lessons": {
+      "lessons": [
+        {
+          "number": 1,
+          "lessonTitle": "Hold the knife like you mean it",
+          "skillId": "grip",
+          "learningObjective": "After this lesson, the reader can hold a chef's knife with the pinch grip without conscious thought.",
+          "keyConceptsCount": 2,
+          "exampleType": "annotated photo sequence",
+          "drillType": "reproduction",
+          "wordCountEstimate": 2200,
+          "sections": [
+            { "title": "Why the grip matters", "type": "concept" },
+            { "title": "The pinch grip in pictures", "type": "example" },
+            { "title": "Drill: ten minutes a day for a week", "type": "application" },
+            { "title": "Common mistakes", "type": "summary" }
+          ]
+        },
+        {
+          "number": 2,
+          "lessonTitle": "Cut a single onion without crying",
+          "skillId": "onion-cut",
+          "learningObjective": "After this lesson, the reader can dice an onion in under three minutes with even pieces.",
+          "keyConceptsCount": 3,
+          "exampleType": "step-by-step worked example",
+          "drillType": "variation",
+          "wordCountEstimate": 2800,
+          "sections": [
+            { "title": "The onion's anatomy", "type": "concept" },
+            { "title": "Worked example: a small yellow onion", "type": "example" },
+            { "title": "Drill: three onions in three sessions", "type": "application" },
+            { "title": "Why your eyes water (and what helps)", "type": "concept" },
+            { "title": "Summary", "type": "summary" }
+          ]
+        }
+      ]
+    }
+  },
+  "stages": { "mode": { "completed": true }, "pc-skill": { "completed": true }, "pc-lessons": { "completed": true } },
+  "genre": { "primaryGenre": null, "subGenre": null, "targetWordCount": 45000, "tone": null, "audience": "Home cooks who want to feel confident with a knife", "genreVariant": "standard" },
+  "premise": { "rawLogline": null, "conceptHook": null, "seriesPotential": null, "seriesContext": { "isSeries": false, "seriesTitle": null, "bookCount": null, "currentBookNumber": 1, "overallArc": null, "firstBookFocus": null } },
+  "protagonist": { "name": null, "age": null, "occupation": null, "dailyLife": null, "want": null, "need": null, "ghost": null, "flaw": null, "coreLie": null, "arcDirection": null, "voice": null },
+  "characters": [],
+  "relationships": [],
+  "logline": { "sentence": null, "setup": null, "incitingIncident": null, "stakes": null, "resolutionHint": null, "antagonistQuestion": null },
+  "beatSheet": { "genreVariant": "standard", "beats": {}, "overallNotes": null },
+  "bStory": { "character": null, "premise": null, "beats": {}, "resolution": null, "themeConnection": null },
+  "subplots": [],
+  "sceneOutline": { "highLevel": [], "approved": false, "fleshedChapters": [] },
+  "plotThreads": [],
+  "chapterOutline": [],
+  "critique": { "flaggedIssues": [], "resolvedIssues": [], "pacingAnalysis": null, "characterConsistency": null, "beatSheetValidation": null },
+  "masterDoc": { "generatedAt": null, "markdown": null, "wordCountEstimate": null },
+  "writing": { "manuscriptPath": "manuscript" }
+}
