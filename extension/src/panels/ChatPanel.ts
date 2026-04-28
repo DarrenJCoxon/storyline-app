@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -15,7 +15,7 @@ import {
   detectProviderKind,
 } from '../conversation/critique-wiring.js'
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
-import { LocalStore, extractJsonBlock } from '../state/local-store.js'
+import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
@@ -287,6 +287,10 @@ export class ChatPanel {
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
     await this.applyEmittedPatches(full, currentStage.id)
+    await this.applyFileWrites(full)
+    const reloaded = await this.store.read()
+    const activeStage = deriveCurrentStage(reloaded)
+    if (activeStage) await this.applyFileReads(full, activeStage.id, reloaded)
     this.refreshCreditBalance()
   }
 
@@ -305,6 +309,7 @@ export class ChatPanel {
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     await this.applyEmittedPatches(full, currentStage.id)
+    await this.applyFileWrites(full)
     this.refreshCreditBalance()
   }
 
@@ -587,6 +592,26 @@ export class ChatPanel {
           console.warn('[Storyline] generateCharacterArcMatrix failed', err)
         }
       }
+      // NF artefacts — regenerate after relevant stage saves.
+      if (finalState.mode === 'nonfiction') {
+        // NF master doc after any master stage.
+        if (stageId === 'pa-master' || stageId === 'pb-master' || stageId === 'pc-master') {
+          try {
+            generateNfMasterDocument(plan, finalState, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateNfMasterDocument failed', err)
+          }
+        }
+        // Research todo after chapter-plan or evidence-map saves.
+        const RESEARCH_TODO_STAGES = ['pa-chapters', 'pb-chapters', 'pc-lessons', 'pa-evidence', 'pb-evidence']
+        if (RESEARCH_TODO_STAGES.includes(stageId)) {
+          try {
+            generateResearchTodo(plan, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateResearchTodo failed', err)
+          }
+        }
+      }
     }
 
     // ── Post-save side-effects — every step is wrapped so a single failure
@@ -699,6 +724,75 @@ export class ChatPanel {
       // the artefacts the writer can open. Replaces the previous silent
       // dead-end after the last master stage saves.
       this.postPlanningCompleteCard(finalState)
+    }
+  }
+
+  /** Read requested files and re-run the AI with their contents injected. Returns true if reads were handled. */
+  private async applyFileReads(aiText: string, stageId: string, state: ProjectState): Promise<boolean> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) return false
+    const requests = extractFileReadRequests(aiText)
+    if (requests.length === 0) return false
+
+    const parts: string[] = []
+    for (const relPath of requests) {
+      if (path.isAbsolute(relPath) || relPath.split('/').includes('..')) {
+        console.warn('[Storyline] file_read rejected (unsafe path):', relPath)
+        continue
+      }
+      const absPath = path.join(projectDir, relPath)
+      if (!absPath.startsWith(projectDir + path.sep) && absPath !== projectDir) {
+        console.warn('[Storyline] file_read rejected (outside project):', relPath)
+        continue
+      }
+      try {
+        const content = fs.readFileSync(absPath, 'utf-8')
+        parts.push(`[File: ${relPath}]\n\n${content}`)
+        console.log('[Storyline] file_read injected:', relPath)
+      } catch (err) {
+        parts.push(`[File: ${relPath}]\n\n(File not found or unreadable)`)
+        console.warn('[Storyline] file_read failed:', relPath, err)
+      }
+    }
+
+    if (parts.length === 0) return false
+
+    const injected = parts.join('\n\n---\n\n')
+    this.turnHistory.append(stageId, { role: 'user', content: injected })
+    this.turnHistory.appendDisplay({ role: 'user', content: injected })
+    this.post({ type: 'userMessage', text: injected })
+
+    const systemPrompt = buildSystemPrompt(stageId, state)
+    const messages = this.turnHistory.allForStage(stageId)
+    const full = await this.streamResponse(stageId, systemPrompt, messages, state)
+    if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
+    await this.applyEmittedPatches(full, stageId)
+    await this.applyFileWrites(full)
+    return true
+  }
+
+  private async applyFileWrites(aiText: string): Promise<void> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) return
+    const writes = extractFileWrites(aiText)
+    for (const { path: relPath, content } of writes) {
+      if (path.isAbsolute(relPath) || relPath.split('/').includes('..')) {
+        console.warn('[Storyline] file_write rejected (unsafe path):', relPath)
+        continue
+      }
+      const absPath = path.join(projectDir, relPath)
+      if (!absPath.startsWith(projectDir + path.sep) && absPath !== projectDir) {
+        console.warn('[Storyline] file_write rejected (outside project):', relPath)
+        continue
+      }
+      try {
+        await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
+        await fs.promises.writeFile(absPath, content, 'utf-8')
+        console.log('[Storyline] file written:', relPath)
+        this.post({ type: 'fileWritten', path: relPath })
+      } catch (err) {
+        console.warn('[Storyline] file_write failed:', relPath, err)
+      }
     }
   }
 

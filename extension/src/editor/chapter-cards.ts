@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { ProjectState } from '@storyline/core'
 import { getWritingPlan } from '@storyline/core'
-import type { FictionChapter, FictionScene, FictionCharacter } from '@storyline/core'
+import type { FictionChapter, FictionScene, FictionCharacter, NfChapter } from '@storyline/core'
 
 // Canonical beat IDs match packages/core/src/state/project-state.ts. Drift
 // here means chapter cards display raw IDs instead of friendly names —
@@ -124,18 +124,66 @@ function renderChapterCard(ch: FictionChapter, protagonist: FictionCharacter | n
   return lines.join('\n').trimEnd() + '\n'
 }
 
+function nfChapterFileName(ch: NfChapter): string {
+  const num = String(ch.number ?? 0).padStart(2, '0')
+  return ch.slug ? `${num}-${ch.slug}.md` : `${num}.md`
+}
+
+function renderNfChapterCard(ch: NfChapter): string {
+  const num = ch.number ?? '?'
+  const title = ch.title ?? `Chapter ${num}`
+
+  const lines: string[] = []
+  lines.push(`# Chapter ${num} — ${title}`, '')
+
+  const meta: string[] = []
+  if (ch.wordCountEstimate) meta.push(`**Target:** ~${Number(ch.wordCountEstimate).toLocaleString()} words`)
+  if (ch.linkedPrinciple)   meta.push(`**Principle:** ${ch.linkedPrinciple}`)
+  if (ch.chapterQuestion)   meta.push(`**Question:** ${ch.chapterQuestion}`)
+  if (ch.learningObjective) meta.push(`**Objective:** ${ch.learningObjective}`)
+  if (meta.length) lines.push(meta.join('  ·  '), '')
+
+  if (ch.mission) lines.push(`> *${ch.mission}*`, '')
+
+  if (ch.keyResearch) lines.push(`**Key research:** ${ch.keyResearch}`, '')
+
+  if (ch.sections.length > 0) {
+    lines.push('## Sections', '')
+    for (const sec of ch.sections) {
+      lines.push(`### ${sec.title}`)
+      if (sec.type && sec.type !== 'body') lines.push(`*${sec.type}*`)
+      if (sec.notes) lines.push('', sec.notes)
+      if (sec.keyResearch) lines.push(``, `**Research:** ${sec.keyResearch}`)
+      lines.push('')
+    }
+  } else {
+    lines.push('_No sections planned for this chapter yet._', '')
+  }
+
+  return lines.join('\n').trimEnd() + '\n'
+}
+
 export async function writeAllChapterCards(state: Partial<ProjectState>, projectDir: string): Promise<void> {
   const plan = getWritingPlan(state as ProjectState)
-  const chapters = plan.fictionChapters
   const chaptersDir = path.join(projectDir, 'docs', 'chapters')
   fs.mkdirSync(chaptersDir, { recursive: true })
 
   const expectedFiles = new Set<string>()
-  for (const ch of chapters) {
-    const fileName = chapterFileName(ch)
-    expectedFiles.add(fileName)
-    const body = renderChapterCard(ch, plan.protagonist)
-    fs.writeFileSync(path.join(chaptersDir, fileName), body, 'utf-8')
+
+  if (plan.mode === 'nonfiction') {
+    for (const ch of plan.nfChapters) {
+      const fileName = nfChapterFileName(ch)
+      expectedFiles.add(fileName)
+      const body = renderNfChapterCard(ch)
+      fs.writeFileSync(path.join(chaptersDir, fileName), body, 'utf-8')
+    }
+  } else {
+    for (const ch of plan.fictionChapters) {
+      const fileName = chapterFileName(ch)
+      expectedFiles.add(fileName)
+      const body = renderChapterCard(ch, plan.protagonist)
+      fs.writeFileSync(path.join(chaptersDir, fileName), body, 'utf-8')
+    }
   }
 
   // Remove stale cards (pattern: NN-slug.md or NN.md)

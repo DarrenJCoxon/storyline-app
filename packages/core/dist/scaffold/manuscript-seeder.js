@@ -36,6 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MANUSCRIPT_SEED_MARKER = void 0;
 exports.seedChapterContent = seedChapterContent;
 exports.chapterManuscriptPath = chapterManuscriptPath;
+exports.nfChapterManuscriptPath = nfChapterManuscriptPath;
+exports.seedNfChapterContent = seedNfChapterContent;
 exports.seedManuscriptFromPlan = seedManuscriptFromPlan;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -116,6 +118,41 @@ function chapterManuscriptPath(ch) {
 function isSeedFile(content) {
     return content.trimStart().startsWith(exports.MANUSCRIPT_SEED_MARKER);
 }
+// ── NF seeding (NF-11.6) ─────────────────────────────────────────────────────
+function nfChapterManuscriptPath(ch) {
+    return ch.manuscriptFile;
+}
+function seedNfChapterContent(ch) {
+    const num = ch.number ?? 1;
+    const title = ch.title ?? `Chapter ${num}`;
+    const lines = [exports.MANUSCRIPT_SEED_MARKER, '', `# Chapter ${num} — ${title}`, ''];
+    if (ch.mission)
+        lines.push(`> *${ch.mission}*`, '');
+    if (ch.linkedPrinciple)
+        lines.push(`> *Principle: ${ch.linkedPrinciple}*`, '');
+    if (ch.chapterQuestion)
+        lines.push(`> *Question: ${ch.chapterQuestion}*`, '');
+    if (ch.learningObjective)
+        lines.push(`> *Objective: ${ch.learningObjective}*`, '');
+    if (ch.wordCountEstimate)
+        lines.push(`> *Target: ~${Number(ch.wordCountEstimate).toLocaleString()} words*`, '');
+    if (ch.sections.length === 0) {
+        lines.push('*No sections planned yet. Return after the chapter-plan stage.*', '');
+        return lines.join('\n').trimEnd() + '\n';
+    }
+    for (let i = 0; i < ch.sections.length; i++) {
+        const sec = ch.sections[i];
+        lines.push(`## ${sec.title}`, '');
+        if (sec.notes)
+            lines.push(`*Section purpose: ${sec.notes}*`, '');
+        if (sec.keyResearch)
+            lines.push(`{{research: ${sec.keyResearch}}}`, '');
+        lines.push('<!-- Write your prose below -->', '', '');
+        if (i < ch.sections.length - 1)
+            lines.push('---', '');
+    }
+    return lines.join('\n').trimEnd() + '\n';
+}
 /**
  * Seeds per-chapter manuscript files from a normalized WritingPlan.
  *
@@ -123,30 +160,39 @@ function isSeedFile(content) {
  * OR if it exists but still contains the seed marker (meaning the writer
  * has not yet touched it). Modified prose is never overwritten.
  *
- * Mode-aware: only runs for fiction projects (plan.mode === 'fiction').
- * NF seeding (NF-11.6) will use the same function with nfChapters.
+ * Mode-aware: branches on plan.mode to seed fiction scenes or NF sections.
  */
 function seedManuscriptFromPlan(plan, projectDir) {
-    if (plan.mode !== 'fiction')
-        return;
-    if (plan.fictionChapters.length === 0)
-        return;
     const manuscriptDir = path.join(projectDir, 'manuscript');
     fs.mkdirSync(manuscriptDir, { recursive: true });
+    if (plan.mode === 'nonfiction') {
+        if (plan.nfChapters.length === 0)
+            return;
+        for (const ch of plan.nfChapters) {
+            const filePath = path.join(projectDir, nfChapterManuscriptPath(ch));
+            const content = seedNfChapterContent(ch);
+            writeIfMissing(filePath, content);
+        }
+        return;
+    }
+    if (plan.fictionChapters.length === 0)
+        return;
     for (const ch of plan.fictionChapters) {
         const relPath = chapterManuscriptPath(ch);
         const filePath = path.join(projectDir, relPath);
         const content = seedChapterContent(ch);
-        if (!fs.existsSync(filePath)) {
-            fs.writeFileSync(filePath, content, 'utf-8');
-            continue;
-        }
-        const existing = fs.readFileSync(filePath, 'utf-8');
-        if (isSeedFile(existing)) {
-            // Seed marker present — writer hasn't started drafting; safe to refresh
-            // (e.g. contract fields have been added since initial seeding).
-            fs.writeFileSync(filePath, content, 'utf-8');
-        }
+        writeIfMissing(filePath, content);
+    }
+}
+function writeIfMissing(filePath, content) {
+    if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        fs.writeFileSync(filePath, content, 'utf-8');
+        return;
+    }
+    const existing = fs.readFileSync(filePath, 'utf-8');
+    if (isSeedFile(existing)) {
+        fs.writeFileSync(filePath, content, 'utf-8');
     }
 }
 //# sourceMappingURL=manuscript-seeder.js.map

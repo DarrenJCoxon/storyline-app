@@ -1,0 +1,1 @@
+{"version":3,"file":"research-todo.d.ts","sourceRoot":"","sources":["../../src/output/research-todo.ts"],"names":[],"mappings":"AASA,OAAO,KAAK,EAAE,WAAW,EAAoB,MAAM,0BAA0B,CAAA;AAE7E,MAAM,WAAW,kBAAkB;IACjC,UAAU,EAAE,MAAM,CAAA;IAClB,UAAU,EAAE,MAAM,CAAA;IAClB,YAAY,EAAE,MAAM,CAAA;CACrB;AAgBD,wBAAgB,oBAAoB,CAAC,IAAI,EAAE,WAAW,EAAE,UAAU,EAAE,MAAM,GAAG,kBAAkB,CAuE9F"}

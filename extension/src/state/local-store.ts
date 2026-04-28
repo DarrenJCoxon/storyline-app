@@ -62,6 +62,36 @@ function deepMerge(target: unknown, source: unknown): unknown {
   return result
 }
 
+export interface FileWrite {
+  path: string
+  content: string
+}
+
+/** Extract ```file:path/to/file.md``` fenced blocks from AI text. */
+export function extractFileWrites(text: string): FileWrite[] {
+  const results: FileWrite[] = []
+  const re = /```file:([^\s`\n]+)\n([\s\S]*?)```/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    results.push({ path: m[1].trim(), content: m[2] })
+  }
+  return results
+}
+
+/** Extract file-read requests from AI text. Supports `{ "file_read": "path" }` or `{ "file_read": ["p1","p2"] }`. */
+export function extractFileReadRequests(text: string): string[] {
+  const match = text.match(/```json\s*([\s\S]*?)```/)
+  if (!match) return []
+  try {
+    const parsed = JSON.parse(match[1].trim()) as Record<string, unknown>
+    const req = parsed['file_read']
+    if (!req) return []
+    if (typeof req === 'string') return [req]
+    if (Array.isArray(req)) return req.filter((r): r is string => typeof r === 'string')
+  } catch { /* ignore */ }
+  return []
+}
+
 export function extractJsonBlock(text: string): Record<string, unknown> | null {
   const match = text.match(/```json\s*([\s\S]*?)```/)
   if (!match) return null

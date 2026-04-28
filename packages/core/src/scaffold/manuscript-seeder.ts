@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type { WritingPlan, FictionChapter, FictionScene } from '../state/writing-plan.js'
+import type { WritingPlan, FictionChapter, FictionScene, NfChapter } from '../state/writing-plan.js'
 
 // Marker written at the top of every seeded manuscript file. Its presence
 // indicates the file has not been modified by the writer — safe to overwrite
@@ -99,6 +99,41 @@ function isSeedFile(content: string): boolean {
   return content.trimStart().startsWith(MANUSCRIPT_SEED_MARKER)
 }
 
+// ── NF seeding (NF-11.6) ─────────────────────────────────────────────────────
+
+export function nfChapterManuscriptPath(ch: NfChapter): string {
+  return ch.manuscriptFile
+}
+
+export function seedNfChapterContent(ch: NfChapter): string {
+  const num = ch.number ?? 1
+  const title = ch.title ?? `Chapter ${num}`
+
+  const lines: string[] = [MANUSCRIPT_SEED_MARKER, '', `# Chapter ${num} — ${title}`, '']
+
+  if (ch.mission) lines.push(`> *${ch.mission}*`, '')
+  if (ch.linkedPrinciple)   lines.push(`> *Principle: ${ch.linkedPrinciple}*`, '')
+  if (ch.chapterQuestion)   lines.push(`> *Question: ${ch.chapterQuestion}*`, '')
+  if (ch.learningObjective) lines.push(`> *Objective: ${ch.learningObjective}*`, '')
+  if (ch.wordCountEstimate) lines.push(`> *Target: ~${Number(ch.wordCountEstimate).toLocaleString()} words*`, '')
+
+  if (ch.sections.length === 0) {
+    lines.push('*No sections planned yet. Return after the chapter-plan stage.*', '')
+    return lines.join('\n').trimEnd() + '\n'
+  }
+
+  for (let i = 0; i < ch.sections.length; i++) {
+    const sec = ch.sections[i]
+    lines.push(`## ${sec.title}`, '')
+    if (sec.notes) lines.push(`*Section purpose: ${sec.notes}*`, '')
+    if (sec.keyResearch) lines.push(`{{research: ${sec.keyResearch}}}`, '')
+    lines.push('<!-- Write your prose below -->', '', '')
+    if (i < ch.sections.length - 1) lines.push('---', '')
+  }
+
+  return lines.join('\n').trimEnd() + '\n'
+}
+
 /**
  * Seeds per-chapter manuscript files from a normalized WritingPlan.
  *
@@ -106,31 +141,39 @@ function isSeedFile(content: string): boolean {
  * OR if it exists but still contains the seed marker (meaning the writer
  * has not yet touched it). Modified prose is never overwritten.
  *
- * Mode-aware: only runs for fiction projects (plan.mode === 'fiction').
- * NF seeding (NF-11.6) will use the same function with nfChapters.
+ * Mode-aware: branches on plan.mode to seed fiction scenes or NF sections.
  */
 export function seedManuscriptFromPlan(plan: WritingPlan, projectDir: string): void {
-  if (plan.mode !== 'fiction') return
-  if (plan.fictionChapters.length === 0) return
-
   const manuscriptDir = path.join(projectDir, 'manuscript')
   fs.mkdirSync(manuscriptDir, { recursive: true })
 
+  if (plan.mode === 'nonfiction') {
+    if (plan.nfChapters.length === 0) return
+    for (const ch of plan.nfChapters) {
+      const filePath = path.join(projectDir, nfChapterManuscriptPath(ch))
+      const content = seedNfChapterContent(ch)
+      writeIfMissing(filePath, content)
+    }
+    return
+  }
+
+  if (plan.fictionChapters.length === 0) return
   for (const ch of plan.fictionChapters) {
     const relPath = chapterManuscriptPath(ch)
     const filePath = path.join(projectDir, relPath)
     const content = seedChapterContent(ch)
+    writeIfMissing(filePath, content)
+  }
+}
 
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, content, 'utf-8')
-      continue
-    }
-
-    const existing = fs.readFileSync(filePath, 'utf-8')
-    if (isSeedFile(existing)) {
-      // Seed marker present — writer hasn't started drafting; safe to refresh
-      // (e.g. contract fields have been added since initial seeding).
-      fs.writeFileSync(filePath, content, 'utf-8')
-    }
+function writeIfMissing(filePath: string, content: string): void {
+  if (!fs.existsSync(filePath)) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, content, 'utf-8')
+    return
+  }
+  const existing = fs.readFileSync(filePath, 'utf-8')
+  if (isSeedFile(existing)) {
+    fs.writeFileSync(filePath, content, 'utf-8')
   }
 }

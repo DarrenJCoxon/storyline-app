@@ -19,6 +19,7 @@ import type { ProjectState, WritingPlan } from '@storyline/core'
 export interface PlanningCompleteArtefacts {
   mode: 'fiction' | 'nonfiction'
   masterDocPath: string | null
+  nfMasterDocPath: string | null    // NF-11.5
   chapterCardPaths: string[]
   manuscriptPaths: string[]
   /** First chapter the writer should open (manuscript file if it exists, else card). */
@@ -59,6 +60,7 @@ export function discoverPlanningArtefacts(
   return {
     mode: plan.mode === 'nonfiction' ? 'nonfiction' : 'fiction',
     masterDocPath: exists('output/master-document.md'),
+    nfMasterDocPath: exists('output/nf-master-document.md'),
     chapterCardPaths,
     manuscriptPaths,
     firstChapterPath,
