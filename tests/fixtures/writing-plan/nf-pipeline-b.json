@@ -1,0 +1,68 @@
+{
+  "_meta": { "projectPath": "/x", "projectTitle": "The Last Quiet Hour", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-04-01T00:00:00.000Z" },
+  "mode": "nonfiction",
+  "pipeline": "B",
+  "subMode": "event-led",
+  "bookDna": {},
+  "nfStages": {
+    "pb-thesis": {
+      "centralQuestion": "Why did the village of Kerseth go silent for three weeks in the spring of 1937 — and why did everyone afterwards refuse to speak of it?"
+    },
+    "pb-chapters": {
+      "chapters": [
+        {
+          "number": 1,
+          "title": "First Light, Last Bell",
+          "chapterQuestion": "What did the morning of March 4th 1937 look like in Kerseth?",
+          "content": "The bell-ringer's last entry; the schoolmaster's class register; the postman's route.",
+          "anchorScene": "The schoolmaster opening the register and finding it untouched.",
+          "sourcingNote": "Parish register, school records archive, postal logs",
+          "role": "Setup of the period; reader meets the village before the event.",
+          "wordCountEstimate": 5200,
+          "sections": [
+            { "title": "The bell-ringer", "type": "scene" },
+            { "title": "The schoolmaster's register", "type": "scene" },
+            { "title": "The postman's route", "type": "scene" },
+            { "title": "Setting the question", "type": "summary" }
+          ]
+        },
+        {
+          "number": 2,
+          "title": "Three Weeks Missing",
+          "chapterQuestion": "What happens between March 4th and March 25th?",
+          "content": "Telegraph silence; neighbouring village's first rumour; the army telegraph officer's logbook.",
+          "anchorScene": "The neighbouring village's postmistress refusing to walk the seven-mile path.",
+          "sourcingNote": "Telegraph logs, neighbouring village oral histories, county council notes",
+          "role": "Escalation — the silence is real and explicable to no one.",
+          "wordCountEstimate": 5800,
+          "sections": [
+            { "title": "The telegraph silence", "type": "evidence" },
+            { "title": "The first rumour", "type": "scene" },
+            { "title": "What the county knew", "type": "evidence" },
+            { "title": "Closing: when the silence broke", "type": "summary" }
+          ]
+        }
+      ]
+    }
+  },
+  "stages": {
+    "mode": { "completed": true },
+    "pb-thesis": { "completed": true },
+    "pb-chapters": { "completed": true }
+  },
+  "genre": { "primaryGenre": null, "subGenre": null, "targetWordCount": 75000, "tone": null, "audience": "General readers of narrative non-fiction", "genreVariant": "standard" },
+  "premise": { "rawLogline": null, "conceptHook": null, "seriesPotential": null, "seriesContext": { "isSeries": false, "seriesTitle": null, "bookCount": null, "currentBookNumber": 1, "overallArc": null, "firstBookFocus": null } },
+  "protagonist": { "name": null, "age": null, "occupation": null, "dailyLife": null, "want": null, "need": null, "ghost": null, "flaw": null, "coreLie": null, "arcDirection": null, "voice": null },
+  "characters": [],
+  "relationships": [],
+  "logline": { "sentence": null, "setup": null, "incitingIncident": null, "stakes": null, "resolutionHint": null, "antagonistQuestion": null },
+  "beatSheet": { "genreVariant": "standard", "beats": {}, "overallNotes": null },
+  "bStory": { "character": null, "premise": null, "beats": {}, "resolution": null, "themeConnection": null },
+  "subplots": [],
+  "sceneOutline": { "highLevel": [], "approved": false, "fleshedChapters": [] },
+  "plotThreads": [],
+  "chapterOutline": [],
+  "critique": { "flaggedIssues": [], "resolvedIssues": [], "pacingAnalysis": null, "characterConsistency": null, "beatSheetValidation": null },
+  "masterDoc": { "generatedAt": null, "markdown": null, "wordCountEstimate": null },
+  "writing": { "manuscriptPath": "manuscript" }
+}

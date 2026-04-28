@@ -1,0 +1,244 @@
+{
+  "_meta": {
+    "projectPath": "/Users/example/Documents/Storyline/the-glass-witness",
+    "projectTitle": "The Glass Witness",
+    "createdAt": "2026-03-12T09:14:00.000Z",
+    "updatedAt": "2026-04-22T18:31:00.000Z"
+  },
+  "mode": "fiction",
+  "pipeline": "novel",
+  "subMode": null,
+  "bookDna": {},
+  "nfStages": {},
+  "stages": {
+    "mode": { "completed": true },
+    "genre": { "completed": true },
+    "premise": { "completed": true },
+    "protagonist": { "completed": true },
+    "characters": { "completed": true },
+    "relationships": { "completed": true },
+    "logline": { "completed": true },
+    "beatSheet": { "completed": true },
+    "bStory": { "completed": true },
+    "subplots": { "completed": false },
+    "sceneOutline": { "completed": true },
+    "plotThreads": { "completed": true },
+    "chapterOutline": { "completed": false }
+  },
+  "genre": {
+    "primaryGenre": "Mystery",
+    "subGenre": "Police Procedural",
+    "targetWordCount": 90000,
+    "tone": "Tense, melancholy, observant",
+    "audience": "Adult",
+    "genreVariant": "whydunit"
+  },
+  "premise": {
+    "rawLogline": "When a glassblower's apprentice witnesses a murder reflected in a window she's just made, she becomes the only person who can identify the killer — and the only person they're hunting.",
+    "conceptHook": "The witness who can never un-see, hunted by what she saw.",
+    "seriesPotential": null,
+    "seriesContext": {
+      "isSeries": false,
+      "seriesTitle": null,
+      "bookCount": null,
+      "currentBookNumber": 1,
+      "overallArc": null,
+      "firstBookFocus": null
+    }
+  },
+  "protagonist": {
+    "name": "Mira Halloran",
+    "age": "28",
+    "occupation": "Glassblower's apprentice",
+    "dailyLife": "Six days a week at the studio, alone most evenings, sister calls Sundays.",
+    "want": "To be taken seriously by her master and finish her apprenticeship",
+    "need": "To stop performing competence and admit she's terrified of being seen",
+    "ghost": "Her sister survived an attack ten years ago and Mira didn't tell the police what she saw",
+    "flaw": "Looks away from things that matter",
+    "coreLie": "If I don't see it, it isn't real",
+    "arcDirection": "positive — from witness who hides to witness who speaks",
+    "voice": "Spare, observational, sense-driven"
+  },
+  "characters": [
+    {
+      "name": "Det. Arthur Vance",
+      "role": "ally / authority",
+      "want": "To close the case before retirement",
+      "need": "To trust someone with what he can't prove",
+      "ghost": "His partner died on the job; he never gave the eulogy",
+      "flaw": "Goes alone when he shouldn't",
+      "relationshipToProtagonist": "investigating detective who slowly trusts her",
+      "arcSummary": "From paternal scepticism to genuine partnership",
+      "meetsProtagonistAt": "Catalyst — interviews her after the murder"
+    },
+    {
+      "name": "Coen Halloran",
+      "role": "ally / personal stakes",
+      "want": null,
+      "need": null,
+      "ghost": null,
+      "flaw": null,
+      "relationshipToProtagonist": "younger sister; the one who survived",
+      "arcSummary": "Catalyst for protagonist's reckoning with the past",
+      "meetsProtagonistAt": "ordinary world"
+    },
+    {
+      "name": "Anton Reed",
+      "role": "antagonist",
+      "want": "To erase the only witness",
+      "need": null,
+      "ghost": "First victim was someone he loved; now he disposes of anyone who could have saved her",
+      "flaw": "Cannot tolerate being seen",
+      "relationshipToProtagonist": "stalker / hunter",
+      "arcSummary": "Escalation — from observer to direct threat",
+      "meetsProtagonistAt": "Bad guys close in"
+    }
+  ],
+  "relationships": [
+    {
+      "characterA": "Mira Halloran",
+      "characterB": "Det. Arthur Vance",
+      "connection": "Witness and investigator; uneven trust",
+      "conflict": "He needs her to remember; she needs not to",
+      "whatTheyWantFromEachOther": "Mira wants protection without explanation; Vance wants identification"
+    },
+    {
+      "characterA": "Mira Halloran",
+      "characterB": "Coen Halloran",
+      "connection": "Sisters bound by the unspoken",
+      "conflict": "Coen wants Mira to face what happened ten years ago; Mira refuses",
+      "whatTheyWantFromEachOther": "Reciprocal protection neither can deliver"
+    }
+  ],
+  "logline": {
+    "sentence": "When a glassblower's apprentice realises the murder she just witnessed in reflection mirrors the attack on her sister a decade earlier, she must choose between disappearing again or testifying — even though the killer has already learned her name.",
+    "setup": "Mira is months from finishing her apprenticeship.",
+    "incitingIncident": "She sees a murder reflected in a pane she's just shaped.",
+    "stakes": "If she runs, the killer goes free; if she testifies, he comes for her.",
+    "resolutionHint": "She testifies — but only after Coen forces her to look at what she's been refusing to see.",
+    "antagonistQuestion": "Can the killer find her before she finds the courage to be a witness?"
+  },
+  "beatSheet": {
+    "genreVariant": "whydunit",
+    "beats": {
+      "beat01OpeningImage": { "scene": "Mira shaping a pane at dawn — the studio's quiet ritual.", "image": "Hands and breath and heat", "notes": null },
+      "beat02Setup": { "scene": "A week of apprenticeship; the master's tests; the call from Coen.", "themeStated": "What you see is what you owe", "notes": null },
+      "beat03Catalyst": { "scene": "Murder reflected in a finished pane; Mira freezes.", "incitingIncident": "She witnesses without being seen", "notes": null },
+      "beat04Debate": { "scene": "Should she report it? Vance's first interview.", "debateQuestion": "Is silence safety?", "notes": null },
+      "beat05BreakIntoTwo": { "scene": "She decides to call Vance and identify him.", "falseReality": "If I help once, I can return to the studio.", "threshold": "She names what she saw", "notes": null },
+      "beat06BStory": { "scene": "Coen visits; the past starts breaking through.", "bStoryIntro": "Sister forces a reckoning", "themeConnection": "Witness or witnessed", "notes": null },
+      "beat07FunAndGames": { "scene": "Mira cooperates with Vance; small wins.", "promiseOfPremise": "The witness who can identify", "toneParity": "Procedural with melancholy undertow", "notes": null },
+      "beat08Midpoint": { "scene": "She realises the killer matches her sister's attacker.", "midpointType": "falseDefeat", "flipOrReveal": "It's the same man", "stakesRaise": "Personal, not procedural", "notes": null },
+      "beat09BadGuysCloseIn": { "scene": "Anton learns her name. Studio break-in.", "pressures": "Threats to studio, master, sister", "notes": null },
+      "beat10AllIsLost": { "scene": "Coen is attacked. Mira lied to herself.", "wallopMoment": "Sister in hospital", "darkNightOfSoul": "What she didn't see ten years ago let this happen", "whiffOfDeath": "Coen's near-death", "notes": null },
+      "beat11BlackMoment": { "scene": "Mira flees; tries to disappear again.", "defeatType": "abandonment", "despair": "She is what she was", "whatMakesThemTry": "Coen's words from childhood", "notes": null },
+      "beat12Beat13": { "scene": "She returns to the studio and uses the pane.", "secondDoorway": "Reflection as evidence", "forcedReexamination": "She has to look directly", "notes": null },
+      "beat13Finale": { "scene": "Trap at the studio; Anton arrested.", "climaxType": "confrontation through observation", "selfRevelation": "Looking is owing", "newEquilibrium": "Witness, plural", "notes": null },
+      "beat14FinalImage": { "scene": "Mira finishes the pane she started in chapter 1.", "contrastToOpening": "Same hands; different gaze", "notes": null },
+      "beat15EndCredits": { "scene": "Coen stands beside her in the gallery.", "reflection": "Sisters, seen", "notes": null }
+    },
+    "overallNotes": "Whydunit variant — readers see the killer early; the question is whether Mira will testify."
+  },
+  "bStory": {
+    "character": "Coen Halloran",
+    "premise": "The sister forces the protagonist to face the past she's been refusing to witness.",
+    "beats": { "begins": "Phone call in chapter 2", "deepens": "Coffee scene mid-act-2", "resolves": "Hospital scene after All Is Lost" },
+    "resolution": "Coen survives; the sisters speak about the original attack for the first time.",
+    "themeConnection": "Witnessing is a relationship, not a posture."
+  },
+  "subplots": [],
+  "sceneOutline": {
+    "highLevel": [
+      { "act": 1, "sequence": 1, "highLevelSummary": "Studio life, sister's call, the master's expectations." },
+      { "act": 1, "sequence": 2, "highLevelSummary": "The murder; the interview; the decision to cooperate." },
+      { "act": 2, "sequence": 1, "highLevelSummary": "Working with Vance; pressure builds." },
+      { "act": 2, "sequence": 2, "highLevelSummary": "Midpoint reveal; Coen's role grows." },
+      { "act": 3, "sequence": 1, "highLevelSummary": "Trap and testimony." }
+    ],
+    "approved": true,
+    "fleshedChapters": []
+  },
+  "plotThreads": [
+    {
+      "id": "t1",
+      "threadType": "mystery",
+      "name": "Identity of the killer",
+      "introducedAt": "Catalyst",
+      "status": "open",
+      "resolutionPlan": "Mira's reflection-evidence at the studio trap"
+    },
+    {
+      "id": "t2",
+      "threadType": "character-arc",
+      "name": "Coen's attack ten years ago",
+      "introducedAt": "Setup (sister's call)",
+      "status": "open",
+      "resolutionPlan": "Hospital scene + sisters' first conversation about it"
+    },
+    {
+      "id": "t3",
+      "threadType": "relationship",
+      "name": "Mira and Vance — uneven trust",
+      "introducedAt": "Debate",
+      "status": "open",
+      "resolutionPlan": "Trap setup as genuine partnership"
+    }
+  ],
+  "chapterOutline": [
+    {
+      "chapterNumber": 1,
+      "chapterTitle": "First Light",
+      "beat": "beat01OpeningImage",
+      "estimatedWords": 3500,
+      "scenes": [
+        {
+          "sceneNumber": 1,
+          "pov": "Mira",
+          "location": "The studio",
+          "summary": "Mira works alone at dawn; the master arrives.",
+          "conflict": "She makes a small mistake she covers up",
+          "whatChanges": "She agrees to take on a private commission"
+        },
+        {
+          "sceneNumber": 2,
+          "pov": "Mira",
+          "location": "The studio yard",
+          "summary": "Coen calls; Mira refuses to talk about the past.",
+          "conflict": "Sister wants reckoning; Mira deflects",
+          "whatChanges": "Coen says she's coming this weekend regardless"
+        }
+      ]
+    },
+    {
+      "chapterNumber": 2,
+      "chapterTitle": "Reflection",
+      "beat": "beat03Catalyst",
+      "estimatedWords": 3800,
+      "scenes": [
+        {
+          "sceneNumber": 1,
+          "pov": "Mira",
+          "location": "The studio (after hours)",
+          "summary": "She finishes a pane and sees the murder.",
+          "conflict": "Internal — does she trust what she saw",
+          "whatChanges": "She calls Vance"
+        }
+      ]
+    }
+  ],
+  "critique": {
+    "flaggedIssues": [],
+    "resolvedIssues": [],
+    "pacingAnalysis": null,
+    "characterConsistency": null,
+    "beatSheetValidation": null
+  },
+  "masterDoc": {
+    "generatedAt": null,
+    "markdown": null,
+    "wordCountEstimate": null
+  },
+  "writing": {
+    "manuscriptPath": "manuscript"
+  }
+}

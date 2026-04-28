@@ -1,0 +1,27 @@
+{
+  "_meta": { "projectPath": "/x", "projectTitle": "Legacy Threads", "createdAt": "2025-09-01T00:00:00.000Z", "updatedAt": "2025-12-01T00:00:00.000Z" },
+  "mode": "fiction",
+  "pipeline": "novel",
+  "subMode": null,
+  "bookDna": {},
+  "nfStages": {},
+  "stages": { "mode": { "completed": true }, "plotThreads": { "completed": true } },
+  "genre": { "primaryGenre": "Thriller", "subGenre": null, "targetWordCount": 80000, "tone": null, "audience": null, "genreVariant": "standard" },
+  "premise": { "rawLogline": null, "conceptHook": null, "seriesPotential": null, "seriesContext": { "isSeries": false, "seriesTitle": null, "bookCount": null, "currentBookNumber": 1, "overallArc": null, "firstBookFocus": null } },
+  "protagonist": { "name": "Test", "age": null, "occupation": null, "dailyLife": null, "want": null, "need": null, "ghost": null, "flaw": null, "coreLie": null, "arcDirection": null, "voice": null },
+  "characters": [],
+  "relationships": [],
+  "logline": { "sentence": null, "setup": null, "incitingIncident": null, "stakes": null, "resolutionHint": null, "antagonistQuestion": null },
+  "beatSheet": { "genreVariant": "standard", "beats": {}, "overallNotes": null },
+  "bStory": { "character": null, "premise": null, "beats": {}, "resolution": null, "themeConnection": null },
+  "subplots": [],
+  "sceneOutline": { "highLevel": [], "approved": false, "fleshedChapters": [] },
+  "plotThreads": [
+    { "id": "t1", "type": "mystery", "name": "Legacy thread captured under t.type", "introducedAt": "Setup", "status": "open", "resolutionPlan": "Reveal in finale" },
+    { "id": "t2", "threadType": "relationship", "name": "Canonical thread captured under t.threadType", "introducedAt": "Debate", "status": "open", "resolutionPlan": "Reconciliation" }
+  ],
+  "chapterOutline": [],
+  "critique": { "flaggedIssues": [], "resolvedIssues": [], "pacingAnalysis": null, "characterConsistency": null, "beatSheetValidation": null },
+  "masterDoc": { "generatedAt": null, "markdown": null, "wordCountEstimate": null },
+  "writing": { "manuscriptPath": "manuscript" }
+}
