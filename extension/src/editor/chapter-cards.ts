@@ -1,6 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type { ProjectState } from '@storyline/core'
+import { getWritingPlan } from '@storyline/core'
+import type { FictionChapter, FictionScene, FictionCharacter } from '@storyline/core'
 
 // Canonical beat IDs match packages/core/src/state/project-state.ts. Drift
 // here means chapter cards display raw IDs instead of friendly names —
@@ -33,49 +35,71 @@ function slugify(str: string): string {
     .slice(0, 40)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function chapterFileName(ch: any): string {
+function chapterFileName(ch: FictionChapter): string {
   const num = String(ch.chapterNumber ?? 0).padStart(2, '0')
   const slug = slugify(ch.chapterTitle ?? '')
   return slug ? `${num}-${slug}.md` : `${num}.md`
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function renderChapterCard(ch: any, state: Partial<ProjectState>): string {
+function renderSceneContract(sc: FictionScene): string[] {
+  const lines: string[] = []
+  const hasContract = sc.goal !== undefined || sc.obstacle !== undefined
+    || sc.stakes !== undefined || sc.storyTurn !== undefined
+
+  if (!hasContract) {
+    lines.push('*(contract not yet planned)*', '')
+    return lines
+  }
+
+  lines.push(
+    `**Goal:** ${sc.goal ?? '(not yet planned)'}`,
+    `**Obstacle:** ${sc.obstacle ?? '(not yet planned)'}`,
+    `**Stakes:** ${sc.stakes ?? '(not yet planned)'}`,
+    `**Turn:** ${sc.storyTurn ?? '(not yet planned)'}`,
+  )
+  if (sc.valueShiftStart !== undefined || sc.valueShiftEnd !== undefined) {
+    lines.push(`**Value shift:** ${sc.valueShiftStart ?? '?'} → ${sc.valueShiftEnd ?? '?'}`)
+  }
+  if (sc.arcFunction)      lines.push(`**Arc:** ${sc.arcFunction}`)
+  if (sc.threadMovement)   lines.push(`**Threads:** ${sc.threadMovement}`)
+  if (sc.draftStatus)      lines.push(`**Draft:** ${sc.draftStatus}`)
+  lines.push('')
+  return lines
+}
+
+function renderChapterCard(ch: FictionChapter, protagonist: FictionCharacter | null): string {
   const num = ch.chapterNumber ?? '?'
   const title = ch.chapterTitle ?? `Chapter ${num}`
   const beat = ch.beat ? (BEAT_NAMES[ch.beat] ?? ch.beat) : null
-  const scenes: any[] = ch.scenes ?? []
 
   const lines: string[] = []
   lines.push(`# Chapter ${num} — ${title}`, '')
 
   const meta: string[] = []
   if (beat) meta.push(`**Beat:** ${beat}`)
-  if (scenes.length) {
-    const povs = [...new Set(scenes.map((s: any) => s.pov).filter(Boolean))]
+  if (ch.scenes.length) {
+    const povs = [...new Set(ch.scenes.map(s => s.pov).filter(Boolean))]
     if (povs.length) meta.push(`**POV:** ${povs.join(', ')}`)
-    const locs = scenes.map((s: any) => s.location).filter(Boolean)
+    const locs = ch.scenes.map(s => s.location).filter(Boolean)
     if (locs.length) meta.push(`**Location:** ${locs.join(' → ')}`)
   }
   if (ch.estimatedWords) meta.push(`**Target:** ~${Number(ch.estimatedWords).toLocaleString()} words`)
-  if (scenes.length) meta.push(`**Scenes:** ${scenes.length}`)
+  if (ch.scenes.length) meta.push(`**Scenes:** ${ch.scenes.length}`)
   if (meta.length) { lines.push(meta.join('  ·  '), '') }
 
-  const proto = (state as any)?.protagonist
-  if (proto?.name) {
-    const want = proto.want ? ` · wants **${proto.want}**` : ''
-    const need = proto.need ? ` · needs **${proto.need}**` : ''
-    const flaw = proto.flaw ? ` · flaw: ${proto.flaw}` : ''
-    lines.push(`> *${proto.name}${want}${need}${flaw}*`, '')
+  if (protagonist?.name) {
+    const want = protagonist.want ? ` · wants **${protagonist.want}**` : ''
+    const need = protagonist.need ? ` · needs **${protagonist.need}**` : ''
+    const flaw = protagonist.flaw ? ` · flaw: ${protagonist.flaw}` : ''
+    lines.push(`> *${protagonist.name}${want}${need}${flaw}*`, '')
   }
 
-  if (!scenes.length) {
+  if (!ch.scenes.length) {
     lines.push('_No scenes fleshed out for this chapter yet._', '')
     return lines.join('\n')
   }
 
-  for (const sc of scenes) {
+  for (const sc of ch.scenes) {
     const sn = sc.sceneNumber ?? '?'
     const stitle = sc.summary ? ` — ${sc.summary}` : ''
     const wc = typeof sc.estimatedWords === 'number' ? ` (~${sc.estimatedWords.toLocaleString()} words)` : ''
@@ -93,13 +117,16 @@ function renderChapterCard(ch: any, state: Partial<ProjectState>): string {
     if (sc.beats)       lines.push(`**Serves beats:** ${sc.beats}`)
     if (sc.notes)       lines.push(`**Notes:** ${sc.notes}`)
     lines.push('')
+
+    lines.push(...renderSceneContract(sc))
   }
 
   return lines.join('\n').trimEnd() + '\n'
 }
 
 export async function writeAllChapterCards(state: Partial<ProjectState>, projectDir: string): Promise<void> {
-  const chapters: any[] = (state as any)?.chapterOutline ?? []
+  const plan = getWritingPlan(state as ProjectState)
+  const chapters = plan.fictionChapters
   const chaptersDir = path.join(projectDir, 'docs', 'chapters')
   fs.mkdirSync(chaptersDir, { recursive: true })
 
@@ -107,7 +134,7 @@ export async function writeAllChapterCards(state: Partial<ProjectState>, project
   for (const ch of chapters) {
     const fileName = chapterFileName(ch)
     expectedFiles.add(fileName)
-    const body = renderChapterCard(ch, state)
+    const body = renderChapterCard(ch, plan.protagonist)
     fs.writeFileSync(path.join(chaptersDir, fileName), body, 'utf-8')
   }
 

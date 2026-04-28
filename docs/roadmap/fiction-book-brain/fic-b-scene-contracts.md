@@ -1,10 +1,26 @@
 # FIC-B — Scene contracts
 
-*Status: **PROPOSED***
+*Status: **DONE** (2026-04-28)*
 *Parent: [00-overview.md](00-overview.md)*
 *Depends on: [FIC-A](fic-a-normalization.md) (the typed normalizer + reconciled shapes)*
 *Anchored to: [00-fiction-audit-2026-04-28.md](00-fiction-audit-2026-04-28.md) §4*
 *Created: 2026-04-28*
+*Closed: 2026-04-28*
+
+## What shipped
+
+- **FIC-B.1**: Scene contract fields added to `chapterOutline` stage guide — `goal`, `obstacle`, `stakes`, `storyTurn` (required); `conflictSource`, `valueShiftStart`, `valueShiftEnd`, `beatFunction`, `arcFunction`, `threadMovement`, `draftStatus` (optional). All 11 fields added after existing scene fields; backward-compatible.
+- **FIC-B.2**: Normalizer already handled this from FIC-A.1 (contract slots were pre-reserved in `FictionScene`). Verified: old-shape scenes normalise with `undefined` contract fields; new-shape scenes expose all fields.
+- **FIC-B.3**: `extension/src/editor/chapter-cards.ts` now reads via `getWritingPlan(state)` (typed plan, not raw state). New `renderSceneContract()` helper renders a goal/obstacle/stakes/turn block per scene; falls back to "*(contract not yet planned)*" for old-shape scenes.
+- **FIC-B.4**: `packages/core/src/scaffold/manuscript-seeder.ts` — new `seedManuscriptFromPlan(plan, projectDir)` function. Writes `manuscript/<NN>-<slug>.md` per fiction chapter with seed marker, H1 title, H2 per-scene blocks, and italic contract guidance. Write-if-missing + seed-marker check (files the writer has touched are never overwritten). Wired into ChatPanel alongside `writeAllChapterCards`. Exported from core index.
+- **FIC-B.5**: Three scene contract traps added to `packages/core/src/ai/story-traps.ts`: `sceneNoTurn` (contract scene with no `storyTurn`), `sceneValueShiftFlat` (start === end value), `sceneInert` (has `goal` but no `arcFunction` and no `threadMovement`). All fire as `warning`; all skip old-shape scenes cleanly.
+- **FIC-B.6**: `tests/scene-contracts.test.js` — 27 tests covering old/new/mixed-shape normalisation, all three new story traps, `seedChapterContent` unit tests, and `seedManuscriptFromPlan` file-system tests (write-if-missing, do-not-overwrite-writer-prose, seed-marker refresh, NF no-op). New fixture: `tests/fixtures/writing-plan/fiction-new-shape.json`.
+
+All 849 root tests pass (27 new).
+
+---
+
+(Original spec preserved below for reference.)
 
 ## Outcome
 

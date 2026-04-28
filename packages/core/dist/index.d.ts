@@ -55,4 +55,5 @@ export { detectSeriesPotential } from './ai/series-detector.js';
 export { writeStageDoc } from './output/stage-doc.js';
 export type { MasterDocResult } from './output/master-doc.js';
 export { generateMasterDocument } from './output/master-doc.js';
+export { seedManuscriptFromPlan, seedChapterContent, chapterManuscriptPath, MANUSCRIPT_SEED_MARKER } from './scaffold/manuscript-seeder.js';
 //# sourceMappingURL=index.d.ts.map
