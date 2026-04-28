@@ -1,10 +1,30 @@
 # FIC-A — Fiction normalization & lib consolidation
 
-*Status: **PROPOSED***
+*Status: **DONE** (2026-04-28) — except FIC-A.5 (lib cleanup) deferred to a separate destructive-change PR.*
 *Parent: [00-overview.md](00-overview.md)*
 *Depends on: [FIC-PRE](fic-pre-critique-wiring.md). Coordinates with [NF-11](../nf-writing-os/nf-11-planning-to-writing.md).*
 *Anchored to: [00-fiction-audit-2026-04-28.md](00-fiction-audit-2026-04-28.md) §2, §3, §4, §7*
 *Created: 2026-04-28*
+*Closed: 2026-04-28*
+
+## What shipped
+
+- **FIC-A.0**: Drift re-audit. Verified ground-truth findings D1–D4 documented in the audit file's appended "Drift findings" section. Codex's `beat05BreakIntoTwo.choice` example proven false; D2 (plot-thread `t.type` vs `t.threadType`) added to the fix list.
+- **FIC-A.1**: [`packages/core/src/state/writing-plan.ts`](../../../packages/core/src/state/writing-plan.ts) ships `getWritingPlan(state)`. Mode-aware from day one. Designed against fiction's harder shape so NF-11.1 fits as the simpler branch. Drift-aware: D2 normalized at read time, D3 fields included as optional, FIC-B scene-contract slots reserved.
+- **FIC-A.2**: 6 fixtures + 39 tests in [`tests/writing-plan.test.js`](../../../tests/writing-plan.test.js). Critical regression net: `nf-pipeline-a-canonical.json` and `nf-pipeline-a-legacy.json` produce byte-identical normalized output (asserted via `JSON.stringify` equality). Schema-coverage tests added for the FIC-A.3 reconciliation.
+- **FIC-A.3**: `chapterOutline` stage guide expanded to capture `timeOfDay`, `purpose`, `beats`, `estimatedWords` — reconciles with what renderers display. No required-field changes (no migration risk).
+- **FIC-A.4**: D1 + D2 drift fixed across three BEAT_NAMES tables and two master-doc renderers. New [`tests/fiction-drift.test.js`](../../../tests/fiction-drift.test.js) — 8 regression-net tests that fail loudly if any beat is renamed in the schema without updating renderer tables, or if any renderer reverts to `t.type`-only reads.
+- **FIC-A.6**: Planning-complete handoff card replaces three silent dead-ends in ChatPanel. New [`extension/src/conversation/planning-complete.ts`](../../../extension/src/conversation/planning-complete.ts) helper, new `PlanningCompleteCard` component, full webview wiring including `Open chapter 1` action.
+
+**Deferred**:
+- **FIC-A.5**: Delete `extension/lib/output/*.js` byte-duplicates. Audit confirmed they have zero consumers in extension src. Deferred to a separate destructive-change PR — the duplicates are dead weight, not broken weight, and rm operations need explicit approval.
+
+All 822 root tests + 46 extension tests pass.
+
+---
+
+(Original spec preserved below for reference.)
+
 
 ## Outcome
 
