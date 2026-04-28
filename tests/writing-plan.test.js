@@ -371,3 +371,35 @@ describe('getWritingPlan — drift-prevention contract', () => {
     expect(keys(nfB)).toEqual(keys(nfC));
   });
 });
+
+// ── FIC-A.3: scene capture/render reconciliation (Drift D3) ──────────────────
+//
+// Pre-FIC-A.3, the chapterOutline stage guide captured 7 scene fields but
+// renderers (master-doc, stage-doc, chapter-cards) read 11. The fix was to
+// expand the guide to capture the 4 missing fields. This test pins the
+// expanded shape so future drift fails loudly.
+
+describe('chapterOutline scene schema — capture matches render', () => {
+  it('chapterOutline.nested.scenes captures every field the renderers display', async () => {
+    const { STAGE_GUIDES } = await import('../packages/core/dist/ai/stage-guides.js');
+    const sceneFields = STAGE_GUIDES.chapterOutline.repeatable.nested.fields.map(f => f.key);
+    // The full set: 7 originally captured + 4 added in FIC-A.3.
+    const expected = [
+      'sceneNumber', 'pov', 'location', 'timeOfDay', 'summary',
+      'purpose', 'conflict', 'whatChanges', 'beats', 'estimatedWords',
+      'notes',
+    ];
+    for (const key of expected) {
+      expect(sceneFields, `scene field "${key}" must be captured`).toContain(key);
+    }
+  });
+
+  it('every required scene field is still required (FIC-A.3 only added optional fields)', async () => {
+    const { STAGE_GUIDES } = await import('../packages/core/dist/ai/stage-guides.js');
+    const fields = STAGE_GUIDES.chapterOutline.repeatable.nested.fields;
+    const required = fields.filter(f => f.required).map(f => f.key);
+    expect(required.sort()).toEqual([
+      'conflict', 'pov', 'sceneNumber', 'summary', 'whatChanges',
+    ]);
+  });
+});
