@@ -7,6 +7,7 @@
 
 import { writeFile, mkdir } from 'fs/promises';
 import { resolve } from 'path';
+import { checkNfPromisePayoff, getWritingPlan } from '../../../packages/core/dist/index.js';
 
 // ── Finding builder ───────────────────────────────────────────────────────────
 
@@ -321,104 +322,13 @@ function checkReaderAvatarDrift(state) {
 }
 
 // ── NF-8.5 Promise-Payoff Audit ───────────────────────────────────────────────
+// FIC-C.3: logic extracted to packages/core/src/critique/promise-payoff.ts.
+// This shim converts raw state → WritingPlan and delegates, keeping all
+// existing callers working without change.
 
 function checkPromisePayoff(state) {
-  const findings = [];
-  const nf = state?.nfStages || {};
-  const pipeline = state?.pipeline;
-
-  const dnaPromise = nf['dna-promise'] || {};
-
-  if (!dnaPromise.corePromise) return findings;
-
-  const promiseKeywords = dnaPromise.corePromise.toLowerCase()
-    .split(/\s+/).filter(w => w.length > 5).slice(0, 6);
-
-  // Pipeline A: promise must be delivered by at least one chapter
-  if (pipeline === 'A') {
-    const paChapters = nf['pa-chapters'] || {};
-    const chapters = Array.isArray(paChapters.chapters) ? paChapters.chapters : [];
-    if (chapters.length > 0) {
-      const chapterText = chapters.map(c => `${c.job || ''} ${c.title || ''}`).join(' ').toLowerCase();
-      const delivered = promiseKeywords.some(w => chapterText.includes(w));
-      if (!delivered) {
-        findings.push(finding(
-          'pa-promise-undelivered',
-          'warning',
-          'promise-payoff',
-          'promise-payoff-audit',
-          'dna-promise → pa-chapters',
-          'The Core Promise doesn\'t map to any chapter title or job description. Readers who bought the promise will not find where it\'s kept.',
-          `Core promise: "${dnaPromise.corePromise.slice(0, 80)}". Map it explicitly to a chapter job.`,
-        ));
-      }
-    }
-
-    // Subtitle must be addressed in the book
-    if (dnaPromise.subtitleDraft) {
-      const subtitleWords = dnaPromise.subtitleDraft.toLowerCase().split(/\s+/).filter(w => w.length > 4).slice(0, 4);
-      const paThesis = nf['pa-thesis'] || {};
-      const paFramework = nf['pa-framework'] || {};
-      const planText = `${paThesis.thesis || ''} ${paFramework.modelName || ''}`.toLowerCase();
-      const delivered = subtitleWords.some(w => planText.includes(w));
-      if (!delivered && planText.length > 20) {
-        findings.push(finding(
-          'pa-subtitle-not-reflected',
-          'tip',
-          'promise-payoff',
-          'promise-payoff-audit',
-          'dna-promise → pa-thesis / pa-framework',
-          `The subtitle ("${dnaPromise.subtitleDraft.slice(0, 60)}") isn\'t reflected in the thesis or framework name. The subtitle is the most commercially read sentence — the plan must deliver it.`,
-          'Align thesis and/or framework language with the subtitle promise.',
-        ));
-      }
-    }
-  }
-
-  // Pipeline B: promise should be answered by the closing chapter
-  if (pipeline === 'B') {
-    const pbChapters = nf['pb-chapters'] || {};
-    const chapters = Array.isArray(pbChapters.chapters) ? pbChapters.chapters : [];
-    if (chapters.length > 0) {
-      const lastChapter = chapters[chapters.length - 1];
-      const closingText = `${lastChapter?.chapterQuestion || ''} ${lastChapter?.content || ''}`.toLowerCase();
-      const delivered = promiseKeywords.some(w => closingText.includes(w));
-      if (closingText.length > 20 && !delivered) {
-        findings.push(finding(
-          'pb-closing-doesnt-deliver-promise',
-          'warning',
-          'promise-payoff',
-          'promise-payoff-audit',
-          'dna-promise → pb-chapters (closing)',
-          'The Core Promise isn\'t reflected in the closing chapter. The final chapter must deliver what the promise implied.',
-          `Core promise: "${dnaPromise.corePromise.slice(0, 80)}".`,
-        ));
-      }
-    }
-  }
-
-  // Pipeline C: promise must match end-state competency
-  if (pipeline === 'C') {
-    const pcEndState = nf['pc-end-state'] || {};
-    if (pcEndState.measurableOutcome) {
-      const outcomeWords = pcEndState.measurableOutcome.toLowerCase().split(/\s+/).filter(w => w.length > 4).slice(0, 4);
-      const delivered = promiseKeywords.some(w => pcEndState.measurableOutcome.toLowerCase().includes(w))
-        || outcomeWords.some(w => dnaPromise.corePromise.toLowerCase().includes(w));
-      if (!delivered) {
-        findings.push(finding(
-          'pc-promise-outcome-drift',
-          'warning',
-          'promise-payoff',
-          'promise-payoff-audit',
-          'dna-promise → pc-end-state',
-          'The Core Promise and the End-State Competency (Stage 3) share no common language. The measurable outcome must be the concrete form of the promise.',
-          `Promise: "${dnaPromise.corePromise.slice(0, 60)}". Outcome: "${pcEndState.measurableOutcome.slice(0, 60)}".`,
-        ));
-      }
-    }
-  }
-
-  return findings;
+  const plan = getWritingPlan(state);
+  return checkNfPromisePayoff(plan);
 }
 
 // ── NF-8.6 Comp-Adjacency Check ───────────────────────────────────────────────

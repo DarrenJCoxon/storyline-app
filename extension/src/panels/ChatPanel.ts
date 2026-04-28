@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
@@ -545,10 +545,19 @@ export class ChatPanel {
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (projectDir) {
       writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
+      const plan = getWritingPlan(finalState)
       try {
-        seedManuscriptFromPlan(getWritingPlan(finalState), projectDir)
+        seedManuscriptFromPlan(plan, projectDir)
       } catch (err) {
         console.warn('[Storyline] seedManuscriptFromPlan failed', err)
+      }
+      // Regenerate promise/payoff ledger after any chapter-outline or plot-thread save.
+      if (finalState.mode === 'fiction' && (stageId === 'chapterOutline' || stageId === 'plotThreads')) {
+        try {
+          generatePromisePayoffLedger(plan, projectDir)
+        } catch (err) {
+          console.warn('[Storyline] generatePromisePayoffLedger failed', err)
+        }
       }
     }
 
@@ -573,7 +582,31 @@ export class ChatPanel {
       console.warn('[Storyline] runStoryTraps failed', err)
     }
 
-    // 2. Series detector (fiction only, after premise)
+    // 2. Promise/payoff gaps (fiction only, after chapter-outline or plot-threads)
+    try {
+      if (finalState.mode === 'fiction' && (stageId === 'chapterOutline' || stageId === 'plotThreads')) {
+        const gaps = findFictionPromiseGaps(getWritingPlan(finalState))
+        if (gaps.length > 0) {
+          const ledgerPath = 'output/promise-payoff-ledger.md'
+          const summary = gaps.slice(0, 3).map(g => `**${g.promise.description}**: ${g.gapDescription}`).join('; ')
+          this.post({
+            type: 'findingsCard',
+            findings: [{
+              id: 'promise-payoff-gaps',
+              name: 'Promise / Payoff Gaps',
+              severity: 'warning',
+              description: `${gaps.length} setup${gaps.length !== 1 ? 's' : ''} have no planned payoff: ${summary}`,
+              details: gaps.map(g => g.gapDescription),
+              fixProtocol: [`Open ${ledgerPath} for the full ledger`, 'Add a resolution plan to each flagged plot thread in the Plot Thread Registry stage'],
+            }],
+          })
+        }
+      }
+    } catch (err) {
+      console.warn('[Storyline] findFictionPromiseGaps failed', err)
+    }
+
+    // 3. Series detector (fiction only, after premise)
     try {
       if (stageId === 'premise' && finalState.mode === 'fiction') {
         const seriesResult = detectSeriesPotential(finalState.premise ?? {}, finalState.genre ?? {})

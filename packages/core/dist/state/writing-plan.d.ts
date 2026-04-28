@@ -96,7 +96,8 @@ export interface FictionRelationship {
     whatTheyWantFromEachOther: string | null;
 }
 /** A plot thread. Drift D2 (`t.type` vs `t.threadType`) is normalized here —
- *  consumers always read `threadType`. */
+ *  consumers always read `threadType`.
+ *  FIC-C.2 adds dossier fields; old projects get sensible defaults. */
 export interface FictionPlotThread {
     id: string;
     name: string;
@@ -104,6 +105,13 @@ export interface FictionPlotThread {
     introducedAt: string | null;
     status: string | null;
     resolutionPlan: string | null;
+    introducedScene: string | null;
+    developedScenes: string | null;
+    plannedResolutionScene: string | null;
+    payoffScene: string | null;
+    unresolvedRisk: boolean;
+    linkedPromises: string[];
+    lastTouchedChapter: number | null;
 }
 /** A subplot. */
 export interface FictionSubplot {
@@ -124,6 +132,26 @@ export interface FictionBStory {
     resolution: string | null;
     themeConnection: string | null;
     beats: Record<string, unknown>;
+}
+export type PromiseType = 'clue' | 'secret' | 'wound' | 'weapon-on-the-wall' | 'prophecy' | 'romance-beat' | 'subplot' | 'genre-promise';
+export type PromiseStatus = 'planned' | 'set-up' | 'paid-off' | 'unresolved';
+export type PromiseRisk = 'low' | 'medium' | 'high';
+/** A tracked narrative promise — something the writer has signalled to the
+ *  reader that must eventually be paid off. Detected from plot threads and
+ *  scene contracts; updated as the draft progresses. */
+export interface PromisePayoffItem {
+    id: string;
+    type: PromiseType;
+    description: string;
+    setupChapter: number | null;
+    setupScene: number | null;
+    plannedPayoffChapter: number | null;
+    plannedPayoffScene: number | null;
+    actualPayoffChapter: number | null;
+    actualPayoffScene: number | null;
+    status: PromiseStatus;
+    risk: PromiseRisk;
+    notes: string | null;
 }
 /** A non-fiction chapter — a section-bearing structural unit, not a scene-bearing one.
  *  Pipeline-specific fields (`linkedPrinciple` for A, `chapterQuestion` for B,
@@ -177,7 +205,14 @@ export interface WritingPlan {
     nfChapters: NfChapter[];
     researchItems: ResearchTodoItem[];
     figures: FigurePlanItem[];
-    promises: unknown[];
+    nfPromise: {
+        corePromise: string | null;
+        subtitleDraft: string | null;
+        endStateMeasurableOutcome: string | null;
+        paThesisText: string | null;
+        paFrameworkName: string | null;
+    } | null;
+    promises: PromisePayoffItem[];
     claims: unknown[];
 }
 /** Single entry point. Branches on `state.mode` once; downstream code is

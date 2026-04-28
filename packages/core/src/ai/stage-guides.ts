@@ -265,16 +265,23 @@ export const STAGE_GUIDES: Record<string, StageGuide> = {
 
   plotThreads: {
     id: 'plotThreads', name: 'Plot Thread Registry', persona: 'director', skippable: true,
-    opening: `Every open thread needs a resolution plan. No loose ends when the reader closes the book.`,
+    opening: `Every open thread is a promise to the reader. Every promise needs a resolution plan. No loose ends when the reader closes the book.`,
     repeatable: {
       max: 20, itemLabel: 'Plot Thread',
       fields: [
         { key: 'id', label: 'Thread ID', hint: 'e.g. "t1"', required: true },
-        { key: 'threadType', label: 'Type', hint: 'mystery, relationship, world-building, character-arc', required: true },
+        { key: 'threadType', label: 'Type', hint: 'mystery, romance, character-arc, world-building, prophecy, subplot', required: true },
         { key: 'name', label: 'Thread name', required: true },
-        { key: 'introducedAt', label: 'When is it introduced?', required: false },
+        { key: 'introducedAt', label: 'When is it introduced?', hint: 'Chapter number or beat name', required: false },
         { key: 'status', label: 'Status', hint: 'open, resolved, abandoned', required: false },
         { key: 'resolutionPlan', label: 'How will it be resolved?', required: false },
+        // FIC-C.2 dossier fields
+        { key: 'introducedScene', label: 'Introduction scene', hint: 'Chapter and scene where the thread first appears (e.g. "Ch 2, Sc 1")', required: false },
+        { key: 'developedScenes', label: 'Development scenes', hint: 'Comma-separated list of chapter/scenes where the thread advances', required: false },
+        { key: 'plannedResolutionScene', label: 'Planned resolution scene', hint: 'Where will this thread be closed? (e.g. "Ch 18, Sc 2")', required: false },
+        { key: 'payoffScene', label: 'Actual payoff scene', hint: 'Fill in once the thread is resolved in the draft', required: false },
+        { key: 'unresolvedRisk', label: 'High unresolved risk?', hint: 'true / false — flag if this thread has no clear resolution path yet', required: false },
+        { key: 'linkedPromises', label: 'Linked promise IDs', hint: 'Comma-separated IDs of related promise entries', required: false },
       ],
     },
     transition: 'Ready for chapter flesh-out?',
