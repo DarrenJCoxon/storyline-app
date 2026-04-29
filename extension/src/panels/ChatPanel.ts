@@ -298,6 +298,15 @@ export class ChatPanel {
     const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
+    // Stop button: if the writer cancelled mid-stream, do not run any of the
+    // post-stream side effects (stage save, file writes, file reads). Without
+    // this guard the cancelled stream's partial output still triggers a
+    // stage-save chain and chained file reads, which feels like the stop
+    // button "didn't work".
+    if (this.streamCancelled) {
+      this.refreshCreditBalance()
+      return
+    }
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
     await this.applyEmittedPatches(full, currentStage.id)
     await this.applyFileWrites(full)
@@ -849,6 +858,7 @@ export class ChatPanel {
     const systemPrompt = buildSystemPrompt(stageId, state)
     const messages = this.turnHistory.allForStage(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
+    if (this.streamCancelled) return true
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
 
     // Apply file writes (e.g. AI updates a planning doc after reading it).
