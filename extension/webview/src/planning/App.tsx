@@ -66,6 +66,7 @@ interface AppState {
   railCollapsed: boolean
   creditsExhausted: boolean
   error: string | null
+  restoredAt: number
 }
 
 type Action =
@@ -111,6 +112,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         messages: action.turns.map(t => ({ id: uid(), role: t.role, content: t.content })),
         streamingId: null,
+        restoredAt: state.restoredAt + 1,
       }
 
     case 'USER_MSG':
@@ -270,6 +272,7 @@ const INITIAL: AppState = {
   railCollapsed: true,
   creditsExhausted: false,
   error: null,
+  restoredAt: 0,
 }
 
 export function App() {
@@ -364,6 +367,7 @@ export function App() {
         messages={state.messages}
         streamingId={state.streamingId}
         onOpenProjectFile={handleOpenProjectFile}
+        restoredAt={state.restoredAt}
       />
 
       {state.messages.length === 0 && !state.streamingId && state.stages.length > 0 && (
