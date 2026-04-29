@@ -89,3 +89,16 @@ p.first::first-letter {
   font-family: 'Palatino Linotype', Palatino, serif;  /* final serif fallback for Kindle */
   font-weight: normal;
 }
+
+/* ── Chapter header vignette ─────────────────────────────────────────────── */
+/* Image placed immediately after the chapter title. Renders at natural size  */
+/* for small files; caps large images at 55% so it reads as a vignette, not  */
+/* a full-width illustration. Centred with breathing room before body text.   */
+
+h1 + p > img {
+  display: block;
+  width: auto;
+  max-width: 55%;
+  height: auto;
+  margin: 0 auto 2.5em;
+}

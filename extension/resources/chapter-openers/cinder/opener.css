@@ -76,3 +76,13 @@ p.first::first-letter {
   float: none;
   font-size: 1em;
 }
+
+/* ── Chapter header vignette ─────────────────────────────────────────────── */
+
+h1 + p > img {
+  display: block;
+  width: auto;
+  max-width: 55%;
+  height: auto;
+  margin: 0 auto 2.5em;
+}

@@ -7,3 +7,8 @@
 h1 {
   margin: 0 0 3em 0;   /* more vertical drop in print before chapter content */
 }
+
+h1 + p > img {
+  max-width: 60%;
+  margin-bottom: 3em;
+}

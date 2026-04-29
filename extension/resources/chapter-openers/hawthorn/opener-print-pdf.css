@@ -12,3 +12,8 @@ p.first-paragraph::first-letter,
 p.first::first-letter {
   font-size: 4.2em;              /* larger drop cap in print */
 }
+
+h1 + p > img {
+  max-width: 60%;
+  margin-bottom: 3em;
+}
