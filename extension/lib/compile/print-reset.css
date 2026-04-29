@@ -1,0 +1,28 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Print typography reset — applied for print-pdf format only.
+ *
+ * Themes set `body { text-align: justify }` so prose paragraphs justify
+ * across the page. EPUB readers leave single-line elements (headings,
+ * list items, callouts) ragged, but Chromium / Paged.js stretches them
+ * across the full measure when the line is the whole element — turning
+ * "Act 1, Scene 1" into "A C T … 1".
+ *
+ * This reset cancels justify on every element that is not a body
+ * paragraph, with `text-align-last: left` belt-and-braces against
+ * Chromium's print-path quirks.
+ *
+ * Loaded BEFORE chapter-opener CSS so opener-defined centred chapter
+ * titles still win.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+h1, h2, h3, h4, h5, h6,
+ul, ol, li, dt, dd,
+blockquote, blockquote p,
+aside, aside.callout, aside.callout p, .callout, .callout p,
+figure, figcaption,
+table, th, td,
+.chapter-number {
+  text-align: left;
+  text-align-last: left;
+  hyphens: manual;
+}
