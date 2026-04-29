@@ -492,7 +492,7 @@ export class ChatPanel {
     try {
       const audioBuffer = fs.readFileSync(tmpFile)
       fs.unlinkSync(tmpFile)
-      await this.handleTranscribe(audioBuffer, 'audio/wav')
+      await this.handleTranscribe(audioBuffer.toString('base64'), 'audio/wav')
     } catch (err) {
       this.post({ type: 'transcribeError', message: `Failed to read recording: ${err instanceof Error ? err.message : String(err)}` })
     }
@@ -507,7 +507,7 @@ export class ChatPanel {
     if (tmpFile) { try { fs.unlinkSync(tmpFile) } catch { /* ignore */ } }
   }
 
-  private async handleTranscribe(audioBuffer: Buffer, mimeType: string): Promise<void> {
+  private async handleTranscribe(audioBase64: string, mimeType: string): Promise<void> {
     const licenceKey = await this.licenceManager.getLicenceKey()
     if (!licenceKey) {
       this.post({ type: 'transcribeError', message: 'No licence key — activate Storyline first.' })
@@ -518,15 +518,13 @@ export class ChatPanel {
     const projectContext = state ? this.buildProjectContext(state) : ''
 
     try {
-      // Send raw binary multipart — no base64 encode/decode overhead
-      const form = new FormData()
-      form.append('licenceKey', licenceKey)
-      form.append('audio', new Blob([audioBuffer], { type: mimeType }), 'audio.wav')
-      if (projectContext) form.append('projectContext', projectContext)
+      const body: Record<string, string> = { licenceKey, audioBase64, mimeType }
+      if (projectContext) body.projectContext = projectContext
 
       const res = await fetch(`${getBackendUrl()}/transcribe`, {
         method: 'POST',
-        body: form,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
