@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder, inferPipelineFromCategory } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateAcademicMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder, inferPipelineFromCategory } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
@@ -690,8 +690,18 @@ export class ChatPanel {
       }
       // NF artefacts — regenerate after relevant stage saves.
       if (finalState.mode === 'nonfiction') {
-        // NF master doc after any master stage.
-        if (stageId === 'pa-master' || stageId === 'pb-master' || stageId === 'pc-master') {
+        // NF master doc after any master stage. Academic projects get the
+        // richer academic-master-doc generator (level/register, syllabus,
+        // learning-outcome inventory, prerequisite chain, glossary, chapter
+        // plan with outcomes/terms/exercises). Other pipelines fall through
+        // to the generic NF master doc.
+        if (stageId === 'ac-master' && plan.academic) {
+          try {
+            generateAcademicMasterDocument(plan, finalState, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateAcademicMasterDocument failed', err)
+          }
+        } else if (stageId === 'pa-master' || stageId === 'pb-master' || stageId === 'pc-master') {
           try {
             generateNfMasterDocument(plan, finalState, projectDir)
           } catch (err) {

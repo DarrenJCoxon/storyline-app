@@ -61,7 +61,7 @@ function renderClaim(c) {
     return `- ${status} ${risk} **${c.id}** ${c.claimText}${type}${src}`;
 }
 function generateClaimEvidenceLedger(plan, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'claim-evidence-ledger.md');
     const title = plan.title ?? 'Untitled';

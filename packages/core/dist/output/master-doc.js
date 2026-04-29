@@ -39,7 +39,7 @@ const fs = __importStar(require("fs"));
 const fsPromises = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
 async function generateMasterDocument(state, projectPath) {
-    const outputDir = path.resolve(projectPath, 'output');
+    const outputDir = path.resolve(projectPath, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const genre = state.genre || {};
     const protagonist = state.protagonist || {};

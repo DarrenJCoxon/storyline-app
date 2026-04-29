@@ -57,7 +57,7 @@ function renderFigure(f) {
     return `- ${badge} **${f.id}** \`${f.type}\` — ${f.purpose}${sec}${cap}${alt}${asset}`;
 }
 function generateFigureRegistry(plan, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'figure-registry.md');
     const title = plan.title ?? 'Untitled';

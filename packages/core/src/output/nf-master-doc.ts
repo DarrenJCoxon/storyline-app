@@ -32,7 +32,7 @@ export function generateNfMasterDocument(
   state: ProjectState,
   projectDir: string,
 ): NfMasterDocResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const outputPath = path.join(outputDir, 'nf-master-document.md')

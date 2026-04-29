@@ -49,6 +49,13 @@ function buildCommands(projectMode: 'fiction' | 'nonfiction'): SlashCommand[] {
       run: e => e.chain().focus().toggleBlockquote().run(),
     },
     {
+      id: 'callout',
+      label: 'Callout',
+      hint: 'Aside / tip / note box',
+      keywords: ['callout', 'aside', 'tip', 'note', 'box', 'sidebar', 'info'],
+      run: e => e.chain().focus().toggleCallout().run(),
+    },
+    {
       id: 'bullet',
       label: 'Bullet list',
       hint: '• • •',

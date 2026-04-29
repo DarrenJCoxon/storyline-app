@@ -38,7 +38,7 @@ function renderClaim(c: ClaimEvidenceItem): string {
 }
 
 export function generateClaimEvidenceLedger(plan: WritingPlan, projectDir: string): ClaimLedgerResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
   const outputPath = path.join(outputDir, 'claim-evidence-ledger.md')
 

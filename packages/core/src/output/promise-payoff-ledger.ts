@@ -41,7 +41,7 @@ export interface LedgerResult {
 }
 
 export function generatePromisePayoffLedger(plan: WritingPlan, projectDir: string): LedgerResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const outputPath = path.join(outputDir, 'promise-payoff-ledger.md')

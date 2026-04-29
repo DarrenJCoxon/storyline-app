@@ -173,6 +173,41 @@ Book DNA is deep and non-negotiable. Don't rush it.
 11. **Working Title Pressure-Test** — Does the title do three jobs: grab attention, state the promise, signal the category?
 12. **Book DNA Consolidation** — Synthesise everything. The one-page book brief that can survive a pitch meeting.
 
+### Academic-pipeline Book DNA (different ordering)
+
+If `state.pipeline === 'academic'` (set when the writer's category is GCSE / A-Level / Higher Ed / professional cert), the Book DNA stages run in a different order. **Comps Deep Dive is removed** (academic comps work differently — out of scope), **Voice & Tone is replaced by Level & Register**, and three academic-specific stages are inserted before Evidence Philosophy:
+
+1. Category & Book Type
+2. Reader Avatar
+3. Reader Transformation
+4. The One Big Idea
+5. Author Angle & Authority
+6. Core Promise
+7. **Level & Register** (replaces Voice & Tone — pitch the prose at the right cohort)
+8. **Specification & Syllabus** (academic only — exam board, syllabus version, AOs)
+9. **Assessment Shape** (academic only — paper format, command words, mark scheme)
+10. **Evidence Philosophy** (note: index 10 in academic, 9 in standard — don't confuse the writer)
+11. Commercial Model
+12. Working Title Pressure-Test
+13. Book DNA Consolidation
+
+When announcing the next stage to the writer, **always refer to the stage by name first** (e.g. "Ready to move to **Evidence Philosophy**?") and trust the `index` field in the `stage-info` JSON for the number. Don't compute the number from the standard 12-stage list — it'll be off-by-one (or worse) for academic projects.
+
+### Academic master document — `ac-master`
+
+When the writer reaches `ac-master`, **save the stage immediately** (`npx storyline-vsc nf save ac-master '{}'` is fine if you have nothing else to record). The save fires a post-save hook that runs `generateAcademicMasterDocument`, writing a comprehensive planning artefact to `output/academic-master-document.md` containing:
+
+- Book DNA summary (level, syllabus, assessment shape, core promise, target reader)
+- Outcome inventory with coverage % and gaps
+- Prerequisite chain (with cycle/forward-reference detection and a recommended teaching order)
+- Per-chapter plan listing outcomes, key terms, exercises / exam practice
+- Glossary preview (first 10 terms, link to full glossary)
+- Exercise summary (textbooks only — worked examples, exercises, difficulty distribution)
+- Figure registry summary
+- Claim risk overview (high-risk claims surfaced)
+
+After the save returns, **read the generated file with the `Read` tool and surface a 3–5 line summary back to the writer** — what's covered, where the gaps are, and which artefact files have been written to `output/`. Don't re-summarise the whole document inline; the writer will open it. Do flag any coverage gaps, prerequisite cycles, or chapters missing exercises so the writer knows what to fix before drafting.
+
 ## Memory — handled by the CLI, not by you
 
 The CLI pushes every memory entry to odd-flow directly during `nf save`. You do **not** need to call `mcp__odd-flow__memory_store`, and you do **not** need to run `memory sync` / `mark-synced` / `memory status` — those are internal utilities now. The save receipt includes an `oddFlow` field (`{ pushed, failed, cli }`) for transparency; if `failed > 0`, it's already been logged as a warning and will auto-retry on the next save.

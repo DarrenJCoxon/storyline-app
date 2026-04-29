@@ -287,7 +287,7 @@ export interface NfChapter {
     slug: string;
     /** Path the manuscript file will be seeded to (e.g. 'manuscript/01-the-shift.md'). */
     manuscriptFile: string;
-    /** Path the chapter card lives at (e.g. 'docs/chapters/01-the-shift.md'). */
+    /** Path the chapter card lives at (e.g. 'planning/chapters/01-the-shift.md'). */
     cardFile: string;
     sections: NfChapterSection[];
     wordCountEstimate: number | null;

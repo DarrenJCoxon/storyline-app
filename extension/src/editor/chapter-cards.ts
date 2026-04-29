@@ -165,7 +165,7 @@ function renderNfChapterCard(ch: NfChapter): string {
 
 export async function writeAllChapterCards(state: Partial<ProjectState>, projectDir: string): Promise<void> {
   const plan = getWritingPlan(state as ProjectState)
-  const chaptersDir = path.join(projectDir, 'docs', 'chapters')
+  const chaptersDir = path.join(projectDir, 'planning', 'chapters')
   fs.mkdirSync(chaptersDir, { recursive: true })
 
   const expectedFiles = new Set<string>()

@@ -15,11 +15,22 @@ export function scaffoldProject(
   genreHint?: string,
 ): string {
   // 1. Directories
+  // Layout convention:
+  //   manuscript/  — prose only (the thing that compiles)
+  //   planning/    — every generated planning artefact (book-dna, master-doc,
+  //                  bibliography, fact-check, chapters/, stages/)
+  //   research/    — writer-supplied source material the AI reads
+  //   output/      — only what the compile pipeline produces (EPUBs, PDFs)
+  //   docs/        — onboarding (welcome.md)
   const dirs = [
     path.join(workspaceRoot, '.storyline'),
+    path.join(workspaceRoot, 'manuscript'),
+    path.join(workspaceRoot, 'planning'),
+    path.join(workspaceRoot, 'planning', 'chapters'),
+    path.join(workspaceRoot, 'planning', 'stages'),
+    path.join(workspaceRoot, 'research'),
     path.join(workspaceRoot, 'output'),
     path.join(workspaceRoot, 'docs'),
-    path.join(workspaceRoot, 'manuscript'),
   ]
   for (const dir of dirs) fs.mkdirSync(dir, { recursive: true })
 
@@ -48,6 +59,9 @@ export function scaffoldProject(
   // 4. Welcome doc
   writeIfMissing(path.join(workspaceRoot, 'docs', 'welcome.md'), WELCOME_DOC)
 
+  // 4b. Research folder README — explains the drop-folder convention to the writer
+  writeIfMissing(path.join(workspaceRoot, 'research', 'README.md'), RESEARCH_README)
+
   // 5. compile.config.json
   ensureCompileConfig(workspaceRoot)
 
@@ -57,6 +71,31 @@ export function scaffoldProject(
 function writeIfMissing(filePath: string, content: string): void {
   if (fs.existsSync(filePath)) return
   fs.writeFileSync(filePath, content, 'utf8')
+}
+
+/**
+ * One-shot backfill for projects scaffolded before research/ existed.
+ * Called on extension activation when a Storyline project is detected.
+ * No-op if research/ already exists. Idempotent.
+ */
+export function ensureResearchFolder(workspaceRoot: string): void {
+  const dir = path.join(workspaceRoot, 'research')
+  fs.mkdirSync(dir, { recursive: true })
+  writeIfMissing(path.join(dir, 'README.md'), RESEARCH_README)
+}
+
+/**
+ * One-shot backfill for projects scaffolded before planning/ existed.
+ * Generators (book-dna.md, master-document.md, stages/, chapters/, etc.)
+ * now write to planning/ instead of output/ + docs/chapters/. Existing
+ * projects need the empty folders so the first save doesn't have to
+ * mkdir -p deep paths. Idempotent — no-op if already there.
+ */
+export function ensurePlanningFolder(workspaceRoot: string): void {
+  for (const sub of ['planning', 'planning/chapters', 'planning/stages']) {
+    fs.mkdirSync(path.join(workspaceRoot, sub), { recursive: true })
+  }
+  writeIfMissing(path.join(workspaceRoot, 'planning', 'README.md'), PLANNING_README)
 }
 
 const MANUSCRIPT_README = `# Manuscript
@@ -123,3 +162,64 @@ Click the **Storyline** item in the bottom-left status bar to open the planning 
 
 Happy writing.
 `
+
+const RESEARCH_README = `# Research
+
+Drop reference material here and the planning AI will read it as part of every conversation. Works for fiction and non-fiction:
+
+- **Non-fiction:** exam syllabuses, mark schemes, study guides, model essays, source extracts, primary documents
+- **Fiction:** worldbuilding sources, real-world inspiration, style references, period research
+
+## Supported files
+
+\`.md\`, \`.markdown\`, \`.txt\` — anything plain-text. Files are read alphabetically.
+
+PDFs, DOCX, and other binary formats aren't ingested directly yet. For those, paste the relevant extract into a new \`.md\` file in this folder.
+
+## How it's used
+
+Every file you put here is injected into the AI's system prompt at every planning stage. The AI is instructed to treat it as authoritative source material — to quote and cite from it where relevant, and not to contradict its facts.
+
+## Limits
+
+There's a ~60 KB total budget across all research files (roughly 15,000 tokens) to leave room in the AI's context for the rest of the conversation. Larger files are truncated; if you exceed the budget, files later in alphabetical order are skipped (and the AI is told which ones).
+
+If you want to keep multiple long source documents but only some active at a time, prefix the inactive ones with an underscore (\`_\`) — files starting with \`_\` stay in the folder but aren't loaded into the AI's context.
+
+## What's the difference from \`docs/\` ?
+
+- \`docs/\` is **your** scratchpad — notes you read, the AI doesn't.
+- \`research/\` is **the AI's** reading list — the AI sees it, you maintain it.
+`
+
+const PLANNING_README = `# Planning
+
+Every artefact the planning pipeline generates lands here. You don't write to this folder — Storyline does, and rewrites these files on every relevant save. Editing them by hand will work for a session, but the next save in the originating stage will overwrite your changes.
+
+## What you'll find
+
+- \`book-dna.md\` / \`book-dna.json\` — DNA consolidation
+- \`master-document.md\` (fiction) / \`nf-master-document.md\` / \`academic-master-document.md\` — the headline planning artefact
+- \`bibliography.md\` — sources cited
+- \`fact-check-report.md\` — claim verification status
+- \`detailed-chapter-design.md\` — extended per-chapter plan
+- \`promise-payoff-ledger.md\` (fiction) — promise/payoff tracking
+- \`story-bible.md\` (fiction) — character / world reference
+- \`character-arc-matrix.md\` (fiction) — arc by chapter
+- \`research-todo.md\` (NF) — open research items
+- \`claim-evidence-ledger.md\` (NF) — claim → evidence map
+- \`figure-registry.md\` — figures planned
+- \`glossary.md\` (academic) — key terms by chapter
+- \`exercise-index.md\` (academic) — exercise catalogue
+- \`prerequisite-chain.md\` (academic) — chapter ordering
+- \`learning-outcome-coverage.md\` (academic) — syllabus coverage
+- \`chapters/\` — per-chapter planning notes (one file per chapter)
+- \`stages/\` — per-stage state captures (one file per planning stage)
+
+## What's the difference from \`output/\` ?
+
+- \`planning/\` is **how the book gets made** — planning notes, drafts of structure, AI-generated reference docs.
+- \`output/\` is **the finished book** — only EPUBs, PDFs, and print preview HTML from the compile pipeline.
+`
+
+

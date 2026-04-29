@@ -42,7 +42,7 @@ exports.generateStoryBible = generateStoryBible;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 function generateStoryBible(plan, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'story-bible.md');
     const title = plan.title ?? 'Untitled';

@@ -59,7 +59,7 @@ const BEAT_NAMES = {
     beat15EndCredits: 'End Credits',
 };
 function generateCharacterArcMatrix(plan, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'character-arc-matrix.md');
     const title = plan.title ?? 'Untitled';

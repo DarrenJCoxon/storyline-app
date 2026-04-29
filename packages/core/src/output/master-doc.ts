@@ -16,7 +16,7 @@ export async function generateMasterDocument(
   state: ProjectState,
   projectPath: string,
 ): Promise<MasterDocResult> {
-  const outputDir = path.resolve(projectPath, 'output')
+  const outputDir = path.resolve(projectPath, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const genre = state.genre || ({} as ProjectState['genre'])

@@ -55,7 +55,7 @@ function renderItem(r) {
     return `- ${badge} ${r.description}${loc}`;
 }
 function generateResearchTodo(plan, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'research-todo.md');
     const title = plan.title ?? 'Untitled';

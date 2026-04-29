@@ -32,7 +32,7 @@ function renderFigure(f: FigurePlanItem): string {
 }
 
 export function generateFigureRegistry(plan: WritingPlan, projectDir: string): FigureRegistryResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
   const outputPath = path.join(outputDir, 'figure-registry.md')
 

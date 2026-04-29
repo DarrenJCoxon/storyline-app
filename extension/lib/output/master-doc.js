@@ -5,7 +5,7 @@ const { writeFile, ensureDir } = pkg;
 import { resolve } from 'path';
 
 export async function generateMasterDocument(state) {
-  const outputDir = resolve(process.cwd(), 'output');
+  const outputDir = resolve(process.cwd(), 'planning');
   await ensureDir(outputDir);
 
   const genre = state.genre || {};

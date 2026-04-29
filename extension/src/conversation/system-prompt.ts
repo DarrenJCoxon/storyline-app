@@ -36,13 +36,13 @@ You are running inside a VS Code chat panel — not Claude Code. There is no CLI
 - \`npx storyline-vsc next\` / \`status\` / \`stages\` / \`route\` / \`record-model\` / \`verify-stage\` / \`traps\` / \`checklist\` / \`doctor\` / \`generate\` / \`config get\` → the extension runs these automatically. Do nothing. Do not mention CLI commands to the writer.
 - Subagent / Task tool invocation → the extension calls the backend critique endpoint after each save. Do not invoke or mention it.
 - **Writing project files** (docs/, manuscript/, output/, etc.): emit a fenced block with the file path as the language tag. Example:
-  \`\`\`file:docs/chapters/ch-19.md
+  \`\`\`file:planning/chapters/ch-19.md
   # Chapter 19 — The Betrayal
 
   ...full markdown content...
   \`\`\`
   The extension writes it to disk instantly. You CAN and SHOULD write directly into docs/ and manuscript/ files this way whenever the writer asks you to update chapter cards, planning docs, or any project file. Never tell the writer you "can't write files" — use this syntax instead.
-- **Reading project files**: if you need to read a file that isn't already in your context (e.g. a chapter card the writer wants you to review), emit a JSON block with a \`file_read\` key. The extension will inject the contents and re-run you automatically. Single file: \`{ "file_read": "docs/chapters/ch-01.md" }\`. Multiple: \`{ "file_read": ["docs/chapters/ch-01.md", "docs/chapters/ch-02.md"] }\`. Never tell the writer you "can't read files" — use this instead.
+- **Reading project files**: if you need to read a file that isn't already in your context (e.g. a chapter card the writer wants you to review), emit a JSON block with a \`file_read\` key. The extension will inject the contents and re-run you automatically. Single file: \`{ "file_read": "planning/chapters/ch-01.md" }\`. Multiple: \`{ "file_read": ["planning/chapters/ch-01.md", "planning/chapters/ch-02.md"] }\`. Never tell the writer you "can't read files" — use this instead.
 - **Banner / startup display blocks** the harness asks you to "Display" (e.g. \`Storyline — Save the Cat Planning Harness / Character-first…\` or \`Storyline — Returning to <Project Title>\`) → **do not display them.** They were CLI-init flourishes for the original terminal harness. The extension's onboarding handles project-state messaging; jumping straight into the active stage is the right behaviour here.
 - **Persona introduction**: introduce your coaching persona once on the FIRST chat turn of the project (the mode-gate or first non-mode stage). Subsequent stages of the same persona — and any time \`stages.completed\` already shows prior stages — must continue the conversation directly without "I'm The Strategist…" / "Before we build anything…" preamble. Look at the prior assistant turns in the conversation history; if you've already introduced yourself, don't do it again.
 - **Plain English only**: the stageInfo JSON below uses camelCase keys as machine identifiers (e.g. \`whatTheyGotRight\`, \`yourGap\`, \`marketGap\`, \`targetReader\`). NEVER say these identifiers aloud in your responses. Always convert them to natural prose: "what they got right", "your gap", "market gap", "target reader", etc. The writer must never see raw camelCase field names in the chat.
@@ -116,6 +116,11 @@ function collectTriggerDocs(stageId: string, state: ProjectState): string {
     const syllabusCtx = collectSyllabusContext(state._meta?.projectPath ?? null)
     if (syllabusCtx) docs.push(syllabusCtx)
   }
+  // Always-on: writer-supplied reference material in research/. Works for
+  // both fiction (worldbuilding sources, real-world inspiration) and
+  // non-fiction (source documents, study guides, mark schemes, etc.).
+  const researchCtx = collectResearchContext(state._meta?.projectPath ?? null)
+  if (researchCtx) docs.push(researchCtx)
   return docs.join('\n\n---\n\n')
 }
 
@@ -139,6 +144,63 @@ function collectSyllabusContext(projectPath: string | null): string {
   })
   if (parts.length === 0) return ''
   return `## Syllabus documents (from syllabi/ folder)\n\n*The writer has placed the following syllabus summaries in their project. Use these to populate the outcome inventory — extract outcome codes and text verbatim where present.*\n\n${parts.join('\n\n---\n\n')}`
+}
+
+// Read writer-supplied reference material from <project>/research/.
+// Active for every stage in both fiction and NF mode — anything the
+// writer drops here (syllabuses, mark schemes, study guides, source
+// extracts, worldbuilding notes, real-world inspiration, etc.) becomes
+// part of the AI's context. Capped at RESEARCH_BUDGET_BYTES total so a
+// large file can't blow the context window; per-file truncation keeps
+// every dropped file at least partially represented.
+const RESEARCH_BUDGET_BYTES = 60_000   // ~15k tokens — leaves room for the rest of the prompt
+const RESEARCH_PER_FILE_BYTES = 20_000 // hard cap per file before the budget logic kicks in
+
+function collectResearchContext(projectPath: string | null): string {
+  if (!projectPath) return ''
+  const dir = path.join(projectPath, 'research')
+  if (!fs.existsSync(dir)) return ''
+  let files: string[]
+  try {
+    files = fs.readdirSync(dir)
+      .filter(f =>
+        /\.(md|markdown|txt)$/i.test(f) &&
+        f.toLowerCase() !== 'readme.md' &&
+        !f.startsWith('_'),    // underscore-prefix = inactive; sits in the folder but isn't loaded
+      )
+      .sort()
+  } catch { return '' }
+  if (files.length === 0) return ''
+
+  let remaining = RESEARCH_BUDGET_BYTES
+  const parts: string[] = []
+  const skipped: string[] = []
+
+  for (const f of files) {
+    if (remaining <= 0) { skipped.push(f); continue }
+    let content: string
+    try {
+      content = fs.readFileSync(path.join(dir, f), 'utf-8').trim()
+    } catch { continue }
+    if (!content) continue
+    const allow = Math.min(content.length, RESEARCH_PER_FILE_BYTES, remaining)
+    const slice = content.slice(0, allow)
+    const truncated = slice.length < content.length
+    parts.push(`### ${f}${truncated ? '  *(truncated)*' : ''}\n\n${slice}`)
+    remaining -= slice.length
+  }
+
+  if (parts.length === 0) return ''
+
+  const skippedNote = skipped.length > 0
+    ? `\n\n*(${skipped.length} additional file${skipped.length === 1 ? '' : 's'} not loaded due to context budget: ${skipped.join(', ')})*`
+    : ''
+
+  return `## Research materials (from research/ folder)
+
+*The writer has placed the following reference material in their project's \`research/\` folder. Treat these as authoritative source documents — quote and cite from them when relevant, and don't contradict facts they assert.*
+
+${parts.join('\n\n---\n\n')}${skippedNote}`
 }
 
 function readSideDoc(rel: string): string | null {

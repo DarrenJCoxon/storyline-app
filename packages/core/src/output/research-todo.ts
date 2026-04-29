@@ -30,7 +30,7 @@ function renderItem(r: ResearchTodoItem): string {
 }
 
 export function generateResearchTodo(plan: WritingPlan, projectDir: string): ResearchTodoResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const outputPath = path.join(outputDir, 'research-todo.md')

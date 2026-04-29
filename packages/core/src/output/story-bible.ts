@@ -15,7 +15,7 @@ export interface StoryBibleResult {
 }
 
 export function generateStoryBible(plan: WritingPlan, projectDir: string): StoryBibleResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const outputPath = path.join(outputDir, 'story-bible.md')
