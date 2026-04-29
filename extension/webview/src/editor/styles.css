@@ -488,6 +488,21 @@ html, body {
   font-style: italic;
 }
 
+/* Callout — block aside (tip / note / context box). The editor preview
+ * uses a neutral pale background so the writer can see it as a
+ * distinct block; per-device colour (pale blue on iPad, pale grey on
+ * Kindle / paperback) is applied in the live preview and compile output. */
+.ProseMirror aside.callout {
+  margin: 1.4em 0;
+  padding: 0.9em 1.2em;
+  background: rgba(128, 144, 168, 0.10);
+  border-radius: 4px;
+  border-left: 3px solid rgba(80, 120, 180, 0.45);
+}
+.ProseMirror aside.callout > p { text-indent: 0 !important; }
+.ProseMirror aside.callout > p:first-child { margin-top: 0 !important; }
+.ProseMirror aside.callout > p:last-child  { margin-bottom: 0 !important; }
+
 .ProseMirror hr.scene-break { border: none; height: auto; text-align: center; margin: 2.5em 0; padding: 0; user-select: none; }
 .ProseMirror hr.scene-break::before {
   content: '* * *';

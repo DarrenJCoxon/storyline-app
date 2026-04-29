@@ -570,7 +570,7 @@ export async function writeStageDoc(
   const renderer = renderers[stageId] ?? nfRenderers[stageId]
   if (!renderer) return null
 
-  const outputDir = path.resolve(projectPath, 'output', 'stages')
+  const outputDir = path.resolve(projectPath, 'planning', 'stages')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const title = (state._meta as Record<string, unknown>)?.projectTitle as string | undefined || 'Untitled Novel'

@@ -150,6 +150,23 @@ blockquote p {
   text-indent: 0;
 }
 
+
+/* Callout — block aside (tip / note / context box). Pale neutral grey works
+ * across all readers (Kindle e-ink, Apple Books, paperback print) — the
+ * writer-facing live preview shows iPad-mode in pale blue separately. */
+aside.callout {
+  margin: 1.4em 0;
+  padding: 0.9em 1.2em;
+  background: #ececec;
+  border-left: 3px solid #777;
+  border-radius: 4px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+aside.callout > p { text-indent: 0; }
+aside.callout > p:first-child { margin-top: 0; }
+aside.callout > p:last-child  { margin-bottom: 0; }
+
 /* Lists (rare in fiction but possible in non-fiction / front matter) ── */
 
 ul, ol {

@@ -68,7 +68,7 @@ function renderSection(title, items) {
     return lines;
 }
 function generatePromisePayoffLedger(plan, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'promise-payoff-ledger.md');
     const title = plan.title ?? 'Untitled';

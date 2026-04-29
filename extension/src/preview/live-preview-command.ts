@@ -1183,6 +1183,23 @@ function buildWebviewHtml(
       color: #5c5c5c;
     }
 
+    /* Callout — block aside (tip / note / context box). Per-device colour:
+     * pale blue on iPad (Apple Books has a richer chrome that supports
+     * coloured backgrounds well), pale neutral grey on Kindle (e-ink) and
+     * paperback (print). Inner paragraphs lose their first-line indent so
+     * the box reads as one cohesive aside. */
+    .device-surface aside.callout {
+      margin: 1.4em 0;
+      padding: 0.9em 1.2em;
+      border-radius: 4px;
+    }
+    .device-surface aside.callout > p { text-indent: 0 !important; }
+    .device-surface aside.callout > p:first-child { margin-top: 0 !important; }
+    .device-surface aside.callout > p:last-child  { margin-bottom: 0 !important; }
+    body.device-ipad      .device-surface aside.callout { background: #e8f0fb; border-left: 3px solid #6c93c7; }
+    body.device-kindle    .device-surface aside.callout { background: #dcdcd9; border-left: 3px solid #777; }
+    body.device-print-6x9 .device-surface aside.callout { background: #ececec; border-left: 3px solid #777; }
+
     /* ─── Paragraph style override (mirror compile/theme.js) ─────
      * The preview's default is indented (first-line indent, no gap).
      * When body.paragraphs-block is active, flip to the block style:

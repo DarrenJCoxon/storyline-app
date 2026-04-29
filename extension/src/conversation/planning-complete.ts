@@ -43,7 +43,7 @@ export function discoverPlanningArtefacts(
     return fs.existsSync(abs) ? rel : null
   }
 
-  const chapterCardPaths = listIfDir(projectDir, 'docs/chapters', /^\d{2}(-[a-z0-9-]+)?\.md$/)
+  const chapterCardPaths = listIfDir(projectDir, 'planning/chapters', /^\d{2}(-[a-z0-9-]+)?\.md$/)
   const manuscriptPaths = listIfDir(projectDir, state.writing?.manuscriptPath ?? 'manuscript', /^\d{2}.*\.md$/)
 
   // Pick the first chapter to open — manuscript file if it exists, else card.

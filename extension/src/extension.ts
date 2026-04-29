@@ -17,7 +17,7 @@ import { openPreview } from './preview/preview-command.js'
 import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { checkLicencePrompt } from './onboarding/licence-prompt.js'
-import { ensureResearchFolder } from './onboarding/project-scaffold.js'
+import { ensureResearchFolder, ensurePlanningFolder } from './onboarding/project-scaffold.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
 import { LocalStore } from './state/local-store.js'
@@ -71,7 +71,15 @@ async function copyDir(src: string, dest: string, exclude: string[]): Promise<vo
  * character notes, beat sheets, etc.). Non-Storyline files (config,
  * .storyline/* state, anything outside these prefixes) open normally.
  */
-const RICH_EDITOR_PREFIXES = ['manuscript/', 'manuscript\\', 'docs/', 'docs\\']
+// Every Storyline-managed folder routes its .md files through the rich
+// TipTap editor — writers shouldn't see raw markdown anywhere we own.
+// (Compile output in output/ is .epub/.pdf/.html, no .md to route.)
+const RICH_EDITOR_PREFIXES = [
+  'manuscript/', 'manuscript\\',
+  'planning/',   'planning\\',
+  'research/',   'research\\',
+  'docs/',       'docs\\',
+]
 
 function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
   if (uri.scheme !== 'file') return false
@@ -89,6 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   if (wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json'))) {
     try { ensureResearchFolder(wsRoot) } catch { /* non-fatal */ }
+    try { ensurePlanningFolder(wsRoot) } catch { /* non-fatal */ }
   }
 
   const statusBar = new WordCountStatusBar(context)
@@ -115,6 +124,13 @@ export function activate(context: vscode.ExtensionContext): void {
   researchStatusBar.command = 'storyline.research'
   researchStatusBar.show()
   context.subscriptions.push(researchStatusBar)
+
+  const compileStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97)
+  compileStatusBar.text = '$(book) Compile'
+  compileStatusBar.tooltip = 'Open Compile panel — export manuscript to EPUB or PDF'
+  compileStatusBar.command = 'storyline.compileEpub'
+  compileStatusBar.show()
+  context.subscriptions.push(compileStatusBar)
 
   const notesStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 96)
   notesStatusBar.text = '$(note) Notes'

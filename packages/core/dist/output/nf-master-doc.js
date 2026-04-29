@@ -53,7 +53,7 @@ function section(title, content) {
     return `## ${title}\n\n${content}\n`;
 }
 function generateNfMasterDocument(plan, state, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'nf-master-document.md');
     const title = plan.title ?? 'Untitled';

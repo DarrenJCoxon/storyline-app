@@ -464,7 +464,7 @@ function readNfChapters(state) {
             title,
             slug,
             manuscriptFile: `manuscript/${String(num).padStart(2, '0')}-${slug}.md`,
-            cardFile: `docs/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
+            cardFile: `planning/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
             sections: sections.map(normalizeNfSection),
             wordCountEstimate: numberOrNull(item.wordCountEstimate ?? item.estimatedWords),
             keyResearch: stringOrNull(item.keyResearch ?? item.keyEvidence ?? item.sourcingNote),

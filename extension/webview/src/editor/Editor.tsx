@@ -11,6 +11,7 @@ import TableCell from '@tiptap/extension-table-cell'
 import { Markdown } from 'tiptap-markdown'
 import { SceneBreak } from './extensions/SceneBreak.js'
 import { Footnote } from './extensions/Footnote.js'
+import { Callout } from './extensions/Callout.js'
 import { vscode } from './vscode.js'
 import { debounce } from './debounce.js'
 import { Image as ImageIcon, AlignVerticalJustifyCenter, Type } from 'lucide-react'
@@ -106,6 +107,7 @@ export function Editor(): JSX.Element | null {
       StarterKit.configure({ horizontalRule: false }),
       SceneBreak,
       Footnote,
+      Callout,
       ResizableImage.configure({ inline: false, HTMLAttributes: { class: 'editor-img' } }),
       Table.configure({ resizable: false }),
       TableRow,

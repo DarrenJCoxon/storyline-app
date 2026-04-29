@@ -1,4 +1,4 @@
-// Per-chapter planning card — one file per chapter under docs/chapters/.
+// Per-chapter planning card — one file per chapter under planning/chapters/.
 // Writer opens the card in one VS Code pane and the matching manuscript/chapter-NN.md
 // in the other, working scene by scene. The card is the Scrivener-style index card
 // for that chapter: what it must do, POV, beat it serves, scene breakdown with
@@ -122,14 +122,14 @@ export function renderChapterCard(chapter, state = {}) {
   return lines.join('\n').trimEnd() + '\n';
 }
 
-// Writes every chapter in state.chapterOutline to docs/chapters/NN-slug.md.
+// Writes every chapter in state.chapterOutline to planning/chapters/NN-slug.md.
 // Removes any stale chapter files not present in the current outline so the
 // folder is always an accurate reflection of state. The combined legacy
 // docs/13-chapter-flesh-out.md is not touched here — it's deleted by the
 // save flow if present.
 export async function writeAllChapterCards(state, projectDir = process.cwd()) {
   const chapters = state?.chapterOutline || [];
-  const chaptersDir = path.join(projectDir, 'docs', 'chapters');
+  const chaptersDir = path.join(projectDir, 'planning', 'chapters');
   await mkdir(chaptersDir, { recursive: true });
 
   const written = [];
@@ -141,12 +141,12 @@ export async function writeAllChapterCards(state, projectDir = process.cwd()) {
     const body = renderChapterCard(ch, state);
     const filePath = path.join(chaptersDir, fileName);
     await writeFile(filePath, body, 'utf-8');
-    written.push(path.join('docs', 'chapters', fileName));
+    written.push(path.join('planning', 'chapters', fileName));
   }
 
   // Reconcile — remove chapter cards that no longer correspond to a chapter
   // in state. Only touches files matching our naming pattern; leaves any
-  // writer-authored files in docs/chapters/ alone.
+  // writer-authored files in planning/chapters/ alone.
   const removed = [];
   let existing;
   try { existing = await readdir(chaptersDir); }
@@ -156,8 +156,8 @@ export async function writeAllChapterCards(state, projectDir = process.cwd()) {
     if (!CARD_RX.test(name)) continue;
     if (expectedFiles.has(name)) continue;
     await unlink(path.join(chaptersDir, name));
-    removed.push(path.join('docs', 'chapters', name));
+    removed.push(path.join('planning', 'chapters', name));
   }
 
-  return { written, removed, chaptersDir: path.join('docs', 'chapters') };
+  return { written, removed, chaptersDir: path.join('planning', 'chapters') };
 }

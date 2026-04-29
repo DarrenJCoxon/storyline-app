@@ -352,7 +352,7 @@ export interface NfChapter {
   slug: string
   /** Path the manuscript file will be seeded to (e.g. 'manuscript/01-the-shift.md'). */
   manuscriptFile: string
-  /** Path the chapter card lives at (e.g. 'docs/chapters/01-the-shift.md'). */
+  /** Path the chapter card lives at (e.g. 'planning/chapters/01-the-shift.md'). */
   cardFile: string
   sections: NfChapterSection[]
   wordCountEstimate: number | null
@@ -903,7 +903,7 @@ function readNfChapters(state: ProjectState): NfChapter[] {
       title,
       slug,
       manuscriptFile: `manuscript/${String(num).padStart(2, '0')}-${slug}.md`,
-      cardFile: `docs/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
+      cardFile: `planning/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
       sections: sections.map(normalizeNfSection),
       wordCountEstimate: numberOrNull(item.wordCountEstimate ?? item.estimatedWords),
       keyResearch: stringOrNull(item.keyResearch ?? item.keyEvidence ?? item.sourcingNote),

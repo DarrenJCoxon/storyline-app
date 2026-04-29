@@ -32,7 +32,7 @@ const BEAT_NAMES: Record<string, string> = {
 }
 
 export function generateCharacterArcMatrix(plan: WritingPlan, projectDir: string): ArcMatrixResult {
-  const outputDir = path.join(projectDir, 'output')
+  const outputDir = path.join(projectDir, 'planning')
   fs.mkdirSync(outputDir, { recursive: true })
 
   const outputPath = path.join(outputDir, 'character-arc-matrix.md')

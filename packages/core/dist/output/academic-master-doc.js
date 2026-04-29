@@ -48,7 +48,7 @@ const prerequisite_chain_js_1 = require("./prerequisite-chain.js");
 const glossary_js_1 = require("./glossary.js");
 const exercise_index_js_1 = require("./exercise-index.js");
 function generateAcademicMasterDocument(plan, state, projectDir) {
-    const outputDir = path.join(projectDir, 'output');
+    const outputDir = path.join(projectDir, 'planning');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, 'academic-master-document.md');
     const academic = plan.academic;
@@ -163,7 +163,7 @@ function generateAcademicMasterDocument(plan, state, projectDir) {
             lines.push(`- **${term}** *(${unitLabel} ${firstChapter})*`);
         }
         if (glossary.terms.length > 10) {
-            lines.push(`- *… and ${glossary.terms.length - 10} more — see output/glossary.md*`);
+            lines.push(`- *… and ${glossary.terms.length - 10} more — see planning/glossary.md*`);
         }
         lines.push('');
     }
@@ -198,7 +198,7 @@ function generateAcademicMasterDocument(plan, state, projectDir) {
         for (const [status, count] of Object.entries(byStatus)) {
             lines.push(`- ${status}: ${count}`);
         }
-        lines.push('', `*Full registry: output/figure-registry.md*`, '');
+        lines.push('', `*Full registry: planning/figure-registry.md*`, '');
     }
     // ── Claim risk overview ─────────────────────────────────────────────────────
     if (plan.claims.length) {
@@ -211,7 +211,7 @@ function generateAcademicMasterDocument(plan, state, projectDir) {
                 lines.push(`- ${c.id}: ${c.claimText.slice(0, 80)}`);
             }
         }
-        lines.push('', `*Full ledger: output/claim-evidence-ledger.md*`, '');
+        lines.push('', `*Full ledger: planning/claim-evidence-ledger.md*`, '');
     }
     const markdown = lines.join('\n').trimEnd() + '\n';
     fs.writeFileSync(outputPath, markdown, 'utf-8');
