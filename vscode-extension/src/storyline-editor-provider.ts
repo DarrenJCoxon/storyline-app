@@ -201,9 +201,14 @@ export class StorylineEditorProvider {
     };
 
     // Content-based sync guard — see prior implementation comment for
-    // the "expectedContent vs document.getText()" rationale.
+    // the "expectedContent vs document.getText()" rationale. Normalise
+    // per-line so VS Code's save-time whitespace cleanup
+    // (files.trimTrailingWhitespace / files.insertFinalNewline) doesn't
+    // look like a fresh edit and re-dirty the doc after the close-save
+    // dialog has already accepted.
     let expectedContent: string | null = null;
-    const normaliseForCompare = (s: string) => s.replace(/\s+$/, '');
+    const normaliseForCompare = (s: string) =>
+      s.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n').replace(/\n+$/, '');
 
     let autoSaveTimer: NodeJS.Timeout | undefined;
     let saveInFlight = false;
@@ -226,18 +231,26 @@ export class StorylineEditorProvider {
       saveInFlight = true;
       webviewPanel.webview.postMessage({ type: 'saving' });
       try {
-        let saved = await document.save();
-        if (!saved && document.isDirty) {
-          await new Promise(resolve => setTimeout(resolve, 80));
-          if (!document.isDirty) {
-            saved = true;
-          } else {
-            saved = await document.save();
+        // Truth is `document.isDirty`, not save()'s boolean. VS Code's
+        // save() returns false for BOTH "save failed" AND "nothing to
+        // save", so it's unreliable as an error signal.
+        if (!document.isDirty) {
+          webviewPanel.webview.postMessage({ type: 'saved' });
+          return;
+        }
+        await document.save();
+        if (document.isDirty) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        if (document.isDirty) {
+          await document.save();
+          if (document.isDirty) {
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
-        if (!saved && document.isDirty) {
+        if (document.isDirty) {
           throw new Error(
-            'document.save() failed twice — the file may be read-only, ' +
+            'Save did not complete — the file may be read-only, ' +
             'locked by another process, or on a cloud-synced folder ' +
             'with sync conflicts.',
           );
