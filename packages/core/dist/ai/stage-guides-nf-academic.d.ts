@@ -1,3 +1,8 @@
+export interface AcademicGuideVariant {
+    opening: string;
+    questions?: any[];
+    itemSchema?: Record<string, string>;
+}
 export interface AcademicGuide {
     id: string;
     name: string;
@@ -8,6 +13,12 @@ export interface AcademicGuide {
     /** When set, the system prompt layer reads all files in this project-relative
      *  folder and injects their contents as context before the stage runs. */
     contextDir?: string;
+    /** Per-bookType variant overrides. The system-prompt layer merges the
+     *  appropriate variant into the stageInfo block based on state.bookType. */
+    variants?: {
+        textbook?: AcademicGuideVariant;
+        'revision-guide'?: AcademicGuideVariant;
+    };
     questions?: any[];
     validation?: string[];
     summary?: any[];

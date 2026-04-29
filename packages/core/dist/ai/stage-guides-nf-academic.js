@@ -68,6 +68,41 @@ Once you've added your files, tell me and I'll read them and draft the outcome l
                 required: false,
             },
         ],
+        variants: {
+            textbook: {
+                opening: `Before we plan chapters, we need the full outcome inventory — every objective the book must deliver on, with Bloom's level and module assignment. Textbooks need complete coverage; every high-Bloom outcome (Evaluate / Create) also needs a worked example or extended exercise flagged at this stage.`,
+            },
+            'revision-guide': {
+                opening: `Before we plan topics, we need the recall inventory — the condensed "what you need to know" for each outcome. Revision guides are selective: focus on exam-relevant outcomes only, flag any that require extended recall answers vs short-recall treatment, and mark anything that's a common exam trap.`,
+                questions: [
+                    {
+                        key: 'outcomes',
+                        label: 'Recall objectives for this revision guide',
+                        hint: 'Distil each spec outcome to exam-relevant recall form. Include: code, what the student must recall, recall type (fact / process / explanation / calculation), and whether it\'s a common exam trap.',
+                        type: 'array',
+                        itemSchema: {
+                            code: 'Outcome code from the spec',
+                            text: 'What the student must recall — concise, exam-first phrasing',
+                            recallType: 'fact / process / explanation / calculation',
+                            examTrap: '(Optional) Known misconception or common mistake students make on this outcome',
+                            module: '(Optional) Which paper or topic cluster',
+                        },
+                        required: true,
+                    },
+                    {
+                        key: 'syllabusSource',
+                        label: 'Which spec files did you use?',
+                        required: false,
+                    },
+                    {
+                        key: 'syllabusGaps',
+                        label: 'Any outcomes intentionally excluded?',
+                        hint: 'e.g. "Excluding option topics", "Paper 3 practicals out of scope"',
+                        required: false,
+                    },
+                ],
+            },
+        },
         validation: ['outcomes'],
         summary: [
             { label: 'Outcomes captured', key: 'totalOutcomeCount' },
@@ -83,32 +118,58 @@ Once you've added your files, tell me and I'll read them and draft the outcome l
         phase: 'academic',
         index: 15,
         persona: 'curriculum-editor',
-        opening: `Now we map the outcome inventory onto chapters. Every declared outcome must be assigned to at least one chapter. The coverage report will flag anything that falls through the cracks.
+        opening: `Now we map the outcome inventory onto chapters. Every declared outcome must be assigned to at least one chapter. The coverage report will flag anything that falls through the cracks.`,
+        variants: {
+            textbook: {
+                opening: `Now we map the outcome inventory onto chapters. Every declared outcome must be assigned to at least one chapter — this is the coverage contract the book will be audited against.
 
-Each chapter needs: its outcomes, key terms, prerequisite chapters, and the section structure. We'll also note any worked examples and exercises so the exercise index can track them from day one.`,
-        questions: [
-            {
-                key: 'chapters',
-                label: 'Chapters',
-                hint: 'One entry per chapter. Assign outcomes by their codes from the outcome inventory.',
-                type: 'array',
+Each chapter needs: its outcomes, key terms, prerequisite chapters, and full section structure including worked examples, exercises, and figures.`,
                 itemSchema: {
                     number: 'Chapter number',
                     title: 'Chapter title',
-                    outcomes: 'Array of outcome codes covered in this chapter (e.g. ["P4.1", "P4.2"])',
-                    keyTerms: 'Array of key terms introduced or defined in this chapter',
-                    prerequisites: 'Array of chapter numbers that must be read first (e.g. [1, 3])',
-                    sections: 'Array of section objects: { title, type } where type is concept / worked-example / exercise / summary / exam-objectives / misconceptions / quick-check / exam-questions',
-                    workedExamples: 'Array of worked example objects: { id (e.g. we-2.1), title, difficulty (foundation/higher/extension) }',
-                    exercises: 'Array of exercise objects: { id (e.g. ex-2.1), title, difficulty }',
-                    wordTarget: 'Approximate word count for this chapter',
-                    figures: '(Optional) Array of figures: { type, purpose }',
+                    outcomes: 'Array of outcome codes covered (e.g. ["P4.1", "P4.2"])',
+                    keyTerms: 'Array of key terms introduced or defined',
+                    prerequisites: 'Array of chapter numbers that must be read first',
+                    sections: 'Array of { title, type } — types: concept / worked-example / exercise / summary / exam-objectives / misconceptions / quick-check / exam-questions',
+                    workedExamples: 'Array of { id (e.g. we-2.1), title, difficulty (foundation/higher/extension) }',
+                    exercises: 'Array of { id (e.g. ex-2.1), title, difficulty }',
+                    wordTarget: 'Approximate word count',
+                    figures: '(Optional) Array of { type, purpose }',
+                },
+            },
+            'revision-guide': {
+                opening: `Now we map the recall inventory onto topics. This is a revision guide — topics should be short, dense, and exam-focused. Every recall objective must map to a topic. No deep concept explanations; instead, every topic needs: summary box, key terms, recall questions, and at least one block of exam practice.`,
+                itemSchema: {
+                    number: 'Topic number',
+                    title: 'Topic title',
+                    outcomes: 'Array of recall objective codes covered (e.g. ["P4.1", "P4.2"])',
+                    keyTerms: 'Array of key terms to define in the glossary box',
+                    sections: 'Array of { title, type } — types: topic-summary / recall-questions / key-terms / worked-example / exam-practice / common-mistakes / quick-check',
+                    recallQuestions: 'Number of short recall questions for this topic',
+                    examPractice: 'Array of { type (short-answer/calculation/extended), count } — exam-style question blocks',
+                    wordTarget: 'Approximate word count (keep tight — 400–800 words per topic is typical)',
+                },
+            },
+        },
+        questions: [
+            {
+                key: 'chapters',
+                label: 'Chapters / Topics',
+                hint: 'One entry per chapter (textbook) or topic (revision guide). Assign outcomes by code from the outcome inventory.',
+                type: 'array',
+                itemSchema: {
+                    number: 'Chapter or topic number',
+                    title: 'Title',
+                    outcomes: 'Array of outcome codes covered',
+                    keyTerms: 'Array of key terms',
+                    sections: 'Array of section objects',
+                    wordTarget: 'Approximate word count',
                 },
                 required: true,
             },
             {
                 key: 'chapterCount',
-                label: 'Total number of chapters',
+                label: 'Total number of chapters / topics',
                 required: false,
             },
         ],
