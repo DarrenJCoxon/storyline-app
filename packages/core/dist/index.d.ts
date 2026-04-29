@@ -19,8 +19,10 @@ export type { NfPipelineGuide } from './ai/stage-guides-nf-pipeline-a.js';
 export { PIPELINE_A_GUIDES, PIPELINE_A_GUIDE_ORDER, getPipelineAGuide } from './ai/stage-guides-nf-pipeline-a.js';
 export { PIPELINE_B_GUIDES, PIPELINE_B_GUIDE_ORDER, getPipelineBGuide } from './ai/stage-guides-nf-pipeline-b.js';
 export { PIPELINE_C_GUIDES, PIPELINE_C_GUIDE_ORDER, getPipelineCGuide } from './ai/stage-guides-nf-pipeline-c.js';
+export type { AcademicGuide } from './ai/stage-guides-nf-academic.js';
+export { ACADEMIC_GUIDES, ACADEMIC_GUIDE_ORDER, getAcademicGuide } from './ai/stage-guides-nf-academic.js';
 import type { NfDnaGuide as _NfDnaGuide } from './ai/stage-guides-nf-dna.js';
-/** Look up an NF stage guide by id across DNA + all 3 pipelines. */
+/** Look up an NF stage guide by id across DNA + all 3 pipelines (including academic). */
 export declare function getNfStageGuide(stageId: string): _NfDnaGuide | null;
 /**
  * Return the list of required field keys for a stage (fiction or NF).
@@ -63,6 +65,7 @@ export { writeStageDoc } from './output/stage-doc.js';
 export type { MasterDocResult } from './output/master-doc.js';
 export { generateMasterDocument } from './output/master-doc.js';
 export { seedManuscriptFromPlan, seedChapterContent, chapterManuscriptPath, seedNfChapterContent, nfChapterManuscriptPath, MANUSCRIPT_SEED_MARKER } from './scaffold/manuscript-seeder.js';
+export { seedSyllabiFolder, readSyllabiFiles } from './scaffold/academic-scaffold.js';
 export type { PromisePayoffItem, PromiseType, PromiseStatus, PromiseRisk } from './state/writing-plan.js';
 export type { NfCritiqueFinding, FictionPromiseGap } from './critique/promise-payoff.js';
 export { checkNfPromisePayoff, findFictionPromiseGaps } from './critique/promise-payoff.js';

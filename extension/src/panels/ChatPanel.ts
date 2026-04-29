@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
@@ -287,6 +287,12 @@ export class ChatPanel {
     this.turnHistory.append(currentStage.id, { role: 'user', content: text })
     this.turnHistory.appendDisplay({ role: 'user', content: text })
     this.post({ type: 'userMessage', text })
+
+    // Ensure syllabi/ folder exists the first time the writer reaches ac-syllabus
+    if (currentStage.id === 'ac-syllabus') {
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (projectDir) seedSyllabiFolder(projectDir)
+    }
 
     const systemPrompt = buildSystemPrompt(currentStage.id, state)
     const messages: Message[] = this.turnHistory.allForStage(currentStage.id)

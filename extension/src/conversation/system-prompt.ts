@@ -82,7 +82,7 @@ export function buildSystemPrompt(stageId: string, state: ProjectState): string 
   // actually needs them. Mirrors the original harness's CLI pattern where
   // /storyline calls `stage-info` (gets the brief) and then opens specific
   // reference docs only when the stage demands them.
-  const triggerDocs = collectTriggerDocs(stageId)
+  const triggerDocs = collectTriggerDocs(stageId, state)
 
   const stageContext = `
 ---
@@ -106,13 +106,39 @@ ${triggerDocs ? '\n---\n\n' + triggerDocs : ''}
  * writer reaches the beat sheet or scene outline, etc. Anything not in
  * the trigger list stays out of the prompt entirely.
  */
-function collectTriggerDocs(stageId: string): string {
+function collectTriggerDocs(stageId: string, state: ProjectState): string {
   const docs: string[] = []
   if (stageId === 'beatSheet' || stageId === 'sceneOutline') {
     const beatGuide = readSideDoc('skill-content/beat-guide.md')
     if (beatGuide) docs.push('## Beat Sheet reference (Save the Cat 15 beats)\n\n' + beatGuide)
   }
+  if (stageId === 'ac-syllabus') {
+    const syllabusCtx = collectSyllabusContext(state._meta?.projectPath ?? null)
+    if (syllabusCtx) docs.push(syllabusCtx)
+  }
   return docs.join('\n\n---\n\n')
+}
+
+function collectSyllabusContext(projectPath: string | null): string {
+  if (!projectPath) return ''
+  const syllabiDir = path.join(projectPath, 'syllabi')
+  if (!fs.existsSync(syllabiDir)) return ''
+  let files: string[]
+  try {
+    files = fs.readdirSync(syllabiDir)
+      .filter(f => (f.endsWith('.md') || f.endsWith('.txt')) && f.toLowerCase() !== 'readme.md')
+      .sort()
+  } catch { return '' }
+  if (files.length === 0) return ''
+  const parts = files.flatMap(f => {
+    try {
+      const content = fs.readFileSync(path.join(syllabiDir, f), 'utf-8').trim()
+      if (!content) return []
+      return [`### ${f}\n\n${content}`]
+    } catch { return [] }
+  })
+  if (parts.length === 0) return ''
+  return `## Syllabus documents (from syllabi/ folder)\n\n*The writer has placed the following syllabus summaries in their project. Use these to populate the outcome inventory — extract outcome codes and text verbatim where present.*\n\n${parts.join('\n\n---\n\n')}`
 }
 
 function readSideDoc(rel: string): string | null {
