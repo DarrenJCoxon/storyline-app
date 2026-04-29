@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sun, Moon, Monitor } from 'lucide-react'
+import { Sun, Moon, Monitor, Clock, Plus } from 'lucide-react'
 import type { CreditInfo } from '../App.js'
 import type { ThemeMode } from '../hooks/useTheme.js'
 
@@ -9,6 +9,9 @@ interface Props {
   stageCount: number
   themeMode: ThemeMode
   onThemeChange: (mode: ThemeMode) => void
+  onShowHistory: () => void
+  onNewChat: () => void
+  isStreaming: boolean
 }
 
 const MODES: Array<{ value: ThemeMode; Icon: typeof Sun; title: string }> = [
@@ -27,7 +30,21 @@ function creditLabel(info: CreditInfo, activeStageIndex: number, stageCount: num
   return `${info.balance.toLocaleString()} credits remaining`
 }
 
-export function Header({ creditInfo, activeStageIndex, stageCount, themeMode, onThemeChange }: Props) {
+const iconBtnStyle: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '4px',
+  color: 'var(--text-muted)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '4px',
+  transition: 'color 150ms, background 150ms',
+  lineHeight: 0,
+}
+
+export function Header({ creditInfo, activeStageIndex, stageCount, themeMode, onThemeChange, onShowHistory, onNewChat, isStreaming }: Props) {
   return (
     <header style={{
       display: 'flex',
@@ -56,6 +73,26 @@ export function Header({ creditInfo, activeStageIndex, stageCount, themeMode, on
         }}>
           {creditLabel(creditInfo, activeStageIndex, stageCount)}
         </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+          <button
+            title="Chat history"
+            aria-label="Chat history"
+            onClick={onShowHistory}
+            style={iconBtnStyle}
+          >
+            <Clock size={15} strokeWidth={2} />
+          </button>
+          <button
+            title="New chat"
+            aria-label="New chat"
+            onClick={onNewChat}
+            disabled={isStreaming}
+            style={{ ...iconBtnStyle, opacity: isStreaming ? 0.4 : 1, cursor: isStreaming ? 'default' : 'pointer' }}
+          >
+            <Plus size={15} strokeWidth={2} />
+          </button>
+        </div>
 
         <div style={{
           display: 'flex',

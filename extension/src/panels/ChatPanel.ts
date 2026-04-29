@@ -241,7 +241,51 @@ export class ChatPanel {
       case 'stop':
         this.streamCancelled = true
         break
+      case 'newChat':
+        await this.handleNewChat()
+        break
+      case 'listSessions':
+        this.handleListSessions()
+        break
+      case 'loadSession':
+        await this.handleLoadSession(msg.id as string)
+        break
     }
+  }
+
+  private getSessionsDir(): string | null {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!workspaceFolder) return null
+    return path.join(workspaceFolder, '.storyline', 'sessions')
+  }
+
+  private async handleNewChat(): Promise<void> {
+    const sessionsDir = this.getSessionsDir()
+    if (sessionsDir) this.turnHistory.archiveCurrentSession(sessionsDir)
+    this.turnHistory.clearAll()
+    this.turnHistory.clearDisplay()
+    this.post({ type: 'clearMessages' })
+    if (!this.store) return
+    const state = await this.store.read()
+    const currentStage = deriveCurrentStage(state)
+    if (currentStage) await this.fireOpeningPrompt(currentStage.id, state)
+  }
+
+  private handleListSessions(): void {
+    const sessionsDir = this.getSessionsDir()
+    if (!sessionsDir) { this.post({ type: 'sessionsLoaded', sessions: [] }); return }
+    const sessions = this.turnHistory.listSessions(sessionsDir)
+    this.post({ type: 'sessionsLoaded', sessions })
+  }
+
+  private async handleLoadSession(id: string): Promise<void> {
+    const sessionsDir = this.getSessionsDir()
+    if (!sessionsDir) return
+    const session = this.turnHistory.loadSession(sessionsDir, id)
+    if (!session) return
+    this.turnHistory.archiveCurrentSession(sessionsDir)
+    this.turnHistory.restoreFromSession(session.displayTurns, session.stageHistory)
+    this.post({ type: 'restoreMessages', turns: session.displayTurns })
   }
 
   private async handleBeginPlanning(): Promise<void> {
