@@ -81,7 +81,7 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
 
 const FALLBACK_MODEL = 'deepseek/deepseek-v4-pro' // DeepSeek V4 Pro — used only when primary (v4-flash) is rate-limited
 const MAX_RETRIES = 3
-const RETRY_DELAY_MS = 1500
+const RETRY_DELAY_MS = 500
 
 async function fetchWithRetry(
   env: Env,

@@ -37,6 +37,9 @@ export class ManagedProvider implements AIProvider {
     if (response.status === 401) {
       throw new Error('Invalid licence key')
     }
+    if (response.status === 503) {
+      throw new Error('The server restarted mid-request — please try again')
+    }
     if (!response.ok) {
       const text = await response.text()
       throw new Error(`Backend error ${response.status}: ${text}`)

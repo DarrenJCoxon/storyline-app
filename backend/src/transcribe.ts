@@ -43,22 +43,21 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
   const deducted: LicenceRecord = { ...record, creditBalance: Math.max(0, record.creditBalance - 1) }
   await env.LICENCES.put(body.licenceKey, JSON.stringify(deducted))
 
-  // Decode base64 audio and build multipart for OpenAI
-  const binaryStr = atob(body.audioBase64)
-  const bytes = new Uint8Array(binaryStr.length)
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i)
-  }
-  const audioBlob = new Blob([bytes], { type: body.mimeType })
-
-  const oaiForm = new FormData()
   const ext = body.mimeType.includes('wav') ? 'wav'
     : body.mimeType.includes('mp4') || body.mimeType.includes('m4a') ? 'm4a'
     : body.mimeType.includes('ogg') ? 'ogg'
     : 'webm'
+
+  // Decode base64 → binary using the fast single-pass form
+  const audioBlob = new Blob(
+    [Uint8Array.from(atob(body.audioBase64), c => c.charCodeAt(0))],
+    { type: body.mimeType },
+  )
+
+  const oaiForm = new FormData()
   oaiForm.append('file', audioBlob, `audio.${ext}`)
-  oaiForm.append('model', 'gpt-4o-mini-transcribe')
-  oaiForm.append('response_format', 'json')
+  oaiForm.append('model', 'whisper-1')
+  oaiForm.append('response_format', 'text')
   if (body.projectContext) {
     oaiForm.append('prompt', body.projectContext)
   }
@@ -76,8 +75,9 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
     return errJson(`OpenAI transcription error ${oaiRes.status}: ${text}`, 502)
   }
 
-  const result = await oaiRes.json() as { text: string }
-  return new Response(JSON.stringify({ text: result.text }), {
+  // whisper-1 with response_format:'text' returns plain text directly
+  const text = await oaiRes.text()
+  return new Response(JSON.stringify({ text }), {
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
 }

@@ -6,6 +6,20 @@ export interface Turn {
   content: string
 }
 
+export interface SessionMeta {
+  id: string
+  timestamp: number
+  preview: string
+}
+
+interface StoredSession {
+  id: string
+  timestamp: number
+  preview: string
+  displayTurns: Turn[]
+  stageHistory: Record<string, Turn[]>
+}
+
 export class TurnHistory {
   private history: Map<string, Turn[]> = new Map()
   private storePath: string | null = null
@@ -57,6 +71,67 @@ export class TurnHistory {
   clearAll(): void {
     this.history.clear()
     this.persist()
+  }
+
+  clearDisplay(): void {
+    this.displayLog = []
+    this.persistDisplay()
+  }
+
+  archiveCurrentSession(sessionsDir: string): void {
+    if (this.displayLog.length === 0) return
+    const id = Date.now().toString()
+    const firstUser = this.displayLog.find(t => t.role === 'user')
+    const preview = firstUser ? firstUser.content.slice(0, 80) : 'Chat session'
+    const stageHistory: Record<string, Turn[]> = {}
+    for (const [k, v] of this.history) stageHistory[k] = v
+    const session: StoredSession = {
+      id,
+      timestamp: parseInt(id, 10),
+      preview,
+      displayTurns: [...this.displayLog],
+      stageHistory,
+    }
+    try {
+      fs.mkdirSync(sessionsDir, { recursive: true })
+      fs.writeFileSync(path.join(sessionsDir, `session-${id}.json`), JSON.stringify(session, null, 2))
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+  listSessions(sessionsDir: string): SessionMeta[] {
+    try {
+      const files = fs.readdirSync(sessionsDir).filter(f => f.startsWith('session-') && f.endsWith('.json'))
+      const metas = files.map(f => {
+        try {
+          const raw = fs.readFileSync(path.join(sessionsDir, f), 'utf-8')
+          const s = JSON.parse(raw) as StoredSession
+          return { id: s.id, timestamp: s.timestamp, preview: s.preview } as SessionMeta
+        } catch {
+          return null
+        }
+      }).filter((m): m is SessionMeta => m !== null)
+      return metas.sort((a, b) => b.timestamp - a.timestamp)
+    } catch {
+      return []
+    }
+  }
+
+  loadSession(sessionsDir: string, id: string): StoredSession | null {
+    try {
+      const raw = fs.readFileSync(path.join(sessionsDir, `session-${id}.json`), 'utf-8')
+      return JSON.parse(raw) as StoredSession
+    } catch {
+      return null
+    }
+  }
+
+  restoreFromSession(displayTurns: Turn[], stageHistory: Record<string, Turn[]>): void {
+    this.displayLog = [...displayTurns]
+    this.history = new Map(Object.entries(stageHistory))
+    this.persist()
+    this.persistDisplay()
   }
 
   private load(): void {

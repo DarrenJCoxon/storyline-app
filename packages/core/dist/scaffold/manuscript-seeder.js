@@ -38,6 +38,7 @@ exports.seedChapterContent = seedChapterContent;
 exports.chapterManuscriptPath = chapterManuscriptPath;
 exports.nfChapterManuscriptPath = nfChapterManuscriptPath;
 exports.seedNfChapterContent = seedNfChapterContent;
+exports.seedAcademicChapterContent = seedAcademicChapterContent;
 exports.seedManuscriptFromPlan = seedManuscriptFromPlan;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -164,6 +165,150 @@ function seedNfChapterContent(ch, claims = [], figures = []) {
     }
     return lines.join('\n').trimEnd() + '\n';
 }
+// ── Academic seeding (NF-14.6) ───────────────────────────────────────────────
+/** Seed a textbook chapter: Learning outcomes / Key terms / Concept /
+ *  Worked example (one H3 per item with {{example:}} marker) / Exercise
+ *  (one H3 per item with {{exercise:}} marker) / Summary. */
+function seedTextbookChapterContent(nfCh, acCh, claims, figures) {
+    const num = nfCh.number ?? acCh.number;
+    const title = nfCh.title ?? acCh.title ?? `Chapter ${num}`;
+    const lines = [exports.MANUSCRIPT_SEED_MARKER, '', `# Chapter ${num} — ${title}`, ''];
+    if (acCh.wordTarget)
+        lines.push(`> *Target: ~${acCh.wordTarget.toLocaleString()} words*`, '');
+    if (acCh.prerequisites.length) {
+        lines.push(`> *Prerequisites: ${acCh.prerequisites.map(n => `Ch ${n}`).join(', ')}*`, '');
+    }
+    // Learning outcomes
+    lines.push('## Learning outcomes', '');
+    if (acCh.outcomes.length) {
+        for (const code of acCh.outcomes)
+            lines.push(`- ${code}`);
+        lines.push('');
+    }
+    else {
+        lines.push('*No outcomes declared yet.*', '');
+    }
+    // Key terms
+    lines.push('## Key terms', '');
+    if (acCh.keyTerms.length) {
+        for (const term of acCh.keyTerms)
+            lines.push(`- **${term}** —`);
+        lines.push('');
+    }
+    else {
+        lines.push('*No key terms declared yet.*', '');
+    }
+    // Concept (with claim + figure markers)
+    lines.push('## Concept', '');
+    const chapterClaims = claims.filter(c => c.chapterNumber === num);
+    const chapterFigures = figures.filter(f => f.chapterNumber === num);
+    for (const c of chapterClaims)
+        lines.push(`{{claim: ${c.id}}}`, '');
+    for (const f of chapterFigures)
+        lines.push(`{{figure: ${f.id}}}`, '');
+    lines.push('<!-- Write your concept explanation here -->', '');
+    // Worked examples
+    lines.push('## Worked example', '');
+    if (acCh.workedExamples.length) {
+        for (const we of acCh.workedExamples) {
+            const weTitle = we.title ?? we.id;
+            const diff = we.difficulty ? ` *(${we.difficulty})*` : '';
+            lines.push(`### ${we.id} — ${weTitle}${diff}`, '');
+            lines.push(`{{example: ${we.id}}}`, '');
+            lines.push('<!-- Write the worked example here -->', '');
+        }
+    }
+    else {
+        lines.push('*No worked examples declared yet.*', '');
+    }
+    // Exercises
+    lines.push('## Exercise', '');
+    if (acCh.exercises.length) {
+        for (const ex of acCh.exercises) {
+            const exTitle = ex.title ?? ex.id;
+            const diff = ex.difficulty ? ` *(${ex.difficulty})*` : '';
+            lines.push(`### ${ex.id} — ${exTitle}${diff}`, '');
+            lines.push(`{{exercise: ${ex.id}}}`, '');
+            lines.push('<!-- Write the exercise here -->', '');
+        }
+    }
+    else {
+        lines.push('*No exercises declared yet.*', '');
+    }
+    // Summary
+    lines.push('## Summary', '', '<!-- Chapter summary -->', '');
+    return lines.join('\n').trimEnd() + '\n';
+}
+/** Seed a revision-guide topic: Exam objectives / Core idea / Common
+ *  misconceptions / Quick check / Exam-style questions / Summary. */
+function seedRevisionGuideChapterContent(nfCh, acCh, claims, figures) {
+    const num = nfCh.number ?? acCh.number;
+    const title = nfCh.title ?? acCh.title ?? `Topic ${num}`;
+    const lines = [exports.MANUSCRIPT_SEED_MARKER, '', `# Topic ${num} — ${title}`, ''];
+    if (acCh.wordTarget)
+        lines.push(`> *Target: ~${acCh.wordTarget.toLocaleString()} words*`, '');
+    // Exam objectives
+    lines.push('## Exam objectives', '');
+    if (acCh.outcomes.length) {
+        for (const code of acCh.outcomes)
+            lines.push(`- ${code}`);
+        lines.push('');
+    }
+    else {
+        lines.push('*No exam objectives declared yet.*', '');
+    }
+    // Core idea (with claim + figure markers)
+    lines.push('## Core idea', '');
+    const chapterClaims = claims.filter(c => c.chapterNumber === num);
+    const chapterFigures = figures.filter(f => f.chapterNumber === num);
+    for (const c of chapterClaims)
+        lines.push(`{{claim: ${c.id}}}`, '');
+    for (const f of chapterFigures)
+        lines.push(`{{figure: ${f.id}}}`, '');
+    lines.push('<!-- Compressed explanation: what to recall, no scaffolding -->', '');
+    // Key terms (revision-guide formats them as a glossary box)
+    if (acCh.keyTerms.length) {
+        lines.push('## Key terms', '');
+        for (const term of acCh.keyTerms)
+            lines.push(`- **${term}** —`);
+        lines.push('');
+    }
+    // Common misconceptions
+    lines.push('## Common misconceptions', '', '<!-- List exam traps and confusions -->', '');
+    // Quick check
+    lines.push('## Quick check', '');
+    if (acCh.recallQuestions && acCh.recallQuestions > 0) {
+        for (let i = 1; i <= acCh.recallQuestions; i++) {
+            lines.push(`${i}. <!-- recall question -->`);
+        }
+        lines.push('');
+    }
+    else {
+        lines.push('<!-- Short recall questions -->', '');
+    }
+    // Exam-style questions
+    lines.push('## Exam-style questions', '');
+    if (acCh.examPractice.length) {
+        for (const ep of acCh.examPractice) {
+            lines.push(`### ${ep.type} (${ep.count})`, '');
+            for (let i = 1; i <= ep.count; i++) {
+                lines.push(`${i}. <!-- ${ep.type} question -->`);
+            }
+            lines.push('');
+        }
+    }
+    else {
+        lines.push('<!-- Exam-style practice -->', '');
+    }
+    // Summary
+    lines.push('## Summary', '', '<!-- One-paragraph wrap -->', '');
+    return lines.join('\n').trimEnd() + '\n';
+}
+function seedAcademicChapterContent(nfCh, acCh, bookType, claims = [], figures = []) {
+    return bookType === 'textbook'
+        ? seedTextbookChapterContent(nfCh, acCh, claims, figures)
+        : seedRevisionGuideChapterContent(nfCh, acCh, claims, figures);
+}
 /**
  * Seeds per-chapter manuscript files from a normalized WritingPlan.
  *
@@ -172,6 +317,8 @@ function seedNfChapterContent(ch, claims = [], figures = []) {
  * has not yet touched it). Modified prose is never overwritten.
  *
  * Mode-aware: branches on plan.mode to seed fiction scenes or NF sections.
+ * Academic-aware: when plan.academic is populated, uses textbook or
+ * revision-guide templates instead of generic NF sections.
  */
 function seedManuscriptFromPlan(plan, projectDir) {
     const manuscriptDir = path.join(projectDir, 'manuscript');
@@ -179,9 +326,17 @@ function seedManuscriptFromPlan(plan, projectDir) {
     if (plan.mode === 'nonfiction') {
         if (plan.nfChapters.length === 0)
             return;
+        const academic = plan.academic;
+        const acByNumber = new Map();
+        if (academic)
+            for (const c of academic.chapters)
+                acByNumber.set(c.number, c);
         for (const ch of plan.nfChapters) {
             const filePath = path.join(projectDir, nfChapterManuscriptPath(ch));
-            const content = seedNfChapterContent(ch, plan.claims, plan.figures);
+            const acCh = academic ? acByNumber.get(ch.number) : undefined;
+            const content = (academic && acCh)
+                ? seedAcademicChapterContent(ch, acCh, academic.bookType, plan.claims, plan.figures)
+                : seedNfChapterContent(ch, plan.claims, plan.figures);
             writeIfMissing(filePath, content);
         }
         return;

@@ -240,7 +240,14 @@ export function App(): JSX.Element {
   }
 
   return (
-    <div className="illustrations-panel">
+    <div>
+      <div className="panel-tabs">
+        <button className="panel-tab panel-tab--active">Illustrations</button>
+        <button className="panel-tab" onClick={() => vscode.postMessage({ type: 'openCoverPanel' })}>
+          Book Cover
+        </button>
+      </div>
+      <div className="illustrations-panel">
       <div className="il-header">
         <h1>Illustrations</h1>
         <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
@@ -428,6 +435,7 @@ export function App(): JSX.Element {
       )}
 
       <FigureRegistrySection figures={s.figureRegistry} generatingFigures={s.generatingFigures} />
+    </div>
     </div>
   )
 }

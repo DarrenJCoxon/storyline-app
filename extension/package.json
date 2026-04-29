@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "publisher": "darrenjcoxon",
   "private": true,
   "engines": {
@@ -242,7 +242,8 @@
     "watch": "tsc -watch -p ./tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "package": "npm run build:dist && vsce package"
+    "package": "npm run build:dist && vsce package",
+    "postpackage": "node ../scripts/dev-deploy-extension.mjs"
   },
   "dependencies": {
     "@noble/ed25519": "^3.1.0",

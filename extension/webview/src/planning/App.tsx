@@ -1,5 +1,6 @@
-import React, { useEffect, useReducer, useRef, useCallback } from 'react'
+import React, { useEffect, useReducer, useRef, useCallback, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
 import { Header } from './components/Header.js'
 import { StageRail } from './components/StageRail.js'
 import { ChatThread } from './components/ChatThread.js'
@@ -58,6 +59,12 @@ export interface CreditInfo {
   providerName?: string
 }
 
+export interface SessionMeta {
+  id: string
+  timestamp: number
+  preview: string
+}
+
 interface AppState {
   stages: StageInfo[]
   messages: ChatMessage[]
@@ -72,6 +79,7 @@ interface AppState {
 type Action =
   | { type: 'INIT'; stages: StageInfo[]; creditBalance: number; licenceType: CreditInfo['type']; providerName?: string }
   | { type: 'RESTORE_MESSAGES'; turns: Array<{ role: 'user' | 'assistant'; content: string }> }
+  | { type: 'CLEAR_MESSAGES' }
   | { type: 'USER_MSG'; text: string }
   | { type: 'STREAM_START' }
   | { type: 'STREAM_CHUNK'; text: string }
@@ -111,6 +119,14 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         messages: action.turns.map(t => ({ id: uid(), role: t.role, content: t.content })),
+        streamingId: null,
+        restoredAt: state.restoredAt + 1,
+      }
+
+    case 'CLEAR_MESSAGES':
+      return {
+        ...state,
+        messages: [],
         streamingId: null,
         restoredAt: state.restoredAt + 1,
       }
@@ -238,9 +254,6 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'SAVE_GATED': {
-      // Don't add a new card — just log via console for visibility, the AI
-      // will continue asking questions on the next turn. (We could add a
-      // muted "still gathering: X, Y, Z" inline note here later.)
       console.warn('[Storyline] save gated', action.stageId, action.missing)
       return state
     }
@@ -275,14 +288,123 @@ const INITIAL: AppState = {
   restoredAt: 0,
 }
 
+function formatSessionDate(timestamp: number): string {
+  const d = new Date(timestamp)
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday = d.toDateString() === yesterday.toDateString()
+  const hh = d.getHours().toString().padStart(2, '0')
+  const mm = d.getMinutes().toString().padStart(2, '0')
+  const time = `${hh}:${mm}`
+  if (isToday) return `Today ${time}`
+  if (isYesterday) return `Yesterday ${time}`
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${time}`
+}
+
+interface HistoryPanelProps {
+  sessions: SessionMeta[]
+  onLoad: (id: string) => void
+  onClose: () => void
+}
+
+function HistoryPanel({ sessions, onLoad, onClose }: HistoryPanelProps) {
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: '280px',
+      background: 'var(--chat-bg)',
+      borderLeft: '1px solid var(--sep)',
+      display: 'flex',
+      flexDirection: 'column',
+      zIndex: 20,
+      boxShadow: '-4px 0 12px rgba(0,0,0,0.08)',
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--sep)',
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>History</span>
+        <button
+          onClick={onClose}
+          title="Close history"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '4px',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            borderRadius: '4px',
+            lineHeight: 0,
+          }}
+        >
+          <X size={14} strokeWidth={2} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
+        {sessions.length === 0 ? (
+          <div style={{ padding: '20px 12px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
+            No previous sessions
+          </div>
+        ) : (
+          sessions.map(s => (
+            <button
+              key={s.id}
+              onClick={() => onLoad(s.id)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '8px 10px',
+                cursor: 'pointer',
+                marginBottom: '2px',
+                transition: 'background 120ms',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-sub)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+            >
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px', fontVariantNumeric: 'tabular-nums' }}>
+                {formatSessionDate(s.timestamp)}
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: 'var(--text)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {s.preview}
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function App() {
   const [state, dispatch] = useReducer(reducer, INITIAL)
   const { on, send } = useVSCode()
   const { mode, setMode } = useTheme(send)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [sessions, setSessions] = useState<SessionMeta[]>([])
 
   // Tell the extension host we're ready to receive messages.
-  // This replaces the blind 200ms setTimeout in ChatPanel — init() fires
-  // only after the webview confirms its event listener is live.
   useEffect(() => {
     send({ type: 'ready' })
   }, [send])
@@ -293,9 +415,15 @@ export function App() {
       on<{ stages: StageInfo[]; creditBalance: number; licenceType: CreditInfo['type']; providerName?: string }>('init', m =>
         dispatch({ type: 'INIT', stages: m.stages, creditBalance: m.creditBalance, licenceType: m.licenceType ?? 'free', providerName: m.providerName }),
       ),
-      on<{ turns: Array<{ role: 'user' | 'assistant'; content: string }> }>('restoreMessages', m =>
-        dispatch({ type: 'RESTORE_MESSAGES', turns: m.turns }),
-      ),
+      on<{ turns: Array<{ role: 'user' | 'assistant'; content: string }> }>('restoreMessages', m => {
+        dispatch({ type: 'RESTORE_MESSAGES', turns: m.turns })
+        setHistoryOpen(false)
+      }),
+      on('clearMessages', () => dispatch({ type: 'CLEAR_MESSAGES' })),
+      on<{ sessions: SessionMeta[] }>('sessionsLoaded', m => {
+        setSessions(m.sessions)
+        setHistoryOpen(true)
+      }),
       on<{ text: string }>('userMessage', m => dispatch({ type: 'USER_MSG', text: m.text })),
       on('streamStart', () => dispatch({ type: 'STREAM_START' })),
       on<{ text: string }>('streamChunk', m => dispatch({ type: 'STREAM_CHUNK', text: m.text })),
@@ -343,17 +471,32 @@ export function App() {
     send({ type: 'setRailCollapsed', collapsed: !state.railCollapsed })
   }, [send, state.railCollapsed])
 
+  const handleNewChat = useCallback(() => {
+    send({ type: 'newChat' })
+  }, [send])
+
+  const handleShowHistory = useCallback(() => {
+    send({ type: 'listSessions' })
+  }, [send])
+
+  const handleLoadSession = useCallback((id: string) => {
+    send({ type: 'loadSession', id })
+  }, [send])
+
   const activeStage = state.stages.find(s => s.active)
   const activeStageIndex = state.stages.findIndex(s => s.active)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--chat-bg)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--chat-bg)', position: 'relative' }}>
       <Header
         creditInfo={state.creditInfo}
         activeStageIndex={activeStageIndex}
         stageCount={state.stages.length}
         themeMode={mode}
         onThemeChange={setMode}
+        onNewChat={handleNewChat}
+        onShowHistory={handleShowHistory}
+        isStreaming={!!state.streamingId}
       />
 
       <StageRail
@@ -421,6 +564,14 @@ export function App() {
         isStreaming={!!state.streamingId}
         disabled={!!state.streamingId || state.creditsExhausted}
       />
+
+      {historyOpen && (
+        <HistoryPanel
+          sessions={sessions}
+          onLoad={handleLoadSession}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   )
 }

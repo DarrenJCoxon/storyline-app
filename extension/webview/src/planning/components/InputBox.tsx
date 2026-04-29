@@ -108,7 +108,7 @@ export function InputBox({ onSend, onSave, onStop, isStreaming, disabled }: Prop
         alignItems: 'flex-end',
         gap: '8px',
         background: 'var(--chat-bg)',
-        borderRadius: '10px',
+        borderRadius: '6px',
         padding: '10px 12px',
         border: `1px solid var(--accent)`,
         transition: 'border-color 150ms, box-shadow 150ms',
