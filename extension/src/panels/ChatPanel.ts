@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder, inferPipelineFromCategory } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
@@ -517,6 +517,26 @@ export class ChatPanel {
       normalizedPatch = patch as Partial<ProjectState>
     }
 
+    // dna-category: if the writer's category infers academic, set pipeline + bookType
+    // immediately so stageOrderFor switches to NF_ACADEMIC_DNA_STAGE_ORDER from the
+    // very next stage. Without this fix the trimmed academic DNA (skipping dna-comps
+    // and dna-voice, adding dna-ac-level/spec/assessment) is never reached.
+    if (stageId === 'dna-category') {
+      const catData = (normalizedPatch as Record<string, unknown>)?.['dna-category'] as Record<string, unknown> | undefined
+      const category = catData?.primaryCategory as string | undefined
+      const inferred = category ? inferPipelineFromCategory(category) : null
+      if (inferred === 'academic') {
+        const rawBookType = catData?.bookType as string | undefined
+        const bookType = rawBookType === 'textbook' || rawBookType === 'revision-guide' ? rawBookType : undefined
+        normalizedPatch = {
+          ...normalizedPatch,
+          pipeline: 'academic',
+          ...(bookType ? { bookType } : {}),
+        } as Partial<ProjectState>
+        console.log('[Storyline] dna-category: academic — setting pipeline → academic, bookType →', bookType)
+      }
+    }
+
     // dna-consolidate: extract confirmedPipeline → state.pipeline so that
     // stageOrderFor returns the chosen Phase 1 pipeline stages. Without this,
     // pipeline stays 'novel', stageOrderFor returns only Phase 0, and the
@@ -524,7 +544,7 @@ export class ChatPanel {
     if (stageId === 'dna-consolidate') {
       const stageData = (normalizedPatch as Record<string, unknown>)?.['dna-consolidate'] as Record<string, unknown> | undefined
       const confirmed = stageData?.confirmedPipeline as string | undefined
-      if (confirmed === 'A' || confirmed === 'B' || confirmed === 'C') {
+      if (confirmed === 'A' || confirmed === 'B' || confirmed === 'C' || confirmed === 'academic') {
         normalizedPatch = { ...normalizedPatch, pipeline: confirmed } as Partial<ProjectState>
         console.log('[Storyline] dna-consolidate: setting pipeline →', confirmed)
       }

@@ -32,7 +32,7 @@ const EXTENSION_OVERRIDE = `# Runtime adapter (CLI → chat panel)
 You are running inside a VS Code chat panel — not Claude Code. There is no CLI. The harness skill below was originally written for Claude Code; follow it precisely, with one adaptation: wherever it tells you to run a CLI command, do this instead:
 
 - \`npx storyline-vsc stage-info <id>\` → the brief is already injected below as \`stageInfo\`. Use it.
-- \`npx storyline-vsc save <id> '<json>'\` (or \`nf save\`) → emit a fenced \`\`\`json\`\`\` code block of \`{ "<stageId>": { …data… } }\`. That IS the save. **Special case for \`dna-consolidate\`**: also include \`"pipeline": "A"\` (or \`"B"\` or \`"C"\`) at the top level of the JSON block so the planner knows which Phase 1 pipeline to enter. Example: \`{ "dna-consolidate": { "confirmedPipeline": "A", … }, "pipeline": "A" }\`.
+- \`npx storyline-vsc save <id> '<json>'\` (or \`nf save\`) → emit a fenced \`\`\`json\`\`\` code block of \`{ "<stageId>": { …data… } }\`. That IS the save. **Special case for \`dna-consolidate\`**: also include \`"pipeline": "A"\` (or \`"B"\` or \`"C"\`) at the top level of the JSON block so the planner knows which Phase 1 pipeline to enter. Example: \`{ "dna-consolidate": { "confirmedPipeline": "A", … }, "pipeline": "A" }\`. **Special case for \`dna-category\` when the book is a textbook, revision guide, or other academic category**: also include \`"pipeline": "academic"\` and \`"bookType": "textbook"\` (or \`"revision-guide"\`) at the top level so the planner can switch to the trimmed academic DNA stage order immediately. Example: \`{ "dna-category": { "primaryCategory": "textbook", "bookType": "textbook", … }, "pipeline": "academic", "bookType": "textbook" }\`.
 - \`npx storyline-vsc next\` / \`status\` / \`stages\` / \`route\` / \`record-model\` / \`verify-stage\` / \`traps\` / \`checklist\` / \`doctor\` / \`generate\` / \`config get\` → the extension runs these automatically. Do nothing. Do not mention CLI commands to the writer.
 - Subagent / Task tool invocation → the extension calls the backend critique endpoint after each save. Do not invoke or mention it.
 - **Writing project files** (docs/, manuscript/, output/, etc.): emit a fenced block with the file path as the language tag. Example:
@@ -155,6 +155,11 @@ function readSideDoc(rel: string): string | null {
  * currentState (progress, missingRequirements, gateBlocked). The harness
  * skill knows how to read this — same shape it always has.
  */
+const ACADEMIC_STAGE_IDS = new Set([
+  'dna-ac-level', 'dna-ac-spec', 'dna-ac-assessment',
+  'ac-syllabus', 'ac-chapters', 'ac-critique', 'ac-master',
+])
+
 function buildStageInfoBlock(stageId: string, state: ProjectState): string {
   const guide = state.mode === 'nonfiction'
     ? getNfStageGuide(stageId)
@@ -175,6 +180,35 @@ function buildStageInfoBlock(stageId: string, state: ProjectState): string {
           ...(alreadyIntroduced ? {} : { activation: persona.activation }),
         }
       : null,
+  }
+
+  // Inject bookType for academic stages. If the guide carries a `variants` map,
+  // merge the matching variant's fields (opening, questions, itemSchema) into the
+  // output so the AI receives the correct format spec for textbook vs revision-guide
+  // without the stage guide author having to duplicate every field.
+  if (ACADEMIC_STAGE_IDS.has(stageId) && state.bookType) {
+    output.bookType = state.bookType
+    output.bookTypeNote = state.bookType === 'textbook'
+      ? 'This is a TEXTBOOK. Use full chapter structure: concept explanations, worked examples, multi-part exercises, prerequisite chains, and figures. Depth and coverage matter most.'
+      : 'This is a REVISION GUIDE. Use concise topic structure: summary boxes, recall questions, key terms, exam practice questions, and quick-check grids. Brevity and exam-readiness matter most — assume the student was already taught the content.'
+
+    const variants = (guide as { variants?: Record<string, unknown> }).variants
+    if (variants) {
+      const variant = variants[state.bookType] as Record<string, unknown> | undefined
+      if (variant) {
+        if (variant.opening) output.opening = variant.opening
+        if (variant.questions) output.questions = variant.questions
+        if (variant.itemSchema) {
+          // Merge into the first array-type question's itemSchema
+          const qs = output.questions as Array<Record<string, unknown>> | undefined
+          if (qs) {
+            const arrayQ = qs.find(q => q.type === 'array')
+            if (arrayQ) arrayQ.itemSchema = variant.itemSchema
+          }
+        }
+      }
+      delete output.variants
+    }
   }
 
   return '```json\n' + JSON.stringify(output, null, 2) + '\n```'
