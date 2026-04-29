@@ -26,45 +26,41 @@
 /* ── Chapter Title ──────────────────────────────────────────────────────── */
 
 h1 {
-  font-family: inherit;          /* uses theme's body font stack */
+  font-family: inherit;
   font-weight: 700;
   font-style: normal;
   font-variant: normal;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   text-align: center;
-  margin: 0 0 2.5em 0;          /* moderate drop below title before content starts */
-  font-size: 1.4em;
-  line-height: 1.2;
+  text-align-last: center;
+  margin: 0 0 0.8em 0;
+  font-size: 2.2em;
+  line-height: 1.15;
 }
 
 /* ── First Section Heading (prominent/decorated) ────────────────────────── */
 
-h2.first-section {
+/* Section headings (H2/H3) share one typographic family — left-aligned,
+   uppercase, hierarchy by size only. Trade-book convention. */
+h2,
+h2.first-section,
+h2:not(.first-section),
+h3 {
   font-family: inherit;
   font-weight: 700;
   font-style: normal;
   font-variant: normal;
-  font-size: 0.75em;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
-  text-align: center;
-  margin: 2em 0 1.2em 0;
+  letter-spacing: 0.14em;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.25;
 }
 
-/* ── Subsequent Section Headings (quieter sibling) ──────────────────────── */
-
-h2:not(.first-section) {
-  font-family: inherit;
-  font-weight: 600;
-  font-style: normal;
-  font-variant: normal;
-  font-size: 0.7em;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  text-align: center;
-  margin: 1.8em 0 1em 0;
-}
+h2.first-section { font-size: 1.35em; margin: 2.2em 0 1em 0; }
+h2:not(.first-section) { font-size: 1.2em;  margin: 2em   0 0.9em 0; }
+h3 { font-size: 1.05em; font-weight: 600; letter-spacing: 0.12em; margin: 1.6em 0 0.6em 0; }
 
 /* ── First Paragraph Treatment: small-caps lead-in ──────────────────────── */
 
@@ -81,3 +77,10 @@ p.first::first-letter {
   float: none;
   font-size: 1em;
 }
+
+p.img-wrap {
+  margin: 0.4em 0 1.4em 0;
+  text-align: center;
+  text-indent: 0;
+}
+h1 + p > img { margin-top: 0; }

@@ -33,7 +33,8 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   text-align: center;
-  margin: 0 0 2em 0;
+  text-align-last: center;
+  margin: 0 0 0.8em 0;
   font-size: 2.2em;
   line-height: 1.15;
 }
@@ -77,12 +78,9 @@ p.first::first-letter {
   font-size: 1em;
 }
 
-/* ── Chapter header vignette ─────────────────────────────────────────────── */
-
-h1 + p > img {
-  display: block;
-  width: auto;
-  max-width: 55%;
-  height: auto;
-  margin: 0 auto 2.5em;
+p.img-wrap {
+  margin: 0.4em 0 1.4em 0;
+  text-align: center;
+  text-indent: 0;
 }
+h1 + p > img { margin-top: 0; }

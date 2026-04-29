@@ -45,10 +45,24 @@ h1 {
   text-transform: none;
   letter-spacing: 0.14em;
   text-align: center;
-  margin: 0 0 3em 0;
+  text-align-last: center;
+  margin: 0 0 1em 0;
   font-size: 2.1em;
   line-height: 1.25;
 }
+
+/* Chapter-header image paragraph — emitted by the compile pipeline as
+ * <p class="img-wrap"><img/></p> when the markdown puts an image inline
+ * with body text. Tight to the title above, breathing room before the
+ * first body paragraph. */
+p.img-wrap {
+  margin: 0.4em 0 1.6em 0;
+  text-align: center;
+  text-indent: 0;
+}
+/* Live-preview override (matches old behaviour for the .device-surface
+ * preview, which uses a different image margin default). */
+h1 + p > img { margin-top: 0; }
 
 /* ── First Section Heading (prominent) ──────────────────────────────────── */
 
@@ -90,15 +104,4 @@ p.first::first-letter {
   font-weight: normal;
 }
 
-/* ── Chapter header vignette ─────────────────────────────────────────────── */
-/* Image placed immediately after the chapter title. Renders at natural size  */
-/* for small files; caps large images at 55% so it reads as a vignette, not  */
-/* a full-width illustration. Centred with breathing room before body text.   */
-
-h1 + p > img {
-  display: block;
-  width: auto;
-  max-width: 55%;
-  height: auto;
-  margin: 0 auto 2.5em;
-}
+/* Chapter header images: respect the writer's explicit width/height. */

@@ -23,7 +23,7 @@
   font-variant: small-caps;
   letter-spacing: 0.15em;
   text-align: center;
-  margin: 5em 0 0.8em 0;
+  margin: 2em 0 0.6em 0;
   text-indent: 0;
 }
 
@@ -37,7 +37,8 @@ h1 {
   text-transform: none;
   letter-spacing: 0.08em;
   text-align: center;
-  margin: 0 0 2.5em 0;
+  text-align-last: center;
+  margin: 0 0 1em 0;
   font-size: 2.2em;
   line-height: 1.2;
 }
@@ -93,12 +94,9 @@ p.first::first-letter {
   font-weight: normal;
 }
 
-/* ── Chapter header vignette ─────────────────────────────────────────────── */
-
-h1 + p > img {
-  display: block;
-  width: auto;
-  max-width: 55%;
-  height: auto;
-  margin: 0 auto 2.5em;
+p.img-wrap {
+  margin: 0.4em 0 1.6em 0;
+  text-align: center;
+  text-indent: 0;
 }
+h1 + p > img { margin-top: 0; }

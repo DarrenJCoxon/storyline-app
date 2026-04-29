@@ -28,6 +28,10 @@ node_modules/**
 !node_modules/zod/**
 !node_modules/sql.js/**
 !node_modules/@noble/**
+# pagedjs polyfill — read from disk by lib/compile/print-pdf.js and
+# injected into the Puppeteer page for PDF pagination. Without this
+# the print-PDF compile fails with ENOENT on paged.polyfill.min.js.
+!node_modules/pagedjs/**
 
 # Tooling and configs
 tsconfig.json

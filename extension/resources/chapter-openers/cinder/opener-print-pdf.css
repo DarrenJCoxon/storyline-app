@@ -5,10 +5,6 @@
  */
 
 h1 {
-  margin: 0 0 2em 0;   /* slightly more vertical drop in print */
+  margin: 0 0 1em 0;
 }
 
-h1 + p > img {
-  max-width: 60%;
-  margin-bottom: 3em;
-}

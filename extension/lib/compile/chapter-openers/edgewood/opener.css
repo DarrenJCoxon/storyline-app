@@ -23,7 +23,7 @@
   font-variant: small-caps;
   letter-spacing: 0.15em;
   text-align: center;
-  margin: 5em 0 0.8em 0;
+  margin: 2em 0 0.6em 0;
   text-indent: 0;
 }
 
@@ -35,11 +35,12 @@ h1 {
   font-style: normal;
   font-variant: small-caps;
   text-transform: none;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-align: center;
-  margin: 0 0 3em 0;            /* generous drop below title */
-  font-size: 1.35em;
-  line-height: 1.3;
+  text-align-last: center;
+  margin: 0 0 1em 0;
+  font-size: 2.2em;
+  line-height: 1.2;
 }
 
 /* Subtle ornamental rule above chapter title */
@@ -55,31 +56,26 @@ h1::before {
 
 /* ── First Section Heading (prominent/decorated) ────────────────────────── */
 
-h2.first-section {
+/* Section headings (H2/H3) share one typographic family — small-caps,
+   left-aligned, hierarchy by size only. */
+h2,
+h2.first-section,
+h2:not(.first-section),
+h3 {
   font-family: Georgia, 'Times New Roman', serif;
   font-weight: normal;
   font-style: normal;
   font-variant: small-caps;
-  font-size: 0.8em;
-  letter-spacing: 0.15em;
-  text-align: center;
-  margin: 2.5em 0 1.5em 0;
   text-transform: none;
-}
-
-/* ── Subsequent Section Headings (quieter sibling) ──────────────────────── */
-
-h2:not(.first-section) {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-weight: normal;
-  font-style: normal;
-  font-variant: small-caps;
-  font-size: 0.75em;
   letter-spacing: 0.12em;
-  text-align: center;
-  margin: 2em 0 1em 0;          /* same typographic family, slightly smaller, less margin */
-  text-transform: none;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.3;
 }
+
+h2.first-section { font-size: 1.3em; margin: 2.2em 0 1em 0; }
+h2:not(.first-section) { font-size: 1.15em; margin: 1.8em 0 0.8em 0; }
+h3 { font-size: 1.05em; letter-spacing: 0.1em; margin: 1.5em 0 0.5em 0; }
 
 /* ── First Paragraph Treatment: drop cap ────────────────────────────────── */
 
@@ -97,3 +93,10 @@ p.first::first-letter {
   font-family: Georgia, 'Times New Roman', serif;  /* final serif fallback for Kindle */
   font-weight: normal;
 }
+
+p.img-wrap {
+  margin: 0.4em 0 1.6em 0;
+  text-align: center;
+  text-indent: 0;
+}
+h1 + p > img { margin-top: 0; }
