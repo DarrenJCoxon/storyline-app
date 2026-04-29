@@ -86,6 +86,22 @@ function reduce(s: State, a: Action): State {
 const EMPTY_BIBLE: StyleBible = { characters: [], artStyle: '', palette: '', tone: '' }
 const INITIAL: State = { illustrations: [], refs: [], styleBible: EMPTY_BIBLE, generating: false, phase: '', error: null, creditCost: 40, lastGenerated: null, figureRegistry: [], generatingFigures: {} }
 
+type OutputSize = 'full' | 'medium' | 'small' | 'tiny'
+
+const OUTPUT_SCALES: Record<OutputSize, number> = {
+  full:   1,
+  medium: 0.5,
+  small:  0.25,
+  tiny:   0.125,
+}
+
+const OUTPUT_SIZE_LABELS: Record<OutputSize, string> = {
+  full:   'Full',
+  medium: 'Half',
+  small:  'Quarter',
+  tiny:   'Tiny (chapter headers)',
+}
+
 interface IllustrationType {
   label: string
   slug: string
@@ -93,6 +109,8 @@ interface IllustrationType {
   quality: 'low' | 'medium' | 'high'
   /** Default aspect ratio for this use case; user can override. */
   defaultAspect: AspectRatio
+  /** Default output size — controls final on-disk dimensions, not generation quality. */
+  defaultOutputSize: OutputSize
   promptScaffold: string
 }
 
@@ -128,6 +146,7 @@ const TYPES: IllustrationType[] = [
     slug: 'chapter-header',
     quality: 'medium',
     defaultAspect: '16:9',
+    defaultOutputSize: 'tiny',
     promptScaffold: 'A wide, atmospheric chapter header illustration suitable for the top of a book chapter. Cinematic, evocative, no text. Subject:',
   },
   {
@@ -135,6 +154,7 @@ const TYPES: IllustrationType[] = [
     slug: 'character-portrait',
     quality: 'low',
     defaultAspect: '3:4',
+    defaultOutputSize: 'small',
     promptScaffold: 'A head-and-shoulders portrait illustration of a single character, neutral background, suitable for character reference. Subject:',
   },
   {
@@ -142,6 +162,7 @@ const TYPES: IllustrationType[] = [
     slug: 'setting-ref',
     quality: 'low',
     defaultAspect: '4:3',
+    defaultOutputSize: 'medium',
     promptScaffold: 'A reference illustration of a location or setting, atmospheric, no people, no text. Subject:',
   },
   {
@@ -149,6 +170,7 @@ const TYPES: IllustrationType[] = [
     slug: 'map',
     quality: 'medium',
     defaultAspect: '1:1',
+    defaultOutputSize: 'medium',
     promptScaffold: 'A hand-drawn fictional map in the style of a fantasy novel endpaper, parchment background, ornamental compass rose and border. Subject:',
   },
   {
@@ -156,6 +178,7 @@ const TYPES: IllustrationType[] = [
     slug: 'illustration',
     quality: 'medium',
     defaultAspect: '1:1',
+    defaultOutputSize: 'medium',
     promptScaffold: 'A clean illustration suitable for embedding in a book chapter. Subject:',
   },
   {
@@ -163,6 +186,7 @@ const TYPES: IllustrationType[] = [
     slug: 'diagram',
     quality: 'medium',
     defaultAspect: '4:3',
+    defaultOutputSize: 'medium',
     promptScaffold: 'A clean explanatory diagram for a non-fiction book, simple line work, labelled where useful. Subject:',
   },
 ]
@@ -175,6 +199,7 @@ export function App(): JSX.Element {
   const [typeIndex, setTypeIndex] = useState(0)
   const [aspect, setAspect] = useState<AspectRatio>(TYPES[0].defaultAspect)
   const [qualityOverride, setQualityOverride] = useState<'low' | 'medium' | 'high' | null>(null)
+  const [outputSize, setOutputSize] = useState<OutputSize>(TYPES[0].defaultOutputSize)
   const [showForm, setShowForm] = useState(true)
   const [lockToRefs, setLockToRefs] = useState(true)
   const [bibleOpen, setBibleOpen] = useState(false)
@@ -183,11 +208,15 @@ export function App(): JSX.Element {
   const spec = ASPECTS[aspect]
   const quality = qualityOverride ?? ilType.quality
   const cost = CREDITS_BY_QUALITY[quality]
+  const scale = OUTPUT_SCALES[outputSize]
+  const finalW = Math.round(spec.width * scale)
+  const finalH = Math.round(spec.height * scale)
 
-  // Snap aspect/quality to the type's defaults when type changes.
+  // Snap aspect/quality/size to the type's defaults when type changes.
   useEffect(() => {
     setAspect(TYPES[typeIndex].defaultAspect)
     setQualityOverride(null)
+    setOutputSize(TYPES[typeIndex].defaultOutputSize)
   }, [typeIndex])
 
   useEffect(() => {
@@ -220,8 +249,8 @@ export function App(): JSX.Element {
       type: 'generate',
       prompt: fullPrompt,
       slug: ilType.slug,
-      width: spec.width,
-      height: spec.height,
+      width: finalW,
+      height: finalH,
       generationSize: spec.generationSize,
       aspectRatio: aspect,
       quality,
@@ -287,7 +316,22 @@ export function App(): JSX.Element {
                 <option key={r} value={r}>{ASPECT_LABELS[r]}</option>
               ))}
             </select>
-            <div className="field-hint">{spec.width} × {spec.height}px on disk · model gen {spec.generationSize}</div>
+          </div>
+          <div className="field">
+            <label>Output size</label>
+            <select
+              className="type-select"
+              value={outputSize}
+              onChange={e => setOutputSize(e.target.value as OutputSize)}
+              disabled={s.generating}
+            >
+              {(Object.keys(OUTPUT_SCALES) as OutputSize[]).map(s => (
+                <option key={s} value={s}>
+                  {OUTPUT_SIZE_LABELS[s]} — {Math.round(ASPECTS[aspect].width * OUTPUT_SCALES[s])} × {Math.round(ASPECTS[aspect].height * OUTPUT_SCALES[s])}px
+                </option>
+              ))}
+            </select>
+            <div className="field-hint">{finalW} × {finalH}px saved · model generates at {spec.generationSize}</div>
           </div>
           <div className="field">
             <label>Quality</label>

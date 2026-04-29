@@ -72,6 +72,8 @@ export function Editor(): JSX.Element | null {
   const [font, setFont]                 = useState<Font>('serif')
   const [projectMode, setProjectMode]   = useState<ProjectMode>('fiction')
   const [imageEdit, setImageEdit]       = useState<{ src: string; pos: number; width: number | null; height: number | null } | null>(null)
+  const [chapterTitle, setChapterTitle]         = useState<string | null>(null)
+  const [chapterTitleDefault, setChapterTitleDefault] = useState<string>('')
 
   const fileLoadedRef   = useRef(false)
   const typewriterRef   = useRef(typewriter)
@@ -196,6 +198,8 @@ export function Editor(): JSX.Element | null {
         if (typeof msg.fileName === 'string') setFileName(msg.fileName)
         if (msg.font === 'serif' || msg.font === 'sans') setFont(msg.font)
         if (msg.projectMode === 'nonfiction') setProjectMode('nonfiction')
+        setChapterTitle(typeof msg.chapterTitle === 'string' ? msg.chapterTitle : null)
+        if (typeof msg.chapterTitleDefault === 'string') setChapterTitleDefault(msg.chapterTitleDefault)
         if (!hasUnflushedEdits) {
           if (currentMd !== msg.markdown) {
             editor.commands.setContent(msg.markdown)
@@ -414,6 +418,23 @@ export function Editor(): JSX.Element | null {
             setImageEdit(null)
           }}
         />
+      )}
+
+      {role === 'manuscript' && fileLoaded && (
+        <div className="chapter-title-row">
+          <input
+            className="chapter-title-input"
+            type="text"
+            value={chapterTitle ?? ''}
+            placeholder={chapterTitleDefault}
+            onChange={e => {
+              const val = e.target.value
+              setChapterTitle(val || null)
+              vscode.postMessage({ type: 'save-chapter-title', title: val })
+            }}
+            aria-label="Chapter title"
+          />
+        </div>
       )}
 
       <EditorContent editor={editor} />

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { promises as fs } from 'fs';
+import { readFileSync } from 'fs';
 import * as path from 'path';
 import MarkdownIt from 'markdown-it';
 import type { EditorPanel } from '../panels/EditorPanel.js';
@@ -159,9 +160,10 @@ export async function openLivePreview(
     // number + title block derived from the filename. Mirrors the compile
     // pipeline's chapter heading injection so preview matches compile output.
     if (!chunkHtml.trimStart().startsWith('<h1') && sourceUri) {
-      const heading = deriveChapterHeading(sourceUri);
+      const heading = deriveChapterHeading(sourceUri, folder.uri.fsPath);
       if (heading) {
-        chunkHtml = `<div class="chapter-number">${heading.number}</div>\n<h1>${heading.title}</h1>\n` + chunkHtml;
+        const chNumHtml = heading.number ? `<div class="chapter-number">${heading.number}</div>\n` : '';
+        chunkHtml = `${chNumHtml}<h1>${heading.title}</h1>\n` + chunkHtml;
       }
     }
     // Mark first paragraph for drop cap styling (same transform the
@@ -665,16 +667,47 @@ function emptyStateHtml(): string {
 }
 
 // Derive chapter number and display title from the manuscript filename.
-// Handles: ch01-clarity.md, chapter-01-clarity.md, 01-clarity.md, chapter-1.md, ch1.md
-function deriveChapterHeading(uri: vscode.Uri): { number: string; title: string } | null {
+// Checks the sidecar (.storyline/chapter-titles.json) first for user overrides,
+// then falls back to filename-based derivation for all files (not just chapter-XX).
+function deriveChapterHeading(uri: vscode.Uri, workspaceRoot: string): { number: string | null; title: string } | null {
   const basename = path.basename(uri.fsPath, path.extname(uri.fsPath));
+
+  // Sidecar lookup — user-set title takes full precedence
+  let sidecarTitle: string | null = null;
+  try {
+    const titlesPath = path.join(workspaceRoot, '.storyline', 'chapter-titles.json');
+    const titles = JSON.parse(readFileSync(titlesPath, 'utf-8')) as Record<string, string>;
+    const relPath = path.relative(workspaceRoot, uri.fsPath);
+    sidecarTitle = titles[relPath] ?? null;
+  } catch { /* sidecar absent or unreadable — fine */ }
+
+  // Extract numeric chapter number from filename if present (used for the chapter-number div)
+  const numMatch = basename.match(/^(?:ch(?:apter)?[-_]?)(\d+)/i);
+  const number = numMatch ? String(parseInt(numMatch[1], 10)) : null;
+
+  if (sidecarTitle) {
+    return { number, title: sidecarTitle };
+  }
+
+  // Chapter-pattern filename: ch01-clarity, chapter-01-clarity, chapter-1, ch1
   const match = basename.match(/^(?:ch(?:apter)?[-_]?)(\d+)(?:[-_]+(.+))?$/i);
-  if (!match) return null;
-  const num = parseInt(match[1], 10);
-  const titlePart = match[2]
-    ? match[2].replace(/[-_]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-    : '';
-  return { number: String(num), title: titlePart || `Chapter ${num}` };
+  if (match) {
+    const num = parseInt(match[1], 10);
+    const titlePart = match[2]
+      ? match[2].replace(/[-_]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+      : '';
+    return { number: String(num), title: titlePart || `Chapter ${num}` };
+  }
+
+  // Non-chapter filename (introduction.md, preface.md, prologue.md, etc.)
+  const humanTitle = basename
+    .replace(/^[\d_]+[\s\-_]*/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+  return humanTitle ? { number: null, title: humanTitle } : null;
 }
 
 function buildWebviewHtml(
@@ -954,14 +987,16 @@ function buildWebviewHtml(
     }
     /* Images respect the writer's pixel sizes but never overflow the
        page surface — visual cap only, the markdown source keeps the
-       requested width/height. Explicit inline style on the <img>
-       wins over this rule (higher specificity). */
-    .device-surface img {
+       requested width/height. Wrapped in :where() so opener-css rules
+       like h1 + p > img can win without needing !important —
+       :where() contributes 0 specificity, leaving these rules as
+       element-only fallbacks. */
+    :where(.device-surface) img {
       max-width: 100%;
       display: block;
       margin: 1.2em auto;
     }
-    .device-surface img:not([style*="height"]) { height: auto; }
+    :where(.device-surface) img:not([style*="height"]) { height: auto; }
     .device-surface p {
       text-indent: 1.5em;
       margin: 0;

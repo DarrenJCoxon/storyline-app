@@ -5,10 +5,11 @@
  */
 
 h1 {
-  margin: 0 0 4em 0;             /* larger print drop — generous on the page */
+  margin: 0 0 1.5em 0;
 }
 
 p.first-paragraph::first-letter,
 p.first::first-letter {
   font-size: 3.8em;              /* slightly larger drop cap in print */
 }
+

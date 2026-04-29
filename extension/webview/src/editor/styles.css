@@ -145,6 +145,36 @@ html, body {
   font-family: "Inter", system-ui, sans-serif;
 }
 
+/* ── Chapter title override ─────────────────────────────────────────── */
+.chapter-title-row {
+  margin: 20px 4px 0;
+}
+
+.chapter-title-input {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-editor-foreground);
+  font-family: var(--editor-font);
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 0 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.chapter-title-input::placeholder {
+  color: var(--vscode-editor-foreground);
+  opacity: 0.3;
+}
+
+.chapter-title-input:focus {
+  border-bottom-color: var(--vscode-focusBorder, #007fd4);
+}
+
 /* ── Image edit modal ───────────────────────────────────────────────── */
 .image-edit-overlay {
   position: fixed; inset: 0; z-index: 200;

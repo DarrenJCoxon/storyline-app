@@ -13,10 +13,9 @@
 // breaks, drop-cap first-paragraph classes, etc. from Story 3.4).
 
 import { EPub } from '@lesjoursfr/html-to-epub';
-import { isAbsolute, resolve } from 'path';
+import { resolve } from 'path';
 import { randomUUID } from 'crypto';
 import { stat } from 'fs/promises';
-import { existsSync } from 'fs';
 import pkg from 'fs-extra';
 const { ensureDir } = pkg;
 
@@ -37,7 +36,7 @@ export async function packageEpub(context) {
   const outputPath = resolve(outputDir, sanitiseFilename(metadata.title) + '.epub');
 
   const content = buildContentList(theme);
-  const epubOptions = buildEpubOptions(metadata, theme, content, context.projectPath);
+  const epubOptions = buildEpubOptions(metadata, theme, content);
 
   const epub = new EPub(epubOptions, outputPath);
   await epub.render();
@@ -55,7 +54,7 @@ export async function packageEpub(context) {
 
 // ── private helpers ─────────────────────────────────────────────
 
-function buildEpubOptions(metadata, theme, content, projectPath) {
+function buildEpubOptions(metadata, theme, content) {
   const identifier = metadata.identifier || `urn:uuid:${randomUUID()}`;
 
   const opts = {
@@ -73,18 +72,6 @@ function buildEpubOptions(metadata, theme, content, projectPath) {
   };
 
   if (metadata.description) opts.description = metadata.description;
-
-  // Embed the cover image if one is configured. Resolves against the
-  // project root so the EPUB ships with the cover art the writer chose
-  // in the Compile panel (or via Cover Generator's "Save (ebook only)").
-  if (metadata.coverImage) {
-    const coverAbs = isAbsolute(metadata.coverImage)
-      ? metadata.coverImage
-      : resolve(projectPath, metadata.coverImage);
-    if (existsSync(coverAbs)) {
-      opts.cover = coverAbs;
-    }
-  }
 
   return opts;
 }

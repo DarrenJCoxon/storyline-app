@@ -23,7 +23,7 @@ import { existsSync, readdirSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { spawnSync } from 'child_process';
 
-const EXTENSION_ID = 'darrenjcoxon.storyline-vscode';
+const EXTENSION_ID = 'darrenjcoxon.storyline-extension';
 
 // Predecessor extension IDs that we should remove if found. Storyline
 // was previously published as 'novel-writer-vscode' under the same
@@ -89,7 +89,7 @@ export function removeLegacyExtensions(editor) {
 export function findBundledVsix(packageRoot) {
   const vsixDir = resolve(packageRoot, 'vscode-extension');
   if (!existsSync(vsixDir)) return null;
-  const files = readdirSync(vsixDir).filter(f => f.startsWith('storyline-vscode-') && f.endsWith('.vsix'));
+  const files = readdirSync(vsixDir).filter(f => f.startsWith('storyline-extension-') && f.endsWith('.vsix'));
   if (files.length === 0) return null;
   files.sort().reverse(); // Prefer highest version if multiple exist
   return resolve(vsixDir, files[0]);

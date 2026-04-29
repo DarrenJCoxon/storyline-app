@@ -27,49 +27,40 @@
 /* ── Chapter Title ──────────────────────────────────────────────────────── */
 
 h1 {
-  font-family: 'Rockwell', 'Courier New', Georgia, serif;  /* slab-serif stack */
+  font-family: 'Rockwell', 'Courier New', Georgia, serif;
   font-weight: 700;
   font-style: normal;
   font-variant: normal;
-  text-transform: none;          /* lowercase — intentional, no caps */
+  text-transform: none;
   letter-spacing: -0.01em;
   text-align: left;
-  margin: 0 0 1.5em 0;          /* minimal drop */
-  font-size: 1.6em;
+  margin: 0 0 0.6em 0;
+  font-size: 2.4em;
   line-height: 1.1;
 }
 
 /* ── First Section Heading ──────────────────────────────────────────────── */
 
-h2.first-section {
+/* Section headings (H2/H3) share one typographic family — left-aligned,
+   uppercase, hierarchy by size only. */
+h2,
+h2.first-section,
+h2:not(.first-section),
+h3 {
   font-family: 'Rockwell', 'Courier New', Georgia, serif;
   font-weight: 700;
   font-style: normal;
   font-variant: normal;
-  font-size: 0.65em;
-  text-transform: uppercase;    /* small-caps-like via text-transform for broad compat */
-  letter-spacing: 0.18em;
-  text-align: left;
-  margin: 2em 0 1em 0;
-}
-
-/* ── Subsequent Section Headings ────────────────────────────────────────── */
-/*
- * In minimalist style all section headings look the same —
- * no visual distinction between first and subsequent.
- */
-
-h2:not(.first-section) {
-  font-family: 'Rockwell', 'Courier New', Georgia, serif;
-  font-weight: 700;
-  font-style: normal;
-  font-variant: normal;
-  font-size: 0.65em;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-align: left;
-  margin: 1.6em 0 0.8em 0;
+  text-indent: 0;
+  line-height: 1.25;
 }
+
+h2.first-section { font-size: 1.3em; margin: 2em 0 1em 0; }
+h2:not(.first-section) { font-size: 1.15em; margin: 1.8em 0 0.8em 0; }
+h3 { font-size: 1.05em; letter-spacing: 0.12em; margin: 1.5em 0 0.5em 0; }
 
 /* ── First Paragraph Treatment: flush-left, no decoration ──────────────── */
 
@@ -85,3 +76,10 @@ p.first::first-letter {
   float: none;
   font-size: 1em;
 }
+
+p.img-wrap {
+  margin: 0.4em 0 1.4em 0;
+  text-align: center;
+  text-indent: 0;
+}
+h1 + p > img { margin-top: 0; }

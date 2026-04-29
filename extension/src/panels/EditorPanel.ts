@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { WordCountStatusBar, countWords } from '../editor/word-count.js'
 import { classifyDocumentRole } from '../editor/manuscript-path.js'
+import { getChapterTitle, setChapterTitle, humanizeFilename } from '../editor/chapter-titles.js'
 
 const AUTOSAVE_IDLE_MS = 1500
 
@@ -93,7 +94,14 @@ export class EditorPanel {
     const savedScrollY = this.context.workspaceState.get<number>(scrollKey) ?? 0
     let initialLoadSent = false
 
+    const wsRootFsPath = workspaceRoot?.fsPath ?? null
+    const relPath = wsRootFsPath
+      ? path.relative(wsRootFsPath, document.uri.fsPath)
+      : path.basename(document.uri.fsPath)
+    const chapterTitleDefault = humanizeFilename(path.basename(document.uri.fsPath))
+
     const pushContent = () => {
+      const chapterTitle = wsRootFsPath ? getChapterTitle(wsRootFsPath, relPath) : null
       panel.webview.postMessage({
         type: 'load-content',
         markdown: document.getText(),
@@ -101,6 +109,8 @@ export class EditorPanel {
         restoreScrollY: initialLoadSent ? null : savedScrollY,
         font,
         projectMode,
+        chapterTitle,
+        chapterTitleDefault,
       })
       initialLoadSent = true
     }
@@ -268,6 +278,11 @@ export class EditorPanel {
 
       if (msg.type === 'openIllustrations') {
         await vscode.commands.executeCommand('storyline.illustrations')
+        return
+      }
+
+      if (msg.type === 'save-chapter-title' && typeof msg.title === 'string' && wsRootFsPath) {
+        setChapterTitle(wsRootFsPath, relPath, msg.title)
         return
       }
     })

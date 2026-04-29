@@ -11,6 +11,8 @@
 import { writeFile, mkdir, readdir, unlink } from 'fs/promises';
 import path from 'path';
 
+// Canonical beat IDs match lib/state/project-state.js. The schema-coverage
+// test in tests/fiction-drift.test.js fails loudly if these ever diverge.
 const BEAT_NAMES = {
   beat01OpeningImage: 'Opening Image',
   beat02Setup: 'Setup',

@@ -45,10 +45,24 @@ h1 {
   text-transform: none;
   letter-spacing: 0.14em;
   text-align: center;
-  margin: 0 0 3em 0;
+  text-align-last: center;
+  margin: 0 0 1em 0;
   font-size: 2.1em;
   line-height: 1.25;
 }
+
+/* Chapter-header image paragraph — emitted by the compile pipeline as
+ * <p class="img-wrap"><img/></p> when the markdown puts an image inline
+ * with body text. Tight to the title above, breathing room before the
+ * first body paragraph. */
+p.img-wrap {
+  margin: 0.4em 0 1.6em 0;
+  text-align: center;
+  text-indent: 0;
+}
+/* Live-preview override (matches old behaviour for the .device-surface
+ * preview, which uses a different image margin default). */
+h1 + p > img { margin-top: 0; }
 
 /* ── First Section Heading (prominent) ──────────────────────────────────── */
 
@@ -89,3 +103,5 @@ p.first::first-letter {
   font-family: 'Palatino Linotype', Palatino, serif;  /* final serif fallback for Kindle */
   font-weight: normal;
 }
+
+/* Chapter header images: respect the writer's explicit width/height. */
