@@ -6,7 +6,7 @@ export type { FigureRegistryResult } from './output/figure-registry.js';
 export { generateFigureRegistry } from './output/figure-registry.js';
 export type { FigureContext, BookContext } from './output/figure-prompt-synthesizer.js';
 export { synthesizeImagePrompt } from './output/figure-prompt-synthesizer.js';
-export { DEFAULT_STATE, STAGE_ORDER, STAGE_BY_ID, NF_STAGE_ORDER, NF_STAGE_BY_ID, NF_DNA_STAGE_ORDER, NF_PIPELINE_A_STAGE_ORDER, NF_PIPELINE_B_STAGE_ORDER, NF_PIPELINE_C_STAGE_ORDER, NF_ACADEMIC_STAGE_ORDER, stageOrderFor, } from './state/project-state.js';
+export { DEFAULT_STATE, STAGE_ORDER, STAGE_BY_ID, NF_STAGE_ORDER, NF_STAGE_BY_ID, NF_DNA_STAGE_ORDER, NF_PIPELINE_A_STAGE_ORDER, NF_PIPELINE_B_STAGE_ORDER, NF_PIPELINE_C_STAGE_ORDER, NF_ACADEMIC_DNA_STAGE_ORDER, NF_ACADEMIC_STAGE_ORDER, stageOrderFor, } from './state/project-state.js';
 export { deriveCurrentStage, calculateProgress, checkStageGate, getMissingRequirements, getDownstreamImpacts, isStageComplete, } from './state/transitions.js';
 export type { GateResult } from './state/transitions.js';
 export { getWritingPlan } from './state/writing-plan.js';

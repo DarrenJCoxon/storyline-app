@@ -17,6 +17,7 @@ export {
   NF_PIPELINE_A_STAGE_ORDER,
   NF_PIPELINE_B_STAGE_ORDER,
   NF_PIPELINE_C_STAGE_ORDER,
+  NF_ACADEMIC_DNA_STAGE_ORDER,
   NF_ACADEMIC_STAGE_ORDER,
   stageOrderFor,
 } from './state/project-state.js'

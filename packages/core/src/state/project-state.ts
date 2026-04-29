@@ -287,14 +287,35 @@ export const NF_PIPELINE_C_STAGE_ORDER: StageEntry[] = [
   { index: 23, id: 'pc-master',      name: 'Master Document',                    nextPrompt: 'pc-master' },
 ]
 
-// Academic pipeline (NF-14). Book DNA is a trimmed variant (NF-14.2 adds the
-// academic-specific DNA guides; for now the standard DNA stages are used).
-// Chapter plan uses ac-chapters (NF-14.4); outcome inventory uses ac-syllabus (NF-14.3).
+// Academic pipeline Phase 0 (NF-14.2) — trimmed Book DNA for academic projects.
+// Differences from standard NF_DNA_STAGE_ORDER:
+//   - dna-comps removed (academic comp analysis works differently; out of scope)
+//   - dna-voice replaced by dna-ac-level (level & register)
+//   - dna-ac-spec added (syllabus / specification reference)
+//   - dna-ac-assessment added (assessment shape)
+export const NF_ACADEMIC_DNA_STAGE_ORDER: StageEntry[] = [
+  { index: 0,  id: 'mode',              name: 'Fiction or Non-Fiction',           nextPrompt: 'mode' },
+  { index: 1,  id: 'dna-category',      name: 'Category & Book Type',             nextPrompt: 'dna-category' },
+  { index: 2,  id: 'dna-reader',        name: 'Reader Avatar',                    nextPrompt: 'dna-reader' },
+  { index: 3,  id: 'dna-transform',     name: 'Reader Transformation',            nextPrompt: 'dna-transform' },
+  { index: 4,  id: 'dna-idea',          name: 'The One Big Idea',                 nextPrompt: 'dna-idea' },
+  { index: 5,  id: 'dna-author',        name: 'Author Angle & Authority',         nextPrompt: 'dna-author' },
+  { index: 6,  id: 'dna-promise',       name: 'Core Promise',                     nextPrompt: 'dna-promise' },
+  { index: 7,  id: 'dna-ac-level',      name: 'Level & Register',                 nextPrompt: 'dna-ac-level' },
+  { index: 8,  id: 'dna-ac-spec',       name: 'Specification & Syllabus',         nextPrompt: 'dna-ac-spec' },
+  { index: 9,  id: 'dna-ac-assessment', name: 'Assessment Shape',                 nextPrompt: 'dna-ac-assessment' },
+  { index: 10, id: 'dna-evidence',      name: 'Evidence Philosophy',              nextPrompt: 'dna-evidence' },
+  { index: 11, id: 'dna-commercial',    name: 'Commercial Model',                 nextPrompt: 'dna-commercial' },
+  { index: 12, id: 'dna-title',         name: 'Working Title Pressure-Test',      nextPrompt: 'dna-title' },
+  { index: 13, id: 'dna-consolidate',   name: 'Book DNA Consolidation',           nextPrompt: 'dna-consolidate' },
+]
+
+// Academic pipeline Phase 1 stages (NF-14.3/.4).
 export const NF_ACADEMIC_STAGE_ORDER: StageEntry[] = [
-  { index: 13, id: 'ac-syllabus',  name: 'Outcome Inventory',         nextPrompt: 'ac-syllabus' },
-  { index: 14, id: 'ac-chapters',  name: 'Chapter Plan',              nextPrompt: 'ac-chapters' },
-  { index: 15, id: 'ac-critique',  name: 'Consistency & Critique',    nextPrompt: 'ac-critique' },
-  { index: 16, id: 'ac-master',    name: 'Master Document',           nextPrompt: 'ac-master' },
+  { index: 14, id: 'ac-syllabus',  name: 'Outcome Inventory',         nextPrompt: 'ac-syllabus' },
+  { index: 15, id: 'ac-chapters',  name: 'Chapter Plan',              nextPrompt: 'ac-chapters' },
+  { index: 16, id: 'ac-critique',  name: 'Consistency & Critique',    nextPrompt: 'ac-critique' },
+  { index: 17, id: 'ac-master',    name: 'Master Document',           nextPrompt: 'ac-master' },
 ]
 
 /** Concatenate Phase 0 + the chosen Phase 1 pipeline. */
@@ -303,7 +324,7 @@ function nfStageOrderFor(pipeline: Pipeline | undefined): StageEntry[] {
     case 'A':        return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_A_STAGE_ORDER]
     case 'B':        return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_B_STAGE_ORDER]
     case 'C':        return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_C_STAGE_ORDER]
-    case 'academic': return [...NF_DNA_STAGE_ORDER, ...NF_ACADEMIC_STAGE_ORDER]
+    case 'academic': return [...NF_ACADEMIC_DNA_STAGE_ORDER, ...NF_ACADEMIC_STAGE_ORDER]
     default:         return NF_DNA_STAGE_ORDER  // pipeline not chosen yet → Phase 0 only
   }
 }
@@ -317,6 +338,7 @@ export const NF_STAGE_BY_ID = Object.fromEntries(
     ...NF_PIPELINE_A_STAGE_ORDER,
     ...NF_PIPELINE_B_STAGE_ORDER,
     ...NF_PIPELINE_C_STAGE_ORDER,
+    ...NF_ACADEMIC_DNA_STAGE_ORDER,
     ...NF_ACADEMIC_STAGE_ORDER,
   ].map(s => [s.id, s]),
 )
