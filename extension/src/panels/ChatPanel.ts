@@ -481,17 +481,18 @@ export class ChatPanel {
 
     proc.kill('SIGINT')
 
+    // 500ms is ample for sox/ffmpeg to flush the WAV header on a clean SIGINT.
+    // The old 2000ms cap was the dominant source of perceived latency.
     await new Promise<void>(resolve => {
       const done = () => resolve()
       proc.once('close', done)
-      setTimeout(done, 2000)
+      setTimeout(done, 500)
     })
 
     try {
       const audioBuffer = fs.readFileSync(tmpFile)
       fs.unlinkSync(tmpFile)
-      const audioBase64 = audioBuffer.toString('base64')
-      await this.handleTranscribe(audioBase64, 'audio/wav')
+      await this.handleTranscribe(audioBuffer, 'audio/wav')
     } catch (err) {
       this.post({ type: 'transcribeError', message: `Failed to read recording: ${err instanceof Error ? err.message : String(err)}` })
     }
@@ -506,7 +507,7 @@ export class ChatPanel {
     if (tmpFile) { try { fs.unlinkSync(tmpFile) } catch { /* ignore */ } }
   }
 
-  private async handleTranscribe(audioBase64: string, mimeType: string): Promise<void> {
+  private async handleTranscribe(audioBuffer: Buffer, mimeType: string): Promise<void> {
     const licenceKey = await this.licenceManager.getLicenceKey()
     if (!licenceKey) {
       this.post({ type: 'transcribeError', message: 'No licence key — activate Storyline first.' })
@@ -517,13 +518,15 @@ export class ChatPanel {
     const projectContext = state ? this.buildProjectContext(state) : ''
 
     try {
-      const body: Record<string, string> = { licenceKey, audioBase64, mimeType }
-      if (projectContext) body.projectContext = projectContext
+      // Send raw binary multipart — no base64 encode/decode overhead
+      const form = new FormData()
+      form.append('licenceKey', licenceKey)
+      form.append('audio', new Blob([audioBuffer], { type: mimeType }), 'audio.wav')
+      if (projectContext) form.append('projectContext', projectContext)
 
       const res = await fetch(`${getBackendUrl()}/transcribe`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: form,
       })
 
       if (!res.ok) {

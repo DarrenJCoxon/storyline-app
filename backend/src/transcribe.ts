@@ -5,30 +5,29 @@ const CORS = {
   'Access-Control-Allow-Headers': 'content-type',
 }
 
-interface TranscribeBody {
-  licenceKey: string
-  audioBase64: string
-  mimeType: string
-  projectContext?: string
-}
-
 export async function handleTranscribe(req: Request, env: Env): Promise<Response> {
   if (!env.OPENAI_API_KEY) {
     return errJson('Transcription not configured on this server', 503)
   }
 
-  let body: TranscribeBody
+  let licenceKey: string
+  let audioFile: File
+  let projectContext: string | null
+
   try {
-    body = await req.json()
+    const form = await req.formData()
+    licenceKey = (form.get('licenceKey') ?? '') as string
+    audioFile = form.get('audio') as unknown as File
+    projectContext = form.get('projectContext') as string | null
   } catch {
-    return errJson('Invalid JSON', 400)
+    return errJson('Expected multipart/form-data with licenceKey and audio fields', 400)
   }
 
-  if (!body.licenceKey || !body.audioBase64 || !body.mimeType) {
-    return errJson('licenceKey, audioBase64, and mimeType are required', 400)
+  if (!licenceKey || !audioFile) {
+    return errJson('licenceKey and audio are required', 400)
   }
 
-  const record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  const record = await env.LICENCES.get<LicenceRecord>(licenceKey, 'json')
   if (!record || !record.valid) {
     return errJson('Invalid licence key', 401)
   }
@@ -41,26 +40,15 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
 
   // Optimistic credit deduction before upstream call
   const deducted: LicenceRecord = { ...record, creditBalance: Math.max(0, record.creditBalance - 1) }
-  await env.LICENCES.put(body.licenceKey, JSON.stringify(deducted))
+  await env.LICENCES.put(licenceKey, JSON.stringify(deducted))
 
-  // Decode base64 audio and build multipart for OpenAI
-  const binaryStr = atob(body.audioBase64)
-  const bytes = new Uint8Array(binaryStr.length)
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i)
-  }
-  const audioBlob = new Blob([bytes], { type: body.mimeType })
-
+  // Forward the audio file directly to OpenAI — no base64 decode/re-encode
   const oaiForm = new FormData()
-  const ext = body.mimeType.includes('wav') ? 'wav'
-    : body.mimeType.includes('mp4') || body.mimeType.includes('m4a') ? 'm4a'
-    : body.mimeType.includes('ogg') ? 'ogg'
-    : 'webm'
-  oaiForm.append('file', audioBlob, `audio.${ext}`)
-  oaiForm.append('model', 'gpt-4o-mini-transcribe')
-  oaiForm.append('response_format', 'json')
-  if (body.projectContext) {
-    oaiForm.append('prompt', body.projectContext)
+  oaiForm.append('file', audioFile, audioFile.name || 'audio.wav')
+  oaiForm.append('model', 'whisper-1')
+  oaiForm.append('response_format', 'text')
+  if (projectContext) {
+    oaiForm.append('prompt', projectContext)
   }
 
   const oaiRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -71,13 +59,14 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
 
   if (!oaiRes.ok) {
     // Refund credit on upstream failure
-    await env.LICENCES.put(body.licenceKey, JSON.stringify(record))
+    await env.LICENCES.put(licenceKey, JSON.stringify(record))
     const text = await oaiRes.text()
     return errJson(`OpenAI transcription error ${oaiRes.status}: ${text}`, 502)
   }
 
-  const result = await oaiRes.json() as { text: string }
-  return new Response(JSON.stringify({ text: result.text }), {
+  // whisper-1 with response_format:'text' returns plain text directly
+  const text = await oaiRes.text()
+  return new Response(JSON.stringify({ text }), {
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
 }
