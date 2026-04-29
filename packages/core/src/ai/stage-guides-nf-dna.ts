@@ -21,7 +21,7 @@ export interface NfDnaGuide {
 }
 
 // Categories and which pipeline they route to
-export const CATEGORY_PIPELINE_MAP: Record<string, 'A' | 'B' | 'C'> = {
+export const CATEGORY_PIPELINE_MAP: Record<string, 'A' | 'B' | 'C' | 'academic'> = {
   // Pipeline A — Prescriptive
   'self-help':            'A',
   'personal development': 'A',
@@ -78,9 +78,18 @@ export const CATEGORY_PIPELINE_MAP: Record<string, 'A' | 'B' | 'C'> = {
   'language':             'C',
   'education':            'C',
   'career':               'C',
+
+  // Academic pipeline (NF-14) — textbooks and revision guides
+  'textbook':             'academic',
+  'revision guide':       'academic',
+  'revision-guide':       'academic',
+  'academic':             'academic',
+  'exam revision':        'academic',
+  'study guide':          'academic',
+  'course book':          'academic',
 };
 
-export function inferPipelineFromCategory(category?: string | null): 'A' | 'B' | 'C' | null {
+export function inferPipelineFromCategory(category?: string | null): 'A' | 'B' | 'C' | 'academic' | null {
   if (!category) return null;
   const key = category.toLowerCase().trim();
   for (const [cat, pipeline] of Object.entries(CATEGORY_PIPELINE_MAP)) {
@@ -122,12 +131,19 @@ export const NF_DNA_GUIDES: Record<string, NfDnaGuide> = {
         hint: 'Title and author. This is your primary comp and will come back in Stage 7.',
         required: true,
       },
+      {
+        key: 'bookType',
+        label: 'Academic books only: is this a Textbook or a Revision Guide?',
+        hint: 'Type "textbook" (comprehensive curriculum coverage, worked examples, exercises) or "revision-guide" (compressed exam-prep, quick-checks, practice questions). Leave blank for non-academic categories.',
+        required: false,
+      },
     ],
     pipelineRouting: {
       note: 'Category determines pipeline. Confirm with writer — they can override.',
       A: 'Prescriptive: self-help, business, health, money, relationships',
       B: 'Narrative NF: popular science, history, true crime, journalism',
       C: 'How-To / Skill Ladder: cookbooks, craft, technical skills, practical guides',
+      academic: 'Academic: textbooks, revision guides, study guides — structured around learning outcomes and a syllabus',
     },
     validation: ['primaryCategory', 'shelfDescription', 'competitorTitle'],
     summary: [

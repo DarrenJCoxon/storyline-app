@@ -1,6 +1,7 @@
 export type Mode = 'fiction' | 'nonfiction';
-export type Pipeline = 'novel' | 'A' | 'B' | 'C';
+export type Pipeline = 'novel' | 'A' | 'B' | 'C' | 'academic';
 export type SubMode = 'argument' | 'braid' | 'idea-led' | 'event-led' | null;
+export type BookType = 'textbook' | 'revision-guide' | null;
 export interface Beat {
     scene: string | null;
     notes: string | null;
@@ -44,6 +45,7 @@ export interface ProjectState {
     mode: Mode | null;
     pipeline: Pipeline;
     subMode: SubMode;
+    bookType: BookType;
     bookDna: Record<string, unknown>;
     nfStages: Record<string, unknown>;
     stages: Record<string, {
@@ -128,6 +130,7 @@ export declare const NF_DNA_STAGE_ORDER: StageEntry[];
 export declare const NF_PIPELINE_A_STAGE_ORDER: StageEntry[];
 export declare const NF_PIPELINE_B_STAGE_ORDER: StageEntry[];
 export declare const NF_PIPELINE_C_STAGE_ORDER: StageEntry[];
+export declare const NF_ACADEMIC_STAGE_ORDER: StageEntry[];
 /** Default NF order (Phase 0 only) — used when no pipeline is in state. */
 export declare const NF_STAGE_ORDER: StageEntry[];
 export declare const NF_STAGE_BY_ID: {

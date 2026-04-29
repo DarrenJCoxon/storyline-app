@@ -1,5 +1,5 @@
 export type {
-  Mode, Pipeline, SubMode, ProjectState, StageEntry,
+  Mode, Pipeline, SubMode, BookType, ProjectState, StageEntry,
   Beat, BeatSheet, Protagonist, Character,
 } from './state/project-state.js'
 export type { ClaimEvidenceItem, ImagePrompt } from './state/writing-plan.js'
@@ -17,6 +17,7 @@ export {
   NF_PIPELINE_A_STAGE_ORDER,
   NF_PIPELINE_B_STAGE_ORDER,
   NF_PIPELINE_C_STAGE_ORDER,
+  NF_ACADEMIC_STAGE_ORDER,
   stageOrderFor,
 } from './state/project-state.js'
 export {

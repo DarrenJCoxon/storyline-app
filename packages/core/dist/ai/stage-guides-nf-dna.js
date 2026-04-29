@@ -62,6 +62,14 @@ exports.CATEGORY_PIPELINE_MAP = {
     'language': 'C',
     'education': 'C',
     'career': 'C',
+    // Academic pipeline (NF-14) — textbooks and revision guides
+    'textbook': 'academic',
+    'revision guide': 'academic',
+    'revision-guide': 'academic',
+    'academic': 'academic',
+    'exam revision': 'academic',
+    'study guide': 'academic',
+    'course book': 'academic',
 };
 function inferPipelineFromCategory(category) {
     if (!category)
@@ -106,12 +114,19 @@ exports.NF_DNA_GUIDES = {
                 hint: 'Title and author. This is your primary comp and will come back in Stage 7.',
                 required: true,
             },
+            {
+                key: 'bookType',
+                label: 'Academic books only: is this a Textbook or a Revision Guide?',
+                hint: 'Type "textbook" (comprehensive curriculum coverage, worked examples, exercises) or "revision-guide" (compressed exam-prep, quick-checks, practice questions). Leave blank for non-academic categories.',
+                required: false,
+            },
         ],
         pipelineRouting: {
             note: 'Category determines pipeline. Confirm with writer — they can override.',
             A: 'Prescriptive: self-help, business, health, money, relationships',
             B: 'Narrative NF: popular science, history, true crime, journalism',
             C: 'How-To / Skill Ladder: cookbooks, craft, technical skills, practical guides',
+            academic: 'Academic: textbooks, revision guides, study guides — structured around learning outcomes and a syllabus',
         },
         validation: ['primaryCategory', 'shelfDescription', 'competitorTitle'],
         summary: [

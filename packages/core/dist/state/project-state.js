@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
+exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.NF_ACADEMIC_STAGE_ORDER = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
 exports.stageOrderFor = stageOrderFor;
 exports.DEFAULT_STATE = {
     _meta: { projectPath: null, createdAt: null, updatedAt: null },
     mode: null,
     pipeline: 'novel',
     subMode: null,
+    bookType: null,
     bookDna: {},
     nfStages: {},
     stages: {},
@@ -151,19 +152,34 @@ exports.NF_PIPELINE_C_STAGE_ORDER = [
     { index: 22, id: 'pc-critique', name: 'Consistency & Critique', nextPrompt: 'pc-critique' },
     { index: 23, id: 'pc-master', name: 'Master Document', nextPrompt: 'pc-master' },
 ];
+// Academic pipeline (NF-14). Book DNA is a trimmed variant (NF-14.2 adds the
+// academic-specific DNA guides; for now the standard DNA stages are used).
+// Chapter plan uses ac-chapters (NF-14.4); outcome inventory uses ac-syllabus (NF-14.3).
+exports.NF_ACADEMIC_STAGE_ORDER = [
+    { index: 13, id: 'ac-syllabus', name: 'Outcome Inventory', nextPrompt: 'ac-syllabus' },
+    { index: 14, id: 'ac-chapters', name: 'Chapter Plan', nextPrompt: 'ac-chapters' },
+    { index: 15, id: 'ac-critique', name: 'Consistency & Critique', nextPrompt: 'ac-critique' },
+    { index: 16, id: 'ac-master', name: 'Master Document', nextPrompt: 'ac-master' },
+];
 /** Concatenate Phase 0 + the chosen Phase 1 pipeline. */
 function nfStageOrderFor(pipeline) {
     switch (pipeline) {
         case 'A': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_A_STAGE_ORDER];
         case 'B': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_B_STAGE_ORDER];
         case 'C': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_C_STAGE_ORDER];
+        case 'academic': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_ACADEMIC_STAGE_ORDER];
         default: return exports.NF_DNA_STAGE_ORDER; // pipeline not chosen yet → Phase 0 only
     }
 }
 /** Default NF order (Phase 0 only) — used when no pipeline is in state. */
 exports.NF_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER;
-exports.NF_STAGE_BY_ID = Object.fromEntries([...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_A_STAGE_ORDER, ...exports.NF_PIPELINE_B_STAGE_ORDER, ...exports.NF_PIPELINE_C_STAGE_ORDER]
-    .map(s => [s.id, s]));
+exports.NF_STAGE_BY_ID = Object.fromEntries([
+    ...exports.NF_DNA_STAGE_ORDER,
+    ...exports.NF_PIPELINE_A_STAGE_ORDER,
+    ...exports.NF_PIPELINE_B_STAGE_ORDER,
+    ...exports.NF_PIPELINE_C_STAGE_ORDER,
+    ...exports.NF_ACADEMIC_STAGE_ORDER,
+].map(s => [s.id, s]));
 /** Returns the stage progression for the current project mode + pipeline. */
 function stageOrderFor(state) {
     if (!state || state.mode !== 'nonfiction')

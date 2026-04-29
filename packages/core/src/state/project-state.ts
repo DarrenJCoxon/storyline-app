@@ -1,6 +1,7 @@
 export type Mode = 'fiction' | 'nonfiction'
-export type Pipeline = 'novel' | 'A' | 'B' | 'C'
+export type Pipeline = 'novel' | 'A' | 'B' | 'C' | 'academic'
 export type SubMode = 'argument' | 'braid' | 'idea-led' | 'event-led' | null
+export type BookType = 'textbook' | 'revision-guide' | null
 
 export interface Beat {
   scene: string | null
@@ -53,6 +54,7 @@ export interface ProjectState {
   mode: Mode | null
   pipeline: Pipeline
   subMode: SubMode
+  bookType: BookType
   bookDna: Record<string, unknown>
   nfStages: Record<string, unknown>
   stages: Record<string, { completed?: boolean }>
@@ -126,6 +128,7 @@ export const DEFAULT_STATE: ProjectState = {
   mode: null,
   pipeline: 'novel',
   subMode: null,
+  bookType: null,
   bookDna: {},
   nfStages: {},
   stages: {},
@@ -284,13 +287,24 @@ export const NF_PIPELINE_C_STAGE_ORDER: StageEntry[] = [
   { index: 23, id: 'pc-master',      name: 'Master Document',                    nextPrompt: 'pc-master' },
 ]
 
+// Academic pipeline (NF-14). Book DNA is a trimmed variant (NF-14.2 adds the
+// academic-specific DNA guides; for now the standard DNA stages are used).
+// Chapter plan uses ac-chapters (NF-14.4); outcome inventory uses ac-syllabus (NF-14.3).
+export const NF_ACADEMIC_STAGE_ORDER: StageEntry[] = [
+  { index: 13, id: 'ac-syllabus',  name: 'Outcome Inventory',         nextPrompt: 'ac-syllabus' },
+  { index: 14, id: 'ac-chapters',  name: 'Chapter Plan',              nextPrompt: 'ac-chapters' },
+  { index: 15, id: 'ac-critique',  name: 'Consistency & Critique',    nextPrompt: 'ac-critique' },
+  { index: 16, id: 'ac-master',    name: 'Master Document',           nextPrompt: 'ac-master' },
+]
+
 /** Concatenate Phase 0 + the chosen Phase 1 pipeline. */
 function nfStageOrderFor(pipeline: Pipeline | undefined): StageEntry[] {
   switch (pipeline) {
-    case 'A': return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_A_STAGE_ORDER]
-    case 'B': return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_B_STAGE_ORDER]
-    case 'C': return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_C_STAGE_ORDER]
-    default:  return NF_DNA_STAGE_ORDER  // pipeline not chosen yet → Phase 0 only
+    case 'A':        return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_A_STAGE_ORDER]
+    case 'B':        return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_B_STAGE_ORDER]
+    case 'C':        return [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_C_STAGE_ORDER]
+    case 'academic': return [...NF_DNA_STAGE_ORDER, ...NF_ACADEMIC_STAGE_ORDER]
+    default:         return NF_DNA_STAGE_ORDER  // pipeline not chosen yet → Phase 0 only
   }
 }
 
@@ -298,8 +312,13 @@ function nfStageOrderFor(pipeline: Pipeline | undefined): StageEntry[] {
 export const NF_STAGE_ORDER: StageEntry[] = NF_DNA_STAGE_ORDER
 
 export const NF_STAGE_BY_ID = Object.fromEntries(
-  [...NF_DNA_STAGE_ORDER, ...NF_PIPELINE_A_STAGE_ORDER, ...NF_PIPELINE_B_STAGE_ORDER, ...NF_PIPELINE_C_STAGE_ORDER]
-    .map(s => [s.id, s]),
+  [
+    ...NF_DNA_STAGE_ORDER,
+    ...NF_PIPELINE_A_STAGE_ORDER,
+    ...NF_PIPELINE_B_STAGE_ORDER,
+    ...NF_PIPELINE_C_STAGE_ORDER,
+    ...NF_ACADEMIC_STAGE_ORDER,
+  ].map(s => [s.id, s]),
 )
 
 /** Returns the stage progression for the current project mode + pipeline. */
