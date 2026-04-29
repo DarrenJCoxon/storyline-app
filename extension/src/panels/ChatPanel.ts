@@ -139,6 +139,12 @@ export class ChatPanel {
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
 
+    // Repair: backfill memory and regenerate docs for any completed stages
+    // that are missing from the memory log. Runs async so it never delays
+    // the opening prompt. Covers older projects saved before memory push was
+    // introduced, and any partial saves that previously skipped this step.
+    void this.repairStateSync(state)
+
     const stages = stageOrderFor(state).map(s => ({
       id: s.id,
       name: s.name,
@@ -530,9 +536,18 @@ export class ChatPanel {
       if (!gate.complete) {
         console.warn('[Storyline] Save gated — incomplete fields for', stageId, ':', gate.missing)
         this.post({ type: 'saveGated', stageId, missing: gate.missing })
-        // Stay on the same stage. The writer's next turn carries the
-        // conversation forward — no synthetic re-prompt loop. Same shape
-        // as the original /storyline harness when verify-stage exits non-zero.
+        // Stage not yet complete — stay on the same stage. But keep docs and
+        // memory in sync with state.json so all three stores remain consistent
+        // even for partial AI updates. Without this, a mid-conversation update
+        // would leave state.json ahead of both memory and the stage-doc files.
+        const pd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        if (pd) {
+          writeStageDoc(stageId, newState, pd)
+            .catch(err => console.warn('[Storyline] writeStageDoc (partial) failed', err))
+        }
+        pushToMemory(stageId, normalizedPatch as Record<string, unknown>)
+          .then(r => console.log(`[Storyline] memory (partial): ${stageId} → ${r.method}`))
+          .catch(() => { /* non-fatal */ })
         return
       }
     }
@@ -1007,6 +1022,61 @@ export class ChatPanel {
 
   private post(msg: Record<string, unknown>): void {
     this.panel.webview.postMessage(msg)
+  }
+
+  /**
+   * Backfill memory and regenerate stage docs for completed stages that are
+   * missing from `.storyline/memory.jsonl`. Runs once per project open,
+   * async, non-blocking. Covers:
+   *  - Projects saved before memory push was introduced
+   *  - Stages where pushToMemory previously failed silently
+   *  - Partial saves that previously skipped doc/memory sync
+   */
+  private async repairStateSync(state: ProjectState): Promise<void> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) return
+
+    const completedStageIds = Object.entries(state.stages ?? {})
+      .filter(([, s]) => (s as { completed?: boolean })?.completed)
+      .map(([id]) => id)
+    if (completedStageIds.length === 0) return
+
+    // Determine which stage IDs already have a memory.jsonl entry.
+    const logPath = path.join(projectDir, '.storyline', 'memory.jsonl')
+    const memorisedIds = new Set<string>()
+    try {
+      const raw = fs.readFileSync(logPath, 'utf-8')
+      for (const line of raw.split('\n')) {
+        if (!line.trim()) continue
+        try {
+          const entry = JSON.parse(line) as { stageId?: string }
+          if (entry.stageId) memorisedIds.add(entry.stageId)
+        } catch { /* skip malformed line */ }
+      }
+    } catch { /* memory.jsonl doesn't exist yet */ }
+
+    let backfilled = 0
+    for (const stageId of completedStageIds) {
+      // Regenerate the stage doc unconditionally — cheap file write, ensures
+      // the doc always reflects the current state.json.
+      writeStageDoc(stageId, state, projectDir)
+        .catch(err => console.warn('[Storyline] repair writeStageDoc failed:', stageId, err))
+
+      // Backfill memory only for stages not already logged.
+      if (!memorisedIds.has(stageId)) {
+        const stageData = (state as unknown as Record<string, unknown>)[stageId]
+        if (stageData && typeof stageData === 'object') {
+          await pushToMemory(stageId, stageData as Record<string, unknown>)
+            .then(r => console.log(`[Storyline] repair memory: ${stageId} → ${r.method}`))
+            .catch(err => console.warn('[Storyline] repair pushToMemory failed:', stageId, err))
+          backfilled++
+        }
+      }
+    }
+
+    if (backfilled > 0) {
+      console.log(`[Storyline] repairStateSync: backfilled memory for ${backfilled} stage(s)`)
+    }
   }
 
   private async applyVSCodeTheme(mode: 'light' | 'dark' | 'auto'): Promise<void> {
