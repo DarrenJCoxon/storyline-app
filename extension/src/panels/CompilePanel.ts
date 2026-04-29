@@ -2,7 +2,12 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import * as fs from 'fs'
 import { ensureCompileConfig, writeCompileConfig, type CompileConfig } from '../compile/compile-config.js'
-import { runCompile, type CompileFormat } from '../compile/compile-runner.js'
+import { runCompile, type CompileFormat, type PrintTrim } from '../compile/compile-runner.js'
+
+const VALID_TRIMS: ReadonlySet<PrintTrim> = new Set(['6x9', '7x10', '8x10', '8.5x8.5'])
+function isValidTrim(value: unknown): value is PrintTrim {
+  return typeof value === 'string' && VALID_TRIMS.has(value as PrintTrim)
+}
 
 export class CompilePanel {
   public static readonly viewType = 'storyline.compile'
@@ -133,6 +138,7 @@ export class CompilePanel {
     }
 
     const format = (msg.format as CompileFormat) ?? 'epub'
+    const trim: PrintTrim = isValidTrim(msg.trim) ? msg.trim : '6x9'
 
     this.post({ type: 'compileStart', format })
 
@@ -140,6 +146,7 @@ export class CompilePanel {
       const result = await runCompile({
         projectPath: projectDir,
         format,
+        trim: format === 'print-pdf' ? trim : undefined,
         onProgress: phase => this.post({ type: 'compileProgress', phase }),
       })
 

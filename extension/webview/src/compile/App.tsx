@@ -18,21 +18,31 @@ interface CompileMetadata {
   coverImage?: string | null
 }
 
+type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
+
 interface CompileConfig {
   metadata: CompileMetadata
   theme: string
   epub?: { theme?: string }
-  pdf?: { pageSize?: 'A5' | 'US Letter' }
+  pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
   nonfiction?: { citationStyle?: 'chicago' | 'apa' | 'mla'; generateExtras?: boolean }
 }
 
 type Format = 'epub' | 'print-pdf'
 type Screen = 'form' | 'compiling' | 'done'
 
+const TRIM_OPTIONS: Array<{ id: PrintTrim; label: string; sub: string }> = [
+  { id: '6x9', label: 'Trade Paperback', sub: '6 × 9 in — novels (default)' },
+  { id: '7x10', label: 'Academic / Textbook', sub: '7 × 10 in — non-fiction, scholarly' },
+  { id: '8x10', label: 'Picture Book — Portrait', sub: '8 × 10 in — illustrated children’s' },
+  { id: '8.5x8.5', label: 'Picture Book — Square', sub: '8.5 × 8.5 in — square picture book' },
+]
+
 interface State {
   screen: Screen
   config: CompileConfig
   format: Format
+  trim: PrintTrim
   projectMode: 'fiction' | 'nonfiction'
   chapters: string[]
   // Webview-safe URI for the cover thumbnail (built host-side via
@@ -49,6 +59,7 @@ interface State {
 type Action =
   | { type: 'init'; config: CompileConfig; projectMode: 'fiction' | 'nonfiction'; chapters: string[]; initialFormat?: Format; coverThumbUri?: string | null }
   | { type: 'setFormat'; format: Format }
+  | { type: 'setTrim'; trim: PrintTrim }
   | { type: 'setTitle'; title: string }
   | { type: 'setAuthor'; author: string }
   | { type: 'setCover'; coverPath: string; coverThumbUri: string | null }
@@ -62,17 +73,26 @@ type Action =
 
 function reduce(state: State, action: Action): State {
   switch (action.type) {
-    case 'init':
+    case 'init': {
+      const persistedTrim = action.config.pdf?.trim
       return {
         ...state,
         config: action.config,
         projectMode: action.projectMode,
         chapters: action.chapters,
         format: action.initialFormat ?? state.format,
+        trim: persistedTrim ?? state.trim,
         coverThumbUri: action.coverThumbUri ?? null,
       }
+    }
     case 'setFormat':
       return { ...state, format: action.format }
+    case 'setTrim':
+      return {
+        ...state,
+        trim: action.trim,
+        config: { ...state.config, pdf: { ...state.config.pdf, trim: action.trim } },
+      }
     case 'setTitle':
       return { ...state, config: { ...state.config, metadata: { ...state.config.metadata, title: action.title } } }
     case 'setAuthor':
@@ -122,6 +142,7 @@ const INITIAL: State = {
   screen: 'form',
   config: { metadata: { title: '', author: null, language: 'en' }, theme: 'classic-serif' },
   format: 'epub',
+  trim: '6x9',
   projectMode: 'fiction',
   chapters: [],
   coverThumbUri: null,
@@ -192,12 +213,12 @@ export function App(): JSX.Element {
 // ── Form screen ───────────────────────────────────────────────────────────────
 
 function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }): JSX.Element {
-  const { config, format, projectMode, chapters, coverThumbUri } = state
+  const { config, format, trim, projectMode, chapters, coverThumbUri } = state
   const { metadata } = config
   const coverName = metadata.coverImage ? metadata.coverImage.split('/').pop() : null
 
   const handleCompile = () => {
-    vscode.postMessage({ type: 'compile', config, format })
+    vscode.postMessage({ type: 'compile', config, format, trim })
   }
 
   return (
@@ -219,6 +240,22 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
           >Print PDF</button>
         </div>
       </div>
+
+      {/* Trim selector — only relevant for Print PDF */}
+      {format === 'print-pdf' && (
+        <div className="section">
+          <div className="section-label">Print trim size</div>
+          <select
+            className="theme-select"
+            value={trim}
+            onChange={e => dispatch({ type: 'setTrim', trim: e.target.value as PrintTrim })}
+          >
+            {TRIM_OPTIONS.map(opt => (
+              <option key={opt.id} value={opt.id}>{opt.label} — {opt.sub}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="divider" />
 

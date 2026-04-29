@@ -9,12 +9,14 @@ export interface CompileMetadata {
   coverImage?: string | null
 }
 
+export type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
+
 export interface CompileConfig {
   metadata: CompileMetadata
   theme: string
   paragraphStyle?: 'indented' | 'spaced'
   epub?: { theme?: string }
-  pdf?: { pageSize?: 'A5' | 'US Letter' }
+  pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
   manuscript?: { path?: string; chapterPattern?: string }
   nonfiction?: { citationStyle?: 'chicago' | 'apa' | 'mla'; generateExtras?: boolean }
 }
