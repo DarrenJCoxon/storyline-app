@@ -48,7 +48,10 @@
     "verify-readme:pre": "node scripts/verify-readme-publish.js pre",
     "verify-readme:post": "node scripts/verify-readme-publish.js post",
     "prepublishOnly": "npm test && node -e \"if(!require('fs').readdirSync('vscode-extension').some(f=>/^storyline-vscode-.+\\.vsix$/.test(f))){console.error('Missing bundled .vsix — run: cd vscode-extension && npm run package');process.exit(1)}\" && npm run verify-readme:pre",
-    "postpublish": "npm run verify-readme:post"
+    "postpublish": "npm run verify-readme:post",
+    "ship": "npm run ship:extension && npm run ship:tauri",
+    "ship:extension": "cd extension && npm run package",
+    "ship:tauri": "cd installer && npm run tauri build"
   },
   "dependencies": {
     "@lesjoursfr/html-to-epub": "^3.1.3",
