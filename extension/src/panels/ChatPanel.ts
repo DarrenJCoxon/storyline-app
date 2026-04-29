@@ -777,9 +777,9 @@ export class ChatPanel {
     if (parts.length === 0) return false
 
     const injected = parts.join('\n\n---\n\n')
+    // Add file content to the AI turn history (internal context only — don't
+    // dump the raw markdown into the display log or the chat UI).
     this.turnHistory.append(stageId, { role: 'user', content: injected })
-    this.turnHistory.appendDisplay({ role: 'user', content: injected })
-    this.post({ type: 'userMessage', text: injected })
 
     const systemPrompt = buildSystemPrompt(stageId, state)
     const messages = this.turnHistory.allForStage(stageId)

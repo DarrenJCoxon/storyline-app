@@ -97,6 +97,10 @@ export function extractJsonBlock(text: string): Record<string, unknown> | null {
   if (!match) return null
   try {
     const parsed = JSON.parse(match[1].trim()) as Record<string, unknown>
+    // file_read blocks are handled by extractFileReadRequests — never treat
+    // them as stage patches. Without this guard the AI's read request gets
+    // merged into state.json and can trigger a spurious stage save + advance.
+    if ('file_read' in parsed) return null
     // Reject schema-demo blocks where every value is null/empty/placeholder.
     // The AI sometimes regurgitates the save-block shape (with `null` or
     // "..." placeholders) inside its conversational opener — that should
