@@ -787,8 +787,32 @@ export class ChatPanel {
     }
   }
 
-  /** Read requested files and re-run the AI with their contents injected. Returns true if reads were handled. */
-  private async applyFileReads(aiText: string, stageId: string, state: ProjectState): Promise<boolean> {
+  /**
+   * Read requested files and re-run the AI with their contents injected.
+   *
+   * Design contract:
+   * - File reads are INFORMATION GATHERING. They never trigger a stage save or
+   *   stage advance — that would hijack the conversation context mid-read.
+   *   Stage saves only happen on explicit user turns via applyEmittedPatches.
+   * - If the AI's response after reading ALSO requests a file read (chained
+   *   reads), we recurse up to MAX_READ_DEPTH times so the AI can gather
+   *   everything it needs before generating a final response.
+   * - File WRITES (to non-manuscript planning docs) are still applied after
+   *   each read so the AI can update docs it just read.
+   */
+  private static readonly MAX_READ_DEPTH = 3
+
+  private async applyFileReads(
+    aiText: string,
+    stageId: string,
+    state: ProjectState,
+    depth = 0,
+  ): Promise<boolean> {
+    if (depth >= ChatPanel.MAX_READ_DEPTH) {
+      console.warn('[Storyline] file_read: max depth reached, stopping')
+      return false
+    }
+
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!projectDir) return false
     const requests = extractFileReadRequests(aiText)
@@ -808,7 +832,7 @@ export class ChatPanel {
       try {
         const content = fs.readFileSync(absPath, 'utf-8')
         parts.push(`[File: ${relPath}]\n\n${content}`)
-        console.log('[Storyline] file_read injected:', relPath)
+        console.log('[Storyline] file_read injected:', relPath, `(depth=${depth})`)
       } catch (err) {
         parts.push(`[File: ${relPath}]\n\n(File not found or unreadable)`)
         console.warn('[Storyline] file_read failed:', relPath, err)
@@ -817,17 +841,25 @@ export class ChatPanel {
 
     if (parts.length === 0) return false
 
-    const injected = parts.join('\n\n---\n\n')
     // Add file content to the AI turn history (internal context only — don't
     // dump the raw markdown into the display log or the chat UI).
+    const injected = parts.join('\n\n---\n\n')
     this.turnHistory.append(stageId, { role: 'user', content: injected })
 
     const systemPrompt = buildSystemPrompt(stageId, state)
     const messages = this.turnHistory.allForStage(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
-    await this.applyEmittedPatches(full, stageId)
+
+    // Apply file writes (e.g. AI updates a planning doc after reading it).
+    // Do NOT call applyEmittedPatches here — stage saves belong to explicit
+    // user turns only. Calling it mid-read triggers a stage advance and
+    // fireOpeningPrompt which hijacks the conversational context.
     await this.applyFileWrites(full)
+
+    // Recurse: if the AI's response requests another file read, handle it
+    // before returning control to the user.
+    await this.applyFileReads(full, stageId, state, depth + 1)
     return true
   }
 
