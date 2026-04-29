@@ -191,6 +191,9 @@ export class IllustrationsPanel {
         this.post({ type: 'styleBibleSaved', styleBible: next })
         break
       }
+      case 'openCoverPanel':
+        void vscode.commands.executeCommand('storyline.generateCover')
+        break
       case 'setRef': {
         const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
         if (!projectDir) return
