@@ -837,23 +837,298 @@ describe('NF-14.6 — Academic manuscript seeding', () => {
   })
 })
 
-describe.skip('NF-14.7 — Learning-outcome coverage report (PENDING)', () => {
-  it('generateLearningOutcomeCoverage flags outcomes with zero coverage', () => {})
-  it('generateLearningOutcomeCoverage lists double-covered outcomes', () => {})
-  it('prerequisite chain renderer detects forward-references', () => {})
-  it('prerequisite chain renderer detects cycles', () => {})
+// ── NF-14.7 — Coverage + prerequisite chain ───────────────────────────────────
+
+import {
+  generateLearningOutcomeCoverage,
+  generatePrerequisiteChain,
+} from '../packages/core/dist/index.js'
+
+describe('NF-14.7 — Learning-outcome coverage report', () => {
+  it('generateLearningOutcomeCoverage flags outcomes with zero coverage', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    // P5.1 is only in chapter 2. P4.1 and P4.2 are in chapter 1.
+    // All three should be covered in the fixture.
+    const result = generateLearningOutcomeCoverage(plan.academic)
+    expect(result.gaps).toHaveLength(0)
+    expect(result.coverageMap['P4.1']).toContain(1)
+    expect(result.coverageMap['P5.1']).toContain(2)
+  })
+
+  it('flags gap when an outcome is not claimed by any chapter', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    // Inject an outcome not claimed by any chapter
+    const academic = {
+      ...plan.academic,
+      learningOutcomes: [
+        ...plan.academic.learningOutcomes,
+        { code: 'P9.9', text: 'Orphaned outcome' },
+      ],
+    }
+    const result = generateLearningOutcomeCoverage(academic)
+    expect(result.gaps).toContain('P9.9')
+  })
+
+  it('lists double-covered outcomes (claimed by 2+ chapters)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    // Make both chapters claim P4.1
+    const academic = {
+      ...plan.academic,
+      chapters: plan.academic.chapters.map((ch, i) =>
+        i === 1 ? { ...ch, outcomes: [...ch.outcomes, 'P4.1'] } : ch,
+      ),
+    }
+    const result = generateLearningOutcomeCoverage(academic)
+    expect(result.doubleCovered).toContain('P4.1')
+    expect(result.coverageMap['P4.1']).toHaveLength(2)
+  })
+
+  it('markdown contains coverage matrix table', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateLearningOutcomeCoverage(plan.academic)
+    expect(result.markdown).toContain('## Coverage matrix')
+    expect(result.markdown).toContain('| P4.1 |')
+    expect(result.markdown).toContain('Chapter 1')
+  })
+
+  it('markdown shows gap warning for uncovered outcomes', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const academic = {
+      ...plan.academic,
+      learningOutcomes: [
+        ...plan.academic.learningOutcomes,
+        { code: 'P9.9', text: 'Missing outcome' },
+      ],
+    }
+    const result = generateLearningOutcomeCoverage(academic)
+    expect(result.markdown).toContain('⚠ Gaps')
+    expect(result.markdown).toContain('P9.9')
+  })
+
+  it('revision-guide report uses "Topic" label instead of "Chapter"', () => {
+    const plan = getWritingPlan(REVISION_STATE)
+    const result = generateLearningOutcomeCoverage(plan.academic)
+    expect(result.markdown).toContain('Topic 1')
+    expect(result.markdown).not.toContain('Chapter 1')
+  })
 })
 
-describe.skip('NF-14.8 — Glossary + exercise index (PENDING)', () => {
-  it('generateGlossary deduplicates terms alphabetically with first-mention chapter', () => {})
-  it('generateExerciseIndex lists all worked examples and exercises by chapter', () => {})
-  it('exercise index flags chapters missing exercises (textbook)', () => {})
-  it('exercise index flags chapters missing exam-style questions (revision guide)', () => {})
+describe('NF-14.7 — Prerequisite chain renderer', () => {
+  it('detects no forward-references in a valid textbook fixture', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    // Chapter 2 requires Chapter 1 — valid
+    const result = generatePrerequisiteChain(plan.academic)
+    expect(result.forwardRefs).toHaveLength(0)
+    expect(result.cycles).toHaveLength(0)
+  })
+
+  it('detects forward references (chapter N lists later chapter as prereq)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const academic = {
+      ...plan.academic,
+      chapters: [
+        { ...plan.academic.chapters[0], prerequisites: [2] }, // Ch 1 requires Ch 2 — forward ref
+        { ...plan.academic.chapters[1], prerequisites: [] },
+      ],
+    }
+    const result = generatePrerequisiteChain(academic)
+    expect(result.forwardRefs).toHaveLength(1)
+    expect(result.forwardRefs[0]).toEqual({ chapter: 1, prereq: 2 })
+    expect(result.markdown).toContain('⚠ Forward references')
+  })
+
+  it('detects cycles in the prerequisite graph', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    // Introduce a cycle: Ch 1 ← Ch 2, Ch 2 ← Ch 1
+    const academic = {
+      ...plan.academic,
+      chapters: [
+        { ...plan.academic.chapters[0], prerequisites: [2] },
+        { ...plan.academic.chapters[1], prerequisites: [1] },
+      ],
+    }
+    const result = generatePrerequisiteChain(academic)
+    expect(result.cycles.length).toBeGreaterThan(0)
+    expect(result.markdown).toContain('⛔ Cycles detected')
+  })
+
+  it('emits topological order for a valid DAG', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generatePrerequisiteChain(plan.academic)
+    // Chapter 1 must come before Chapter 2
+    const idx1 = result.topologicalOrder.indexOf(1)
+    const idx2 = result.topologicalOrder.indexOf(2)
+    expect(idx1).toBeLessThan(idx2)
+    expect(result.markdown).toContain('Chapter 1 → Chapter 2')
+  })
+
+  it('markdown includes dependency map section', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generatePrerequisiteChain(plan.academic)
+    expect(result.markdown).toContain('## Dependency map')
+    expect(result.markdown).toContain('Forces and Motion')
+    expect(result.markdown).toContain('Requires: Chapter 1')
+  })
 })
 
-describe.skip('NF-14.9 — Academic master document (PENDING)', () => {
-  it('generateAcademicMasterDocument renders outcome coverage summary', () => {})
-  it('academic master doc includes prerequisite chain section', () => {})
-  it('academic master doc includes glossary preview', () => {})
-  it('academic master doc links figure registry and claim ledger', () => {})
+// ── NF-14.8 — Glossary + exercise index ──────────────────────────────────────
+
+import { generateGlossary, generateExerciseIndex } from '../packages/core/dist/index.js'
+
+describe('NF-14.8 — Glossary', () => {
+  it('aggregates key terms alphabetically with first-mention chapter', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateGlossary(plan.academic)
+    // Chapter 1 terms: 'resultant force', 'Newton'
+    // Chapter 2 terms: 'wavelength', 'frequency', 'amplitude'
+    expect(result.terms.length).toBe(5)
+    const names = result.terms.map(t => t.term.toLowerCase())
+    expect(names).toContain('resultant force')
+    expect(names).toContain('wavelength')
+    // Sorted alphabetically
+    const sorted = [...names].sort((a, b) => a.localeCompare(b))
+    expect(names).toEqual(sorted)
+  })
+
+  it('deduplicates case-insensitively (same term in two chapters → first chapter wins)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const academic = {
+      ...plan.academic,
+      chapters: [
+        { ...plan.academic.chapters[0], keyTerms: ['Force', 'Newton'] },
+        { ...plan.academic.chapters[1], keyTerms: ['force', 'wavelength'] },
+      ],
+    }
+    const result = generateGlossary(academic)
+    const forceEntry = result.terms.find(t => t.term.toLowerCase() === 'force')
+    expect(forceEntry).toBeDefined()
+    expect(forceEntry.firstChapter).toBe(1)
+    // Only one 'force' entry, not two
+    const forceCount = result.terms.filter(t => t.term.toLowerCase() === 'force').length
+    expect(forceCount).toBe(1)
+  })
+
+  it('markdown contains alphabetical letter sections', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateGlossary(plan.academic)
+    expect(result.markdown).toContain('# Glossary')
+    // Terms starting with letters should have headers
+    expect(result.markdown).toMatch(/### [A-Z]/)
+  })
+
+  it('revision-guide glossary uses "Topic" label', () => {
+    const plan = getWritingPlan(REVISION_STATE)
+    const result = generateGlossary(plan.academic)
+    expect(result.markdown).toContain('Topic 1')
+  })
+})
+
+describe('NF-14.8 — Exercise index', () => {
+  it('lists all worked examples and exercises by chapter (textbook)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateExerciseIndex(plan.academic)
+    expect(result.markdown).toContain('we-1.1')
+    expect(result.markdown).toContain('we-1.2')
+    expect(result.markdown).toContain('we-2.1')
+    expect(result.markdown).toContain('ex-1.1')
+  })
+
+  it('difficulty distribution tallied correctly', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateExerciseIndex(plan.academic)
+    // we-1.1 foundation, we-1.2 higher, we-2.1 higher, ex-1.1 foundation
+    expect(result.difficultyDistribution['foundation']).toBe(2)
+    expect(result.difficultyDistribution['higher']).toBe(2)
+  })
+
+  it('flags chapters missing exercises (textbook)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    // Chapter 2 has no exercises in our fixture
+    const result = generateExerciseIndex(plan.academic)
+    expect(result.chaptersWithoutExercises).toContain(2)
+    expect(result.markdown).toContain('⚠ Chapters missing exercises')
+  })
+
+  it('flags topics missing exam-style questions (revision guide)', () => {
+    const plan = getWritingPlan(REVISION_STATE)
+    const academic = {
+      ...plan.academic,
+      chapters: [{ ...plan.academic.chapters[0], examPractice: [] }],
+    }
+    const result = generateExerciseIndex(academic)
+    expect(result.chaptersWithoutExercises).toContain(1)
+    expect(result.markdown).toContain('⚠ Topics missing exam-style questions')
+  })
+
+  it('revision guide index summarises exam practice by type', () => {
+    const plan = getWritingPlan(REVISION_STATE)
+    const result = generateExerciseIndex(plan.academic)
+    expect(result.markdown).toContain('short-answer: 3')
+    expect(result.markdown).toContain('extended: 1')
+  })
+})
+
+// ── NF-14.9 — Academic master document ───────────────────────────────────────
+
+import { generateAcademicMasterDocument } from '../packages/core/dist/index.js'
+
+describe('NF-14.9 — Academic master document', () => {
+  it('generateAcademicMasterDocument renders outcome coverage summary', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    const md = readFileSync(result.outputPath, 'utf-8')
+    expect(md).toContain('## Outcome inventory')
+    expect(md).toContain('P4.1')
+    expect(md).toContain('Coverage:')
+  })
+
+  it('academic master doc includes prerequisite chain section', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    const md = readFileSync(result.outputPath, 'utf-8')
+    expect(md).toContain('## Prerequisite chain')
+    expect(md).toContain('Chapter 1 → Chapter 2')
+  })
+
+  it('academic master doc includes glossary preview', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    const md = readFileSync(result.outputPath, 'utf-8')
+    expect(md).toContain('## Glossary preview')
+    expect(md).toContain('resultant force')
+  })
+
+  it('academic master doc includes chapter plan with outcomes and exercises', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    const md = readFileSync(result.outputPath, 'utf-8')
+    expect(md).toContain('## Chapter plan')
+    expect(md).toContain('we-1.1')
+    expect(md).toContain('ex-1.1')
+  })
+
+  it('academic master doc includes exercise summary with difficulty distribution', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    const md = readFileSync(result.outputPath, 'utf-8')
+    expect(md).toContain('## Exercise summary')
+    expect(md).toContain('foundation')
+    expect(md).toContain('higher')
+  })
+
+  it('result carries chapter and outcome counts', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    expect(result.chapterCount).toBe(2)
+    expect(result.outcomeCount).toBe(3)
+    expect(result.gaps).toBe(0)
+    expect(result.cycles).toBe(0)
+  })
+
+  it('writes file to output/academic-master-document.md', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    const result = generateAcademicMasterDocument(plan, TEXTBOOK_STATE, tmpDir)
+    expect(result.outputPath).toContain('academic-master-document.md')
+    expect(existsSync(result.outputPath)).toBe(true)
+  })
 })

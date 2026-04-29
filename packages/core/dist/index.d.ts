@@ -2,6 +2,16 @@ export type { Mode, Pipeline, SubMode, BookType, ProjectState, StageEntry, Beat,
 export type { ClaimEvidenceItem, ImagePrompt } from './state/writing-plan.js';
 export type { ClaimLedgerResult } from './output/claim-evidence-ledger.js';
 export { generateClaimEvidenceLedger } from './output/claim-evidence-ledger.js';
+export type { OutcomeCoverageResult } from './output/learning-outcome-coverage.js';
+export { generateLearningOutcomeCoverage } from './output/learning-outcome-coverage.js';
+export type { PrerequisiteChainResult } from './output/prerequisite-chain.js';
+export { generatePrerequisiteChain } from './output/prerequisite-chain.js';
+export type { GlossaryResult } from './output/glossary.js';
+export { generateGlossary } from './output/glossary.js';
+export type { ExerciseIndexResult } from './output/exercise-index.js';
+export { generateExerciseIndex } from './output/exercise-index.js';
+export type { AcademicMasterDocResult } from './output/academic-master-doc.js';
+export { generateAcademicMasterDocument } from './output/academic-master-doc.js';
 export type { FigureRegistryResult } from './output/figure-registry.js';
 export { generateFigureRegistry } from './output/figure-registry.js';
 export type { FigureContext, BookContext } from './output/figure-prompt-synthesizer.js';
