@@ -709,13 +709,132 @@ describe('NF-14.5 — WritingPlan academic extension', () => {
   })
 })
 
-describe.skip('NF-14.6 — Academic manuscript seeding (PENDING)', () => {
-  it('textbook chapter seeds with H2 Learning outcomes, H2 Concept, H2 Worked example, H2 Exercise, H2 Summary', () => {})
-  it('textbook chapter emits {{example: we-1.1}} markers', () => {})
-  it('textbook chapter emits {{exercise: ex-1.1}} markers', () => {})
-  it('revision guide chapter seeds with H2 Exam objectives, H2 Core idea, H2 Common misconceptions, H2 Quick check, H2 Summary', () => {})
-  it('NF-12 {{claim:}} markers appear in academic scaffold', () => {})
-  it('NF-13 {{figure:}} markers appear in academic scaffold', () => {})
+// ── NF-14.6 — Academic manuscript seeding ────────────────────────────────────
+
+import { seedAcademicChapterContent, seedManuscriptFromPlan } from '../packages/core/dist/index.js'
+import { readFileSync } from 'fs'
+
+describe('NF-14.6 — Academic manuscript seeding', () => {
+  const textbookPlan = (() => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    return plan
+  })()
+  const revisionPlan = (() => {
+    const plan = getWritingPlan(REVISION_STATE)
+    return plan
+  })()
+
+  it('textbook chapter seeds with H2 Learning outcomes, Key terms, Concept, Worked example, Exercise, Summary', () => {
+    const nfCh = textbookPlan.nfChapters[0]
+    const acCh = textbookPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', [], [])
+    expect(out).toContain('## Learning outcomes')
+    expect(out).toContain('## Key terms')
+    expect(out).toContain('## Concept')
+    expect(out).toContain('## Worked example')
+    expect(out).toContain('## Exercise')
+    expect(out).toContain('## Summary')
+  })
+
+  it('textbook chapter lists outcome codes under Learning outcomes', () => {
+    const nfCh = textbookPlan.nfChapters[0]
+    const acCh = textbookPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', [], [])
+    expect(out).toContain('- P4.1')
+    expect(out).toContain('- P4.2')
+  })
+
+  it('textbook chapter emits {{example: we-1.1}} markers', () => {
+    const nfCh = textbookPlan.nfChapters[0]
+    const acCh = textbookPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', [], [])
+    expect(out).toContain('{{example: we-1.1}}')
+    expect(out).toContain('{{example: we-1.2}}')
+    expect(out).toContain('### we-1.1 — Resultant force calculation')
+  })
+
+  it('textbook chapter emits {{exercise: ex-1.1}} markers', () => {
+    const nfCh = textbookPlan.nfChapters[0]
+    const acCh = textbookPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', [], [])
+    expect(out).toContain('{{exercise: ex-1.1}}')
+    expect(out).toContain('### ex-1.1 — Basic forces')
+  })
+
+  it('revision guide chapter seeds with Exam objectives, Core idea, Common misconceptions, Quick check, Exam-style questions, Summary', () => {
+    const nfCh = revisionPlan.nfChapters[0]
+    const acCh = revisionPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'revision-guide', [], [])
+    expect(out).toContain('## Exam objectives')
+    expect(out).toContain('## Core idea')
+    expect(out).toContain('## Common misconceptions')
+    expect(out).toContain('## Quick check')
+    expect(out).toContain('## Exam-style questions')
+    expect(out).toContain('## Summary')
+  })
+
+  it('revision guide quick check has numbered slots matching recallQuestions', () => {
+    const nfCh = revisionPlan.nfChapters[0]
+    const acCh = revisionPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'revision-guide', [], [])
+    // 5 recall questions → 5 numbered slots
+    for (let i = 1; i <= 5; i++) expect(out).toMatch(new RegExp(`${i}\\. `))
+  })
+
+  it('revision guide emits exam-practice subsections by type and count', () => {
+    const nfCh = revisionPlan.nfChapters[0]
+    const acCh = revisionPlan.academic.chapters[0]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'revision-guide', [], [])
+    expect(out).toContain('### short-answer (3)')
+    expect(out).toContain('### extended (1)')
+  })
+
+  it('NF-12 {{claim:}} markers appear under Concept (textbook)', () => {
+    const nfCh = textbookPlan.nfChapters[0]
+    const acCh = textbookPlan.academic.chapters[0]
+    const claims = [{ id: 'ev-p4-1', chapterNumber: 1, claimText: 'F=ma' }]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', claims, [])
+    expect(out).toContain('{{claim: ev-p4-1}}')
+    // Claim must appear after "## Concept" and before next H2
+    const conceptIdx = out.indexOf('## Concept')
+    const claimIdx = out.indexOf('{{claim: ev-p4-1}}')
+    expect(claimIdx).toBeGreaterThan(conceptIdx)
+  })
+
+  it('NF-13 {{figure:}} markers appear under Concept', () => {
+    const nfCh = textbookPlan.nfChapters[0]
+    const acCh = textbookPlan.academic.chapters[0]
+    const figures = [{ id: 'fig-ch1-1', chapterNumber: 1, type: 'diagram', purpose: 'forces' }]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', [], figures)
+    expect(out).toContain('{{figure: fig-ch1-1}}')
+  })
+
+  it('seedManuscriptFromPlan writes textbook chapter files', () => {
+    seedManuscriptFromPlan(textbookPlan, tmpDir)
+    const ch1Path = join(tmpDir, 'manuscript', '01-forces-and-motion.md')
+    expect(existsSync(ch1Path)).toBe(true)
+    const content = readFileSync(ch1Path, 'utf-8')
+    expect(content).toContain('# Chapter 1 — Forces and Motion')
+    expect(content).toContain('## Worked example')
+    expect(content).toContain('{{example: we-1.1}}')
+  })
+
+  it('seedManuscriptFromPlan writes revision-guide topic files with Topic header', () => {
+    seedManuscriptFromPlan(revisionPlan, tmpDir)
+    const ch1Path = join(tmpDir, 'manuscript', '01-causes-of-wwi.md')
+    expect(existsSync(ch1Path)).toBe(true)
+    const content = readFileSync(ch1Path, 'utf-8')
+    expect(content).toContain('# Topic 1 — Causes of WWI')
+    expect(content).toContain('## Exam objectives')
+    expect(content).toContain('## Quick check')
+  })
+
+  it('textbook prerequisites surface in chapter header', () => {
+    const nfCh = textbookPlan.nfChapters[1]
+    const acCh = textbookPlan.academic.chapters[1]
+    const out = seedAcademicChapterContent(nfCh, acCh, 'textbook', [], [])
+    expect(out).toContain('Prerequisites: Ch 1')
+  })
 })
 
 describe.skip('NF-14.7 — Learning-outcome coverage report (PENDING)', () => {
