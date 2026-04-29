@@ -36,3 +36,4 @@ Thumbs.db
 # Local AI tooling (not part of the project)
 .claude/
 .swarm/
+.playwright-mcp/
