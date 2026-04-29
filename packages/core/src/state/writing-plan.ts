@@ -283,6 +283,64 @@ export interface PromisePayoffItem {
   notes: string | null
 }
 
+// ── Academic shapes (NF-14.5) ────────────────────────────────────────────────
+
+/** A single learning outcome from the ac-syllabus stage. Textbooks use full
+ *  Bloom's-level taxonomy; revision guides use recall-type classification. */
+export interface AcademicLearningOutcome {
+  code: string
+  text: string
+  bloom?: string | null
+  module?: string | null
+  recallType?: string | null
+  examTrap?: string | null
+}
+
+export interface AcademicWorkedExample {
+  id: string
+  title: string | null
+  difficulty: string | null
+  chapterNumber: number
+}
+
+export interface AcademicExercise {
+  id: string
+  title: string | null
+  difficulty: string | null
+  chapterNumber: number
+}
+
+/** A single chapter / topic in an academic plan — branches on bookType. */
+export interface AcademicChapter {
+  number: number
+  title: string | null
+  outcomes: string[]
+  keyTerms: string[]
+  prerequisites: number[]
+  sections: Array<{ title: string; type: string }>
+  wordTarget: number | null
+  // Textbook-specific:
+  workedExamples: AcademicWorkedExample[]
+  exercises: AcademicExercise[]
+  // Revision-guide-specific:
+  recallQuestions: number | null
+  examPractice: Array<{ type: string; count: number }>
+}
+
+/** Top-level academic plan — populated when pipeline === 'academic'. */
+export interface AcademicPlan {
+  bookType: 'textbook' | 'revision-guide'
+  level: string | null
+  specReference: string | null
+  assessmentShape: string | null
+  learningOutcomes: AcademicLearningOutcome[]
+  keyTerms: string[]
+  workedExamples: AcademicWorkedExample[]
+  exercises: AcademicExercise[]
+  prerequisites: Record<number, number[]>
+  chapters: AcademicChapter[]
+}
+
 // ── Non-fiction shapes ───────────────────────────────────────────────────────
 
 /** A non-fiction chapter — a section-bearing structural unit, not a scene-bearing one.
@@ -372,6 +430,9 @@ export interface WritingPlan {
   // FIC-D: derived artefact data — populated for fiction projects; null otherwise.
   storyBible: FictionStoryBible | null
   arcMatrix: FictionArcMatrix | null
+
+  // NF-14: academic plan — populated when pipeline === 'academic'; null otherwise.
+  academic: AcademicPlan | null
 }
 
 // ── The normalizer ───────────────────────────────────────────────────────────
@@ -412,6 +473,7 @@ export function getWritingPlan(state: ProjectState): WritingPlan {
     claims: [],
     storyBible: null,
     arcMatrix: null,
+    academic: null,
   }
 
   if (mode === 'fiction') {
@@ -784,6 +846,9 @@ function populateNonfiction(plan: WritingPlan, state: ProjectState): WritingPlan
   plan.nfPromise = readNfPromise(state)
   plan.claims = readClaims(state, plan.nfChapters)
   plan.figures = readFigures(state)
+  if (state.pipeline === 'academic') {
+    plan.academic = readAcademic(state)
+  }
   return plan
 }
 
@@ -814,6 +879,7 @@ function readNfChapters(state: ProjectState): NfChapter[] {
   if (pipeline === 'A') stageKey = 'pa-chapters'
   else if (pipeline === 'B') stageKey = 'pb-chapters'
   else if (pipeline === 'C') stageKey = 'pc-lessons'
+  else if (pipeline === 'academic') stageKey = 'ac-chapters'
   if (!stageKey) return []
 
   const stageData =
@@ -879,6 +945,7 @@ function readFigures(state: ProjectState): FigurePlanItem[] {
   if (pipeline === 'A') stageKey = 'pa-chapters'
   else if (pipeline === 'B') stageKey = 'pb-chapters'
   else if (pipeline === 'C') stageKey = 'pc-lessons'
+  else if (pipeline === 'academic') stageKey = 'ac-chapters'
   if (!stageKey) return []
 
   const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
@@ -1012,6 +1079,125 @@ function deriveClaimRisk(
   if (confidence === 'primary') return 'low'
   if (confidence === 'anecdotal' || confidence === 'unknown') return 'high'
   return 'medium'
+}
+
+// ── NF-14.5 academic extraction ───────────────────────────────────────────────
+
+function stageData(state: ProjectState, key: string): Record<string, unknown> {
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  return (nf[key] ?? top[key] ?? {}) as Record<string, unknown>
+}
+
+function readAcademic(state: ProjectState): AcademicPlan | null {
+  const bookType = state.bookType
+  if (bookType !== 'textbook' && bookType !== 'revision-guide') return null
+
+  const syllabus = stageData(state, 'ac-syllabus')
+  const chaptersStage = stageData(state, 'ac-chapters')
+  const acLevel = stageData(state, 'dna-ac-level')
+  const acSpec = stageData(state, 'dna-ac-spec')
+  const acAssess = stageData(state, 'dna-ac-assessment')
+
+  const rawOutcomes = Array.isArray(syllabus.outcomes)
+    ? syllabus.outcomes as Array<Record<string, unknown>>
+    : []
+  const learningOutcomes: AcademicLearningOutcome[] = rawOutcomes.map(o => ({
+    code: stringOr(o.code, ''),
+    text: stringOr(o.text, ''),
+    bloom: stringOrNull(o.bloom),
+    module: stringOrNull(o.module),
+    recallType: stringOrNull(o.recallType),
+    examTrap: stringOrNull(o.examTrap),
+  }))
+
+  const rawChapters = Array.isArray(chaptersStage.chapters)
+    ? chaptersStage.chapters as Array<Record<string, unknown>>
+    : []
+
+  const allWorkedExamples: AcademicWorkedExample[] = []
+  const allExercises: AcademicExercise[] = []
+  const allKeyTerms = new Set<string>()
+  const prereqMap: Record<number, number[]> = {}
+
+  const chapters: AcademicChapter[] = rawChapters.map((ch, i) => {
+    const num = numberOr(ch.number ?? ch.chapterNumber, i + 1)
+    const title = stringOrNull(ch.title ?? ch.chapterTitle)
+    const outcomes = Array.isArray(ch.outcomes) ? (ch.outcomes as unknown[]).map(String) : []
+    const keyTerms = Array.isArray(ch.keyTerms) ? (ch.keyTerms as unknown[]).map(String) : []
+    keyTerms.forEach(t => allKeyTerms.add(t))
+    const prerequisites = Array.isArray(ch.prerequisites)
+      ? (ch.prerequisites as unknown[]).map(n => numberOr(n, 0)).filter(n => n > 0)
+      : []
+    prereqMap[num] = prerequisites
+    const sections = Array.isArray(ch.sections)
+      ? (ch.sections as Array<Record<string, unknown>>).map(s => ({
+          title: stringOr(s.title, ''),
+          type: stringOr(s.type, 'body'),
+        }))
+      : []
+    const wordTarget = numberOrNull(ch.wordTarget ?? ch.wordCountEstimate)
+
+    // Textbook: workedExamples + exercises
+    const rawWE = Array.isArray(ch.workedExamples) ? ch.workedExamples as Array<Record<string, unknown>> : []
+    const workedExamples: AcademicWorkedExample[] = rawWE.map(we => {
+      const item: AcademicWorkedExample = {
+        id: stringOr(we.id, `we-${num}.${rawWE.indexOf(we) + 1}`),
+        title: stringOrNull(we.title),
+        difficulty: stringOrNull(we.difficulty),
+        chapterNumber: num,
+      }
+      allWorkedExamples.push(item)
+      return item
+    })
+
+    const rawEx = Array.isArray(ch.exercises) ? ch.exercises as Array<Record<string, unknown>> : []
+    const exercises: AcademicExercise[] = rawEx.map(ex => {
+      const item: AcademicExercise = {
+        id: stringOr(ex.id, `ex-${num}.${rawEx.indexOf(ex) + 1}`),
+        title: stringOrNull(ex.title),
+        difficulty: stringOrNull(ex.difficulty),
+        chapterNumber: num,
+      }
+      allExercises.push(item)
+      return item
+    })
+
+    // Revision guide: recallQuestions + examPractice
+    const recallQuestions = numberOrNull(ch.recallQuestions)
+    const rawEP = Array.isArray(ch.examPractice) ? ch.examPractice as Array<Record<string, unknown>> : []
+    const examPractice = rawEP.map(ep => ({
+      type: stringOr(ep.type, 'short-answer'),
+      count: numberOr(ep.count, 0),
+    }))
+
+    return {
+      number: num,
+      title,
+      outcomes,
+      keyTerms,
+      prerequisites,
+      sections,
+      wordTarget,
+      workedExamples,
+      exercises,
+      recallQuestions,
+      examPractice,
+    }
+  })
+
+  return {
+    bookType,
+    level: stringOrNull(acLevel.level ?? acLevel.academicLevel),
+    specReference: stringOrNull(acSpec.specReference ?? acSpec.specificationReference ?? acSpec.syllabus),
+    assessmentShape: stringOrNull(acAssess.assessmentShape ?? acAssess.assessment),
+    learningOutcomes,
+    keyTerms: [...allKeyTerms].sort(),
+    workedExamples: allWorkedExamples,
+    exercises: allExercises,
+    prerequisites: prereqMap,
+    chapters,
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ function getWritingPlan(state) {
         claims: [],
         storyBible: null,
         arcMatrix: null,
+        academic: null,
     };
     if (mode === 'fiction') {
         return populateFiction(base, state);
@@ -404,6 +405,9 @@ function populateNonfiction(plan, state) {
     plan.nfPromise = readNfPromise(state);
     plan.claims = readClaims(state, plan.nfChapters);
     plan.figures = readFigures(state);
+    if (state.pipeline === 'academic') {
+        plan.academic = readAcademic(state);
+    }
     return plan;
 }
 function readNfPromise(state) {
@@ -436,6 +440,8 @@ function readNfChapters(state) {
         stageKey = 'pb-chapters';
     else if (pipeline === 'C')
         stageKey = 'pc-lessons';
+    else if (pipeline === 'academic')
+        stageKey = 'ac-chapters';
     if (!stageKey)
         return [];
     const stageData = state.nfStages?.[stageKey] ??
@@ -491,6 +497,8 @@ function readFigures(state) {
         stageKey = 'pb-chapters';
     else if (pipeline === 'C')
         stageKey = 'pc-lessons';
+    else if (pipeline === 'academic')
+        stageKey = 'ac-chapters';
     if (!stageKey)
         return [];
     const nf = (state.nfStages ?? {});
@@ -613,6 +621,113 @@ function deriveClaimRisk(confidence, verificationState) {
     if (confidence === 'anecdotal' || confidence === 'unknown')
         return 'high';
     return 'medium';
+}
+// ── NF-14.5 academic extraction ───────────────────────────────────────────────
+function stageData(state, key) {
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    return (nf[key] ?? top[key] ?? {});
+}
+function readAcademic(state) {
+    const bookType = state.bookType;
+    if (bookType !== 'textbook' && bookType !== 'revision-guide')
+        return null;
+    const syllabus = stageData(state, 'ac-syllabus');
+    const chaptersStage = stageData(state, 'ac-chapters');
+    const acLevel = stageData(state, 'dna-ac-level');
+    const acSpec = stageData(state, 'dna-ac-spec');
+    const acAssess = stageData(state, 'dna-ac-assessment');
+    const rawOutcomes = Array.isArray(syllabus.outcomes)
+        ? syllabus.outcomes
+        : [];
+    const learningOutcomes = rawOutcomes.map(o => ({
+        code: stringOr(o.code, ''),
+        text: stringOr(o.text, ''),
+        bloom: stringOrNull(o.bloom),
+        module: stringOrNull(o.module),
+        recallType: stringOrNull(o.recallType),
+        examTrap: stringOrNull(o.examTrap),
+    }));
+    const rawChapters = Array.isArray(chaptersStage.chapters)
+        ? chaptersStage.chapters
+        : [];
+    const allWorkedExamples = [];
+    const allExercises = [];
+    const allKeyTerms = new Set();
+    const prereqMap = {};
+    const chapters = rawChapters.map((ch, i) => {
+        const num = numberOr(ch.number ?? ch.chapterNumber, i + 1);
+        const title = stringOrNull(ch.title ?? ch.chapterTitle);
+        const outcomes = Array.isArray(ch.outcomes) ? ch.outcomes.map(String) : [];
+        const keyTerms = Array.isArray(ch.keyTerms) ? ch.keyTerms.map(String) : [];
+        keyTerms.forEach(t => allKeyTerms.add(t));
+        const prerequisites = Array.isArray(ch.prerequisites)
+            ? ch.prerequisites.map(n => numberOr(n, 0)).filter(n => n > 0)
+            : [];
+        prereqMap[num] = prerequisites;
+        const sections = Array.isArray(ch.sections)
+            ? ch.sections.map(s => ({
+                title: stringOr(s.title, ''),
+                type: stringOr(s.type, 'body'),
+            }))
+            : [];
+        const wordTarget = numberOrNull(ch.wordTarget ?? ch.wordCountEstimate);
+        // Textbook: workedExamples + exercises
+        const rawWE = Array.isArray(ch.workedExamples) ? ch.workedExamples : [];
+        const workedExamples = rawWE.map(we => {
+            const item = {
+                id: stringOr(we.id, `we-${num}.${rawWE.indexOf(we) + 1}`),
+                title: stringOrNull(we.title),
+                difficulty: stringOrNull(we.difficulty),
+                chapterNumber: num,
+            };
+            allWorkedExamples.push(item);
+            return item;
+        });
+        const rawEx = Array.isArray(ch.exercises) ? ch.exercises : [];
+        const exercises = rawEx.map(ex => {
+            const item = {
+                id: stringOr(ex.id, `ex-${num}.${rawEx.indexOf(ex) + 1}`),
+                title: stringOrNull(ex.title),
+                difficulty: stringOrNull(ex.difficulty),
+                chapterNumber: num,
+            };
+            allExercises.push(item);
+            return item;
+        });
+        // Revision guide: recallQuestions + examPractice
+        const recallQuestions = numberOrNull(ch.recallQuestions);
+        const rawEP = Array.isArray(ch.examPractice) ? ch.examPractice : [];
+        const examPractice = rawEP.map(ep => ({
+            type: stringOr(ep.type, 'short-answer'),
+            count: numberOr(ep.count, 0),
+        }));
+        return {
+            number: num,
+            title,
+            outcomes,
+            keyTerms,
+            prerequisites,
+            sections,
+            wordTarget,
+            workedExamples,
+            exercises,
+            recallQuestions,
+            examPractice,
+        };
+    });
+    return {
+        bookType,
+        level: stringOrNull(acLevel.level ?? acLevel.academicLevel),
+        specReference: stringOrNull(acSpec.specReference ?? acSpec.specificationReference ?? acSpec.syllabus),
+        assessmentShape: stringOrNull(acAssess.assessmentShape ?? acAssess.assessment),
+        learningOutcomes,
+        keyTerms: [...allKeyTerms].sort(),
+        workedExamples: allWorkedExamples,
+        exercises: allExercises,
+        prerequisites: prereqMap,
+        chapters,
+    };
 }
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function extractTitle(state) {

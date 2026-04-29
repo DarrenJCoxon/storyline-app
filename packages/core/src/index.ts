@@ -35,6 +35,8 @@ export type {
   CharacterArcRow, FictionArcMatrix,
   NfChapter, NfChapterSection,
   ResearchTodoItem, FigurePlanItem,
+  AcademicPlan, AcademicChapter, AcademicLearningOutcome,
+  AcademicWorkedExample, AcademicExercise,
 } from './state/writing-plan.js'
 export type { StageGuide, StageQuestion, BeatEntry } from './ai/stage-guides.js'
 export { STAGE_GUIDES, GENRE_VARIANTS, getStageGuide, buildSystemPrompt } from './ai/stage-guides.js'

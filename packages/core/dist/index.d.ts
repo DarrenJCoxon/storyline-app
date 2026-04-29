@@ -10,7 +10,7 @@ export { DEFAULT_STATE, STAGE_ORDER, STAGE_BY_ID, NF_STAGE_ORDER, NF_STAGE_BY_ID
 export { deriveCurrentStage, calculateProgress, checkStageGate, getMissingRequirements, getDownstreamImpacts, isStageComplete, } from './state/transitions.js';
 export type { GateResult } from './state/transitions.js';
 export { getWritingPlan } from './state/writing-plan.js';
-export type { WritingPlan, FictionScene, FictionChapter, FictionBeat, FictionCharacter, FictionRelationship, FictionPlotThread, FictionSubplot, FictionBStory, FictionLocation, FictionRecurringObject, FictionContinuityFact, FictionStoryBible, CharacterArcRow, FictionArcMatrix, NfChapter, NfChapterSection, ResearchTodoItem, FigurePlanItem, } from './state/writing-plan.js';
+export type { WritingPlan, FictionScene, FictionChapter, FictionBeat, FictionCharacter, FictionRelationship, FictionPlotThread, FictionSubplot, FictionBStory, FictionLocation, FictionRecurringObject, FictionContinuityFact, FictionStoryBible, CharacterArcRow, FictionArcMatrix, NfChapter, NfChapterSection, ResearchTodoItem, FigurePlanItem, AcademicPlan, AcademicChapter, AcademicLearningOutcome, AcademicWorkedExample, AcademicExercise, } from './state/writing-plan.js';
 export type { StageGuide, StageQuestion, BeatEntry } from './ai/stage-guides.js';
 export { STAGE_GUIDES, GENRE_VARIANTS, getStageGuide, buildSystemPrompt } from './ai/stage-guides.js';
 export type { NfDnaGuide } from './ai/stage-guides-nf-dna.js';

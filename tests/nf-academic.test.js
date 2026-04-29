@@ -522,15 +522,191 @@ describe('getAcademicGuide — ac-chapters', () => {
   })
 })
 
-// ── Stub tests for NF-14.5–14.9 (not yet implemented) ────────────────────────
+// ── NF-14.5 — WritingPlan academic extension ─────────────────────────────────
 
-describe.skip('NF-14.5 — WritingPlan academic extension (PENDING)', () => {
-  it('getWritingPlan(academicState).academic is populated', () => {})
-  it('academic.learningOutcomes[] populated from ac-syllabus outcomes', () => {})
-  it('academic.workedExamples[] populated from ac-chapters', () => {})
-  it('academic.exercises[] populated from ac-chapters', () => {})
-  it('academic.prerequisites map populated from ac-chapters prerequisite chains', () => {})
-  it('non-academic plan returns academic: null', () => {})
+import { getWritingPlan } from '../packages/core/dist/index.js'
+
+const TEXTBOOK_STATE = {
+  _meta: { projectPath: null, createdAt: null, updatedAt: null },
+  mode: 'nonfiction',
+  pipeline: 'academic',
+  subMode: null,
+  bookType: 'textbook',
+  bookDna: {},
+  stages: {},
+  nfStages: {
+    'dna-ac-level': { level: 'GCSE', academicLevel: 'GCSE' },
+    'dna-ac-spec': { specReference: 'AQA Physics 8463' },
+    'dna-ac-assessment': { assessmentShape: 'multi-step calculation and short-answer' },
+    'ac-syllabus': {
+      outcomes: [
+        { code: 'P4.1', text: 'Describe forces', bloom: 'understand', module: 'Forces' },
+        { code: 'P4.2', text: 'Calculate resultant force', bloom: 'apply', module: 'Forces' },
+        { code: 'P5.1', text: 'Explain wave properties', bloom: 'understand', module: 'Waves' },
+      ],
+      syllabusSource: 'gcse-physics.md',
+      totalOutcomeCount: 3,
+    },
+    'ac-chapters': {
+      chapters: [
+        {
+          number: 1,
+          title: 'Forces and Motion',
+          outcomes: ['P4.1', 'P4.2'],
+          keyTerms: ['resultant force', 'Newton'],
+          prerequisites: [],
+          sections: [
+            { title: 'Concept', type: 'concept' },
+            { title: 'Worked example', type: 'worked-example' },
+          ],
+          wordTarget: 2000,
+          workedExamples: [
+            { id: 'we-1.1', title: 'Resultant force calculation', difficulty: 'foundation' },
+            { id: 'we-1.2', title: 'Free body diagram', difficulty: 'higher' },
+          ],
+          exercises: [
+            { id: 'ex-1.1', title: 'Basic forces', difficulty: 'foundation' },
+          ],
+        },
+        {
+          number: 2,
+          title: 'Wave Properties',
+          outcomes: ['P5.1'],
+          keyTerms: ['wavelength', 'frequency', 'amplitude'],
+          prerequisites: [1],
+          sections: [{ title: 'Concept', type: 'concept' }],
+          wordTarget: 1800,
+          workedExamples: [
+            { id: 'we-2.1', title: 'Wave speed calculation', difficulty: 'higher' },
+          ],
+          exercises: [],
+        },
+      ],
+    },
+  },
+}
+
+const REVISION_STATE = {
+  _meta: { projectPath: null, createdAt: null, updatedAt: null },
+  mode: 'nonfiction',
+  pipeline: 'academic',
+  subMode: null,
+  bookType: 'revision-guide',
+  bookDna: {},
+  stages: {},
+  nfStages: {
+    'dna-ac-level': { level: 'A-level' },
+    'dna-ac-spec': { specReference: 'OCR History A' },
+    'dna-ac-assessment': { assessmentShape: 'extended essay and source analysis' },
+    'ac-syllabus': {
+      outcomes: [
+        { code: 'H1.1', text: 'Recall causes of WWI', recallType: 'fact', examTrap: 'Confusing immediate with long-term causes' },
+        { code: 'H1.2', text: 'Explain the role of alliances', recallType: 'explanation' },
+      ],
+    },
+    'ac-chapters': {
+      chapters: [
+        {
+          number: 1,
+          title: 'Causes of WWI',
+          outcomes: ['H1.1', 'H1.2'],
+          keyTerms: ['entente', 'triple alliance', 'imperialism'],
+          prerequisites: [],
+          sections: [{ title: 'Topic summary', type: 'topic-summary' }],
+          wordTarget: 600,
+          recallQuestions: 5,
+          examPractice: [
+            { type: 'short-answer', count: 3 },
+            { type: 'extended', count: 1 },
+          ],
+        },
+      ],
+    },
+  },
+}
+
+describe('NF-14.5 — WritingPlan academic extension', () => {
+  it('getWritingPlan(academicState).academic is populated for textbook', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic).not.toBeNull()
+    expect(plan.academic.bookType).toBe('textbook')
+  })
+
+  it('academic.learningOutcomes[] populated from ac-syllabus outcomes', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic.learningOutcomes).toHaveLength(3)
+    expect(plan.academic.learningOutcomes[0].code).toBe('P4.1')
+    expect(plan.academic.learningOutcomes[0].bloom).toBe('understand')
+    expect(plan.academic.learningOutcomes[1].code).toBe('P4.2')
+  })
+
+  it('academic.workedExamples[] populated from ac-chapters (textbook)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic.workedExamples).toHaveLength(3)
+    const ids = plan.academic.workedExamples.map(w => w.id)
+    expect(ids).toContain('we-1.1')
+    expect(ids).toContain('we-1.2')
+    expect(ids).toContain('we-2.1')
+    expect(plan.academic.workedExamples[0].chapterNumber).toBe(1)
+  })
+
+  it('academic.exercises[] populated from ac-chapters (textbook)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic.exercises).toHaveLength(1)
+    expect(plan.academic.exercises[0].id).toBe('ex-1.1')
+    expect(plan.academic.exercises[0].chapterNumber).toBe(1)
+  })
+
+  it('academic.prerequisites map populated from ac-chapters prerequisite chains', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic.prerequisites[1]).toEqual([])
+    expect(plan.academic.prerequisites[2]).toEqual([1])
+  })
+
+  it('academic.keyTerms aggregated across all chapters (deduplicated, sorted)', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic.keyTerms).toContain('resultant force')
+    expect(plan.academic.keyTerms).toContain('wavelength')
+    // sorted alphabetically
+    const sorted = [...plan.academic.keyTerms].sort()
+    expect(plan.academic.keyTerms).toEqual(sorted)
+  })
+
+  it('academic.level, specReference, assessmentShape populated from DNA stages', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.academic.level).toBe('GCSE')
+    expect(plan.academic.specReference).toBe('AQA Physics 8463')
+    expect(plan.academic.assessmentShape).toBe('multi-step calculation and short-answer')
+  })
+
+  it('revision guide academic plan captures recallType and examTrap from outcomes', () => {
+    const plan = getWritingPlan(REVISION_STATE)
+    expect(plan.academic.bookType).toBe('revision-guide')
+    expect(plan.academic.learningOutcomes[0].recallType).toBe('fact')
+    expect(plan.academic.learningOutcomes[0].examTrap).toContain('immediate')
+  })
+
+  it('revision guide chapters carry recallQuestions and examPractice', () => {
+    const plan = getWritingPlan(REVISION_STATE)
+    const ch = plan.academic.chapters[0]
+    expect(ch.recallQuestions).toBe(5)
+    expect(ch.examPractice).toHaveLength(2)
+    expect(ch.examPractice[0].type).toBe('short-answer')
+    expect(ch.examPractice[0].count).toBe(3)
+  })
+
+  it('nfChapters populated from ac-chapters for academic pipeline', () => {
+    const plan = getWritingPlan(TEXTBOOK_STATE)
+    expect(plan.nfChapters).toHaveLength(2)
+    expect(plan.nfChapters[0].title).toBe('Forces and Motion')
+    expect(plan.nfChapters[0].number).toBe(1)
+  })
+
+  it('non-academic plan returns academic: null', () => {
+    const nonAcademic = { ...TEXTBOOK_STATE, pipeline: 'A', bookType: null }
+    const plan = getWritingPlan(nonAcademic)
+    expect(plan.academic).toBeNull()
+  })
 })
 
 describe.skip('NF-14.6 — Academic manuscript seeding (PENDING)', () => {

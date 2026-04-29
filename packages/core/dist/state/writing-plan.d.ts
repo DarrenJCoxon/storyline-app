@@ -223,6 +223,61 @@ export interface PromisePayoffItem {
     risk: PromiseRisk;
     notes: string | null;
 }
+/** A single learning outcome from the ac-syllabus stage. Textbooks use full
+ *  Bloom's-level taxonomy; revision guides use recall-type classification. */
+export interface AcademicLearningOutcome {
+    code: string;
+    text: string;
+    bloom?: string | null;
+    module?: string | null;
+    recallType?: string | null;
+    examTrap?: string | null;
+}
+export interface AcademicWorkedExample {
+    id: string;
+    title: string | null;
+    difficulty: string | null;
+    chapterNumber: number;
+}
+export interface AcademicExercise {
+    id: string;
+    title: string | null;
+    difficulty: string | null;
+    chapterNumber: number;
+}
+/** A single chapter / topic in an academic plan — branches on bookType. */
+export interface AcademicChapter {
+    number: number;
+    title: string | null;
+    outcomes: string[];
+    keyTerms: string[];
+    prerequisites: number[];
+    sections: Array<{
+        title: string;
+        type: string;
+    }>;
+    wordTarget: number | null;
+    workedExamples: AcademicWorkedExample[];
+    exercises: AcademicExercise[];
+    recallQuestions: number | null;
+    examPractice: Array<{
+        type: string;
+        count: number;
+    }>;
+}
+/** Top-level academic plan — populated when pipeline === 'academic'. */
+export interface AcademicPlan {
+    bookType: 'textbook' | 'revision-guide';
+    level: string | null;
+    specReference: string | null;
+    assessmentShape: string | null;
+    learningOutcomes: AcademicLearningOutcome[];
+    keyTerms: string[];
+    workedExamples: AcademicWorkedExample[];
+    exercises: AcademicExercise[];
+    prerequisites: Record<number, number[]>;
+    chapters: AcademicChapter[];
+}
 /** A non-fiction chapter — a section-bearing structural unit, not a scene-bearing one.
  *  Pipeline-specific fields (`linkedPrinciple` for A, `chapterQuestion` for B,
  *  `learningObjective` for C) appear together; consumers branch on what's set. */
@@ -286,6 +341,7 @@ export interface WritingPlan {
     claims: ClaimEvidenceItem[];
     storyBible: FictionStoryBible | null;
     arcMatrix: FictionArcMatrix | null;
+    academic: AcademicPlan | null;
 }
 /** Single entry point. Branches on `state.mode` once; downstream code is
  *  mode-aware via the populated arrays, not by branching on raw state. */
