@@ -20,6 +20,7 @@ export function scaffoldProject(
     path.join(workspaceRoot, 'output'),
     path.join(workspaceRoot, 'docs'),
     path.join(workspaceRoot, 'manuscript'),
+    path.join(workspaceRoot, 'research'),
   ]
   for (const dir of dirs) fs.mkdirSync(dir, { recursive: true })
 
@@ -47,6 +48,9 @@ export function scaffoldProject(
 
   // 4. Welcome doc
   writeIfMissing(path.join(workspaceRoot, 'docs', 'welcome.md'), WELCOME_DOC)
+
+  // 4b. Research folder README — explains the drop-folder convention to the writer
+  writeIfMissing(path.join(workspaceRoot, 'research', 'README.md'), RESEARCH_README)
 
   // 5. compile.config.json
   ensureCompileConfig(workspaceRoot)
@@ -123,3 +127,33 @@ Click the **Storyline** item in the bottom-left status bar to open the planning 
 
 Happy writing.
 `
+
+const RESEARCH_README = `# Research
+
+Drop reference material here and the planning AI will read it as part of every conversation. Works for fiction and non-fiction:
+
+- **Non-fiction:** exam syllabuses, mark schemes, study guides, model essays, source extracts, primary documents
+- **Fiction:** worldbuilding sources, real-world inspiration, style references, period research
+
+## Supported files
+
+\`.md\`, \`.markdown\`, \`.txt\` — anything plain-text. Files are read alphabetically.
+
+PDFs, DOCX, and other binary formats aren't ingested directly yet. For those, paste the relevant extract into a new \`.md\` file in this folder.
+
+## How it's used
+
+Every file you put here is injected into the AI's system prompt at every planning stage. The AI is instructed to treat it as authoritative source material — to quote and cite from it where relevant, and not to contradict its facts.
+
+## Limits
+
+There's a ~60 KB total budget across all research files (roughly 15,000 tokens) to leave room in the AI's context for the rest of the conversation. Larger files are truncated; if you exceed the budget, files later in alphabetical order are skipped (and the AI is told which ones).
+
+If you want to keep multiple long source documents but only some active at a time, prefix the inactive ones with an underscore (\`_\`) — files starting with \`_\` stay in the folder but aren't loaded into the AI's context.
+
+## What's the difference from \`docs/\` ?
+
+- \`docs/\` is **your** scratchpad — notes you read, the AI doesn't.
+- \`research/\` is **the AI's** reading list — the AI sees it, you maintain it.
+`
+

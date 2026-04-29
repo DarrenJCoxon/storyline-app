@@ -116,6 +116,11 @@ function collectTriggerDocs(stageId: string, state: ProjectState): string {
     const syllabusCtx = collectSyllabusContext(state._meta?.projectPath ?? null)
     if (syllabusCtx) docs.push(syllabusCtx)
   }
+  // Always-on: writer-supplied reference material in research/. Works for
+  // both fiction (worldbuilding sources, real-world inspiration) and
+  // non-fiction (source documents, study guides, mark schemes, etc.).
+  const researchCtx = collectResearchContext(state._meta?.projectPath ?? null)
+  if (researchCtx) docs.push(researchCtx)
   return docs.join('\n\n---\n\n')
 }
 
@@ -139,6 +144,63 @@ function collectSyllabusContext(projectPath: string | null): string {
   })
   if (parts.length === 0) return ''
   return `## Syllabus documents (from syllabi/ folder)\n\n*The writer has placed the following syllabus summaries in their project. Use these to populate the outcome inventory — extract outcome codes and text verbatim where present.*\n\n${parts.join('\n\n---\n\n')}`
+}
+
+// Read writer-supplied reference material from <project>/research/.
+// Active for every stage in both fiction and NF mode — anything the
+// writer drops here (syllabuses, mark schemes, study guides, source
+// extracts, worldbuilding notes, real-world inspiration, etc.) becomes
+// part of the AI's context. Capped at RESEARCH_BUDGET_BYTES total so a
+// large file can't blow the context window; per-file truncation keeps
+// every dropped file at least partially represented.
+const RESEARCH_BUDGET_BYTES = 60_000   // ~15k tokens — leaves room for the rest of the prompt
+const RESEARCH_PER_FILE_BYTES = 20_000 // hard cap per file before the budget logic kicks in
+
+function collectResearchContext(projectPath: string | null): string {
+  if (!projectPath) return ''
+  const dir = path.join(projectPath, 'research')
+  if (!fs.existsSync(dir)) return ''
+  let files: string[]
+  try {
+    files = fs.readdirSync(dir)
+      .filter(f =>
+        /\.(md|markdown|txt)$/i.test(f) &&
+        f.toLowerCase() !== 'readme.md' &&
+        !f.startsWith('_'),    // underscore-prefix = inactive; sits in the folder but isn't loaded
+      )
+      .sort()
+  } catch { return '' }
+  if (files.length === 0) return ''
+
+  let remaining = RESEARCH_BUDGET_BYTES
+  const parts: string[] = []
+  const skipped: string[] = []
+
+  for (const f of files) {
+    if (remaining <= 0) { skipped.push(f); continue }
+    let content: string
+    try {
+      content = fs.readFileSync(path.join(dir, f), 'utf-8').trim()
+    } catch { continue }
+    if (!content) continue
+    const allow = Math.min(content.length, RESEARCH_PER_FILE_BYTES, remaining)
+    const slice = content.slice(0, allow)
+    const truncated = slice.length < content.length
+    parts.push(`### ${f}${truncated ? '  *(truncated)*' : ''}\n\n${slice}`)
+    remaining -= slice.length
+  }
+
+  if (parts.length === 0) return ''
+
+  const skippedNote = skipped.length > 0
+    ? `\n\n*(${skipped.length} additional file${skipped.length === 1 ? '' : 's'} not loaded due to context budget: ${skipped.join(', ')})*`
+    : ''
+
+  return `## Research materials (from research/ folder)
+
+*The writer has placed the following reference material in their project's \`research/\` folder. Treat these as authoritative source documents — quote and cite from them when relevant, and don't contradict facts they assert.*
+
+${parts.join('\n\n---\n\n')}${skippedNote}`
 }
 
 function readSideDoc(rel: string): string | null {
