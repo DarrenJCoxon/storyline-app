@@ -1,10 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addItem = exports.ITEM_SUBTYPES = exports.VERIFICATION_STATES = exports.RELIABILITY_TIERS = exports.SCHEMA_VERSION = exports.hasBlockingErrors = exports.formatCritique = exports.buildPipelineCCritiqueSummary = exports.buildPipelineBCritiqueSummary = exports.buildPipelineACritiqueSummary = exports.buildCritiqueSummary = exports.critiquePipelineCStage = exports.critiquePipelineBStage = exports.critiquePipelineAStage = exports.critiqueBookDnaStage = exports.getPipelineCGuide = exports.PIPELINE_C_GUIDE_ORDER = exports.PIPELINE_C_GUIDES = exports.getPipelineBGuide = exports.PIPELINE_B_GUIDE_ORDER = exports.PIPELINE_B_GUIDES = exports.getPipelineAGuide = exports.PIPELINE_A_GUIDE_ORDER = exports.PIPELINE_A_GUIDES = exports.inferPipelineFromCategory = exports.getNfDnaGuide = exports.CATEGORY_PIPELINE_MAP = exports.NF_DNA_GUIDE_ORDER = exports.NF_DNA_GUIDES = exports.buildSystemPrompt = exports.getStageGuide = exports.GENRE_VARIANTS = exports.STAGE_GUIDES = exports.getWritingPlan = exports.isStageComplete = exports.getDownstreamImpacts = exports.getMissingRequirements = exports.checkStageGate = exports.calculateProgress = exports.deriveCurrentStage = exports.stageOrderFor = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
-exports.generateResearchTodo = exports.generateNfMasterDocument = exports.generateCharacterArcMatrix = exports.generateStoryBible = exports.generatePromisePayoffLedger = exports.findFictionPromiseGaps = exports.checkNfPromisePayoff = exports.MANUSCRIPT_SEED_MARKER = exports.nfChapterManuscriptPath = exports.seedNfChapterContent = exports.chapterManuscriptPath = exports.seedChapterContent = exports.seedManuscriptFromPlan = exports.generateMasterDocument = exports.writeStageDoc = exports.detectSeriesPotential = exports.formatPersonaIntro = exports.runQualityChecklist = exports.getPersonaForStage = exports.PERSONAS = exports.runStoryTraps = exports.appendMemoryLog = exports.generateFactCheckReport = exports.generateAllEndnotes = exports.generateEndnotesForChapter = exports.generateBibliography = exports.formatMLA = exports.formatAPA = exports.formatChicago = exports.syncResearchToMemory = exports.rebuildIndex = exports.formatGapsReport = exports.analyzeGaps = exports.searchItems = exports.buildRetrievalPayload = exports.buildLinkSummary = exports.addLink = exports.listItems = exports.removeItem = exports.editItem = exports.getItem = void 0;
+exports.buildPipelineBCritiqueSummary = exports.buildPipelineACritiqueSummary = exports.buildCritiqueSummary = exports.critiquePipelineCStage = exports.critiquePipelineBStage = exports.critiquePipelineAStage = exports.critiqueBookDnaStage = exports.getAcademicGuide = exports.ACADEMIC_GUIDE_ORDER = exports.ACADEMIC_GUIDES = exports.getPipelineCGuide = exports.PIPELINE_C_GUIDE_ORDER = exports.PIPELINE_C_GUIDES = exports.getPipelineBGuide = exports.PIPELINE_B_GUIDE_ORDER = exports.PIPELINE_B_GUIDES = exports.getPipelineAGuide = exports.PIPELINE_A_GUIDE_ORDER = exports.PIPELINE_A_GUIDES = exports.inferPipelineFromCategory = exports.getNfDnaGuide = exports.CATEGORY_PIPELINE_MAP = exports.NF_DNA_GUIDE_ORDER = exports.NF_DNA_GUIDES = exports.buildSystemPrompt = exports.getStageGuide = exports.GENRE_VARIANTS = exports.STAGE_GUIDES = exports.getWritingPlan = exports.isStageComplete = exports.getDownstreamImpacts = exports.getMissingRequirements = exports.checkStageGate = exports.calculateProgress = exports.deriveCurrentStage = exports.stageOrderFor = exports.NF_ACADEMIC_STAGE_ORDER = exports.NF_ACADEMIC_DNA_STAGE_ORDER = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = exports.synthesizeImagePrompt = exports.generateFigureRegistry = exports.generateClaimEvidenceLedger = void 0;
+exports.generateNfMasterDocument = exports.generateCharacterArcMatrix = exports.generateStoryBible = exports.generatePromisePayoffLedger = exports.findFictionPromiseGaps = exports.checkNfPromisePayoff = exports.readSyllabiFiles = exports.seedSyllabiFolder = exports.MANUSCRIPT_SEED_MARKER = exports.nfChapterManuscriptPath = exports.seedNfChapterContent = exports.chapterManuscriptPath = exports.seedChapterContent = exports.seedManuscriptFromPlan = exports.generateMasterDocument = exports.writeStageDoc = exports.detectSeriesPotential = exports.formatPersonaIntro = exports.runQualityChecklist = exports.getPersonaForStage = exports.PERSONAS = exports.runStoryTraps = exports.appendMemoryLog = exports.generateFactCheckReport = exports.generateAllEndnotes = exports.generateEndnotesForChapter = exports.generateBibliography = exports.formatMLA = exports.formatAPA = exports.formatChicago = exports.syncResearchToMemory = exports.rebuildIndex = exports.formatGapsReport = exports.analyzeGaps = exports.searchItems = exports.buildRetrievalPayload = exports.buildLinkSummary = exports.addLink = exports.listItems = exports.removeItem = exports.editItem = exports.getItem = exports.addItem = exports.ITEM_SUBTYPES = exports.VERIFICATION_STATES = exports.RELIABILITY_TIERS = exports.SCHEMA_VERSION = exports.hasBlockingErrors = exports.formatCritique = exports.buildPipelineCCritiqueSummary = void 0;
+exports.generateResearchTodo = void 0;
 exports.getNfStageGuide = getNfStageGuide;
 exports.getRequiredFieldsForStage = getRequiredFieldsForStage;
 exports.gateStageSave = gateStageSave;
+var claim_evidence_ledger_js_1 = require("./output/claim-evidence-ledger.js");
+Object.defineProperty(exports, "generateClaimEvidenceLedger", { enumerable: true, get: function () { return claim_evidence_ledger_js_1.generateClaimEvidenceLedger; } });
+var figure_registry_js_1 = require("./output/figure-registry.js");
+Object.defineProperty(exports, "generateFigureRegistry", { enumerable: true, get: function () { return figure_registry_js_1.generateFigureRegistry; } });
+var figure_prompt_synthesizer_js_1 = require("./output/figure-prompt-synthesizer.js");
+Object.defineProperty(exports, "synthesizeImagePrompt", { enumerable: true, get: function () { return figure_prompt_synthesizer_js_1.synthesizeImagePrompt; } });
 var project_state_js_1 = require("./state/project-state.js");
 Object.defineProperty(exports, "DEFAULT_STATE", { enumerable: true, get: function () { return project_state_js_1.DEFAULT_STATE; } });
 Object.defineProperty(exports, "STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.STAGE_ORDER; } });
@@ -15,6 +22,8 @@ Object.defineProperty(exports, "NF_DNA_STAGE_ORDER", { enumerable: true, get: fu
 Object.defineProperty(exports, "NF_PIPELINE_A_STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.NF_PIPELINE_A_STAGE_ORDER; } });
 Object.defineProperty(exports, "NF_PIPELINE_B_STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.NF_PIPELINE_B_STAGE_ORDER; } });
 Object.defineProperty(exports, "NF_PIPELINE_C_STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.NF_PIPELINE_C_STAGE_ORDER; } });
+Object.defineProperty(exports, "NF_ACADEMIC_DNA_STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.NF_ACADEMIC_DNA_STAGE_ORDER; } });
+Object.defineProperty(exports, "NF_ACADEMIC_STAGE_ORDER", { enumerable: true, get: function () { return project_state_js_1.NF_ACADEMIC_STAGE_ORDER; } });
 Object.defineProperty(exports, "stageOrderFor", { enumerable: true, get: function () { return project_state_js_1.stageOrderFor; } });
 var transitions_js_1 = require("./state/transitions.js");
 Object.defineProperty(exports, "deriveCurrentStage", { enumerable: true, get: function () { return transitions_js_1.deriveCurrentStage; } });
@@ -48,15 +57,20 @@ var stage_guides_nf_pipeline_c_js_1 = require("./ai/stage-guides-nf-pipeline-c.j
 Object.defineProperty(exports, "PIPELINE_C_GUIDES", { enumerable: true, get: function () { return stage_guides_nf_pipeline_c_js_1.PIPELINE_C_GUIDES; } });
 Object.defineProperty(exports, "PIPELINE_C_GUIDE_ORDER", { enumerable: true, get: function () { return stage_guides_nf_pipeline_c_js_1.PIPELINE_C_GUIDE_ORDER; } });
 Object.defineProperty(exports, "getPipelineCGuide", { enumerable: true, get: function () { return stage_guides_nf_pipeline_c_js_1.getPipelineCGuide; } });
+var stage_guides_nf_academic_js_1 = require("./ai/stage-guides-nf-academic.js");
+Object.defineProperty(exports, "ACADEMIC_GUIDES", { enumerable: true, get: function () { return stage_guides_nf_academic_js_1.ACADEMIC_GUIDES; } });
+Object.defineProperty(exports, "ACADEMIC_GUIDE_ORDER", { enumerable: true, get: function () { return stage_guides_nf_academic_js_1.ACADEMIC_GUIDE_ORDER; } });
+Object.defineProperty(exports, "getAcademicGuide", { enumerable: true, get: function () { return stage_guides_nf_academic_js_1.getAcademicGuide; } });
 const stage_guides_nf_dna_js_2 = require("./ai/stage-guides-nf-dna.js");
 const stage_guides_nf_pipeline_a_js_2 = require("./ai/stage-guides-nf-pipeline-a.js");
 const stage_guides_nf_pipeline_b_js_2 = require("./ai/stage-guides-nf-pipeline-b.js");
 const stage_guides_nf_pipeline_c_js_2 = require("./ai/stage-guides-nf-pipeline-c.js");
+const stage_guides_nf_academic_js_2 = require("./ai/stage-guides-nf-academic.js");
 const stage_guides_js_2 = require("./ai/stage-guides.js");
 const transitions_js_2 = require("./state/transitions.js");
-/** Look up an NF stage guide by id across DNA + all 3 pipelines. */
+/** Look up an NF stage guide by id across DNA + all 3 pipelines (including academic). */
 function getNfStageGuide(stageId) {
-    return (0, stage_guides_nf_dna_js_2.getNfDnaGuide)(stageId) ?? (0, stage_guides_nf_pipeline_a_js_2.getPipelineAGuide)(stageId) ?? (0, stage_guides_nf_pipeline_b_js_2.getPipelineBGuide)(stageId) ?? (0, stage_guides_nf_pipeline_c_js_2.getPipelineCGuide)(stageId) ?? null;
+    return (0, stage_guides_nf_dna_js_2.getNfDnaGuide)(stageId) ?? (0, stage_guides_nf_pipeline_a_js_2.getPipelineAGuide)(stageId) ?? (0, stage_guides_nf_pipeline_b_js_2.getPipelineBGuide)(stageId) ?? (0, stage_guides_nf_pipeline_c_js_2.getPipelineCGuide)(stageId) ?? (0, stage_guides_nf_academic_js_2.getAcademicGuide)(stageId) ?? null;
 }
 /**
  * Return the list of required field keys for a stage (fiction or NF).
@@ -192,6 +206,9 @@ Object.defineProperty(exports, "chapterManuscriptPath", { enumerable: true, get:
 Object.defineProperty(exports, "seedNfChapterContent", { enumerable: true, get: function () { return manuscript_seeder_js_1.seedNfChapterContent; } });
 Object.defineProperty(exports, "nfChapterManuscriptPath", { enumerable: true, get: function () { return manuscript_seeder_js_1.nfChapterManuscriptPath; } });
 Object.defineProperty(exports, "MANUSCRIPT_SEED_MARKER", { enumerable: true, get: function () { return manuscript_seeder_js_1.MANUSCRIPT_SEED_MARKER; } });
+var academic_scaffold_js_1 = require("./scaffold/academic-scaffold.js");
+Object.defineProperty(exports, "seedSyllabiFolder", { enumerable: true, get: function () { return academic_scaffold_js_1.seedSyllabiFolder; } });
+Object.defineProperty(exports, "readSyllabiFiles", { enumerable: true, get: function () { return academic_scaffold_js_1.readSyllabiFiles; } });
 var promise_payoff_js_1 = require("./critique/promise-payoff.js");
 Object.defineProperty(exports, "checkNfPromisePayoff", { enumerable: true, get: function () { return promise_payoff_js_1.checkNfPromisePayoff; } });
 Object.defineProperty(exports, "findFictionPromiseGaps", { enumerable: true, get: function () { return promise_payoff_js_1.findFictionPromiseGaps; } });

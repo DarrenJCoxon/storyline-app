@@ -30,7 +30,32 @@ export interface ResearchTodoItem {
   status: 'planned' | 'captured' | 'verified' | 'cited'
 }
 
-/** A figure (diagram / chart / cast sheet / etc.) — consumed by NF-13 and fiction visual work. */
+/** A tracked factual claim — NF-12. Populated from pa-evidence / pb-sourcing stages. */
+export interface ClaimEvidenceItem {
+  id: string
+  claimText: string
+  chapterNumber: number | null
+  sectionTitle: string | null
+  evidenceType: 'study' | 'case-study' | 'data' | 'interview' | 'personal' | 'sourced-claim' | 'unparsed'
+  sources: string[]
+  confidence: 'primary' | 'secondary' | 'anecdotal' | 'unknown'
+  risk: 'high' | 'medium' | 'low'
+  citationNeeded: boolean
+  verificationState: 'planned' | 'sourced' | 'captured' | 'verified' | 'cited'
+}
+
+/** Structured image-2 generation prompt — NF-13.1. */
+export interface ImagePrompt {
+  subject: string
+  composition: string
+  style: string
+  textElements: Array<{ text: string; position: string }>
+  colourPalette: string
+  negativeConstraints: string[]
+  aspectRatio: 'square' | 'landscape' | 'portrait' | string
+}
+
+/** A figure (diagram / chart / cast sheet / etc.) — mode-agnostic, NF-13 + future fiction visual work. */
 export interface FigurePlanItem {
   id: string
   type: string
@@ -41,11 +66,10 @@ export interface FigurePlanItem {
   caption?: string
   altText?: string
   sourceRights?: string
+  imagePrompt: ImagePrompt | null
+  promptHistory: string[]
   status: 'planned' | 'generating' | 'produced' | 'accepted' | 'rejected'
   producedAssetPath?: string
-  // imagePrompt + promptHistory live here once NF-13 lands; left optional for now.
-  imagePrompt?: Record<string, unknown>
-  promptHistory?: string[]
 }
 
 // ── Fiction shapes ───────────────────────────────────────────────────────────
@@ -259,6 +283,64 @@ export interface PromisePayoffItem {
   notes: string | null
 }
 
+// ── Academic shapes (NF-14.5) ────────────────────────────────────────────────
+
+/** A single learning outcome from the ac-syllabus stage. Textbooks use full
+ *  Bloom's-level taxonomy; revision guides use recall-type classification. */
+export interface AcademicLearningOutcome {
+  code: string
+  text: string
+  bloom?: string | null
+  module?: string | null
+  recallType?: string | null
+  examTrap?: string | null
+}
+
+export interface AcademicWorkedExample {
+  id: string
+  title: string | null
+  difficulty: string | null
+  chapterNumber: number
+}
+
+export interface AcademicExercise {
+  id: string
+  title: string | null
+  difficulty: string | null
+  chapterNumber: number
+}
+
+/** A single chapter / topic in an academic plan — branches on bookType. */
+export interface AcademicChapter {
+  number: number
+  title: string | null
+  outcomes: string[]
+  keyTerms: string[]
+  prerequisites: number[]
+  sections: Array<{ title: string; type: string }>
+  wordTarget: number | null
+  // Textbook-specific:
+  workedExamples: AcademicWorkedExample[]
+  exercises: AcademicExercise[]
+  // Revision-guide-specific:
+  recallQuestions: number | null
+  examPractice: Array<{ type: string; count: number }>
+}
+
+/** Top-level academic plan — populated when pipeline === 'academic'. */
+export interface AcademicPlan {
+  bookType: 'textbook' | 'revision-guide'
+  level: string | null
+  specReference: string | null
+  assessmentShape: string | null
+  learningOutcomes: AcademicLearningOutcome[]
+  keyTerms: string[]
+  workedExamples: AcademicWorkedExample[]
+  exercises: AcademicExercise[]
+  prerequisites: Record<number, number[]>
+  chapters: AcademicChapter[]
+}
+
 // ── Non-fiction shapes ───────────────────────────────────────────────────────
 
 /** A non-fiction chapter — a section-bearing structural unit, not a scene-bearing one.
@@ -274,7 +356,7 @@ export interface NfChapter {
   cardFile: string
   sections: NfChapterSection[]
   wordCountEstimate: number | null
-  keyResearch: string | null
+  keyResearch: string | null  // unified: populated from keyResearch, keyEvidence, or sourcingNote
   // Pipeline-specific anchors (only one set populated, depending on pipeline):
   linkedPrinciple?: string  // pipeline A
   chapterQuestion?: string  // pipeline B
@@ -343,11 +425,14 @@ export interface WritingPlan {
   // FIC-C: fiction promise/payoff items detected from plot threads + scene contracts.
   // NF-12 populates `claims` (separate vocabulary — see 00-overview.md).
   promises: PromisePayoffItem[]
-  claims: unknown[]
+  claims: ClaimEvidenceItem[]
 
   // FIC-D: derived artefact data — populated for fiction projects; null otherwise.
   storyBible: FictionStoryBible | null
   arcMatrix: FictionArcMatrix | null
+
+  // NF-14: academic plan — populated when pipeline === 'academic'; null otherwise.
+  academic: AcademicPlan | null
 }
 
 // ── The normalizer ───────────────────────────────────────────────────────────
@@ -388,6 +473,7 @@ export function getWritingPlan(state: ProjectState): WritingPlan {
     claims: [],
     storyBible: null,
     arcMatrix: null,
+    academic: null,
   }
 
   if (mode === 'fiction') {
@@ -758,6 +844,11 @@ function populateNonfiction(plan: WritingPlan, state: ProjectState): WritingPlan
   // already reads both for forward-compat.
   plan.nfChapters = readNfChapters(state)
   plan.nfPromise = readNfPromise(state)
+  plan.claims = readClaims(state, plan.nfChapters)
+  plan.figures = readFigures(state)
+  if (state.pipeline === 'academic') {
+    plan.academic = readAcademic(state)
+  }
   return plan
 }
 
@@ -788,6 +879,7 @@ function readNfChapters(state: ProjectState): NfChapter[] {
   if (pipeline === 'A') stageKey = 'pa-chapters'
   else if (pipeline === 'B') stageKey = 'pb-chapters'
   else if (pipeline === 'C') stageKey = 'pc-lessons'
+  else if (pipeline === 'academic') stageKey = 'ac-chapters'
   if (!stageKey) return []
 
   const stageData =
@@ -814,7 +906,7 @@ function readNfChapters(state: ProjectState): NfChapter[] {
       cardFile: `docs/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
       sections: sections.map(normalizeNfSection),
       wordCountEstimate: numberOrNull(item.wordCountEstimate ?? item.estimatedWords),
-      keyResearch: stringOrNull(item.keyResearch),
+      keyResearch: stringOrNull(item.keyResearch ?? item.keyEvidence ?? item.sourcingNote),
       linkedPrinciple: stringOrUndef(item.linkedPrinciple),
       chapterQuestion: stringOrUndef(item.chapterQuestion),
       learningObjective: stringOrUndef(item.learningObjective),
@@ -829,6 +921,282 @@ function normalizeNfSection(s: Record<string, unknown>): NfChapterSection {
     type: stringOr(s.type, 'body'),
     notes: stringOrUndef(s.notes ?? s.purpose),
     keyResearch: stringOrUndef(s.keyResearch),
+  }
+}
+
+// ── NF-13 figure extraction ───────────────────────────────────────────────────
+
+type FigureStatusMap = Record<string, {
+  status?: string
+  imagePrompt?: unknown
+  producedAssetPath?: string
+  promptHistory?: string[]
+}>
+
+function readFigureStatus(state: ProjectState): FigureStatusMap {
+  const nf = (state.nfStages ?? {}) as Record<string, unknown>
+  return (nf['figure-status'] as FigureStatusMap) ?? {}
+}
+
+function readFigures(state: ProjectState): FigurePlanItem[] {
+  const figures: FigurePlanItem[] = []
+  const pipeline = state.pipeline
+  let stageKey: string | null = null
+  if (pipeline === 'A') stageKey = 'pa-chapters'
+  else if (pipeline === 'B') stageKey = 'pb-chapters'
+  else if (pipeline === 'C') stageKey = 'pc-lessons'
+  else if (pipeline === 'academic') stageKey = 'ac-chapters'
+  if (!stageKey) return []
+
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  const stageData = (nf[stageKey] ?? top[stageKey]) as Record<string, unknown> | undefined
+  if (!stageData) return []
+
+  const raw = (stageData.chapters ?? stageData.lessons ?? []) as Array<Record<string, unknown>>
+  const figureStatus = readFigureStatus(state)
+
+  for (const chapter of raw) {
+    const chNum = numberOr(chapter.number ?? chapter.chapterNumber, 0)
+    const rawFigs = Array.isArray(chapter.figures) ? chapter.figures as Array<Record<string, unknown>> : []
+    for (let i = 0; i < rawFigs.length; i++) {
+      const fig = rawFigs[i]
+      const id = `fig-ch${chNum}-${i + 1}`
+      const persisted = figureStatus[id]
+      figures.push({
+        id,
+        type: stringOr(fig.type, 'diagram'),
+        chapterNumber: chNum,
+        sectionTitle: stringOrNull(fig.sectionTitle ?? fig.section) ?? undefined,
+        purpose: stringOr(fig.purpose ?? fig.description ?? fig.intent, ''),
+        factualConstraints: stringOrNull(fig.factualConstraints) ?? undefined,
+        caption: stringOrNull(fig.caption) ?? undefined,
+        altText: stringOrNull(fig.altText) ?? undefined,
+        sourceRights: stringOrNull(fig.sourceRights) ?? undefined,
+        imagePrompt: (persisted?.imagePrompt ?? fig.imagePrompt ?? null) as ImagePrompt | null,
+        status: ((persisted?.status ?? 'planned') as FigurePlanItem['status']),
+        producedAssetPath: persisted?.producedAssetPath ?? undefined,
+        promptHistory: persisted?.promptHistory ?? [],
+      })
+    }
+  }
+
+  return figures
+}
+
+// ── NF-12 claim extraction ────────────────────────────────────────────────────
+
+function readClaims(state: ProjectState, nfChapters: NfChapter[]): ClaimEvidenceItem[] {
+  const claims: ClaimEvidenceItem[] = []
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  function stg(key: string): Record<string, unknown> {
+    return (nf[key] ?? top[key] ?? {}) as Record<string, unknown>
+  }
+
+  // Pipeline A: structured evidence items from pa-evidence.evidenceByPrinciple
+  const paEvidence = stg('pa-evidence')
+  const byPrinciple = Array.isArray(paEvidence.evidenceByPrinciple)
+    ? paEvidence.evidenceByPrinciple as Array<Record<string, unknown>>
+    : []
+  for (const group of byPrinciple) {
+    const principleNum = group.principleNumber as number
+    const chapterNumber = nfChapters.find(ch =>
+      String(ch.linkedPrinciple) === String(principleNum),
+    )?.number ?? null
+    const items = Array.isArray(group.evidenceItems)
+      ? group.evidenceItems as Array<Record<string, unknown>>
+      : []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const evType = normalizeEvidenceType(stringOr(item.type, ''))
+      const confidence = normalizeConfidence(stringOr(item.strength, ''))
+      const verificationState = 'planned' as const
+      claims.push({
+        id: `ev-p${principleNum}-${i + 1}`,
+        claimText: stringOr(item.supportsTheClaim ?? item.claim, '(unlabelled claim)'),
+        chapterNumber,
+        sectionTitle: null,
+        evidenceType: evType,
+        sources: item.source ? [String(item.source)] : [],
+        confidence,
+        risk: deriveClaimRisk(confidence, verificationState),
+        citationNeeded: ['study', 'case-study', 'data', 'sourced-claim'].includes(evType),
+        verificationState,
+      })
+    }
+  }
+
+  // All pipelines: chapter-level keyResearch (normalised from keyResearch / keyEvidence / sourcingNote)
+  for (const ch of nfChapters) {
+    if (!ch.keyResearch) continue
+    claims.push({
+      id: `ch${ch.number}-evidence`,
+      claimText: ch.keyResearch,
+      chapterNumber: ch.number,
+      sectionTitle: null,
+      evidenceType: 'unparsed',
+      sources: [],
+      confidence: 'unknown',
+      risk: 'high',
+      citationNeeded: true,
+      verificationState: 'planned',
+    })
+  }
+
+  return claims
+}
+
+function normalizeEvidenceType(t: string): ClaimEvidenceItem['evidenceType'] {
+  const map: Record<string, ClaimEvidenceItem['evidenceType']> = {
+    study: 'study',
+    'case-study': 'case-study',
+    'case study': 'case-study',
+    data: 'data',
+    interview: 'interview',
+    personal: 'personal',
+    'sourced-claim': 'sourced-claim',
+    'sourced claim': 'sourced-claim',
+  }
+  return map[t.toLowerCase()] ?? 'unparsed'
+}
+
+function normalizeConfidence(s: string): ClaimEvidenceItem['confidence'] {
+  const map: Record<string, ClaimEvidenceItem['confidence']> = {
+    primary: 'primary',
+    'peer-reviewed': 'primary',
+    secondary: 'secondary',
+    anecdotal: 'anecdotal',
+  }
+  return map[s.toLowerCase()] ?? 'unknown'
+}
+
+function deriveClaimRisk(
+  confidence: ClaimEvidenceItem['confidence'],
+  verificationState: ClaimEvidenceItem['verificationState'],
+): ClaimEvidenceItem['risk'] {
+  if (verificationState === 'verified' || verificationState === 'cited') return 'low'
+  if (confidence === 'primary') return 'low'
+  if (confidence === 'anecdotal' || confidence === 'unknown') return 'high'
+  return 'medium'
+}
+
+// ── NF-14.5 academic extraction ───────────────────────────────────────────────
+
+function stageData(state: ProjectState, key: string): Record<string, unknown> {
+  const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+  const top = state as unknown as Record<string, Record<string, unknown>>
+  return (nf[key] ?? top[key] ?? {}) as Record<string, unknown>
+}
+
+function readAcademic(state: ProjectState): AcademicPlan | null {
+  const bookType = state.bookType
+  if (bookType !== 'textbook' && bookType !== 'revision-guide') return null
+
+  const syllabus = stageData(state, 'ac-syllabus')
+  const chaptersStage = stageData(state, 'ac-chapters')
+  const acLevel = stageData(state, 'dna-ac-level')
+  const acSpec = stageData(state, 'dna-ac-spec')
+  const acAssess = stageData(state, 'dna-ac-assessment')
+
+  const rawOutcomes = Array.isArray(syllabus.outcomes)
+    ? syllabus.outcomes as Array<Record<string, unknown>>
+    : []
+  const learningOutcomes: AcademicLearningOutcome[] = rawOutcomes.map(o => ({
+    code: stringOr(o.code, ''),
+    text: stringOr(o.text, ''),
+    bloom: stringOrNull(o.bloom),
+    module: stringOrNull(o.module),
+    recallType: stringOrNull(o.recallType),
+    examTrap: stringOrNull(o.examTrap),
+  }))
+
+  const rawChapters = Array.isArray(chaptersStage.chapters)
+    ? chaptersStage.chapters as Array<Record<string, unknown>>
+    : []
+
+  const allWorkedExamples: AcademicWorkedExample[] = []
+  const allExercises: AcademicExercise[] = []
+  const allKeyTerms = new Set<string>()
+  const prereqMap: Record<number, number[]> = {}
+
+  const chapters: AcademicChapter[] = rawChapters.map((ch, i) => {
+    const num = numberOr(ch.number ?? ch.chapterNumber, i + 1)
+    const title = stringOrNull(ch.title ?? ch.chapterTitle)
+    const outcomes = Array.isArray(ch.outcomes) ? (ch.outcomes as unknown[]).map(String) : []
+    const keyTerms = Array.isArray(ch.keyTerms) ? (ch.keyTerms as unknown[]).map(String) : []
+    keyTerms.forEach(t => allKeyTerms.add(t))
+    const prerequisites = Array.isArray(ch.prerequisites)
+      ? (ch.prerequisites as unknown[]).map(n => numberOr(n, 0)).filter(n => n > 0)
+      : []
+    prereqMap[num] = prerequisites
+    const sections = Array.isArray(ch.sections)
+      ? (ch.sections as Array<Record<string, unknown>>).map(s => ({
+          title: stringOr(s.title, ''),
+          type: stringOr(s.type, 'body'),
+        }))
+      : []
+    const wordTarget = numberOrNull(ch.wordTarget ?? ch.wordCountEstimate)
+
+    // Textbook: workedExamples + exercises
+    const rawWE = Array.isArray(ch.workedExamples) ? ch.workedExamples as Array<Record<string, unknown>> : []
+    const workedExamples: AcademicWorkedExample[] = rawWE.map(we => {
+      const item: AcademicWorkedExample = {
+        id: stringOr(we.id, `we-${num}.${rawWE.indexOf(we) + 1}`),
+        title: stringOrNull(we.title),
+        difficulty: stringOrNull(we.difficulty),
+        chapterNumber: num,
+      }
+      allWorkedExamples.push(item)
+      return item
+    })
+
+    const rawEx = Array.isArray(ch.exercises) ? ch.exercises as Array<Record<string, unknown>> : []
+    const exercises: AcademicExercise[] = rawEx.map(ex => {
+      const item: AcademicExercise = {
+        id: stringOr(ex.id, `ex-${num}.${rawEx.indexOf(ex) + 1}`),
+        title: stringOrNull(ex.title),
+        difficulty: stringOrNull(ex.difficulty),
+        chapterNumber: num,
+      }
+      allExercises.push(item)
+      return item
+    })
+
+    // Revision guide: recallQuestions + examPractice
+    const recallQuestions = numberOrNull(ch.recallQuestions)
+    const rawEP = Array.isArray(ch.examPractice) ? ch.examPractice as Array<Record<string, unknown>> : []
+    const examPractice = rawEP.map(ep => ({
+      type: stringOr(ep.type, 'short-answer'),
+      count: numberOr(ep.count, 0),
+    }))
+
+    return {
+      number: num,
+      title,
+      outcomes,
+      keyTerms,
+      prerequisites,
+      sections,
+      wordTarget,
+      workedExamples,
+      exercises,
+      recallQuestions,
+      examPractice,
+    }
+  })
+
+  return {
+    bookType,
+    level: stringOrNull(acLevel.level ?? acLevel.academicLevel),
+    specReference: stringOrNull(acSpec.specReference ?? acSpec.specificationReference ?? acSpec.syllabus),
+    assessmentShape: stringOrNull(acAssess.assessmentShape ?? acAssess.assessment),
+    learningOutcomes,
+    keyTerms: [...allKeyTerms].sort(),
+    workedExamples: allWorkedExamples,
+    exercises: allExercises,
+    prerequisites: prereqMap,
+    chapters,
   }
 }
 

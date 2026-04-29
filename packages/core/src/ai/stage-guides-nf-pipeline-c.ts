@@ -247,6 +247,7 @@ export const PIPELINE_C_GUIDES: Record<string, NfPipelineGuide> = {
           keyConceptsCount: 'How many distinct concepts does this lesson introduce? (aim for ≤3)',
           exampleType: 'What kind of worked example? (solved problem, annotated case, before/after)',
           drillType: 'What kind of drill? (reproduction, variation, application, composition)',
+          figures: '(Optional) Array of figures needed — each: { type (diagram|chart|table|map|timeline|illustration), purpose, sectionTitle?, caption?, altText? }',
         },
         required: true,
       },

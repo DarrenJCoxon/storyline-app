@@ -35,10 +35,26 @@
     "pa-framework": {
       "modelName": "The Disappointment Ladder",
       "principles": [
-        { "number": 1, "name": "Name the gap", "definition": "Articulate the specific difference between expectation and reality." },
-        { "number": 2, "name": "Hold the room", "definition": "Stay present in the discomfort instead of softening it." },
-        { "number": 3, "name": "Ask, don't lecture", "definition": "Surface the other person's account before offering yours." },
-        { "number": 4, "name": "Decide visibly", "definition": "Make the call where they can see you make it." }
+        {
+          "number": 1,
+          "name": "Name the gap",
+          "definition": "Articulate the specific difference between expectation and reality."
+        },
+        {
+          "number": 2,
+          "name": "Hold the room",
+          "definition": "Stay present in the discomfort instead of softening it."
+        },
+        {
+          "number": 3,
+          "name": "Ask, don't lecture",
+          "definition": "Surface the other person's account before offering yours."
+        },
+        {
+          "number": 4,
+          "name": "Decide visibly",
+          "definition": "Make the call where they can see you make it."
+        }
       ],
       "frameworkLogic": "Sequential — each rung depends on the one below.",
       "subMode": "argument"
@@ -55,10 +71,30 @@
           "keyEvidence": "Stanford study on team trust + manager likeability divergence",
           "wordCountEstimate": 5500,
           "sections": [
-            { "title": "Hook: the all-hands that wasn't", "type": "hook" },
-            { "title": "The trap of likeability", "type": "concept" },
-            { "title": "Why teams stop bringing problems", "type": "evidence" },
-            { "title": "What this book will not do", "type": "summary" }
+            {
+              "title": "Hook: the all-hands that wasn't",
+              "type": "hook"
+            },
+            {
+              "title": "The trap of likeability",
+              "type": "concept"
+            },
+            {
+              "title": "Why teams stop bringing problems",
+              "type": "evidence"
+            },
+            {
+              "title": "What this book will not do",
+              "type": "summary"
+            }
+          ],
+          "figures": [
+            {
+              "type": "flow-diagram",
+              "purpose": "Illustrate the 4-step Disappointment Ladder framework showing Name the Gap, Hold the Room, Ask Don't Lecture, and Decide Visibly",
+              "caption": "The Disappointment Ladder — four steps to leading with clarity",
+              "altText": "A horizontal flow diagram with four boxes labelled: Name the Gap, Hold the Room, Ask Don't Lecture, Decide Visibly"
+            }
           ]
         },
         {
@@ -71,26 +107,93 @@
           "keyEvidence": "Case study of a Q3 product miss conversation",
           "wordCountEstimate": 6200,
           "sections": [
-            { "title": "Hook: the meeting that became a memo", "type": "hook" },
-            { "title": "Why vague feedback fails", "type": "concept" },
-            { "title": "The gap statement template", "type": "application" },
-            { "title": "Worked example: a missed deadline", "type": "example" },
-            { "title": "Practice prompt", "type": "application" },
-            { "title": "Summary", "type": "summary" }
+            {
+              "title": "Hook: the meeting that became a memo",
+              "type": "hook"
+            },
+            {
+              "title": "Why vague feedback fails",
+              "type": "concept"
+            },
+            {
+              "title": "The gap statement template",
+              "type": "application"
+            },
+            {
+              "title": "Worked example: a missed deadline",
+              "type": "example"
+            },
+            {
+              "title": "Practice prompt",
+              "type": "application"
+            },
+            {
+              "title": "Summary",
+              "type": "summary"
+            }
           ]
         }
       ],
       "chapterCount": 7
+    },
+    "pa-evidence": {
+      "evidenceByPrinciple": [
+        {
+          "principleNumber": 1,
+          "principleLabel": "Name the gap",
+          "evidenceItems": [
+            {
+              "type": "case-study",
+              "source": "Google Project Aristotle (2016)",
+              "supportsTheClaim": "Teams with psychologically safe leaders report 3x higher clarity on expectations",
+              "strength": "secondary"
+            }
+          ]
+        },
+        {
+          "principleNumber": 2,
+          "principleLabel": "Hold the room",
+          "evidenceItems": [
+            {
+              "type": "study",
+              "source": "Edmondson (1999)",
+              "supportsTheClaim": "Leaders who tolerate silence in difficult conversations achieve faster resolution",
+              "strength": "primary"
+            },
+            {
+              "type": "interview",
+              "source": "12 VP-level interviews (2024)",
+              "supportsTheClaim": "Most leaders report fleeing difficult rooms within 90 seconds",
+              "strength": "anecdotal"
+            }
+          ]
+        }
+      ],
+      "thinnestEvidence": "Hold the room principle relies partly on anecdotal interview data"
     }
   },
   "stages": {
-    "mode": { "completed": true },
-    "dna-category": { "completed": true },
-    "dna-reader": { "completed": true },
-    "dna-promise": { "completed": true },
-    "pa-thesis": { "completed": true },
-    "pa-framework": { "completed": true },
-    "pa-chapters": { "completed": true }
+    "mode": {
+      "completed": true
+    },
+    "dna-category": {
+      "completed": true
+    },
+    "dna-reader": {
+      "completed": true
+    },
+    "dna-promise": {
+      "completed": true
+    },
+    "pa-thesis": {
+      "completed": true
+    },
+    "pa-framework": {
+      "completed": true
+    },
+    "pa-chapters": {
+      "completed": true
+    }
   },
   "genre": {
     "primaryGenre": null,
@@ -100,18 +203,75 @@
     "audience": "Mid-career managers and new department heads",
     "genreVariant": "standard"
   },
-  "premise": { "rawLogline": null, "conceptHook": null, "seriesPotential": null, "seriesContext": { "isSeries": false, "seriesTitle": null, "bookCount": null, "currentBookNumber": 1, "overallArc": null, "firstBookFocus": null } },
-  "protagonist": { "name": null, "age": null, "occupation": null, "dailyLife": null, "want": null, "need": null, "ghost": null, "flaw": null, "coreLie": null, "arcDirection": null, "voice": null },
+  "premise": {
+    "rawLogline": null,
+    "conceptHook": null,
+    "seriesPotential": null,
+    "seriesContext": {
+      "isSeries": false,
+      "seriesTitle": null,
+      "bookCount": null,
+      "currentBookNumber": 1,
+      "overallArc": null,
+      "firstBookFocus": null
+    }
+  },
+  "protagonist": {
+    "name": null,
+    "age": null,
+    "occupation": null,
+    "dailyLife": null,
+    "want": null,
+    "need": null,
+    "ghost": null,
+    "flaw": null,
+    "coreLie": null,
+    "arcDirection": null,
+    "voice": null
+  },
   "characters": [],
   "relationships": [],
-  "logline": { "sentence": null, "setup": null, "incitingIncident": null, "stakes": null, "resolutionHint": null, "antagonistQuestion": null },
-  "beatSheet": { "genreVariant": "standard", "beats": {}, "overallNotes": null },
-  "bStory": { "character": null, "premise": null, "beats": {}, "resolution": null, "themeConnection": null },
+  "logline": {
+    "sentence": null,
+    "setup": null,
+    "incitingIncident": null,
+    "stakes": null,
+    "resolutionHint": null,
+    "antagonistQuestion": null
+  },
+  "beatSheet": {
+    "genreVariant": "standard",
+    "beats": {},
+    "overallNotes": null
+  },
+  "bStory": {
+    "character": null,
+    "premise": null,
+    "beats": {},
+    "resolution": null,
+    "themeConnection": null
+  },
   "subplots": [],
-  "sceneOutline": { "highLevel": [], "approved": false, "fleshedChapters": [] },
+  "sceneOutline": {
+    "highLevel": [],
+    "approved": false,
+    "fleshedChapters": []
+  },
   "plotThreads": [],
   "chapterOutline": [],
-  "critique": { "flaggedIssues": [], "resolvedIssues": [], "pacingAnalysis": null, "characterConsistency": null, "beatSheetValidation": null },
-  "masterDoc": { "generatedAt": null, "markdown": null, "wordCountEstimate": null },
-  "writing": { "manuscriptPath": "manuscript" }
+  "critique": {
+    "flaggedIssues": [],
+    "resolvedIssues": [],
+    "pacingAnalysis": null,
+    "characterConsistency": null,
+    "beatSheetValidation": null
+  },
+  "masterDoc": {
+    "generatedAt": null,
+    "markdown": null,
+    "wordCountEstimate": null
+  },
+  "writing": {
+    "manuscriptPath": "manuscript"
+  }
 }

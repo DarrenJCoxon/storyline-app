@@ -3,8 +3,9 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { spawn, type ChildProcess, execSync } from 'child_process'
-import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo } from '@storyline/core'
+import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder, inferPipelineFromCategory } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
+import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import {
@@ -137,6 +138,12 @@ export class ChatPanel {
     const licenceInfo = await this.licenceManager.validate({ useCache: true })
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
+
+    // Repair: backfill memory and regenerate docs for any completed stages
+    // that are missing from the memory log. Runs async so it never delays
+    // the opening prompt. Covers older projects saved before memory push was
+    // introduced, and any partial saves that previously skipped this step.
+    void this.repairStateSync(state)
 
     const stages = stageOrderFor(state).map(s => ({
       id: s.id,
@@ -281,10 +288,25 @@ export class ChatPanel {
     this.turnHistory.appendDisplay({ role: 'user', content: text })
     this.post({ type: 'userMessage', text })
 
+    // Ensure syllabi/ folder exists the first time the writer reaches ac-syllabus
+    if (currentStage.id === 'ac-syllabus') {
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (projectDir) seedSyllabiFolder(projectDir)
+    }
+
     const systemPrompt = buildSystemPrompt(currentStage.id, state)
     const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
+    // Stop button: if the writer cancelled mid-stream, do not run any of the
+    // post-stream side effects (stage save, file writes, file reads). Without
+    // this guard the cancelled stream's partial output still triggers a
+    // stage-save chain and chained file reads, which feels like the stop
+    // button "didn't work".
+    if (this.streamCancelled) {
+      this.refreshCreditBalance()
+      return
+    }
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
     await this.applyEmittedPatches(full, currentStage.id)
     await this.applyFileWrites(full)
@@ -504,6 +526,26 @@ export class ChatPanel {
       normalizedPatch = patch as Partial<ProjectState>
     }
 
+    // dna-category: if the writer's category infers academic, set pipeline + bookType
+    // immediately so stageOrderFor switches to NF_ACADEMIC_DNA_STAGE_ORDER from the
+    // very next stage. Without this fix the trimmed academic DNA (skipping dna-comps
+    // and dna-voice, adding dna-ac-level/spec/assessment) is never reached.
+    if (stageId === 'dna-category') {
+      const catData = (normalizedPatch as Record<string, unknown>)?.['dna-category'] as Record<string, unknown> | undefined
+      const category = catData?.primaryCategory as string | undefined
+      const inferred = category ? inferPipelineFromCategory(category) : null
+      if (inferred === 'academic') {
+        const rawBookType = catData?.bookType as string | undefined
+        const bookType = rawBookType === 'textbook' || rawBookType === 'revision-guide' ? rawBookType : undefined
+        normalizedPatch = {
+          ...normalizedPatch,
+          pipeline: 'academic',
+          ...(bookType ? { bookType } : {}),
+        } as Partial<ProjectState>
+        console.log('[Storyline] dna-category: academic — setting pipeline → academic, bookType →', bookType)
+      }
+    }
+
     // dna-consolidate: extract confirmedPipeline → state.pipeline so that
     // stageOrderFor returns the chosen Phase 1 pipeline stages. Without this,
     // pipeline stays 'novel', stageOrderFor returns only Phase 0, and the
@@ -511,7 +553,7 @@ export class ChatPanel {
     if (stageId === 'dna-consolidate') {
       const stageData = (normalizedPatch as Record<string, unknown>)?.['dna-consolidate'] as Record<string, unknown> | undefined
       const confirmed = stageData?.confirmedPipeline as string | undefined
-      if (confirmed === 'A' || confirmed === 'B' || confirmed === 'C') {
+      if (confirmed === 'A' || confirmed === 'B' || confirmed === 'C' || confirmed === 'academic') {
         normalizedPatch = { ...normalizedPatch, pipeline: confirmed } as Partial<ProjectState>
         console.log('[Storyline] dna-consolidate: setting pipeline →', confirmed)
       }
@@ -529,9 +571,18 @@ export class ChatPanel {
       if (!gate.complete) {
         console.warn('[Storyline] Save gated — incomplete fields for', stageId, ':', gate.missing)
         this.post({ type: 'saveGated', stageId, missing: gate.missing })
-        // Stay on the same stage. The writer's next turn carries the
-        // conversation forward — no synthetic re-prompt loop. Same shape
-        // as the original /storyline harness when verify-stage exits non-zero.
+        // Stage not yet complete — stay on the same stage. But keep docs and
+        // memory in sync with state.json so all three stores remain consistent
+        // even for partial AI updates. Without this, a mid-conversation update
+        // would leave state.json ahead of both memory and the stage-doc files.
+        const pd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        if (pd) {
+          writeStageDoc(stageId, newState, pd)
+            .catch(err => console.warn('[Storyline] writeStageDoc (partial) failed', err))
+        }
+        pushToMemory(stageId, normalizedPatch as Record<string, unknown>)
+          .then(r => console.log(`[Storyline] memory (partial): ${stageId} → ${r.method}`))
+          .catch(() => { /* non-fatal */ })
         return
       }
     }
@@ -609,6 +660,24 @@ export class ChatPanel {
             generateResearchTodo(plan, projectDir)
           } catch (err) {
             console.warn('[Storyline] generateResearchTodo failed', err)
+          }
+        }
+        // NF-12: Claim/evidence ledger after evidence or sourcing stage saves.
+        const CLAIM_LEDGER_STAGES = ['pa-evidence', 'pb-sourcing', 'pa-master', 'pb-master', 'pc-master']
+        if (CLAIM_LEDGER_STAGES.includes(stageId)) {
+          try {
+            generateClaimEvidenceLedger(plan, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateClaimEvidenceLedger failed', err)
+          }
+        }
+        // NF-13: Figure registry after chapter-plan saves.
+        const FIGURE_REGISTRY_STAGES = ['pa-chapters', 'pb-chapters', 'pc-lessons']
+        if (FIGURE_REGISTRY_STAGES.includes(stageId)) {
+          try {
+            generateFigureRegistry(plan, projectDir)
+          } catch (err) {
+            console.warn('[Storyline] generateFigureRegistry failed', err)
           }
         }
       }
@@ -727,8 +796,32 @@ export class ChatPanel {
     }
   }
 
-  /** Read requested files and re-run the AI with their contents injected. Returns true if reads were handled. */
-  private async applyFileReads(aiText: string, stageId: string, state: ProjectState): Promise<boolean> {
+  /**
+   * Read requested files and re-run the AI with their contents injected.
+   *
+   * Design contract:
+   * - File reads are INFORMATION GATHERING. They never trigger a stage save or
+   *   stage advance — that would hijack the conversation context mid-read.
+   *   Stage saves only happen on explicit user turns via applyEmittedPatches.
+   * - If the AI's response after reading ALSO requests a file read (chained
+   *   reads), we recurse up to MAX_READ_DEPTH times so the AI can gather
+   *   everything it needs before generating a final response.
+   * - File WRITES (to non-manuscript planning docs) are still applied after
+   *   each read so the AI can update docs it just read.
+   */
+  private static readonly MAX_READ_DEPTH = 3
+
+  private async applyFileReads(
+    aiText: string,
+    stageId: string,
+    state: ProjectState,
+    depth = 0,
+  ): Promise<boolean> {
+    if (depth >= ChatPanel.MAX_READ_DEPTH) {
+      console.warn('[Storyline] file_read: max depth reached, stopping')
+      return false
+    }
+
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (!projectDir) return false
     const requests = extractFileReadRequests(aiText)
@@ -748,7 +841,7 @@ export class ChatPanel {
       try {
         const content = fs.readFileSync(absPath, 'utf-8')
         parts.push(`[File: ${relPath}]\n\n${content}`)
-        console.log('[Storyline] file_read injected:', relPath)
+        console.log('[Storyline] file_read injected:', relPath, `(depth=${depth})`)
       } catch (err) {
         parts.push(`[File: ${relPath}]\n\n(File not found or unreadable)`)
         console.warn('[Storyline] file_read failed:', relPath, err)
@@ -757,17 +850,26 @@ export class ChatPanel {
 
     if (parts.length === 0) return false
 
+    // Add file content to the AI turn history (internal context only — don't
+    // dump the raw markdown into the display log or the chat UI).
     const injected = parts.join('\n\n---\n\n')
     this.turnHistory.append(stageId, { role: 'user', content: injected })
-    this.turnHistory.appendDisplay({ role: 'user', content: injected })
-    this.post({ type: 'userMessage', text: injected })
 
     const systemPrompt = buildSystemPrompt(stageId, state)
     const messages = this.turnHistory.allForStage(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
+    if (this.streamCancelled) return true
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
-    await this.applyEmittedPatches(full, stageId)
+
+    // Apply file writes (e.g. AI updates a planning doc after reading it).
+    // Do NOT call applyEmittedPatches here — stage saves belong to explicit
+    // user turns only. Calling it mid-read triggers a stage advance and
+    // fireOpeningPrompt which hijacks the conversational context.
     await this.applyFileWrites(full)
+
+    // Recurse: if the AI's response requests another file read, handle it
+    // before returning control to the user.
+    await this.applyFileReads(full, stageId, state, depth + 1)
     return true
   }
 
@@ -785,6 +887,21 @@ export class ChatPanel {
         console.warn('[Storyline] file_write rejected (outside project):', relPath)
         continue
       }
+
+      // Guard: manuscript writes always require explicit writer confirmation.
+      // This is enforced in code — not in the prompt — so the model cannot
+      // bypass it. Planning docs (docs/, output/) are unrestricted.
+      const decision = guardFileWrite(relPath, absPath, content)
+      if (!decision.allowed) {
+        console.warn('[Storyline] file_write guarded:', relPath, '—', decision.reason)
+        this.post({ type: 'fileWriteBlocked', path: relPath, reason: decision.reason })
+        const approved = await confirmWrite(relPath, decision.stats)
+        if (!approved) {
+          console.log('[Storyline] file_write blocked by writer:', relPath)
+          continue
+        }
+      }
+
       try {
         await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
         await fs.promises.writeFile(absPath, content, 'utf-8')
@@ -973,6 +1090,61 @@ export class ChatPanel {
 
   private post(msg: Record<string, unknown>): void {
     this.panel.webview.postMessage(msg)
+  }
+
+  /**
+   * Backfill memory and regenerate stage docs for completed stages that are
+   * missing from `.storyline/memory.jsonl`. Runs once per project open,
+   * async, non-blocking. Covers:
+   *  - Projects saved before memory push was introduced
+   *  - Stages where pushToMemory previously failed silently
+   *  - Partial saves that previously skipped doc/memory sync
+   */
+  private async repairStateSync(state: ProjectState): Promise<void> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) return
+
+    const completedStageIds = Object.entries(state.stages ?? {})
+      .filter(([, s]) => (s as { completed?: boolean })?.completed)
+      .map(([id]) => id)
+    if (completedStageIds.length === 0) return
+
+    // Determine which stage IDs already have a memory.jsonl entry.
+    const logPath = path.join(projectDir, '.storyline', 'memory.jsonl')
+    const memorisedIds = new Set<string>()
+    try {
+      const raw = fs.readFileSync(logPath, 'utf-8')
+      for (const line of raw.split('\n')) {
+        if (!line.trim()) continue
+        try {
+          const entry = JSON.parse(line) as { stageId?: string }
+          if (entry.stageId) memorisedIds.add(entry.stageId)
+        } catch { /* skip malformed line */ }
+      }
+    } catch { /* memory.jsonl doesn't exist yet */ }
+
+    let backfilled = 0
+    for (const stageId of completedStageIds) {
+      // Regenerate the stage doc unconditionally — cheap file write, ensures
+      // the doc always reflects the current state.json.
+      writeStageDoc(stageId, state, projectDir)
+        .catch(err => console.warn('[Storyline] repair writeStageDoc failed:', stageId, err))
+
+      // Backfill memory only for stages not already logged.
+      if (!memorisedIds.has(stageId)) {
+        const stageData = (state as unknown as Record<string, unknown>)[stageId]
+        if (stageData && typeof stageData === 'object') {
+          await pushToMemory(stageId, stageData as Record<string, unknown>)
+            .then(r => console.log(`[Storyline] repair memory: ${stageId} → ${r.method}`))
+            .catch(err => console.warn('[Storyline] repair pushToMemory failed:', stageId, err))
+          backfilled++
+        }
+      }
+    }
+
+    if (backfilled > 0) {
+      console.log(`[Storyline] repairStateSync: backfilled memory for ${backfilled} stage(s)`)
+    }
   }
 
   private async applyVSCodeTheme(mode: 'light' | 'dark' | 'auto'): Promise<void> {

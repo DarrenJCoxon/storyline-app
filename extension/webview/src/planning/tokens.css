@@ -18,7 +18,7 @@
   --font-sans:       'Inter', system-ui, sans-serif;
   --font-size-body:  13.5px;
   --line-height:     1.75;
-  --radius-bubble:   16px 16px 3px 16px;
+  --radius-bubble:   10px;
   --radius-card:     10px;
 }
 

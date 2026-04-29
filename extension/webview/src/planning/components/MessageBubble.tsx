@@ -21,9 +21,10 @@ export function UserBubble({ text }: Props) {
       <div style={{
         background: 'var(--bubble)',
         color: 'var(--text)',
+        border: '1px solid var(--sep)',
         borderRadius: 'var(--radius-bubble)',
         padding: '9px 13px',
-        maxWidth: '80%',
+        maxWidth: '100%',
         fontSize: 'var(--font-size-body)',
         lineHeight: 'var(--line-height)',
         whiteSpace: 'pre-wrap',

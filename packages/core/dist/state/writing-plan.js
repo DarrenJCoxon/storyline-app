@@ -54,6 +54,7 @@ function getWritingPlan(state) {
         claims: [],
         storyBible: null,
         arcMatrix: null,
+        academic: null,
     };
     if (mode === 'fiction') {
         return populateFiction(base, state);
@@ -402,6 +403,11 @@ function populateNonfiction(plan, state) {
     // already reads both for forward-compat.
     plan.nfChapters = readNfChapters(state);
     plan.nfPromise = readNfPromise(state);
+    plan.claims = readClaims(state, plan.nfChapters);
+    plan.figures = readFigures(state);
+    if (state.pipeline === 'academic') {
+        plan.academic = readAcademic(state);
+    }
     return plan;
 }
 function readNfPromise(state) {
@@ -434,6 +440,8 @@ function readNfChapters(state) {
         stageKey = 'pb-chapters';
     else if (pipeline === 'C')
         stageKey = 'pc-lessons';
+    else if (pipeline === 'academic')
+        stageKey = 'ac-chapters';
     if (!stageKey)
         return [];
     const stageData = state.nfStages?.[stageKey] ??
@@ -459,7 +467,7 @@ function readNfChapters(state) {
             cardFile: `docs/chapters/${String(num).padStart(2, '0')}-${slug}.md`,
             sections: sections.map(normalizeNfSection),
             wordCountEstimate: numberOrNull(item.wordCountEstimate ?? item.estimatedWords),
-            keyResearch: stringOrNull(item.keyResearch),
+            keyResearch: stringOrNull(item.keyResearch ?? item.keyEvidence ?? item.sourcingNote),
             linkedPrinciple: stringOrUndef(item.linkedPrinciple),
             chapterQuestion: stringOrUndef(item.chapterQuestion),
             learningObjective: stringOrUndef(item.learningObjective),
@@ -473,6 +481,252 @@ function normalizeNfSection(s) {
         type: stringOr(s.type, 'body'),
         notes: stringOrUndef(s.notes ?? s.purpose),
         keyResearch: stringOrUndef(s.keyResearch),
+    };
+}
+function readFigureStatus(state) {
+    const nf = (state.nfStages ?? {});
+    return nf['figure-status'] ?? {};
+}
+function readFigures(state) {
+    const figures = [];
+    const pipeline = state.pipeline;
+    let stageKey = null;
+    if (pipeline === 'A')
+        stageKey = 'pa-chapters';
+    else if (pipeline === 'B')
+        stageKey = 'pb-chapters';
+    else if (pipeline === 'C')
+        stageKey = 'pc-lessons';
+    else if (pipeline === 'academic')
+        stageKey = 'ac-chapters';
+    if (!stageKey)
+        return [];
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    const stageData = (nf[stageKey] ?? top[stageKey]);
+    if (!stageData)
+        return [];
+    const raw = (stageData.chapters ?? stageData.lessons ?? []);
+    const figureStatus = readFigureStatus(state);
+    for (const chapter of raw) {
+        const chNum = numberOr(chapter.number ?? chapter.chapterNumber, 0);
+        const rawFigs = Array.isArray(chapter.figures) ? chapter.figures : [];
+        for (let i = 0; i < rawFigs.length; i++) {
+            const fig = rawFigs[i];
+            const id = `fig-ch${chNum}-${i + 1}`;
+            const persisted = figureStatus[id];
+            figures.push({
+                id,
+                type: stringOr(fig.type, 'diagram'),
+                chapterNumber: chNum,
+                sectionTitle: stringOrNull(fig.sectionTitle ?? fig.section) ?? undefined,
+                purpose: stringOr(fig.purpose ?? fig.description ?? fig.intent, ''),
+                factualConstraints: stringOrNull(fig.factualConstraints) ?? undefined,
+                caption: stringOrNull(fig.caption) ?? undefined,
+                altText: stringOrNull(fig.altText) ?? undefined,
+                sourceRights: stringOrNull(fig.sourceRights) ?? undefined,
+                imagePrompt: (persisted?.imagePrompt ?? fig.imagePrompt ?? null),
+                status: (persisted?.status ?? 'planned'),
+                producedAssetPath: persisted?.producedAssetPath ?? undefined,
+                promptHistory: persisted?.promptHistory ?? [],
+            });
+        }
+    }
+    return figures;
+}
+// ── NF-12 claim extraction ────────────────────────────────────────────────────
+function readClaims(state, nfChapters) {
+    const claims = [];
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    function stg(key) {
+        return (nf[key] ?? top[key] ?? {});
+    }
+    // Pipeline A: structured evidence items from pa-evidence.evidenceByPrinciple
+    const paEvidence = stg('pa-evidence');
+    const byPrinciple = Array.isArray(paEvidence.evidenceByPrinciple)
+        ? paEvidence.evidenceByPrinciple
+        : [];
+    for (const group of byPrinciple) {
+        const principleNum = group.principleNumber;
+        const chapterNumber = nfChapters.find(ch => String(ch.linkedPrinciple) === String(principleNum))?.number ?? null;
+        const items = Array.isArray(group.evidenceItems)
+            ? group.evidenceItems
+            : [];
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const evType = normalizeEvidenceType(stringOr(item.type, ''));
+            const confidence = normalizeConfidence(stringOr(item.strength, ''));
+            const verificationState = 'planned';
+            claims.push({
+                id: `ev-p${principleNum}-${i + 1}`,
+                claimText: stringOr(item.supportsTheClaim ?? item.claim, '(unlabelled claim)'),
+                chapterNumber,
+                sectionTitle: null,
+                evidenceType: evType,
+                sources: item.source ? [String(item.source)] : [],
+                confidence,
+                risk: deriveClaimRisk(confidence, verificationState),
+                citationNeeded: ['study', 'case-study', 'data', 'sourced-claim'].includes(evType),
+                verificationState,
+            });
+        }
+    }
+    // All pipelines: chapter-level keyResearch (normalised from keyResearch / keyEvidence / sourcingNote)
+    for (const ch of nfChapters) {
+        if (!ch.keyResearch)
+            continue;
+        claims.push({
+            id: `ch${ch.number}-evidence`,
+            claimText: ch.keyResearch,
+            chapterNumber: ch.number,
+            sectionTitle: null,
+            evidenceType: 'unparsed',
+            sources: [],
+            confidence: 'unknown',
+            risk: 'high',
+            citationNeeded: true,
+            verificationState: 'planned',
+        });
+    }
+    return claims;
+}
+function normalizeEvidenceType(t) {
+    const map = {
+        study: 'study',
+        'case-study': 'case-study',
+        'case study': 'case-study',
+        data: 'data',
+        interview: 'interview',
+        personal: 'personal',
+        'sourced-claim': 'sourced-claim',
+        'sourced claim': 'sourced-claim',
+    };
+    return map[t.toLowerCase()] ?? 'unparsed';
+}
+function normalizeConfidence(s) {
+    const map = {
+        primary: 'primary',
+        'peer-reviewed': 'primary',
+        secondary: 'secondary',
+        anecdotal: 'anecdotal',
+    };
+    return map[s.toLowerCase()] ?? 'unknown';
+}
+function deriveClaimRisk(confidence, verificationState) {
+    if (verificationState === 'verified' || verificationState === 'cited')
+        return 'low';
+    if (confidence === 'primary')
+        return 'low';
+    if (confidence === 'anecdotal' || confidence === 'unknown')
+        return 'high';
+    return 'medium';
+}
+// ── NF-14.5 academic extraction ───────────────────────────────────────────────
+function stageData(state, key) {
+    const nf = (state.nfStages ?? {});
+    const top = state;
+    return (nf[key] ?? top[key] ?? {});
+}
+function readAcademic(state) {
+    const bookType = state.bookType;
+    if (bookType !== 'textbook' && bookType !== 'revision-guide')
+        return null;
+    const syllabus = stageData(state, 'ac-syllabus');
+    const chaptersStage = stageData(state, 'ac-chapters');
+    const acLevel = stageData(state, 'dna-ac-level');
+    const acSpec = stageData(state, 'dna-ac-spec');
+    const acAssess = stageData(state, 'dna-ac-assessment');
+    const rawOutcomes = Array.isArray(syllabus.outcomes)
+        ? syllabus.outcomes
+        : [];
+    const learningOutcomes = rawOutcomes.map(o => ({
+        code: stringOr(o.code, ''),
+        text: stringOr(o.text, ''),
+        bloom: stringOrNull(o.bloom),
+        module: stringOrNull(o.module),
+        recallType: stringOrNull(o.recallType),
+        examTrap: stringOrNull(o.examTrap),
+    }));
+    const rawChapters = Array.isArray(chaptersStage.chapters)
+        ? chaptersStage.chapters
+        : [];
+    const allWorkedExamples = [];
+    const allExercises = [];
+    const allKeyTerms = new Set();
+    const prereqMap = {};
+    const chapters = rawChapters.map((ch, i) => {
+        const num = numberOr(ch.number ?? ch.chapterNumber, i + 1);
+        const title = stringOrNull(ch.title ?? ch.chapterTitle);
+        const outcomes = Array.isArray(ch.outcomes) ? ch.outcomes.map(String) : [];
+        const keyTerms = Array.isArray(ch.keyTerms) ? ch.keyTerms.map(String) : [];
+        keyTerms.forEach(t => allKeyTerms.add(t));
+        const prerequisites = Array.isArray(ch.prerequisites)
+            ? ch.prerequisites.map(n => numberOr(n, 0)).filter(n => n > 0)
+            : [];
+        prereqMap[num] = prerequisites;
+        const sections = Array.isArray(ch.sections)
+            ? ch.sections.map(s => ({
+                title: stringOr(s.title, ''),
+                type: stringOr(s.type, 'body'),
+            }))
+            : [];
+        const wordTarget = numberOrNull(ch.wordTarget ?? ch.wordCountEstimate);
+        // Textbook: workedExamples + exercises
+        const rawWE = Array.isArray(ch.workedExamples) ? ch.workedExamples : [];
+        const workedExamples = rawWE.map(we => {
+            const item = {
+                id: stringOr(we.id, `we-${num}.${rawWE.indexOf(we) + 1}`),
+                title: stringOrNull(we.title),
+                difficulty: stringOrNull(we.difficulty),
+                chapterNumber: num,
+            };
+            allWorkedExamples.push(item);
+            return item;
+        });
+        const rawEx = Array.isArray(ch.exercises) ? ch.exercises : [];
+        const exercises = rawEx.map(ex => {
+            const item = {
+                id: stringOr(ex.id, `ex-${num}.${rawEx.indexOf(ex) + 1}`),
+                title: stringOrNull(ex.title),
+                difficulty: stringOrNull(ex.difficulty),
+                chapterNumber: num,
+            };
+            allExercises.push(item);
+            return item;
+        });
+        // Revision guide: recallQuestions + examPractice
+        const recallQuestions = numberOrNull(ch.recallQuestions);
+        const rawEP = Array.isArray(ch.examPractice) ? ch.examPractice : [];
+        const examPractice = rawEP.map(ep => ({
+            type: stringOr(ep.type, 'short-answer'),
+            count: numberOr(ep.count, 0),
+        }));
+        return {
+            number: num,
+            title,
+            outcomes,
+            keyTerms,
+            prerequisites,
+            sections,
+            wordTarget,
+            workedExamples,
+            exercises,
+            recallQuestions,
+            examPractice,
+        };
+    });
+    return {
+        bookType,
+        level: stringOrNull(acLevel.level ?? acLevel.academicLevel),
+        specReference: stringOrNull(acSpec.specReference ?? acSpec.specificationReference ?? acSpec.syllabus),
+        assessmentShape: stringOrNull(acAssess.assessmentShape ?? acAssess.assessment),
+        learningOutcomes,
+        keyTerms: [...allKeyTerms].sort(),
+        workedExamples: allWorkedExamples,
+        exercises: allExercises,
+        prerequisites: prereqMap,
+        chapters,
     };
 }
 // ── Helpers ──────────────────────────────────────────────────────────────────

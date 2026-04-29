@@ -106,7 +106,12 @@ export class EditorPanel {
     }
 
     let expectedContent: string | null = null
-    const normalise = (s: string) => s.replace(/\s+$/, '')
+    // Per-line normalisation so VS Code's save-time whitespace cleanup
+    // (files.trimTrailingWhitespace / files.insertFinalNewline) doesn't
+    // look like a fresh edit and re-dirty the doc after the close-save
+    // dialog has already accepted.
+    const normalise = (s: string) =>
+      s.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n').replace(/\n+$/, '')
 
     let autoSaveTimer: ReturnType<typeof setTimeout> | undefined
     let saveInFlight = false
@@ -127,12 +132,26 @@ export class EditorPanel {
       saveInFlight = true
       panel.webview.postMessage({ type: 'saving' })
       try {
-        let saved = await document.save()
-        if (!saved && document.isDirty) {
-          await new Promise(r => setTimeout(r, 80))
-          saved = document.isDirty ? await document.save() : true
+        // Truth is `document.isDirty`, not save()'s boolean. VS Code's
+        // save() returns false for BOTH "save failed" AND "nothing to
+        // save", so we can't use it as an error signal — that produced
+        // false-positive "Save failed" banners on docs that had actually
+        // saved. Drive everything off isDirty instead.
+        if (document.isDirty) {
+          await document.save()
+          if (document.isDirty) {
+            await new Promise(r => setTimeout(r, 100))
+          }
+          if (document.isDirty) {
+            await document.save()
+            if (document.isDirty) {
+              await new Promise(r => setTimeout(r, 100))
+            }
+          }
+          if (document.isDirty) {
+            throw new Error('Save did not complete — the file may be read-only or locked.')
+          }
         }
-        if (!saved && document.isDirty) throw new Error('Save failed — file may be read-only.')
         // Adopt post-save text (after any format-on-save reflow) as the new baseline
         expectedContent = document.getText()
         panel.webview.postMessage({ type: 'saved' })

@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type { WritingPlan, FictionChapter, FictionScene, NfChapter } from '../state/writing-plan.js'
+import type { WritingPlan, FictionChapter, FictionScene, NfChapter, ClaimEvidenceItem, FigurePlanItem } from '../state/writing-plan.js'
 
 // Marker written at the top of every seeded manuscript file. Its presence
 // indicates the file has not been modified by the writer — safe to overwrite
@@ -105,7 +105,7 @@ export function nfChapterManuscriptPath(ch: NfChapter): string {
   return ch.manuscriptFile
 }
 
-export function seedNfChapterContent(ch: NfChapter): string {
+export function seedNfChapterContent(ch: NfChapter, claims: ClaimEvidenceItem[] = [], figures: FigurePlanItem[] = []): string {
   const num = ch.number ?? 1
   const title = ch.title ?? `Chapter ${num}`
 
@@ -122,11 +122,23 @@ export function seedNfChapterContent(ch: NfChapter): string {
     return lines.join('\n').trimEnd() + '\n'
   }
 
+  const chapterClaims = claims.filter(c => c.chapterNumber === ch.number)
+  const chapterFigures = figures.filter(f => f.chapterNumber === ch.number)
+
   for (let i = 0; i < ch.sections.length; i++) {
     const sec = ch.sections[i]
     lines.push(`## ${sec.title}`, '')
     if (sec.notes) lines.push(`*Section purpose: ${sec.notes}*`, '')
     if (sec.keyResearch) lines.push(`{{research: ${sec.keyResearch}}}`, '')
+    // NF-12.3: emit {{claim: <id>}} markers in evidence sections
+    if (sec.type === 'evidence') {
+      for (const c of chapterClaims) lines.push(`{{claim: ${c.id}}}`, '')
+    }
+    // NF-13.3: emit {{figure: <id>}} markers where section title matches, or in first section
+    const sectionFigures = chapterFigures.filter(f =>
+      f.sectionTitle ? f.sectionTitle === sec.title : i === 0,
+    )
+    for (const f of sectionFigures) lines.push(`{{figure: ${f.id}}}`, '')
     lines.push('<!-- Write your prose below -->', '', '')
     if (i < ch.sections.length - 1) lines.push('---', '')
   }
@@ -151,7 +163,7 @@ export function seedManuscriptFromPlan(plan: WritingPlan, projectDir: string): v
     if (plan.nfChapters.length === 0) return
     for (const ch of plan.nfChapters) {
       const filePath = path.join(projectDir, nfChapterManuscriptPath(ch))
-      const content = seedNfChapterContent(ch)
+      const content = seedNfChapterContent(ch, plan.claims, plan.figures)
       writeIfMissing(filePath, content)
     }
     return

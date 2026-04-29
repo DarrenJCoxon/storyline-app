@@ -35,7 +35,7 @@ export declare function runStage(stageId: any, state: any): Promise<{
         issues: any;
         formatted: any;
     } | null;
-    inferredPipeline: "A" | "B" | "C" | null;
+    inferredPipeline: "A" | "B" | "C" | "academic" | null;
     stateSnapshot: {
         mode: any;
         pipeline: any;
@@ -43,5 +43,5 @@ export declare function runStage(stageId: any, state: any): Promise<{
     } | null;
     error?: undefined;
 }>;
-export declare function derivePipelineFromCategoryData(categoryData: any): "A" | "B" | "C" | null;
+export declare function derivePipelineFromCategoryData(categoryData: any): "A" | "B" | "C" | "academic" | null;
 //# sourceMappingURL=index.d.ts.map

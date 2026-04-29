@@ -16,6 +16,20 @@ interface StyleBible {
   tone: string
 }
 
+interface FigurePlanItem {
+  id: string
+  type: string
+  chapterNumber?: number | null
+  sectionTitle?: string | null
+  purpose: string
+  caption?: string
+  altText?: string
+  status: 'planned' | 'generating' | 'produced' | 'accepted' | 'rejected'
+  producedAssetPath?: string
+  producedAssetUri?: string
+  imagePrompt: Record<string, unknown> | null
+}
+
 interface State {
   illustrations: Illustration[]
   refs: RefItem[]
@@ -25,10 +39,12 @@ interface State {
   error: string | null
   creditCost: number
   lastGenerated: Illustration | null
+  figureRegistry: FigurePlanItem[]
+  generatingFigures: Record<string, boolean>
 }
 
 type Action =
-  | { type: 'init'; illustrations: Illustration[]; creditCost: number; styleBible: StyleBible; refs: RefItem[] }
+  | { type: 'init'; illustrations: Illustration[]; creditCost: number; styleBible: StyleBible; refs: RefItem[]; figureRegistry?: FigurePlanItem[] }
   | { type: 'refsUpdated'; illustrations: Illustration[]; refs: RefItem[] }
   | { type: 'styleBibleSaved'; styleBible: StyleBible }
   | { type: 'generated'; illustration: Illustration }
@@ -36,10 +52,13 @@ type Action =
   | { type: 'error'; message: string }
   | { type: 'delete'; absolutePath: string }
   | { type: 'clearJustGenerated' }
+  | { type: 'figureProgress'; figureId: string }
+  | { type: 'figureGenerated'; figureId: string; assetUri: string; assetPath: string }
+  | { type: 'figureStatusUpdated'; figureId: string; status: FigurePlanItem['status'] }
 
 function reduce(s: State, a: Action): State {
   switch (a.type) {
-    case 'init':              return { ...s, illustrations: a.illustrations, creditCost: a.creditCost, styleBible: a.styleBible ?? s.styleBible, refs: a.refs ?? s.refs, generating: false, phase: '', error: null }
+    case 'init':              return { ...s, illustrations: a.illustrations, creditCost: a.creditCost, styleBible: a.styleBible ?? s.styleBible, refs: a.refs ?? s.refs, generating: false, phase: '', error: null, figureRegistry: a.figureRegistry ?? s.figureRegistry }
     case 'refsUpdated':       return { ...s, illustrations: a.illustrations, refs: a.refs }
     case 'styleBibleSaved':   return { ...s, styleBible: a.styleBible }
     case 'generated':         return { ...s, illustrations: [...s.illustrations, a.illustration], lastGenerated: a.illustration, generating: false, phase: '', error: null }
@@ -47,12 +66,25 @@ function reduce(s: State, a: Action): State {
     case 'error':             return { ...s, generating: false, phase: '', error: a.message }
     case 'delete':            return { ...s, illustrations: s.illustrations.filter(i => i.absolutePath !== a.absolutePath), lastGenerated: s.lastGenerated?.absolutePath === a.absolutePath ? null : s.lastGenerated }
     case 'clearJustGenerated': return { ...s, lastGenerated: null }
+    case 'figureProgress':    return { ...s, generatingFigures: { ...s.generatingFigures, [a.figureId]: true } }
+    case 'figureGenerated':   return {
+      ...s,
+      generatingFigures: { ...s.generatingFigures, [a.figureId]: false },
+      figureRegistry: s.figureRegistry.map(f =>
+        f.id === a.figureId ? { ...f, status: 'produced', producedAssetPath: a.assetPath, producedAssetUri: a.assetUri } : f
+      ),
+    }
+    case 'figureStatusUpdated': return {
+      ...s,
+      generatingFigures: { ...s.generatingFigures, [a.figureId]: false },
+      figureRegistry: s.figureRegistry.map(f => f.id === a.figureId ? { ...f, status: a.status } : f),
+    }
     default: return s
   }
 }
 
 const EMPTY_BIBLE: StyleBible = { characters: [], artStyle: '', palette: '', tone: '' }
-const INITIAL: State = { illustrations: [], refs: [], styleBible: EMPTY_BIBLE, generating: false, phase: '', error: null, creditCost: 40, lastGenerated: null }
+const INITIAL: State = { illustrations: [], refs: [], styleBible: EMPTY_BIBLE, generating: false, phase: '', error: null, creditCost: 40, lastGenerated: null, figureRegistry: [], generatingFigures: {} }
 
 interface IllustrationType {
   label: string
@@ -162,12 +194,15 @@ export function App(): JSX.Element {
     const onMsg = (e: MessageEvent) => {
       const msg = e.data as Record<string, unknown>
       switch (msg.type) {
-        case 'init':            dispatch({ type: 'init', illustrations: msg.illustrations as Illustration[], creditCost: msg.creditCost as number, styleBible: (msg.styleBible as StyleBible) ?? EMPTY_BIBLE, refs: (msg.refs as RefItem[]) ?? [] }); break
-        case 'refsUpdated':     dispatch({ type: 'refsUpdated', illustrations: msg.illustrations as Illustration[], refs: (msg.refs as RefItem[]) ?? [] }); break
-        case 'styleBibleSaved': dispatch({ type: 'styleBibleSaved', styleBible: msg.styleBible as StyleBible }); break
-        case 'generated':       dispatch({ type: 'generated', illustration: msg.illustration as Illustration }); break
-        case 'progress':        dispatch({ type: 'progress', phase: msg.phase as string }); break
-        case 'error':           dispatch({ type: 'error', message: msg.message as string }); break
+        case 'init':              dispatch({ type: 'init', illustrations: msg.illustrations as Illustration[], creditCost: msg.creditCost as number, styleBible: (msg.styleBible as StyleBible) ?? EMPTY_BIBLE, refs: (msg.refs as RefItem[]) ?? [], figureRegistry: (msg.figureRegistry as FigurePlanItem[]) ?? [] }); break
+        case 'refsUpdated':       dispatch({ type: 'refsUpdated', illustrations: msg.illustrations as Illustration[], refs: (msg.refs as RefItem[]) ?? [] }); break
+        case 'styleBibleSaved':   dispatch({ type: 'styleBibleSaved', styleBible: msg.styleBible as StyleBible }); break
+        case 'generated':         dispatch({ type: 'generated', illustration: msg.illustration as Illustration }); break
+        case 'progress':          dispatch({ type: 'progress', phase: msg.phase as string }); break
+        case 'error':             dispatch({ type: 'error', message: msg.message as string }); break
+        case 'figureProgress':    dispatch({ type: 'figureProgress', figureId: msg.figureId as string }); break
+        case 'figureGenerated':   dispatch({ type: 'figureGenerated', figureId: msg.figureId as string, assetUri: msg.assetUri as string, assetPath: msg.assetPath as string }); break
+        case 'figureStatusUpdated': dispatch({ type: 'figureStatusUpdated', figureId: msg.figureId as string, status: msg.status as FigurePlanItem['status'] }); break
       }
     }
     window.addEventListener('message', onMsg)
@@ -391,6 +426,73 @@ export function App(): JSX.Element {
           </div>
         </>
       )}
+
+      <FigureRegistrySection figures={s.figureRegistry} generatingFigures={s.generatingFigures} />
+    </div>
+  )
+}
+
+const FIGURE_STATUS_BADGE: Record<FigurePlanItem['status'], string> = {
+  planned: '⬜',
+  generating: '⏳',
+  produced: '🟡',
+  accepted: '✅',
+  rejected: '🔴',
+}
+
+function FigureRegistrySection({ figures, generatingFigures }: { figures: FigurePlanItem[]; generatingFigures: Record<string, boolean> }): JSX.Element | null {
+  if (figures.length === 0) return null
+  return (
+    <div className="figure-registry">
+      <h3 className="grid-heading">Planned Figures ({figures.length})</h3>
+      <div className="figure-list">
+        {figures.map(f => (
+          <FigureCard key={f.id} figure={f} generating={!!generatingFigures[f.id]} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FigureCard({ figure: f, generating }: { figure: FigurePlanItem; generating: boolean }): JSX.Element {
+  const badge = FIGURE_STATUS_BADGE[f.status] ?? '⬜'
+  const ch = f.chapterNumber != null ? `Ch ${f.chapterNumber}` : null
+  const canGenerate = f.status === 'planned' || f.status === 'rejected'
+  const canAccept = f.status === 'produced'
+  const canReject = f.status === 'produced'
+
+  return (
+    <div className="figure-card">
+      <div className="figure-card-header">
+        <span>{badge}</span>
+        <code style={{ fontSize: 11 }}>{f.id}</code>
+        <span className="figure-type-tag">{f.type}</span>
+        {ch && <span style={{ opacity: 0.65, fontSize: 11 }}>{ch}{f.sectionTitle ? ` · ${f.sectionTitle}` : ''}</span>}
+      </div>
+      <div className="figure-purpose">{f.purpose}</div>
+      {f.caption && <div style={{ fontSize: 11, opacity: 0.75, fontStyle: 'italic' }}>{f.caption}</div>}
+      {f.producedAssetUri && (
+        <img src={f.producedAssetUri} alt={f.altText ?? f.id} className="figure-thumb" />
+      )}
+      <div className="il-actions" style={{ marginTop: 6 }}>
+        {generating && <span className="spinner-small" />}
+        {!generating && canGenerate && (
+          <button className="btn-micro" onClick={() => vscode.postMessage({ type: 'generateFigure', figureId: f.id })}>
+            Generate
+          </button>
+        )}
+        {!generating && canAccept && (
+          <button className="btn-micro" onClick={() => vscode.postMessage({ type: 'acceptFigure', figureId: f.id })}>
+            ✓ Accept
+          </button>
+        )}
+        {!generating && canReject && (
+          <button className="btn-micro btn-danger" onClick={() => vscode.postMessage({ type: 'rejectFigure', figureId: f.id })}>
+            ✗ Reject
+          </button>
+        )}
+        {f.status === 'accepted' && <span style={{ fontSize: 11, opacity: 0.65 }}>Accepted</span>}
+      </div>
     </div>
   )
 }

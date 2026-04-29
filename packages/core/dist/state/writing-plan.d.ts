@@ -9,7 +9,33 @@ export interface ResearchTodoItem {
     stageId?: string | null;
     status: 'planned' | 'captured' | 'verified' | 'cited';
 }
-/** A figure (diagram / chart / cast sheet / etc.) — consumed by NF-13 and fiction visual work. */
+/** A tracked factual claim — NF-12. Populated from pa-evidence / pb-sourcing stages. */
+export interface ClaimEvidenceItem {
+    id: string;
+    claimText: string;
+    chapterNumber: number | null;
+    sectionTitle: string | null;
+    evidenceType: 'study' | 'case-study' | 'data' | 'interview' | 'personal' | 'sourced-claim' | 'unparsed';
+    sources: string[];
+    confidence: 'primary' | 'secondary' | 'anecdotal' | 'unknown';
+    risk: 'high' | 'medium' | 'low';
+    citationNeeded: boolean;
+    verificationState: 'planned' | 'sourced' | 'captured' | 'verified' | 'cited';
+}
+/** Structured image-2 generation prompt — NF-13.1. */
+export interface ImagePrompt {
+    subject: string;
+    composition: string;
+    style: string;
+    textElements: Array<{
+        text: string;
+        position: string;
+    }>;
+    colourPalette: string;
+    negativeConstraints: string[];
+    aspectRatio: 'square' | 'landscape' | 'portrait' | string;
+}
+/** A figure (diagram / chart / cast sheet / etc.) — mode-agnostic, NF-13 + future fiction visual work. */
 export interface FigurePlanItem {
     id: string;
     type: string;
@@ -20,10 +46,10 @@ export interface FigurePlanItem {
     caption?: string;
     altText?: string;
     sourceRights?: string;
+    imagePrompt: ImagePrompt | null;
+    promptHistory: string[];
     status: 'planned' | 'generating' | 'produced' | 'accepted' | 'rejected';
     producedAssetPath?: string;
-    imagePrompt?: Record<string, unknown>;
-    promptHistory?: string[];
 }
 /** A scene within a fiction chapter. Captures everything the current
  *  schema captures plus contract slots (FIC-B will populate the contract
@@ -197,6 +223,61 @@ export interface PromisePayoffItem {
     risk: PromiseRisk;
     notes: string | null;
 }
+/** A single learning outcome from the ac-syllabus stage. Textbooks use full
+ *  Bloom's-level taxonomy; revision guides use recall-type classification. */
+export interface AcademicLearningOutcome {
+    code: string;
+    text: string;
+    bloom?: string | null;
+    module?: string | null;
+    recallType?: string | null;
+    examTrap?: string | null;
+}
+export interface AcademicWorkedExample {
+    id: string;
+    title: string | null;
+    difficulty: string | null;
+    chapterNumber: number;
+}
+export interface AcademicExercise {
+    id: string;
+    title: string | null;
+    difficulty: string | null;
+    chapterNumber: number;
+}
+/** A single chapter / topic in an academic plan — branches on bookType. */
+export interface AcademicChapter {
+    number: number;
+    title: string | null;
+    outcomes: string[];
+    keyTerms: string[];
+    prerequisites: number[];
+    sections: Array<{
+        title: string;
+        type: string;
+    }>;
+    wordTarget: number | null;
+    workedExamples: AcademicWorkedExample[];
+    exercises: AcademicExercise[];
+    recallQuestions: number | null;
+    examPractice: Array<{
+        type: string;
+        count: number;
+    }>;
+}
+/** Top-level academic plan — populated when pipeline === 'academic'. */
+export interface AcademicPlan {
+    bookType: 'textbook' | 'revision-guide';
+    level: string | null;
+    specReference: string | null;
+    assessmentShape: string | null;
+    learningOutcomes: AcademicLearningOutcome[];
+    keyTerms: string[];
+    workedExamples: AcademicWorkedExample[];
+    exercises: AcademicExercise[];
+    prerequisites: Record<number, number[]>;
+    chapters: AcademicChapter[];
+}
 /** A non-fiction chapter — a section-bearing structural unit, not a scene-bearing one.
  *  Pipeline-specific fields (`linkedPrinciple` for A, `chapterQuestion` for B,
  *  `learningObjective` for C) appear together; consumers branch on what's set. */
@@ -257,9 +338,10 @@ export interface WritingPlan {
         paFrameworkName: string | null;
     } | null;
     promises: PromisePayoffItem[];
-    claims: unknown[];
+    claims: ClaimEvidenceItem[];
     storyBible: FictionStoryBible | null;
     arcMatrix: FictionArcMatrix | null;
+    academic: AcademicPlan | null;
 }
 /** Single entry point. Branches on `state.mode` once; downstream code is
  *  mode-aware via the populated arrays, not by branching on raw state. */

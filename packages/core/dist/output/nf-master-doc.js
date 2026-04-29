@@ -169,12 +169,37 @@ function generateNfMasterDocument(plan, state, projectDir) {
         }
         lines.push('');
     }
+    // ── NF-12.5: Claim risk overview ───────────────────────────────────────────
+    const allClaims = plan.claims;
+    if (allClaims.length > 0) {
+        const verified = allClaims.filter(c => c.verificationState === 'verified' || c.verificationState === 'cited').length;
+        const pct = Math.round((verified / allClaims.length) * 100);
+        const chapterRisk = new Map();
+        for (const c of allClaims) {
+            if (c.risk === 'high' && c.chapterNumber != null &&
+                c.verificationState !== 'verified' && c.verificationState !== 'cited') {
+                chapterRisk.set(c.chapterNumber, (chapterRisk.get(c.chapterNumber) ?? 0) + 1);
+            }
+        }
+        const topRisk = [...chapterRisk.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+        let claimBlock = `*${allClaims.length} claims tracked · ${verified} verified (${pct}%)*\n\n`;
+        if (topRisk.length > 0) {
+            claimBlock += '**Highest-risk chapters:**\n';
+            for (const [chNum, count] of topRisk) {
+                const chTitle = plan.nfChapters.find(c => c.number === chNum)?.title ?? null;
+                const label = chTitle ? `Ch ${chNum} — ${chTitle}` : `Chapter ${chNum}`;
+                claimBlock += `- ${label}: ${count} unsupported high-risk claim${count !== 1 ? 's' : ''}\n`;
+            }
+        }
+        lines.push(...section('Claim Risk Overview', claimBlock).split('\n'));
+    }
     lines.push('---', `*Storyline NF Master Document — updated on every master-stage save.*`);
     fs.writeFileSync(outputPath, lines.join('\n'), 'utf-8');
     return {
         outputPath,
         chapterCount: plan.nfChapters.length,
         researchItemCount: researchItems.length,
+        claimCount: allClaims.length,
     };
 }
 //# sourceMappingURL=nf-master-doc.js.map

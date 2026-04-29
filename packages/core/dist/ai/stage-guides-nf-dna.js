@@ -62,6 +62,14 @@ exports.CATEGORY_PIPELINE_MAP = {
     'language': 'C',
     'education': 'C',
     'career': 'C',
+    // Academic pipeline (NF-14) — textbooks and revision guides
+    'textbook': 'academic',
+    'revision guide': 'academic',
+    'revision-guide': 'academic',
+    'academic': 'academic',
+    'exam revision': 'academic',
+    'study guide': 'academic',
+    'course book': 'academic',
 };
 function inferPipelineFromCategory(category) {
     if (!category)
@@ -106,12 +114,19 @@ exports.NF_DNA_GUIDES = {
                 hint: 'Title and author. This is your primary comp and will come back in Stage 7.',
                 required: true,
             },
+            {
+                key: 'bookType',
+                label: 'Academic books only: is this a Textbook or a Revision Guide?',
+                hint: 'Type "textbook" (comprehensive curriculum coverage, worked examples, exercises) or "revision-guide" (compressed exam-prep, quick-checks, practice questions). Leave blank for non-academic categories.',
+                required: false,
+            },
         ],
         pipelineRouting: {
             note: 'Category determines pipeline. Confirm with writer — they can override.',
             A: 'Prescriptive: self-help, business, health, money, relationships',
             B: 'Narrative NF: popular science, history, true crime, journalism',
             C: 'How-To / Skill Ladder: cookbooks, craft, technical skills, practical guides',
+            academic: 'Academic: textbooks, revision guides, study guides — structured around learning outcomes and a syllabus',
         },
         validation: ['primaryCategory', 'shelfDescription', 'competitorTitle'],
         summary: [
@@ -564,6 +579,136 @@ exports.NF_DNA_GUIDES = {
             { label: 'Biggest risk', key: 'biggestRisk' },
         ],
         transition: `Book DNA complete. Moving to Pipeline [A/B/C] — the structural planning phase.`,
+    },
+    // ── Academic-specific DNA stages (NF-14.2) ───────────────────────────────────
+    // These replace dna-comps (skipped) and dna-voice (replaced by dna-ac-level)
+    // in the academic pipeline's DNA phase. They slot between dna-promise and
+    // dna-evidence.
+    'dna-ac-level': {
+        id: 'dna-ac-level',
+        name: 'Level & Register',
+        phase: 'book-dna',
+        index: 7,
+        persona: 'academic-editor',
+        opening: `Academic books live and die by register. A GCSE revision guide written at A-level pitch fails the student. An undergraduate text written at sixth-form level loses the lecturer.\n\nLet's pin the level and register precisely before a word of content is planned.`,
+        questions: [
+            {
+                key: 'academicLevel',
+                label: 'What is the target academic level?',
+                hint: 'KS3 (age 11–14) / GCSE (age 14–16) / A-level (age 16–18) / IB / Undergraduate (which year?) / Postgraduate / CPD / Professional',
+                required: true,
+            },
+            {
+                key: 'register',
+                label: 'What is the appropriate register for this level?',
+                hint: 'e.g. "Accessible with technical precision" (GCSE), "Rigorous, citations expected, peer-level dialogue" (undergrad), "Examination-voice, direct, bullet-friendly" (revision guide)',
+                required: true,
+            },
+            {
+                key: 'priorKnowledge',
+                label: 'What can you assume the reader already knows before opening this book?',
+                hint: 'Be specific — this defines where Chapter 1 starts. e.g. "GCSE Maths grade 5+, no prior physics"',
+                required: true,
+            },
+            {
+                key: 'vocabularyPolicy',
+                label: 'How will you handle technical vocabulary?',
+                hint: 'Define on first use only? Maintain a running glossary? Bold key terms throughout? The answer should match the level.',
+                required: false,
+            },
+        ],
+        validation: ['academicLevel', 'register', 'priorKnowledge'],
+        summary: [
+            { label: 'Level', key: 'academicLevel' },
+            { label: 'Register', key: 'register' },
+            { label: 'Prior knowledge assumed', key: 'priorKnowledge' },
+            { label: 'Vocabulary policy', key: 'vocabularyPolicy' },
+        ],
+        transition: 'Level and register locked. Now let\'s capture the specification or syllabus this book is aligned to.',
+    },
+    'dna-ac-spec': {
+        id: 'dna-ac-spec',
+        name: 'Specification & Syllabus Alignment',
+        phase: 'book-dna',
+        index: 8,
+        persona: 'curriculum-editor',
+        opening: `Academic books need to be anchored to a specification or curriculum — even if they\'re not purely exam-focused. That anchor is what gives the outcome inventory (Stage 2 of planning) its authority.\n\nLet's capture it now so every chapter plan can trace back to it.`,
+        questions: [
+            {
+                key: 'specReference',
+                label: 'Name the syllabus, specification, or curriculum framework this book covers',
+                hint: 'e.g. "AQA GCSE Combined Science Trilogy 8464", "Edexcel A-level History 9HI0", "IB Diploma HL Biology", "Cambridge A-level Physics 9702", "UK National Curriculum KS3 Geography". Can be more than one.',
+                required: true,
+            },
+            {
+                key: 'specCoverage',
+                label: 'Does this book cover the full spec, or a subset?',
+                hint: 'Full coverage? A specific module or paper? Topic clusters? If subset, which ones?',
+                required: true,
+            },
+            {
+                key: 'specVersion',
+                label: 'Which version or year of the specification?',
+                hint: 'Specs change. Capture the version so readers know when to seek an update. e.g. "First assessed 2025", "2023–2025 cohort"',
+                required: false,
+            },
+            {
+                key: 'examBoard',
+                label: 'Which exam board or awarding body sets this specification?',
+                hint: 'e.g. AQA, Edexcel/Pearson, OCR, WJEC, CCEA, Cambridge International, IB, or None (curriculum-aligned but no single exam board)',
+                required: false,
+            },
+        ],
+        validation: ['specReference', 'specCoverage'],
+        summary: [
+            { label: 'Specification', key: 'specReference' },
+            { label: 'Coverage scope', key: 'specCoverage' },
+            { label: 'Spec version', key: 'specVersion' },
+            { label: 'Exam board', key: 'examBoard' },
+        ],
+        transition: 'Spec reference captured. Now let\'s define the assessment shape — what the student is ultimately being prepared for.',
+    },
+    'dna-ac-assessment': {
+        id: 'dna-ac-assessment',
+        name: 'Assessment Shape',
+        phase: 'book-dna',
+        index: 9,
+        persona: 'assessment-editor',
+        opening: `The assessment shape defines what the worked examples and exercises in this book need to look like. A book preparing students for multi-step calculation papers needs different worked examples to one preparing them for extended-essay responses.\n\nLet's capture it before we plan a single chapter.`,
+        questions: [
+            {
+                key: 'assessmentType',
+                label: 'What type of assessment are students being prepared for?',
+                hint: 'Multi-step calculation (maths/science) / Extended written response (humanities/essay) / Multiple-choice / Short-answer (factual recall) / Mixed paper / Practical/coursework / Portfolio / No formal assessment (CPD/reference)',
+                required: true,
+            },
+            {
+                key: 'examFormat',
+                label: 'Describe the typical exam or assessment format',
+                hint: 'e.g. "2-hour written paper, 6-mark extended question at the end of each section" or "4 x 1-hour papers, Paper 1 is MCQ, Papers 2–4 are structured"',
+                required: false,
+            },
+            {
+                key: 'commandWords',
+                label: 'What command words or task verbs appear most in the assessment?',
+                hint: 'e.g. "Describe, Explain, Evaluate, Calculate, Analyse, Compare, Justify". These should drive the exercise types in each chapter.',
+                required: false,
+            },
+            {
+                key: 'markSchemeStyle',
+                label: 'How are marks awarded? Point-based or level-descriptors?',
+                hint: 'Point-based (1 mark per correct point) or levels-of-response (bands, e.g. 0–2, 3–5, 6–8 marks). Affects how exercises in this book should be scaffolded.',
+                required: false,
+            },
+        ],
+        validation: ['assessmentType'],
+        summary: [
+            { label: 'Assessment type', key: 'assessmentType' },
+            { label: 'Exam format', key: 'examFormat' },
+            { label: 'Command words', key: 'commandWords' },
+            { label: 'Mark scheme style', key: 'markSchemeStyle' },
+        ],
+        transition: 'Assessment shape captured. Now let\'s define the evidence philosophy — how claims and examples will be sourced.',
     },
 };
 function getNfDnaGuide(stageId) {

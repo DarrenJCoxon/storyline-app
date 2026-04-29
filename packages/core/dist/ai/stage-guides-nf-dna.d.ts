@@ -12,8 +12,8 @@ export interface NfDnaGuide {
     transition?: string;
     [extra: string]: unknown;
 }
-export declare const CATEGORY_PIPELINE_MAP: Record<string, 'A' | 'B' | 'C'>;
-export declare function inferPipelineFromCategory(category?: string | null): 'A' | 'B' | 'C' | null;
+export declare const CATEGORY_PIPELINE_MAP: Record<string, 'A' | 'B' | 'C' | 'academic'>;
+export declare function inferPipelineFromCategory(category?: string | null): 'A' | 'B' | 'C' | 'academic' | null;
 export declare const NF_DNA_GUIDES: Record<string, NfDnaGuide>;
 export declare function getNfDnaGuide(stageId: string): NfDnaGuide | null;
 export declare const NF_DNA_GUIDE_ORDER: NfDnaGuide[];

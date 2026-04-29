@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { ChatMessage } from '../App.js'
 import { UserBubble } from './MessageBubble.js'
@@ -9,10 +9,19 @@ interface Props {
   messages: ChatMessage[]
   streamingId: string | null
   onOpenProjectFile: (path: string) => void
+  restoredAt?: number
 }
 
-export function ChatThread({ messages, streamingId, onOpenProjectFile }: Props) {
+export function ChatThread({ messages, streamingId, onOpenProjectFile, restoredAt }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Jump instantly on restore — smooth scroll starts from the top and looks wrong
+  useLayoutEffect(() => {
+    if (!restoredAt) return
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'instant' })
+    })
+  }, [restoredAt])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

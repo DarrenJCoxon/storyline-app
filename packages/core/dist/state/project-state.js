@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
+exports.NF_STAGE_BY_ID = exports.NF_STAGE_ORDER = exports.NF_ACADEMIC_STAGE_ORDER = exports.NF_ACADEMIC_DNA_STAGE_ORDER = exports.NF_PIPELINE_C_STAGE_ORDER = exports.NF_PIPELINE_B_STAGE_ORDER = exports.NF_PIPELINE_A_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER = exports.STAGE_BY_ID = exports.STAGE_ORDER = exports.DEFAULT_STATE = void 0;
 exports.stageOrderFor = stageOrderFor;
 exports.DEFAULT_STATE = {
     _meta: { projectPath: null, createdAt: null, updatedAt: null },
     mode: null,
     pipeline: 'novel',
     subMode: null,
+    bookType: null,
     bookDna: {},
     nfStages: {},
     stages: {},
@@ -151,19 +152,55 @@ exports.NF_PIPELINE_C_STAGE_ORDER = [
     { index: 22, id: 'pc-critique', name: 'Consistency & Critique', nextPrompt: 'pc-critique' },
     { index: 23, id: 'pc-master', name: 'Master Document', nextPrompt: 'pc-master' },
 ];
+// Academic pipeline Phase 0 (NF-14.2) — trimmed Book DNA for academic projects.
+// Differences from standard NF_DNA_STAGE_ORDER:
+//   - dna-comps removed (academic comp analysis works differently; out of scope)
+//   - dna-voice replaced by dna-ac-level (level & register)
+//   - dna-ac-spec added (syllabus / specification reference)
+//   - dna-ac-assessment added (assessment shape)
+exports.NF_ACADEMIC_DNA_STAGE_ORDER = [
+    { index: 0, id: 'mode', name: 'Fiction or Non-Fiction', nextPrompt: 'mode' },
+    { index: 1, id: 'dna-category', name: 'Category & Book Type', nextPrompt: 'dna-category' },
+    { index: 2, id: 'dna-reader', name: 'Reader Avatar', nextPrompt: 'dna-reader' },
+    { index: 3, id: 'dna-transform', name: 'Reader Transformation', nextPrompt: 'dna-transform' },
+    { index: 4, id: 'dna-idea', name: 'The One Big Idea', nextPrompt: 'dna-idea' },
+    { index: 5, id: 'dna-author', name: 'Author Angle & Authority', nextPrompt: 'dna-author' },
+    { index: 6, id: 'dna-promise', name: 'Core Promise', nextPrompt: 'dna-promise' },
+    { index: 7, id: 'dna-ac-level', name: 'Level & Register', nextPrompt: 'dna-ac-level' },
+    { index: 8, id: 'dna-ac-spec', name: 'Specification & Syllabus', nextPrompt: 'dna-ac-spec' },
+    { index: 9, id: 'dna-ac-assessment', name: 'Assessment Shape', nextPrompt: 'dna-ac-assessment' },
+    { index: 10, id: 'dna-evidence', name: 'Evidence Philosophy', nextPrompt: 'dna-evidence' },
+    { index: 11, id: 'dna-commercial', name: 'Commercial Model', nextPrompt: 'dna-commercial' },
+    { index: 12, id: 'dna-title', name: 'Working Title Pressure-Test', nextPrompt: 'dna-title' },
+    { index: 13, id: 'dna-consolidate', name: 'Book DNA Consolidation', nextPrompt: 'dna-consolidate' },
+];
+// Academic pipeline Phase 1 stages (NF-14.3/.4).
+exports.NF_ACADEMIC_STAGE_ORDER = [
+    { index: 14, id: 'ac-syllabus', name: 'Outcome Inventory', nextPrompt: 'ac-syllabus' },
+    { index: 15, id: 'ac-chapters', name: 'Chapter Plan', nextPrompt: 'ac-chapters' },
+    { index: 16, id: 'ac-critique', name: 'Consistency & Critique', nextPrompt: 'ac-critique' },
+    { index: 17, id: 'ac-master', name: 'Master Document', nextPrompt: 'ac-master' },
+];
 /** Concatenate Phase 0 + the chosen Phase 1 pipeline. */
 function nfStageOrderFor(pipeline) {
     switch (pipeline) {
         case 'A': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_A_STAGE_ORDER];
         case 'B': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_B_STAGE_ORDER];
         case 'C': return [...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_C_STAGE_ORDER];
+        case 'academic': return [...exports.NF_ACADEMIC_DNA_STAGE_ORDER, ...exports.NF_ACADEMIC_STAGE_ORDER];
         default: return exports.NF_DNA_STAGE_ORDER; // pipeline not chosen yet → Phase 0 only
     }
 }
 /** Default NF order (Phase 0 only) — used when no pipeline is in state. */
 exports.NF_STAGE_ORDER = exports.NF_DNA_STAGE_ORDER;
-exports.NF_STAGE_BY_ID = Object.fromEntries([...exports.NF_DNA_STAGE_ORDER, ...exports.NF_PIPELINE_A_STAGE_ORDER, ...exports.NF_PIPELINE_B_STAGE_ORDER, ...exports.NF_PIPELINE_C_STAGE_ORDER]
-    .map(s => [s.id, s]));
+exports.NF_STAGE_BY_ID = Object.fromEntries([
+    ...exports.NF_DNA_STAGE_ORDER,
+    ...exports.NF_PIPELINE_A_STAGE_ORDER,
+    ...exports.NF_PIPELINE_B_STAGE_ORDER,
+    ...exports.NF_PIPELINE_C_STAGE_ORDER,
+    ...exports.NF_ACADEMIC_DNA_STAGE_ORDER,
+    ...exports.NF_ACADEMIC_STAGE_ORDER,
+].map(s => [s.id, s]));
 /** Returns the stage progression for the current project mode + pipeline. */
 function stageOrderFor(state) {
     if (!state || state.mode !== 'nonfiction')

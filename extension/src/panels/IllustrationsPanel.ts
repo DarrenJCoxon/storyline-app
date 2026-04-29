@@ -8,10 +8,13 @@ import {
   type StyleBible,
 } from '../illustration/style-bible.js'
 import { LicenceManager } from '../auth/licence.js'
+import { getWritingPlan, synthesizeImagePrompt } from '@storyline/core'
+import type { FigurePlanItem, ImagePrompt } from '@storyline/core'
 import type { EditorPanel } from './EditorPanel.js'
 
 function getBackendUrl(): string { return vscode.workspace.getConfiguration("storyline").get<string>("backendUrl", "https://api.storyline.my").replace(/\/$/, "") }
 const ILLUSTRATIONS_DIR = 'assets/illustrations'
+const FIGURES_DIR = 'assets/figures'
 
 export class IllustrationsPanel {
   public static readonly viewType = 'storyline.illustrations'
@@ -68,7 +71,41 @@ export class IllustrationsPanel {
       creditCost: IMAGE_CREDIT_COST,
       styleBible: readStyleBible(projectDir),
       refs: this.serialiseRefs(projectDir),
+      figureRegistry: this.loadFigureRegistry(projectDir),
     })
+  }
+
+  private loadFigureRegistry(projectDir: string): FigurePlanItem[] {
+    try {
+      const statePath = path.join(projectDir, '.storyline', 'state.json')
+      if (!fs.existsSync(statePath)) return []
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
+      const plan = getWritingPlan(state)
+      return plan.figures.map(f => ({
+        ...f,
+        producedAssetUri: f.producedAssetPath
+          ? this.assetUri(f.producedAssetPath)
+          : undefined,
+      })) as FigurePlanItem[]
+    } catch {
+      return []
+    }
+  }
+
+  private updateFigureStatus(
+    projectDir: string,
+    figureId: string,
+    patch: { status?: string; producedAssetPath?: string; imagePrompt?: ImagePrompt; promptHistory?: string[] },
+  ): void {
+    const statePath = path.join(projectDir, '.storyline', 'state.json')
+    if (!fs.existsSync(statePath)) return
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
+    const nfStages = (state.nfStages ?? {}) as Record<string, unknown>
+    const existing = (nfStages['figure-status'] as Record<string, unknown>) ?? {}
+    existing[figureId] = { ...(existing[figureId] as Record<string, unknown> ?? {}), ...patch }
+    nfStages['figure-status'] = existing
+    state.nfStages = nfStages
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8')
   }
 
   private listIllustrations(projectDir: string): Array<{ filename: string; uri: string; absolutePath: string; isRef?: boolean; refKind?: string }> {
@@ -109,6 +146,15 @@ export class IllustrationsPanel {
     switch (msg.type) {
       case 'generate':
         await this.handleGenerate(msg)
+        break
+      case 'generateFigure':
+        await this.handleGenerateFigure(msg)
+        break
+      case 'acceptFigure':
+        await this.handleFigureStatusChange(msg, 'accepted')
+        break
+      case 'rejectFigure':
+        await this.handleFigureStatusChange(msg, 'rejected')
         break
       case 'deleteFile': {
         const p = msg.absolutePath as string
@@ -237,6 +283,117 @@ export class IllustrationsPanel {
     } finally {
       this.generating = false
     }
+  }
+
+  private async handleGenerateFigure(msg: Record<string, unknown>): Promise<void> {
+    if (this.generating) return
+    this.generating = true
+
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) { this.generating = false; return }
+
+    const figureId = String(msg.figureId ?? '')
+    if (!figureId) { this.generating = false; return }
+
+    try {
+      // Load figure from plan
+      const statePath = path.join(projectDir, '.storyline', 'state.json')
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
+      const plan = getWritingPlan(state)
+      const figure = plan.figures.find(f => f.id === figureId)
+      if (!figure) { this.post({ type: 'error', message: `Figure ${figureId} not found in plan.` }); this.generating = false; return }
+
+      // Synthesize imagePrompt if not yet present
+      let imagePrompt = figure.imagePrompt
+      if (!imagePrompt) {
+        const nf = (state.nfStages ?? {}) as Record<string, Record<string, unknown>>
+        const title = (plan.title ?? null) as string | null
+        const audience = plan.audience
+        const frameworkName = (nf['pa-framework']?.modelName as string | undefined) ?? undefined
+        imagePrompt = synthesizeImagePrompt(
+          figure.purpose,
+          figure.type,
+          { chapterTitle: plan.nfChapters.find(c => c.number === figure.chapterNumber)?.title ?? null },
+          { title, audience, frameworkName },
+        )
+        this.updateFigureStatus(projectDir, figureId, { imagePrompt })
+      }
+
+      // Serialize structured prompt to string for image-2
+      const textElems = imagePrompt.textElements.map(t => `"${t.text}" at ${t.position}`).join(', ')
+      const neg = imagePrompt.negativeConstraints.join(', ')
+      const prompt = [
+        imagePrompt.subject,
+        imagePrompt.composition,
+        imagePrompt.style,
+        textElems ? `Text elements: ${textElems}.` : '',
+        `Palette: ${imagePrompt.colourPalette}.`,
+        neg ? `Avoid: ${neg}.` : '',
+      ].filter(Boolean).join(' ')
+
+      // Determine version number from promptHistory
+      const version = (figure.promptHistory.length ?? 0) + 1
+      const filename = `${figureId}-v${version}.png`
+      const outputPath = path.join(FIGURES_DIR, filename)
+
+      this.post({ type: 'figureProgress', figureId, phase: `Generating ${figureId} v${version}…` })
+
+      // Mark as generating
+      this.updateFigureStatus(projectDir, figureId, { status: 'generating' })
+
+      const aspectMap: Record<string, string> = {
+        landscape: '1536x1024',
+        portrait: '1024x1536',
+        square: '1024x1024',
+      }
+      const ar = imagePrompt.aspectRatio
+      const generationSize = aspectMap[ar] ?? '1536x1024'
+      const [w, h] = generationSize.split('x').map(Number)
+
+      await generateImage({
+        prompt,
+        width: w, height: h,
+        generationSize,
+        aspectRatio: ar,
+        quality: 'medium',
+        referenceImagePaths: [],
+        outputPath,
+        projectDir,
+        backendUrl: getBackendUrl(),
+        licenceManager: this.licenceManager,
+      })
+
+      // Persist status + promptHistory
+      const updatedHistory = [...figure.promptHistory, prompt]
+      this.updateFigureStatus(projectDir, figureId, {
+        status: 'produced',
+        producedAssetPath: outputPath,
+        imagePrompt,
+        promptHistory: updatedHistory,
+      })
+
+      this.post({
+        type: 'figureGenerated',
+        figureId,
+        assetPath: outputPath,
+        assetUri: this.assetUri(outputPath),
+        version,
+      })
+    } catch (err) {
+      this.updateFigureStatus(projectDir, figureId, { status: 'planned' })
+      this.post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+    } finally {
+      this.generating = false
+    }
+  }
+
+  private async handleFigureStatusChange(msg: Record<string, unknown>, newStatus: 'accepted' | 'rejected'): Promise<void> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) return
+    const figureId = String(msg.figureId ?? '')
+    if (!figureId) return
+    this.updateFigureStatus(projectDir, figureId, { status: newStatus })
+    this.post({ type: 'figureStatusUpdated', figureId, status: newStatus })
   }
 
   private async handleInsertIntoChapter(msg: Record<string, unknown>): Promise<void> {
