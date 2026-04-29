@@ -105,12 +105,24 @@ export const NF_DNA_GUIDES: Record<string, NfDnaGuide> = {
     phase: 'book-dna',
     index: 1,
     persona: 'market-strategist',
-    opening: `Before we design a single chapter, we need to know exactly where this book lives in the market.\n\nI'm going to ask you about category, shelf placement, and the competitive landscape. Be as specific as you can — vague category answers lead to vague books.`,
+    opening: `Before we design a single chapter, we need to know exactly what this book is and where it lives in the market.\n\nFirst: what is the subject? Then we'll nail the category, shelf placement, and competitive landscape.`,
     questions: [
+      {
+        key: 'subject',
+        label: 'What is this book about? Give me the subject in one sentence.',
+        hint: 'e.g. "GCSE English Literature for Foundation tier", "A-Level Biology", "Starting a small business", "The history of the Cold War"',
+        required: true,
+      },
+      {
+        key: 'bookType',
+        label: 'What type of book is it?',
+        hint: 'e.g. "revision guide", "textbook", "self-help", "how-to", "memoir" — be specific. For academic books: "textbook" (comprehensive curriculum coverage) or "revision-guide" (compressed exam-prep, quick-checks, practice questions).',
+        required: true,
+      },
       {
         key: 'primaryCategory',
         label: 'What is the primary Amazon category for this book?',
-        hint: 'e.g. "Self-help", "Business & Money", "Popular Science", "True Crime", "Cooking"',
+        hint: 'e.g. "Self-help", "Business & Money", "Popular Science", "True Crime", "Cooking", "Education > Test Prep"',
         required: true,
       },
       {
@@ -131,12 +143,6 @@ export const NF_DNA_GUIDES: Record<string, NfDnaGuide> = {
         hint: 'Title and author. This is your primary comp and will come back in Stage 7.',
         required: true,
       },
-      {
-        key: 'bookType',
-        label: 'Academic books only: is this a Textbook or a Revision Guide?',
-        hint: 'Type "textbook" (comprehensive curriculum coverage, worked examples, exercises) or "revision-guide" (compressed exam-prep, quick-checks, practice questions). Leave blank for non-academic categories.',
-        required: false,
-      },
     ],
     pipelineRouting: {
       note: 'Category determines pipeline. Confirm with writer — they can override.',
@@ -145,8 +151,10 @@ export const NF_DNA_GUIDES: Record<string, NfDnaGuide> = {
       C: 'How-To / Skill Ladder: cookbooks, craft, technical skills, practical guides',
       academic: 'Academic: textbooks, revision guides, study guides — structured around learning outcomes and a syllabus',
     },
-    validation: ['primaryCategory', 'shelfDescription', 'competitorTitle'],
+    validation: ['subject', 'bookType', 'primaryCategory', 'shelfDescription', 'competitorTitle'],
     summary: [
+      { label: 'Subject', key: 'subject' },
+      { label: 'Book type', key: 'bookType' },
       { label: 'Category', key: 'primaryCategory' },
       { label: 'Sub-category', key: 'amazonSubcategory' },
       { label: 'Shelf', key: 'shelfDescription' },

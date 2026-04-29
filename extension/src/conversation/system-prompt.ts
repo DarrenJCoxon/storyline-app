@@ -10,7 +10,7 @@ This is the very first turn of a new project. Before any planning begins, you mu
 
 Greet the writer briefly, then ask one clear question:
 
-"Are you writing **fiction** (a novel — using Save the Cat structure) or **non-fiction** (Book DNA + a tailored pipeline for prescriptive, narrative, or how-to)?"
+"Are you writing **fiction** (a novel — using Save the Cat structure) or **non-fiction**? Non-fiction covers: prescriptive (self-help, business, health), narrative (popular science, history, memoir), how-to (cookbooks, craft, technical skills), and **academic (textbooks and revision guides)**."
 
 Wait for the answer. The moment they tell you, emit a save block AND nothing else after it:
 
