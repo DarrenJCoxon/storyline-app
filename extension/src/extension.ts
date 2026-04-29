@@ -17,6 +17,7 @@ import { openPreview } from './preview/preview-command.js'
 import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { checkLicencePrompt } from './onboarding/licence-prompt.js'
+import { ensureResearchFolder } from './onboarding/project-scaffold.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
 import { LocalStore } from './state/local-store.js'
@@ -82,6 +83,14 @@ function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // One-shot backfill: projects created before research/ existed don't have
+  // the folder, so the AI silently has nothing to read. Auto-create on
+  // activation if a Storyline project is detected. No-op if already there.
+  const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json'))) {
+    try { ensureResearchFolder(wsRoot) } catch { /* non-fatal */ }
+  }
+
   const statusBar = new WordCountStatusBar(context)
   const editorPanel = new EditorPanel(context, context.extensionUri, statusBar)
   void statusBar.start(context)

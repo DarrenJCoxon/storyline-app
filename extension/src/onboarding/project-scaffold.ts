@@ -63,6 +63,17 @@ function writeIfMissing(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, 'utf8')
 }
 
+/**
+ * One-shot backfill for projects scaffolded before research/ existed.
+ * Called on extension activation when a Storyline project is detected.
+ * No-op if research/ already exists. Idempotent.
+ */
+export function ensureResearchFolder(workspaceRoot: string): void {
+  const dir = path.join(workspaceRoot, 'research')
+  fs.mkdirSync(dir, { recursive: true })
+  writeIfMissing(path.join(dir, 'README.md'), RESEARCH_README)
+}
+
 const MANUSCRIPT_README = `# Manuscript
 
 Your novel's prose lives here. One \`.md\` file per chapter is the usual pattern:
