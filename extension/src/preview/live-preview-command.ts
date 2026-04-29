@@ -987,14 +987,16 @@ function buildWebviewHtml(
     }
     /* Images respect the writer's pixel sizes but never overflow the
        page surface — visual cap only, the markdown source keeps the
-       requested width/height. Explicit inline style on the <img>
-       wins over this rule (higher specificity). */
-    .device-surface img {
+       requested width/height. Wrapped in :where() so opener-css rules
+       like h1 + p > img can win without needing !important —
+       :where() contributes 0 specificity, leaving these rules as
+       element-only fallbacks. */
+    :where(.device-surface) img {
       max-width: 100%;
       display: block;
       margin: 1.2em auto;
     }
-    .device-surface img:not([style*="height"]) { height: auto; }
+    :where(.device-surface) img:not([style*="height"]) { height: auto; }
     .device-surface p {
       text-indent: 1.5em;
       margin: 0;
