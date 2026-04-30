@@ -531,7 +531,9 @@ function deriveChapterHeading(uri: vscode.Uri, workspaceRoot: string): { number:
     const titlePart = match[2]
       ? match[2].replace(/[-_]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
       : '';
-    return { number: String(num), title: titlePart || `Chapter ${num}` };
+    // Only surface the number separately when there's a custom title to pair it with.
+    // Without a custom title the heading IS "Chapter N" — the number would duplicate it.
+    return { number: titlePart ? String(num) : null, title: titlePart || `Chapter ${num}` };
   }
   const humanTitle = basename
     .replace(/^[\d_]+[\s\-_]*/, '')
