@@ -1094,19 +1094,6 @@ function buildWebviewHtml(
         </div>
       </div>
 
-      <!-- Paragraphing -->
-      <div class="popover-anchor">
-        <button class="icon-btn" data-popover="pop-para" title="Paragraphing" aria-expanded="false" style="font-family:Georgia,serif;">¶</button>
-        <div class="popover" id="pop-para">
-          <div class="popover-section">
-            <div class="popover-section-title">Paragraphs</div>
-            <button class="popover-row" data-paragraphs="indented"><span class="check">✓</span> Indented (first-line indent)</button>
-            <button class="popover-row" data-paragraphs="block"><span class="check">✓</span> Block (spaced)</button>
-          </div>
-          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
-        </div>
-      </div>
-
       <!-- Element styles -->
       <div class="popover-anchor">
         <button class="icon-btn" data-popover="pop-elements" title="Element styles" aria-expanded="false">
@@ -1145,6 +1132,19 @@ function buildWebviewHtml(
             <button class="popover-row" data-callout="tip"><span class="check">✓</span> Tip (green)</button>
             <button class="popover-row" data-callout="alert"><span class="check">✓</span> Alert (amber)</button>
             <button class="popover-row" data-callout="boxed"><span class="check">✓</span> Outlined box</button>
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
+      <!-- Paragraphing -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-para" title="Paragraphing" aria-expanded="false" style="font-family:Georgia,serif;">¶</button>
+        <div class="popover" id="pop-para">
+          <div class="popover-section">
+            <div class="popover-section-title">Paragraphs</div>
+            <button class="popover-row" data-paragraphs="indented"><span class="check">✓</span> Indented (first-line indent)</button>
+            <button class="popover-row" data-paragraphs="block"><span class="check">✓</span> Block (spaced)</button>
           </div>
           <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>

@@ -10,7 +10,8 @@
 // Print targets can run in parallel since they use separate Puppeteer instances.
 
 import { resolve } from 'path';
-import { writeFile, ensureDir, pathExists, readFile } from 'fs-extra';
+import pkg from 'fs-extra';
+const { writeFile, ensureDir, pathExists, readFile } = pkg;
 import { packageEpub } from './epub.js';
 import { packagePrintPdf } from './print-pdf.js';
 import { generateCoverPdf } from './cover-generator.js';

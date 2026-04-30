@@ -1,0 +1,12 @@
+{
+  "id": "strand",
+  "name": "Strand",
+  "genre": "Thriller / Commercial",
+  "description": "Source Serif 4 body with bold Plus Jakarta Sans chapter numerals, left-aligned uppercase titles, no drop cap. Tight, driven pacing.",
+  "fonts": ["source-serif-4", "plus-jakarta-sans"],
+  "ornaments": {
+    "sceneBreak": "* * *",
+    "dropCap": { "lines": 0 }
+  },
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}
