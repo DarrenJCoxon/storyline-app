@@ -6,34 +6,23 @@ import MarkdownIt from 'markdown-it';
 import type { EditorPanel } from '../panels/EditorPanel.js';
 type StorylineEditorProvider = EditorPanel;
 
-// "Storyline: Open Live Chapter Preview" — side panel that renders
-// the active chapter (markdown) with theme CSS applied, and updates
-// 500ms after the writer stops typing. Sister command to Open Preview
-// (full-book paginated) but trades pagination for typing responsiveness.
+// "Storyline: Open Live Chapter Preview" — Phase 6 overhaul.
 //
-// Implementation: pure in-memory render in the extension host.
-//   markdown → HTML via markdown-it (same config as CLI)
-//   wrap in <section class="chapter"> with .first on first <p>
-//   post to webview; webview replaces content div's innerHTML
+// Three simultaneous device panes (Print 6×9 spread, iPad Apple Books,
+// Kindle Paperwhite) with:
+//  - Book Style hot-swap via CSS media="" toggle (<300ms, no round-trip)
+//  - Typography inspector on Shift+hover (getComputedStyle overlay)
+//  - Layout modes: side (all three) / single-device focus
+//  - Chapter opener hot-swap, same approach
 //
-// No Paged.js, no Puppeteer — too slow for per-keystroke updates.
-// Live preview is a "galley proof" view: styled prose, no pagination.
-// Use "Open Preview" (full-book) for pagination/headers/page numbers.
+// Print pane shows pages in flex-wrap pairs (verso/recto spread view).
+// All Book Style and opener CSS is pre-loaded at preview open.
 
-const CURLY_QUOTES = '\u201c\u201d\u2018\u2019';
-// The custom TipTap editor already debounces its content-changed messages
-// by 500ms before applyEdit fires onDidChangeTextDocument, so this is the
-// *second* debounce in the pipeline. Keep it short so the total typing →
-// preview latency stays under ~700ms (perceptibly "live").
+const CURLY_QUOTES = '“”‘’';
 const DEBOUNCE_MS = 150;
 
-// Same markdown-it config as lib/compile/markdown-to-html.js — keeps
-// preview typography in sync with compile output.
 function createRenderer(): MarkdownIt {
   const md = new MarkdownIt({
-    // Allow inline HTML so resized images written as <img width=...> tags
-    // round-trip through the preview the same way they do through the
-    // editor.
     html: true,
     breaks: false,
     linkify: false,
@@ -58,68 +47,47 @@ export async function openLivePreview(
   const availableThemes = await discoverThemes(context);
   const availableOpeners = await discoverOpeners(context);
   const initialConfig = await readCompileConfig(folder.uri);
-  // Fall back to 'classic-serif' if the config points at a theme that
-  // isn't on disk (project carried over from another machine, theme
-  // removed, typo in config). Preview keeps working; compile would
-  // warn the same way.
   const initialThemeId = availableThemes.some(t => t.id === initialConfig.theme)
     ? initialConfig.theme
     : 'classic-serif';
-  const initialThemeCss = await loadThemeCss(context, initialThemeId);
-  // Resolve initial opener: prefer config value, then theme's defaultOpener
-  // (from theme.json if present), then first compatible opener, then ''.
   const initialOpenerId = (() => {
     if (initialConfig.chapterOpener && availableOpeners.some(o => o.id === initialConfig.chapterOpener)) {
       return initialConfig.chapterOpener;
     }
-    // Pick first compatible opener for this theme (or first overall)
     const compatible = availableOpeners.filter(
       o => o.compatibleThemes.length === 0 || o.compatibleThemes.includes(initialThemeId),
     );
     return compatible.length > 0 ? compatible[0].id : (availableOpeners.length > 0 ? availableOpeners[0].id : '');
   })();
-  const initialOpenerCss = initialOpenerId ? await loadOpenerCss(context, initialOpenerId) : '';
-  // Print-specific CSS layers — additional overrides applied on top of
-  // base theme/opener CSS when the preview is in Print 6×9 mode. These
-  // are the SAME files the compile pipeline loads for PDF output, so
-  // Print 6×9 preview matches the compiled PDF byte-for-byte (h1
-  // margins, font sizes, drop-cap dimensions, etc.). Only applied when
-  // the active device is Print 6×9 — iPad/Kindle previews keep using
-  // base CSS only.
-  const initialThemePrintCss = await loadThemePrintCss(context, initialThemeId);
-  const initialOpenerPrintCss = initialOpenerId ? await loadOpenerPrintCss(context, initialOpenerId) : '';
   const md = createRenderer();
+
+  // Pre-load ALL themes and openers CSS for hot-swap. This eliminates
+  // the host round-trip on theme change: webview toggles media="" on the
+  // pre-injected <style> tags directly.
+  const [allThemesCss, allOpenersCss] = await Promise.all([
+    loadAllThemesCss(context, availableThemes),
+    loadAllOpenersCss(context, availableOpeners),
+  ]);
 
   const panel = vscode.window.createWebviewPanel(
     'storyline.livePreview',
     'Live Chapter Preview',
-    // Beside the active editor — VS Code handles column creation
-    // naturally. The Inspector view (not an editor column) is the
-    // fixed "supporting content" region now.
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,
       retainContextWhenHidden: true,
-      // Allow the webview to load images from anywhere in the workspace
-      // (needed for ![alt](assets/illustrations/foo.png)).
       localResourceRoots: [folder.uri],
     },
   );
 
   panel.webview.html = buildWebviewHtml(
-    initialThemeCss,
-    initialOpenerCss,
-    initialThemePrintCss,
-    initialOpenerPrintCss,
+    allThemesCss,
+    allOpenersCss,
     { ...initialConfig, theme: initialThemeId, chapterOpener: initialOpenerId },
     availableThemes,
     availableOpeners,
   );
 
-  // Track the "source of truth" URI — the .md file currently focused in
-  // VS Code, whether in the default text editor OR our custom TipTap
-  // editor. vscode.window.activeTextEditor doesn't see custom editors,
-  // so we use vscode.window.tabGroups which covers both.
   let sourceUri: vscode.Uri | undefined;
 
   const resolveActiveDoc = (): vscode.TextDocument | undefined => {
@@ -136,29 +104,12 @@ export async function openLivePreview(
       return;
     }
     const markdown = doc.getText();
-    // Soft section breaks — a blank paragraph in the editor source
-    // renders as visible vertical gap with no ornament, and the next
-    // paragraph drops its first-line indent. Writers get a section
-    // shift from just pressing Enter twice, without reaching for `---`
-    // (which inserts the ornamental `* * *` break).
-    //
-    // Detection has two layers because tiptap-markdown's serialization
-    // of empty paragraphs varies:
-    //   1) Pre-render split: any "blank line between paragraphs"
-    //      pattern — two or more paragraph breaks separated only by
-    //      whitespace — splits the markdown. Matches \n\n\n+,
-    //      \n\n \n\n, \n \n\n, etc.
-    //   2) Post-render cleanup: an empty <p></p> that markdown-it
-    //      happened to emit gets rewritten as the same soft-break HR.
     const SOFT_BREAK = '<hr class="scene-break scene-break--soft" />\n';
     const chunks = markdown.split(/\n[\s\n]*\n[\s\n]*\n/).filter(c => c.trim().length > 0);
     let chunkHtml = chunks.length > 1
       ? chunks.map(c => md.render(c)).join(SOFT_BREAK)
       : md.render(markdown);
     chunkHtml = chunkHtml.replace(/<p>\s*<\/p>\s*/g, SOFT_BREAK);
-    // If the chapter markdown doesn't start with an H1, auto-inject a chapter
-    // number + title block derived from the filename. Mirrors the compile
-    // pipeline's chapter heading injection so preview matches compile output.
     if (!chunkHtml.trimStart().startsWith('<h1') && sourceUri) {
       const heading = deriveChapterHeading(sourceUri, folder.uri.fsPath);
       if (heading) {
@@ -166,14 +117,9 @@ export async function openLivePreview(
         chunkHtml = `${chNumHtml}<h1>${heading.title}</h1>\n` + chunkHtml;
       }
     }
-    // Mark first paragraph for drop cap styling (same transform the
-    // compile theme phase applies).
     const withFirst = chunkHtml.replace('<p>', '<p class="first">');
-    // Rewrite relative image paths to webview-safe URIs so `<img>`
-    // can actually load files from the workspace.
     const chapterDir = path.dirname(doc.uri.fsPath);
     const withImages = withFirst.replace(/<img\s+([^>]*?)src="([^"]+)"([^>]*?)>/g, (full, pre, src, post) => {
-      // Skip absolute URLs and already-rewritten webview URIs
       if (/^(https?:|data:|vscode-webview:)/.test(src)) return full;
       const absPath = path.isAbsolute(src) ? src : path.resolve(chapterDir, src);
       const webviewSrc = panel.webview.asWebviewUri(vscode.Uri.file(absPath)).toString();
@@ -186,23 +132,12 @@ export async function openLivePreview(
     });
   };
 
-  // Debounced update so rapid typing doesn't thrash the webview.
   let debounceTimer: NodeJS.Timeout | undefined;
   const scheduleUpdate = () => {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(updatePreview, DEBOUNCE_MS);
   };
 
-  // Get the URI of the active tab. Handles three cases:
-  //   - TabInputText: standard text editor (built-in markdown preview etc.)
-  //   - TabInputCustom: legacy custom-editor tabs (kept for compatibility
-  //     with any extension that still registers a custom editor for .md)
-  //   - TabInputWebview: webview panels — including our own rich editor.
-  //     We can't read a URI off a webview directly, but the editor
-  //     provider tracks which document its currently-active panel is
-  //     editing. Live-preview reads that to follow the rich editor.
-  // Returns undefined for terminal tabs, diff tabs, notebooks, this
-  // preview panel itself, etc.
   const getActiveTabUri = (): vscode.Uri | undefined => {
     const tab = vscode.window.tabGroups.activeTabGroup?.activeTab;
     if (!tab) return undefined;
@@ -222,33 +157,15 @@ export async function openLivePreview(
       sourceUri = uri;
       if (changed) updatePreview();
     }
-    // Deliberately don't clear sourceUri when focus moves to a non-
-    // manuscript tab (e.g. the preview panel itself!) — the writer
-    // expects the preview to keep showing the last chapter they were on.
   };
 
-  // Initial content from whatever's active right now.
   refreshSource();
 
-  // React to tab changes — writer flips between chapter files, or
-  // switches between our custom editor and default editor. tabGroups
-  // events cover both cases; activeTextEditor does not.
   const tabSubscription = vscode.window.tabGroups.onDidChangeTabs(refreshSource);
   const tabGroupSubscription = vscode.window.tabGroups.onDidChangeTabGroups(refreshSource);
-  // Rich-editor focus changes — webview tabs don't fire onDidChangeTabs
-  // when their internal active state flips (the tab itself is the same
-  // object), so we need a separate signal from the editor provider to
-  // know when the writer has switched between two open rich editors.
   const richEditorSubscription =
     editorProvider?.onDidChangeActiveRichEditor(() => refreshSource()) ?? { dispose: () => {} };
 
-  // React to text edits — including edits via our custom editor, because
-  // applyEdit there emits onDidChangeTextDocument too. If we haven't yet
-  // locked onto a source (e.g. the preview panel was opened before the
-  // writer clicked back into the manuscript tab), adopt the first
-  // manuscript-markdown change we see. This makes the preview robust even
-  // when the initial tab detection misses — any keystroke in a manuscript
-  // file will start the preview on that file.
   const textChangeSubscription = vscode.workspace.onDidChangeTextDocument(async e => {
     if (!sourceUri && (await isManuscriptMarkdown(e.document.uri, folder.uri))) {
       sourceUri = e.document.uri;
@@ -262,47 +179,35 @@ export async function openLivePreview(
 
   panel.webview.onDidReceiveMessage(async msg => {
     if (msg?.type === 'ready') {
-      // Webview finished booting its inline script — push initial content.
       updatePreview();
       return;
     }
+    // load-theme: fallback for themes not in the pre-loaded set
     if (msg?.type === 'load-theme') {
       const { theme } = msg as { theme?: string };
       if (typeof theme !== 'string' || !theme.trim()) return;
       const id = theme.trim();
       if (!availableThemes.some(t => t.id === id)) return;
-      try {
-        const css = await loadThemeCss(context, id);
-        const printCss = await loadThemePrintCss(context, id);
-        panel.webview.postMessage({ type: 'theme-css', id, css, printCss });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(
-          `Storyline: could not load theme "${id}" — ${message}`,
-        );
-      }
+      const cached = allThemesCss.get(id);
+      const css = cached?.baseCss ?? await loadThemeCss(context, id);
+      const printCss = cached?.printCss ?? await loadThemePrintCss(context, id);
+      panel.webview.postMessage({ type: 'theme-css', id, css, printCss });
       return;
     }
+    // load-chapter-opener: fallback for openers not in the pre-loaded set
     if (msg?.type === 'load-chapter-opener') {
       const { opener } = msg as { opener?: string };
       if (typeof opener !== 'string') return;
       const id = opener.trim();
-      // Empty id = clear opener
       if (!id) {
         panel.webview.postMessage({ type: 'opener-css', id: '', css: '', printCss: '' });
         return;
       }
       if (!availableOpeners.some(o => o.id === id)) return;
-      try {
-        const css = await loadOpenerCss(context, id);
-        const printCss = await loadOpenerPrintCss(context, id);
-        panel.webview.postMessage({ type: 'opener-css', id, css, printCss });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(
-          `Storyline: could not load chapter opener "${id}" — ${message}`,
-        );
-      }
+      const cached = allOpenersCss.get(id);
+      const css = cached?.baseCss ?? await loadOpenerCss(context, id);
+      const printCss = cached?.printCss ?? await loadOpenerPrintCss(context, id);
+      panel.webview.postMessage({ type: 'opener-css', id, css, printCss });
       return;
     }
     if (msg?.type === 'save-as-default') {
@@ -321,10 +226,7 @@ export async function openLivePreview(
           sceneBreakOrnament,
           chapterOpener,
         });
-        vscode.window.setStatusBarMessage(
-          `Storyline: preview defaults saved to compile.config.json`,
-          3000,
-        );
+        vscode.window.setStatusBarMessage(`Storyline: preview defaults saved to compile.config.json`, 3000);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Storyline: could not save defaults — ${message}`);
@@ -347,18 +249,11 @@ export async function openLivePreview(
 interface LivePreviewConfig {
   paragraphStyle: 'indented' | 'block';
   theme: string;
-  // Preview mirrors compile.config.json's themeOverrides for the two
-  // keys the preview's dropdowns control. bodyFont/sceneBreakOrnament
-  // empty-string means "theme default" (no override).
   bodyFont: string;
   sceneBreakOrnament: string;
-  // Chapter opener style id — empty string means "none / theme default"
   chapterOpener: string;
 }
 
-// Reads compile.config.json to seed the preview dropdowns with the
-// writer's current project defaults. Preview overrides these live,
-// but we want to start with what their book will actually compile as.
 async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreviewConfig> {
   const configPath = path.join(workspaceRoot.fsPath, 'compile.config.json');
   const defaults: LivePreviewConfig = {
@@ -393,9 +288,6 @@ async function readCompileConfig(workspaceRoot: vscode.Uri): Promise<LivePreview
   }
 }
 
-// "Save as default" — rewrite compile.config.json with the preview
-// panel's current paragraphStyle, theme, and themeOverrides (bodyFont +
-// sceneBreakOrnament). Preserves every other field the writer has set.
 async function saveDefaultsToConfig(
   workspaceRoot: vscode.Uri,
   {
@@ -417,10 +309,7 @@ async function saveDefaultsToConfig(
   try {
     const raw = await fs.readFile(configPath, 'utf-8');
     existing = JSON.parse(raw);
-  } catch {
-    // File doesn't exist yet — write a minimal one. The compile pipeline
-    // self-heals this case on the next run if we miss anything.
-  }
+  } catch { /* write minimal config */ }
   const updated: Record<string, unknown> = { ...existing };
   if (paragraphStyle === 'indented' || paragraphStyle === 'block') {
     updated.paragraphStyle = paragraphStyle;
@@ -428,10 +317,6 @@ async function saveDefaultsToConfig(
   if (typeof theme === 'string' && theme.trim()) {
     updated.theme = theme.trim();
   }
-
-  // themeOverrides — merge into the existing block rather than replacing
-  // it. Empty-string = "Theme default" = remove the override. Unspecified
-  // (undefined) = leave whatever was there.
   if (bodyFont !== undefined || sceneBreakOrnament !== undefined) {
     const overrides: Record<string, unknown> = (existing.themeOverrides && typeof existing.themeOverrides === 'object')
       ? { ...existing.themeOverrides as Record<string, unknown> }
@@ -450,37 +335,16 @@ async function saveDefaultsToConfig(
       delete updated.themeOverrides;
     }
   }
-  // chapterOpener is a top-level field (not inside themeOverrides)
   if (typeof chapterOpener === 'string') {
-    if (chapterOpener === '') {
-      delete updated.chapterOpener;
-    } else {
-      updated.chapterOpener = chapterOpener;
-    }
+    if (chapterOpener === '') delete updated.chapterOpener;
+    else updated.chapterOpener = chapterOpener;
   }
   await fs.writeFile(configPath, JSON.stringify(updated, null, 2) + '\n', 'utf-8');
 }
 
-interface ThemeDescriptor {
-  id: string;
-  name: string;
-}
+interface ThemeDescriptor { id: string; name: string; }
+interface OpenerDescriptor { id: string; name: string; compatibleThemes: string[]; }
 
-interface OpenerDescriptor {
-  id: string;
-  name: string;
-  compatibleThemes: string[];
-}
-
-// Scan resources/themes/ for every theme the compile pipeline ships
-// (copied at build time by scripts/copy-theme-assets.mjs). Each
-// directory with a valid theme.json becomes a dropdown entry. The
-// name shown in the UI comes from theme.json's `name` field.
-//
-// Logs diagnostic info to the extension host's console — visible via
-// Help → Toggle Developer Tools → Console, filter "Storyline". Read
-// errors don't abort discovery; a single broken theme shouldn't hide
-// the other two.
 async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDescriptor[]> {
   const themesRoot = path.join(context.extensionPath, 'resources', 'themes');
   let entries: string[];
@@ -490,7 +354,6 @@ async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDe
     console.warn('[Storyline] theme discovery: cannot read', themesRoot, err);
     return [{ id: 'classic-serif', name: 'Classic Serif' }];
   }
-
   const themes: ThemeDescriptor[] = [];
   for (const name of entries) {
     const themeDir = path.join(themesRoot, name);
@@ -508,48 +371,23 @@ async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDe
       console.warn(`[Storyline] theme discovery: skipping "${name}"`, err);
     }
   }
-
-  // Stable ordering: classic-serif first (the default), then alphabetical
-  // by display name. Writers open the preview and see their current
-  // default selected and familiar themes adjacent.
   themes.sort((a, b) => {
     if (a.id === 'classic-serif') return -1;
     if (b.id === 'classic-serif') return 1;
     return a.name.localeCompare(b.name);
   });
-  if (themes.length > 0) {
-    console.log(`[Storyline] theme discovery: ${themes.map(t => t.id).join(', ')}`);
-    return themes;
-  }
-  console.warn('[Storyline] theme discovery: found no themes — falling back to classic-serif');
+  if (themes.length > 0) return themes;
   return [{ id: 'classic-serif', name: 'Classic Serif' }];
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-}
-
-// Scan resources/chapter-openers/ for every opener the compile pipeline
-// ships (copied at build time by scripts/copy-theme-assets.mjs). Falls
-// back to empty array if the directory doesn't exist yet.
 async function discoverOpeners(context: vscode.ExtensionContext): Promise<OpenerDescriptor[]> {
   const openersRoot = path.join(context.extensionPath, 'resources', 'chapter-openers');
   let entries: string[];
   try {
     entries = await fs.readdir(openersRoot);
   } catch {
-    // Directory doesn't exist — copy-assets hasn't run for openers yet.
-    console.log('[Storyline] opener discovery: resources/chapter-openers/ not found — no openers available');
     return [];
   }
-
   const openers: OpenerDescriptor[] = [];
   for (const name of entries) {
     const openerDir = path.join(openersRoot, name);
@@ -570,21 +408,13 @@ async function discoverOpeners(context: vscode.ExtensionContext): Promise<Opener
       console.warn(`[Storyline] opener discovery: skipping "${name}"`, err);
     }
   }
-
   openers.sort((a, b) => a.name.localeCompare(b.name));
-  if (openers.length > 0) {
-    console.log(`[Storyline] opener discovery: ${openers.map(o => o.id).join(', ')}`);
-  }
   return openers;
 }
 
 async function loadOpenerCss(context: vscode.ExtensionContext, openerId: string): Promise<string> {
   const cssPath = path.join(context.extensionPath, 'resources', 'chapter-openers', openerId, 'opener.css');
-  try {
-    return await fs.readFile(cssPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  try { return await fs.readFile(cssPath, 'utf-8'); } catch { return ''; }
 }
 
 async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
@@ -592,48 +422,53 @@ async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): 
   try {
     return await fs.readFile(cssPath, 'utf-8');
   } catch {
-    // Fallback: minimal inline typography so the preview isn't styleless
-    // if the theme is missing. Shouldn't happen in a properly packaged
-    // .vsix, but a writer with a stale resources/ dir shouldn't get a
-    // blank panel.
-    return `
-      body { font-family: Georgia, serif; line-height: 1.6; }
-      p { text-indent: 1.5em; margin: 0; }
-    `;
+    return `body { font-family: Georgia, serif; line-height: 1.6; }
+      p { text-indent: 1.5em; margin: 0; }`;
   }
 }
 
-// Print-PDF CSS layer for a theme. Same file the compile pipeline reads
-// when packaging the 6×9 PDF — loaded into the preview ONLY when the
-// device picker is on Print 6×9, so the preview's chapter title margins,
-// font sizes and drop-cap dimensions match the PDF exactly. Missing file
-// is fine (theme has no print-specific overrides) — return empty string.
 async function loadThemePrintCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
   const cssPath = path.join(context.extensionPath, 'resources', 'themes', themeId, 'theme-print-pdf.css');
-  try {
-    return await fs.readFile(cssPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  try { return await fs.readFile(cssPath, 'utf-8'); } catch { return ''; }
 }
 
-// Print-PDF CSS layer for a chapter opener. Mirrors loadThemePrintCss —
-// only applied when device is Print 6×9. Empty openerId returns ''.
 async function loadOpenerPrintCss(context: vscode.ExtensionContext, openerId: string): Promise<string> {
   if (!openerId) return '';
   const cssPath = path.join(context.extensionPath, 'resources', 'chapter-openers', openerId, 'opener-print-pdf.css');
-  try {
-    return await fs.readFile(cssPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  try { return await fs.readFile(cssPath, 'utf-8'); } catch { return ''; }
 }
 
-// Reads writing.manuscriptPath from state.json so the preview follows
-// the project's actual manuscript dir (e.g. 'output/manuscript/',
-// 'chapters/', 'prose/'). Hardcoding 'manuscript/' broke preview for
-// projects with non-default layouts. Cached per-session so we don't
-// re-read the state file on every keystroke.
+// Pre-loads CSS for every discovered theme. Called once at preview open.
+async function loadAllThemesCss(
+  context: vscode.ExtensionContext,
+  themes: ThemeDescriptor[],
+): Promise<Map<string, { baseCss: string; printCss: string }>> {
+  const map = new Map<string, { baseCss: string; printCss: string }>();
+  await Promise.all(themes.map(async t => {
+    const [baseCss, printCss] = await Promise.all([
+      loadThemeCss(context, t.id),
+      loadThemePrintCss(context, t.id),
+    ]);
+    map.set(t.id, { baseCss, printCss });
+  }));
+  return map;
+}
+
+async function loadAllOpenersCss(
+  context: vscode.ExtensionContext,
+  openers: OpenerDescriptor[],
+): Promise<Map<string, { baseCss: string; printCss: string }>> {
+  const map = new Map<string, { baseCss: string; printCss: string }>();
+  await Promise.all(openers.map(async o => {
+    const [baseCss, printCss] = await Promise.all([
+      loadOpenerCss(context, o.id),
+      loadOpenerPrintCss(context, o.id),
+    ]);
+    map.set(o.id, { baseCss, printCss });
+  }));
+  return map;
+}
+
 let cachedManuscriptPath: string | null = null;
 async function getManuscriptPath(workspaceRoot: vscode.Uri): Promise<string> {
   if (cachedManuscriptPath !== null) return cachedManuscriptPath;
@@ -659,37 +494,21 @@ async function isManuscriptMarkdown(uri: vscode.Uri, workspaceRoot: vscode.Uri):
 }
 
 function emptyStateHtml(): string {
-  return `
-    <div class="empty-state">
-      <p><em>Open a chapter file in <code>manuscript/</code> to preview it here.</em></p>
-    </div>
-  `;
+  return `<div class="empty-state"><p><em>Open a chapter file in <code>manuscript/</code> to preview it here.</em></p></div>`;
 }
 
-// Derive chapter number and display title from the manuscript filename.
-// Checks the sidecar (.storyline/chapter-titles.json) first for user overrides,
-// then falls back to filename-based derivation for all files (not just chapter-XX).
 function deriveChapterHeading(uri: vscode.Uri, workspaceRoot: string): { number: string | null; title: string } | null {
   const basename = path.basename(uri.fsPath, path.extname(uri.fsPath));
-
-  // Sidecar lookup — user-set title takes full precedence
   let sidecarTitle: string | null = null;
   try {
     const titlesPath = path.join(workspaceRoot, '.storyline', 'chapter-titles.json');
     const titles = JSON.parse(readFileSync(titlesPath, 'utf-8')) as Record<string, string>;
     const relPath = path.relative(workspaceRoot, uri.fsPath);
     sidecarTitle = titles[relPath] ?? null;
-  } catch { /* sidecar absent or unreadable — fine */ }
-
-  // Extract numeric chapter number from filename if present (used for the chapter-number div)
+  } catch { /* sidecar absent */ }
   const numMatch = basename.match(/^(?:ch(?:apter)?[-_]?)(\d+)/i);
   const number = numMatch ? String(parseInt(numMatch[1], 10)) : null;
-
-  if (sidecarTitle) {
-    return { number, title: sidecarTitle };
-  }
-
-  // Chapter-pattern filename: ch01-clarity, chapter-01-clarity, chapter-1, ch1
+  if (sidecarTitle) return { number, title: sidecarTitle };
   const match = basename.match(/^(?:ch(?:apter)?[-_]?)(\d+)(?:[-_]+(.+))?$/i);
   if (match) {
     const num = parseInt(match[1], 10);
@@ -698,23 +517,28 @@ function deriveChapterHeading(uri: vscode.Uri, workspaceRoot: string): { number:
       : '';
     return { number: String(num), title: titlePart || `Chapter ${num}` };
   }
-
-  // Non-chapter filename (introduction.md, preface.md, prologue.md, etc.)
   const humanTitle = basename
     .replace(/^[\d_]+[\s\-_]*/, '')
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, (c: string) => c.toUpperCase());
-
   return humanTitle ? { number: null, title: humanTitle } : null;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+// ── HTML builder ───────────────────────────────────────────────
+
 function buildWebviewHtml(
-  themeCss: string,
-  openerCss: string,
-  themePrintCss: string,
-  openerPrintCss: string,
+  allThemesCss: Map<string, { baseCss: string; printCss: string }>,
+  allOpenersCss: Map<string, { baseCss: string; printCss: string }>,
   initialConfig: LivePreviewConfig,
   availableThemes: ThemeDescriptor[],
   availableOpeners: OpenerDescriptor[],
@@ -722,14 +546,41 @@ function buildWebviewHtml(
   const initialParagraphStyle = initialConfig.paragraphStyle;
   const initialTheme = initialConfig.theme || 'classic-serif';
   const initialOpener = initialConfig.chapterOpener || '';
-  // Emit theme rows server-side so the popover is populated before
-  // the inline script runs — no flash-of-single-option.
+
+  // Pre-inject all Book Style CSS sheets. Active one has media="", inactive have media="not all".
+  // The webview toggles these directly — no host round-trip needed for hot-swap.
+  const themeStylesheets = availableThemes.map(t => {
+    const css = allThemesCss.get(t.id)?.baseCss ?? '';
+    const active = t.id === initialTheme;
+    return `<style class="bookstyle-sheet" data-style="${escapeAttr(t.id)}" id="bs-${escapeAttr(t.id)}"${active ? '' : ' media="not all"'}>${css}</style>`;
+  }).join('\n  ');
+
+  const themePrintStylesheets = availableThemes.map(t => {
+    const css = allThemesCss.get(t.id)?.printCss ?? '';
+    const active = t.id === initialTheme;
+    return `<style class="bookstyle-print-sheet" data-style="${escapeAttr(t.id)}"${active ? '' : ' media="not all"'}>${css}</style>`;
+  }).join('\n  ');
+
+  // Opener sheets — include a no-op sheet for id="" (theme default)
+  const openerStylesheets = [
+    `<style class="opener-sheet" data-opener="" id="opener-none"${initialOpener === '' ? '' : ' media="not all"'}></style>`,
+    ...availableOpeners.map(o => {
+      const css = allOpenersCss.get(o.id)?.baseCss ?? '';
+      const active = o.id === initialOpener;
+      return `<style class="opener-sheet" data-opener="${escapeAttr(o.id)}" id="opener-${escapeAttr(o.id)}"${active ? '' : ' media="not all"'}>${css}</style>`;
+    }),
+  ].join('\n  ');
+
+  const openerPrintStylesheets = availableOpeners.map(o => {
+    const css = allOpenersCss.get(o.id)?.printCss ?? '';
+    const active = o.id === initialOpener;
+    return `<style class="opener-print-sheet" data-opener="${escapeAttr(o.id)}"${active ? '' : ' media="not all"'}>${css}</style>`;
+  }).join('\n  ');
+
   const themeRows = availableThemes
     .map(t => `<button class="popover-row" data-theme="${escapeAttr(t.id)}"><span class="check">✓</span> ${escapeHtml(t.name)}</button>`)
     .join('\n            ');
-  // Emit opener rows server-side. Each opener carries a data-compatible-themes
-  // attribute (JSON array of theme ids) so the webview can filter without
-  // a round-trip when the active theme changes.
+
   const openerRows = availableOpeners.length > 0
     ? availableOpeners
         .map(o => {
@@ -738,76 +589,47 @@ function buildWebviewHtml(
         })
         .join('\n            ')
     : `<div style="padding:6px 8px;font-size:12px;color:var(--vscode-descriptionForeground);">No openers available</div>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live Chapter Preview</title>
-  <style id="overrides">
-    /* Override layer — Font + Scene Break pickers write :root custom
-     * properties into this tag's textContent. Its rules cascade into
-     * every var() reference in both the theme CSS and panel CSS
-     * below. JS rewrites this tag wholesale on each override change;
-     * critical that nothing else lives here. Starts empty. */
-  </style>
-  <style id="theme-css">
-    /* Theme CSS (swapped wholesale when Theme dropdown changes — must
-     * therefore contain ONLY theme CSS, nothing shared with the panel
-     * chrome). */
-    ${themeCss}
-  </style>
-  <style id="opener-css">
-    /* Chapter opener CSS — loaded AFTER theme CSS so opener rules
-     * cascade over theme heading defaults. Swapped wholesale when the
-     * Chapter first page style dropdown changes. */
-    ${openerCss}
-  </style>
-  <style id="theme-print-css">
-    /* Print-PDF theme overrides — only populated when the device picker
-     * is on Print 6×9. Loaded AFTER opener-css so print h1 margins and
-     * font sizes can override both theme and opener defaults. This is
-     * the same file the compile pipeline reads when building the PDF,
-     * so Print 6×9 preview matches the compiled PDF exactly. */
-    ${themePrintCss}
-  </style>
-  <style id="opener-print-css">
-    /* Print-PDF opener overrides — only populated when device is Print
-     * 6×9. Loaded LAST so opener-specific print tweaks (e.g. larger
-     * drop caps, generous title drops) win the cascade. */
-    ${openerPrintCss}
-  </style>
+
+  <!-- Override layer (body-font + ornament custom props) -->
+  <style id="overrides"></style>
+
+  <!-- All Book Style CSS pre-loaded for hot-swap (<300ms via media="" toggle) -->
+  ${themeStylesheets}
+
+  <!-- Book Style print-PDF layers — only active for Print 6×9 pane -->
+  ${themePrintStylesheets}
+
+  <!-- Chapter opener CSS -->
+  ${openerStylesheets}
+
+  <!-- Chapter opener print-PDF layers -->
+  ${openerPrintStylesheets}
+
   <style>
-    /* ─── Panel shell (chrome around the reading surface) ──────────
-     * This block is static — never touched by JS. Contains device
-     * frames, header styling, and the device-surface structural rules
-     * that must survive both theme swaps and override updates. */
+    /* ── Panel shell ─────────────────────────────────────────────── */
     html, body {
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
       height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    body {
+      margin: 0; padding: 0;
       display: flex;
       flex-direction: column;
       font-family: var(--vscode-font-family);
     }
-    /* ─── Vellum-minimal toolbar ──────────────────────────────────
-     * Two icon buttons (device picker, typography picker) on the left,
-     * a compact status line in the centre (current device label +
-     * filename), nothing on the right. Click an icon → a small popover
-     * drops down with the relevant options as clickable rows. Each
-     * popover closes when the user picks a row or clicks outside.
-     *
-     * The goal: hide complexity until the writer asks for it. At rest
-     * the toolbar shows two icons and a filename — nothing else. */
+
+    /* ── Toolbar ─────────────────────────────────────────────────── */
     .preview-header {
       flex-shrink: 0;
       background: var(--vscode-editor-background);
       padding: 8px 14px;
-      border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.15));
+      border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.15));
       font-size: 11px;
       color: var(--vscode-descriptionForeground);
       display: flex;
@@ -819,19 +641,13 @@ function buildWebviewHtml(
     .preview-header .toolbar-center {
       flex: 1;
       text-align: center;
-      font-family: var(--vscode-editor-font-family), monospace;
-      color: var(--vscode-descriptionForeground);
+      font-family: var(--vscode-editor-font-family, monospace);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .preview-header .toolbar-center .device-label {
-      font-weight: 600;
-      color: var(--vscode-foreground);
-    }
-    .preview-header .toolbar-center .sep { margin: 0 6px; opacity: 0.5; }
 
-    /* Icon buttons — flat, transparent at rest, subtle hover. */
+    /* Icon buttons */
     .icon-btn {
       background: transparent;
       color: var(--vscode-foreground);
@@ -851,14 +667,11 @@ function buildWebviewHtml(
       transition: background 120ms ease;
     }
     .icon-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15)); }
-    .icon-btn.open { background: var(--vscode-toolbar-activeBackground, rgba(128,128,128,0.25)); }
+    .icon-btn.open,
+    .icon-btn.active { background: var(--vscode-toolbar-activeBackground, rgba(128,128,128,0.25)); }
 
-    /* Each icon button + its popover share a .popover-anchor wrapper
-     * so the popover positions itself relative to its button. */
+    /* Popovers */
     .popover-anchor { position: relative; display: inline-block; }
-
-    /* Popovers — anchored below their button, drop in via display.
-     * Only one popover open at a time; toggling one closes the others. */
     .popover {
       position: absolute;
       top: 100%;
@@ -900,11 +713,8 @@ function buildWebviewHtml(
       cursor: pointer;
     }
     .popover-row:hover { background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.12)); }
-    .popover-row.selected { background: var(--vscode-list-activeSelectionBackground, rgba(0,120,212,0.2)); color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground)); }
-    .popover-row .check {
-      width: 12px;
-      opacity: 0;
-    }
+    .popover-row.selected { background: var(--vscode-list-activeSelectionBackground, rgba(0,120,212,0.2)); }
+    .popover-row .check { width: 12px; opacity: 0; }
     .popover-row.selected .check { opacity: 1; }
     .popover-footer {
       margin-top: 6px;
@@ -925,171 +735,61 @@ function buildWebviewHtml(
     .popover-footer button:hover { background: var(--vscode-button-hoverBackground); }
     .popover-footer button:disabled { opacity: 0.5; cursor: default; }
 
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--vscode-descriptionForeground);
-    }
-
-    /* ─── Device stage (the "room" around the reading surface) ────
-     * Horizontal scroll if panel is narrower than the device width —
-     * fidelity over responsive shrink. Writers who want a full view
-     * resize the panel. */
-
-    .device-stage {
-      flex: 1 1 auto;
+    /* ── Three-pane layout ───────────────────────────────────────── */
+    .preview-layout {
+      flex: 1;
       min-height: 0;
-      padding: 24px 16px 120px;
       display: flex;
-      justify-content: center;
+      flex-direction: row;
+      gap: 24px;
+      padding: 20px 20px 60px;
       overflow-x: auto;
       overflow-y: auto;
+      align-items: flex-start;
     }
 
-    .device-surface {
-      box-sizing: border-box;
-      color: #111;
-      position: relative;          /* anchor for the absolutely-positioned .page-number footer */
-      /* CRITICAL: every .device-surface has an explicit height (576/864
-       * for Print 6×9, 768/1024 for iPad, 600/800 for Kindle). Inside
-       * .device-pages (a flex column) the default flex-shrink: 1 will
-       * squash these pages to fit the visible stage height — turning
-       * each 864px page card into a ~200px squished tile. flex-shrink:
-       * 0 forces flexbox to honour the explicit height; overflow
-       * within .device-stage becomes scroll, which is what we want. */
-      flex-shrink: 0;
+    .preview-pane {
+      display: flex;
+      flex-direction: column;
+      flex: 0 0 auto;
     }
 
-    /* Page-number footer — sits in the bottom margin of every paginated
-     * surface, centred horizontally. position:absolute keeps it out of
-     * the content flow so the pagination overflow check (scrollHeight vs
-     * clientHeight) is unaffected — adding a number can never push a
-     * paragraph onto the next page. Per-device colour/size overrides
-     * below for iPad and Kindle to match each device's typographic feel. */
-    .device-surface .page-number {
-      position: absolute;
-      left: 0;
-      right: 0;
+    .pane-label {
       text-align: center;
-      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--vscode-descriptionForeground);
+      padding: 0 0 8px;
       user-select: none;
-      pointer-events: none;
-      font-variant-numeric: oldstyle-nums;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
-    /* Structural rules applied regardless of device (typography
-       details are overridden per-device below). */
-    .device-surface blockquote,
-    .device-surface code,
-    .device-surface pre {
-      background: transparent !important;
-      color: inherit !important;
+    .pane-focus-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--vscode-descriptionForeground);
+      opacity: 0.4;
+      padding: 2px 4px;
+      border-radius: 2px;
+      font-size: 11px;
+      line-height: 1;
+      transition: opacity 120ms;
     }
-    /* Images respect the writer's pixel sizes but never overflow the
-       page surface — visual cap only, the markdown source keeps the
-       requested width/height. Wrapped in :where() so opener-css rules
-       like h1 + p > img can win without needing !important —
-       :where() contributes 0 specificity, leaving these rules as
-       element-only fallbacks. */
-    :where(.device-surface) img {
-      max-width: 100%;
-      display: block;
-      margin: 1.2em auto;
-    }
-    :where(.device-surface) img:not([style*="height"]) { height: auto; }
-    .device-surface p {
-      text-indent: 1.5em;
-      margin: 0;
-    }
-    .device-surface h1 + p,
-    .device-surface h2 + p,
-    .device-surface h3 + p,
-    .device-surface hr.scene-break + p,
-    .device-surface li p,
-    .device-surface td p,
-    .device-surface th p,
-    .device-surface blockquote p {
-      text-indent: 0;
-    }
-    /* .chapter-number — auto-injected block when chapter markdown has no H1.
-     * Opener CSS owns the visual treatment; this is just a neutral fallback. */
-    .device-surface .chapter-number {
-      text-align: center;
-      margin: 4em 0 0.5em 0;
-      text-indent: 0;
-    }
-    .device-surface h2, .device-surface h3 { font-weight: bold; margin: 1.5em 0 0.4em; }
-    .device-surface p.first::first-letter {
-      float: left;
-      font-size: 3.2em;
-      line-height: 0.85;
-      margin: 0.02em 0.08em 0 0;
-    }
-    .device-surface hr.scene-break { border: none; text-align: center; margin: 2em 0; }
-    .device-surface hr.scene-break::before {
-      /* Falls through to the theme default ("* * *" / "· · ·" / "❦")
-       * when no override is set; the Scene Break dropdown below writes
-       * --nw-scene-break-ornament to flip live. */
-      content: var(--nw-scene-break-ornament, "* * *");
-      display: block;
-      letter-spacing: 0.5em;
-      color: #666;
-      opacity: 0.7;
-    }
-    /* Soft section break — blank paragraph in the editor. No glyph,
-     * just vertical space; the existing "hr.scene-break + p" rule
-     * drops the first-line indent on the following paragraph. */
-    .device-surface hr.scene-break--soft { margin: 1.6em 0; }
-    .device-surface hr.scene-break--soft::before { content: none; }
-    .device-surface table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 1.2em 0;
-      font-size: 0.95em;
-    }
-    .device-surface th, .device-surface td {
-      border: 1px solid rgba(0,0,0,0.15);
-      padding: 0.45em 0.75em;
-      text-align: left;
-    }
-    .device-surface th { background: rgba(0,0,0,0.04); }
-    .device-surface blockquote { margin: 1em 2em; font-style: italic; }
+    .pane-focus-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15)); }
+    .pane-focus-btn.active { opacity: 1; color: var(--vscode-foreground); }
 
-    /* ─── Per-device frame styling ──────────────────────────────── *
-     *
-     * Each device uses its actual page width and body font size.
-     *
-     *   Print 6×9 — 6" × 9" at 96 DPI = 576px wide. 0.75" margins
-     *     (72px) each side. 11pt body, 1.4 line-height — matches the
-     *     Classic Serif print theme exactly.
-     *   iPad — Apple Books single-page reading surface is roughly 720px
-     *     wide with ~80px margins. Palatino 17px, line-height 1.55 —
-     *     typical Books.app defaults.
-     *   Kindle Paperwhite — 6" display, ~560px wide in-app reading
-     *     area with ~60px side margins. Bookerly 16px, line-height
-     *     1.55. Slightly reduced text contrast (#2a2824) mimics
-     *     e-ink grey-on-cream appearance.
-     */
+    .pane-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-    /* Print 6×9 surface — dimensions must match theme-print-pdf.css:
-     *   6in × 9in trim at 96 DPI → 576px × 864px total page
-     *   0.75in margins all sides → 72px padding
-     *   Text block: 432px wide (4.5in) × 720px tall (7.5in)
-     *   Body: 11pt / 1.45 line-height / serif stack (overridable via
-     *         --nw-body-font, which the bodyFont override writes)
-     *
-     * Asymmetric verso/recto margins in the real PDF (0.875in inside,
-     * 0.625in outside for binding) average to the symmetric 0.75in used
-     * here — the text block width is identical, which is what drives
-     * line length and character counts per line. */
-    /* .device-pages stacks discrete page-shaped surfaces vertically
-     * with a small gap between them. Each .device-surface is now ONE
-     * page (fixed height, overflow hidden) — the JS at the bottom of
-     * this file walks the rendered chapter HTML and distributes its
-     * nodes across as many pages as needed, cloning paragraphs that
-     * won't fit onto the next page. This gives the writer a Vellum-
-     * style "book laid out on a desk" preview instead of one infinite
-     * column. */
+    /* ── Shared page stack ───────────────────────────────────────── */
     .device-pages {
       display: flex;
       flex-direction: column;
@@ -1097,49 +797,110 @@ function buildWebviewHtml(
       gap: 20px;
     }
 
-    /* Each page is a fixed-size clipping container. Dimensions +
-     * typography come from the body.device-* rules below; the common
-     * page-shadow/overflow live here so all three devices share them. */
     .device-surface {
       box-sizing: border-box;
       overflow: hidden;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 6px 18px rgba(0,0,0,0.10);
+      position: relative;
+      flex-shrink: 0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 6px 18px rgba(0,0,0,0.12);
     }
 
-    body.device-print-6x9 .device-stage { background: #eceae4; padding: 24px 0 40px; }
-    body.device-print-6x9 .device-surface {
-      /* Exact 6"×9" trim at 96 DPI = 576×864 CSS pixels. 0.75" margins
-       * all sides → 72px padding. Text block: 4.5"×7.5" (432×720).
-       * Asymmetric verso/recto margins in the real PDF (0.875" inside,
-       * 0.625" outside for binding) average to the symmetric 0.75" used
-       * here — text-block width is identical, which is what drives line
-       * length and characters per line. */
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    /* Page numbers — positioned in bottom margin of each surface */
+    .device-surface .page-number {
+      position: absolute;
+      left: 0; right: 0;
+      text-align: center;
+      font-variant-numeric: oldstyle-nums;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ── Shared content rules (apply inside all device surfaces) ─── */
+    .device-surface blockquote,
+    .device-surface code,
+    .device-surface pre { background: transparent !important; color: inherit !important; }
+
+    :where(.device-surface) img { max-width: 100%; display: block; margin: 1.2em auto; }
+    :where(.device-surface) img:not([style*="height"]) { height: auto; }
+
+    .device-surface p { text-indent: 1.5em; margin: 0; }
+    .device-surface h1 + p,
+    .device-surface h2 + p,
+    .device-surface h3 + p,
+    .device-surface hr.scene-break + p,
+    .device-surface li p,
+    .device-surface td p,
+    .device-surface th p,
+    .device-surface blockquote p { text-indent: 0; }
+
+    .device-surface .chapter-number { text-align: center; margin: 4em 0 0.5em; text-indent: 0; }
+    .device-surface h2, .device-surface h3 { font-weight: bold; margin: 1.5em 0 0.4em; }
+    .device-surface p.first::first-letter { float: left; font-size: 3.2em; line-height: 0.85; margin: 0.02em 0.08em 0 0; }
+    .device-surface hr.scene-break { border: none; text-align: center; margin: 2em 0; }
+    .device-surface hr.scene-break::before {
+      content: var(--nw-scene-break-ornament, "* * *");
+      display: block;
+      letter-spacing: 0.5em;
+      color: #666;
+      opacity: 0.7;
+    }
+    .device-surface hr.scene-break--soft { margin: 1.6em 0; }
+    .device-surface hr.scene-break--soft::before { content: none; }
+    .device-surface table { border-collapse: collapse; width: 100%; margin: 1.2em 0; font-size: 0.95em; }
+    .device-surface th, .device-surface td { border: 1px solid rgba(0,0,0,0.15); padding: 0.45em 0.75em; text-align: left; }
+    .device-surface th { background: rgba(0,0,0,0.04); }
+    .device-surface blockquote { margin: 1em 2em; font-style: italic; }
+
+    /* Callout blocks */
+    .device-surface aside.callout { margin: 1.4em 0; padding: 0.9em 1.2em; border-radius: 4px; }
+    .device-surface aside.callout > p { text-indent: 0 !important; }
+    .device-surface aside.callout > p:first-child { margin-top: 0 !important; }
+    .device-surface aside.callout > p:last-child  { margin-bottom: 0 !important; }
+
+    /* ── Print 6×9 pane ──────────────────────────────────────────── */
+    .pane-print .pane-stage {
+      background: #eceae4;
+      padding: 20px 24px 24px;
+    }
+
+    /* Pages in print pane wrap into spread pairs — pages 1+2, 3+4, etc.
+     * The 6px horizontal gap between pages represents the book spine gutter.
+     * flex-direction:row + flex-wrap:wrap + max-width centres each pair. */
+    .pane-print .device-pages {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 20px 6px;
+      justify-content: center;
+      max-width: 1200px;
+    }
+
+    .pane-print .device-surface {
       width: 576px;
       height: 864px;
       padding: 72px;
       background: #ffffff;
+      color: #111;
       font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
       font-size: 11pt;
       line-height: 1.45;
     }
-    body.device-print-6x9 .device-surface .page-number {
-      bottom: 36px;                /* centred in the 72px bottom margin */
-      font-size: 10pt;
-      color: #555;
+    .pane-print .device-surface .page-number { bottom: 36px; font-size: 10pt; color: #555; }
+    .pane-print .device-surface p.first::first-letter { color: #111; }
+    .pane-print .device-surface aside.callout { background: #ececec; border-left: 3px solid #777; }
+
+    /* ── iPad Apple Books pane ───────────────────────────────────── */
+    .pane-ipad .pane-stage {
+      background: #1c1c1e;
+      padding: 20px 24px 24px;
     }
 
-    /* iPad (Apple Books) — 3:4 aspect (768pt × 1024pt device).
-     * We drop the device bezel that used to sit around a single page:
-     * it doesn't translate to a stacked-pages view (a real iPad shows
-     * one page at a time, not a vertical stack). The dark stage
-     * background + pure-white page + Palatino 17/1.55 still signals
-     * "iPad reading" typographically. */
-    body.device-ipad .device-stage { background: #1c1c1e; padding: 32px 0 80px; }
-    body.device-ipad .device-surface {
-      /* iPad portrait — 768×1024 points (the canonical iPad point
-       * dimensions, matching the 9.7" / mini reading area). 4:3 aspect
-       * ratio. ~96px side margins + 80px top/bottom mirrors Apple Books'
-       * generous reading frame. */
+    .pane-ipad .device-surface {
       width: 768px;
       height: 1024px;
       padding: 80px 96px;
@@ -1150,121 +911,125 @@ function buildWebviewHtml(
       font-size: 17px;
       line-height: 1.55;
     }
-    body.device-ipad .device-surface p.first::first-letter { color: #141414; }
-    body.device-ipad .device-surface .page-number {
-      bottom: 32px;                /* sits in the bottom margin, ~half of 80px padding */
-      font-size: 12px;
-      color: #6b6b6b;
+    .pane-ipad .device-surface .page-number { bottom: 32px; font-size: 12px; color: #6b6b6b; }
+    .pane-ipad .device-surface p.first::first-letter { color: #141414; }
+    .pane-ipad .device-surface aside.callout { background: #e8f0fb; border-left: 3px solid #6c93c7; }
+
+    /* ── Kindle Paperwhite pane ──────────────────────────────────── */
+    .pane-kindle .pane-stage {
+      background: #2e2d2a;
+      padding: 20px 24px 24px;
     }
 
-    /* Kindle Paperwhite — 6" e-ink. Same logic as iPad: bezel dropped,
-     * dark stage + neutral pale-grey page + Bookerly 16/1.55 carries
-     * the e-ink feel without the physical device frame. */
-    body.device-kindle .device-stage { background: #2e2d2a; padding: 32px 0 80px; }
-    body.device-kindle .device-surface {
-      /* Kindle Paperwhite (current gen) — 6.8" display, ~1236×1648 px
-       * native, reading area roughly 600×800 pt after device chrome.
-       * Aspect ratio 3:4 matches the device. Bookerly 16/1.55 with
-       * tight 60×72 padding mimics the e-ink reading frame. */
+    .pane-kindle .device-surface {
       width: 600px;
       height: 800px;
       padding: 60px 72px;
       background: #ececeb;
       color: #1c1c1c;
+      /* Slight e-ink simulation: reduce contrast, mute saturation */
+      filter: grayscale(15%) contrast(0.92);
       font-family: var(--nw-body-font, "Bookerly", Georgia, serif);
       font-size: 16px;
       line-height: 1.55;
     }
-    body.device-kindle .device-surface p.first::first-letter { color: #1c1c1c; }
-    body.device-kindle .device-surface hr.scene-break::before { color: #5c5c5c; }
-    body.device-kindle .device-surface .page-number {
-      bottom: 24px;                /* tight bottom margin like a real Paperwhite */
+    .pane-kindle .device-surface .page-number { bottom: 24px; font-size: 11px; color: #5c5c5c; }
+    .pane-kindle .device-surface hr.scene-break::before { color: #5c5c5c; }
+    .pane-kindle .device-surface p.first::first-letter { color: #1c1c1c; }
+    .pane-kindle .device-surface aside.callout { background: #dcdcd9; border-left: 3px solid #777; }
+
+    /* ── Layout modes ────────────────────────────────────────────── */
+    /* layout-side is default — all three visible */
+    body.layout-single-print .pane-ipad,
+    body.layout-single-print .pane-kindle { display: none; }
+    body.layout-single-ipad .pane-print,
+    body.layout-single-ipad .pane-kindle { display: none; }
+    body.layout-single-kindle .pane-print,
+    body.layout-single-kindle .pane-ipad { display: none; }
+
+    /* ── Paragraph style overrides ───────────────────────────────── */
+    body.paragraphs-block .device-surface p { text-indent: 0; margin: 0 0 1em; }
+    body.paragraphs-block .device-surface p.first { text-indent: 0; margin-top: 0; }
+    body.paragraphs-block .device-surface hr.scene-break + p { text-indent: 0; }
+
+    /* ── Typography inspector ────────────────────────────────────── */
+    .typo-inspector {
+      display: none;
+      position: fixed;
+      z-index: 100;
+      background: var(--vscode-editorWidget-background, #252526);
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.3));
+      border-radius: 6px;
+      padding: 10px 12px;
+      min-width: 230px;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+      font-family: var(--vscode-editor-font-family, monospace);
       font-size: 11px;
-      color: #5c5c5c;
+      line-height: 1.5;
     }
-
-    /* Callout — block aside (tip / note / context box). Per-device colour:
-     * pale blue on iPad (Apple Books has a richer chrome that supports
-     * coloured backgrounds well), pale neutral grey on Kindle (e-ink) and
-     * paperback (print). Inner paragraphs lose their first-line indent so
-     * the box reads as one cohesive aside. */
-    .device-surface aside.callout {
-      margin: 1.4em 0;
-      padding: 0.9em 1.2em;
-      border-radius: 4px;
+    .typo-inspector.locked {
+      pointer-events: auto;
+      border-color: var(--vscode-focusBorder, #007acc);
     }
-    .device-surface aside.callout > p { text-indent: 0 !important; }
-    .device-surface aside.callout > p:first-child { margin-top: 0 !important; }
-    .device-surface aside.callout > p:last-child  { margin-bottom: 0 !important; }
-    body.device-ipad      .device-surface aside.callout { background: #e8f0fb; border-left: 3px solid #6c93c7; }
-    body.device-kindle    .device-surface aside.callout { background: #dcdcd9; border-left: 3px solid #777; }
-    body.device-print-6x9 .device-surface aside.callout { background: #ececec; border-left: 3px solid #777; }
-
-    /* ─── Paragraph style override (mirror compile/theme.js) ─────
-     * The preview's default is indented (first-line indent, no gap).
-     * When body.paragraphs-block is active, flip to the block style:
-     * no indent, vertical gap between paragraphs. This exactly
-     * mirrors what the compile pipeline does when paragraphStyle
-     * === "block" is set in compile.config.json. */
-
-    body.paragraphs-block .device-surface p {
-      text-indent: 0;
-      margin: 0 0 1em 0;
-    }
-    body.paragraphs-block .device-surface p.first {
-      text-indent: 0;
-      margin-top: 0;
-    }
-    body.paragraphs-block .device-surface hr.scene-break + p {
-      text-indent: 0;
+    .typo-row { display: flex; gap: 8px; margin: 2px 0; }
+    .typo-key { color: var(--vscode-descriptionForeground); width: 90px; flex-shrink: 0; font-size: 10px; }
+    .typo-val { color: var(--vscode-foreground); font-weight: 500; word-break: break-all; }
+    .typo-hint {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+      margin-top: 7px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(128,128,128,0.2);
+      opacity: 0.7;
     }
   </style>
 </head>
-<body class="device-print-6x9 paragraphs-${initialParagraphStyle}">
+<body class="layout-side paragraphs-${initialParagraphStyle}">
+
+  <!-- ── Toolbar ── -->
   <div class="preview-header">
     <div class="toolbar-left">
 
-      <!-- Device — Print / iPad / Kindle -->
+      <!-- Layout mode (side = all three / focus one) -->
       <div class="popover-anchor">
-        <button class="icon-btn" data-popover="pop-device" title="Device" aria-expanded="false">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="8" height="12" rx="1.5"/><line x1="7" y1="12.2" x2="9" y2="12.2"/></svg>
+        <button class="icon-btn" data-popover="pop-layout" title="Layout" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="1" y="2" width="4" height="12" rx="1"/><rect x="6" y="2" width="4" height="12" rx="1"/><rect x="11" y="2" width="4" height="12" rx="1"/></svg>
         </button>
-        <div class="popover" id="pop-device">
+        <div class="popover" id="pop-layout">
           <div class="popover-section">
-            <div class="popover-section-title">Device</div>
-            <button class="popover-row" data-device="device-print-6x9"><span class="check">✓</span> Print 6×9</button>
-            <button class="popover-row" data-device="device-ipad"><span class="check">✓</span> iPad — Apple Books</button>
-            <button class="popover-row" data-device="device-kindle"><span class="check">✓</span> Kindle Paperwhite</button>
+            <div class="popover-section-title">Layout</div>
+            <button class="popover-row" data-layout="side"><span class="check">✓</span> All three devices</button>
+            <button class="popover-row" data-layout="single-print"><span class="check">✓</span> Focus: Print 6×9</button>
+            <button class="popover-row" data-layout="single-ipad"><span class="check">✓</span> Focus: iPad — Apple Books</button>
+            <button class="popover-row" data-layout="single-kindle"><span class="check">✓</span> Focus: Kindle Paperwhite</button>
           </div>
-          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>
       </div>
 
-      <!-- Typography — theme + font -->
+      <!-- Book Style (hot-swap via media="" toggle) -->
       <div class="popover-anchor">
-        <button class="icon-btn" data-popover="pop-type" title="Typography" aria-expanded="false" style="font-family:Georgia,serif;font-style:italic;">Aa</button>
-        <div class="popover" id="pop-type">
+        <button class="icon-btn" data-popover="pop-style" title="Book Style" aria-expanded="false" style="font-family:Georgia,serif;font-style:italic;">Aa</button>
+        <div class="popover" id="pop-style">
           <div class="popover-section">
-            <div class="popover-section-title">Theme</div>
+            <div class="popover-section-title">Book Style</div>
             ${themeRows}
           </div>
           <div class="popover-section">
             <div class="popover-section-title">Font</div>
-            <button class="popover-row" data-font=""><span class="check">✓</span> Theme default</button>
+            <button class="popover-row" data-font=""><span class="check">✓</span> Style default</button>
             <button class="popover-row" data-font='Georgia, "Times New Roman", Times, serif'><span class="check">✓</span> Georgia</button>
             <button class="popover-row" data-font='"Iowan Old Style", Palatino, Garamond, serif'><span class="check">✓</span> Iowan Old Style</button>
             <button class="popover-row" data-font='"Palatino Linotype", Palatino, Georgia, serif'><span class="check">✓</span> Palatino</button>
             <button class="popover-row" data-font='Garamond, "Times New Roman", serif'><span class="check">✓</span> Garamond</button>
-            <button class="popover-row" data-font='"Book Antiqua", Palatino, serif'><span class="check">✓</span> Book Antiqua</button>
             <button class="popover-row" data-font='Baskerville, "Baskerville Old Face", serif'><span class="check">✓</span> Baskerville</button>
             <button class="popover-row" data-font='"Inter", "Helvetica Neue", Arial, sans-serif'><span class="check">✓</span> Inter</button>
-            <button class="popover-row" data-font='"Helvetica Neue", Helvetica, Arial, sans-serif'><span class="check">✓</span> Helvetica</button>
           </div>
           <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>
       </div>
 
-      <!-- Paragraphing — indented vs block -->
+      <!-- Paragraphing -->
       <div class="popover-anchor">
         <button class="icon-btn" data-popover="pop-para" title="Paragraphing" aria-expanded="false" style="font-family:Georgia,serif;">¶</button>
         <div class="popover" id="pop-para">
@@ -1277,7 +1042,7 @@ function buildWebviewHtml(
         </div>
       </div>
 
-      <!-- Chapter opener — first-page heading style -->
+      <!-- Chapter opener -->
       <div class="popover-anchor">
         <button class="icon-btn" data-popover="pop-opener" title="Chapter first page style" aria-expanded="false">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3" stroke-width="2"/><line x1="4" y1="7" x2="12" y2="7"/><line x1="3" y1="10" x2="13" y2="10"/><line x1="3" y1="13" x2="11" y2="13"/></svg>
@@ -1285,20 +1050,20 @@ function buildWebviewHtml(
         <div class="popover" id="pop-opener">
           <div class="popover-section">
             <div class="popover-section-title">Chapter first page style</div>
-            <button class="popover-row" data-opener=""><span class="check">✓</span> Theme default</button>
+            <button class="popover-row" data-opener=""><span class="check">✓</span> Style default</button>
             ${openerRows}
           </div>
           <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>
       </div>
 
-      <!-- Ornamentation — scene break character -->
+      <!-- Scene break ornament -->
       <div class="popover-anchor">
-        <button class="icon-btn" data-popover="pop-orn" title="Ornamentation" aria-expanded="false" style="font-family:Georgia,serif;">❦</button>
+        <button class="icon-btn" data-popover="pop-orn" title="Scene break ornament" aria-expanded="false" style="font-family:Georgia,serif;">❦</button>
         <div class="popover" id="pop-orn">
           <div class="popover-section">
             <div class="popover-section-title">Scene break</div>
-            <button class="popover-row" data-ornament=""><span class="check">✓</span> Theme default</button>
+            <button class="popover-row" data-ornament=""><span class="check">✓</span> Style default</button>
             <button class="popover-row" data-ornament="* * *"><span class="check">✓</span> * * *</button>
             <button class="popover-row" data-ornament="· · ·"><span class="check">✓</span> · · ·</button>
             <button class="popover-row" data-ornament="❦"><span class="check">✓</span> ❦ (fleuron)</button>
@@ -1310,190 +1075,160 @@ function buildWebviewHtml(
         </div>
       </div>
 
+      <!-- Typography inspector toggle -->
+      <button class="icon-btn" id="inspector-btn" title="Typography inspector (Shift+hover a word)" aria-pressed="false">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><line x1="9.5" y1="9.5" x2="14" y2="14"/><line x1="4" y1="6" x2="8" y2="6"/><line x1="6" y1="4" x2="6" y2="8"/></svg>
+      </button>
+
     </div>
     <div class="toolbar-center">
-      <span class="filename" id="filename">—</span>
-      <span class="sep">·</span>
-      <span class="device-label" id="device-label">Print 6×9</span>
+      <span id="filename">—</span>
     </div>
   </div>
-  <div class="device-stage">
-    <div class="device-pages" id="pages">
-      <div class="device-surface">
-        <div class="empty-state"><p><em>Loading…</em></p></div>
+
+  <!-- ── Three device panes ── -->
+  <div class="preview-layout">
+
+    <!-- Print 6×9 — spread view (pages wrap into pairs) -->
+    <div class="preview-pane pane-print" id="pane-print">
+      <div class="pane-label">
+        Print 6×9
+        <button class="pane-focus-btn" data-pane="print" title="Focus this pane">⤢</button>
+      </div>
+      <div class="pane-stage">
+        <div class="device-pages" id="pages-print"></div>
       </div>
     </div>
+
+    <!-- iPad Apple Books -->
+    <div class="preview-pane pane-ipad" id="pane-ipad">
+      <div class="pane-label">
+        iPad — Apple Books
+        <button class="pane-focus-btn" data-pane="ipad" title="Focus this pane">⤢</button>
+      </div>
+      <div class="pane-stage">
+        <div class="device-pages" id="pages-ipad"></div>
+      </div>
+    </div>
+
+    <!-- Kindle Paperwhite -->
+    <div class="preview-pane pane-kindle" id="pane-kindle">
+      <div class="pane-label">
+        Kindle Paperwhite
+        <button class="pane-focus-btn" data-pane="kindle" title="Focus this pane">⤢</button>
+      </div>
+      <div class="pane-stage">
+        <div class="device-pages" id="pages-kindle"></div>
+      </div>
+    </div>
+
   </div>
-  <!-- Hidden buffer holding the freshly rendered HTML; pagination JS
-       pulls children out of here and distributes them into #pages. -->
+
+  <!-- Source buffer — chapter HTML lives here; pagination JS distributes its
+       children into the three pane containers on every update. -->
   <div id="source-buffer" style="display:none"></div>
+
+  <!-- Typography inspector overlay -->
+  <div id="typo-inspector" class="typo-inspector">
+    <div id="typo-content"></div>
+    <div class="typo-hint">Shift+hover · Click to lock · Esc to dismiss</div>
+  </div>
+
   <script>
     const vscode = acquireVsCodeApi();
-    const pagesEl = document.getElementById('pages');
+
     const sourceBuffer = document.getElementById('source-buffer');
-    const filename = document.getElementById('filename');
-    const deviceLabel = document.getElementById('device-label');
+    const filenameEl   = document.getElementById('filename');
     const overridesStyle = document.getElementById('overrides');
-    // Print-layer style elements need to be in scope before applyDevice
-    // runs (it calls syncPrintLayers on init), so we capture them here
-    // rather than alongside the regular theme/opener style refs further
-    // down. The message handlers below close over the same vars.
-    const themePrintStyleEl = document.getElementById('theme-print-css');
-    const openerPrintStyleEl = document.getElementById('opener-print-css');
-    // Cache print CSS so we can toggle it on/off without round-tripping
-    // to the extension when the writer flips between Print 6×9 and the
-    // iPad/Kindle previews. Seeded from the server-rendered <style> tag
-    // contents so the cache survives a device toggle on first paint.
-    let cachedThemePrintCss = themePrintStyleEl.textContent || '';
-    let cachedOpenerPrintCss = openerPrintStyleEl.textContent || '';
-    // Print 6×9 is the only device that should see print-specific
-    // overrides (h1 margins in inches, font-size in pt, drop-cap
-    // dimensions tuned for fixed page). iPad/Kindle stay on the base
-    // EPUB-flavoured typography.
-    function syncPrintLayers() {
-      const isPrint = currentDevice === 'device-print-6x9';
-      themePrintStyleEl.textContent = isPrint ? cachedThemePrintCss : '';
-      openerPrintStyleEl.textContent = isPrint ? cachedOpenerPrintCss : '';
-    }
+    const typoInspector  = document.getElementById('typo-inspector');
+    const typoContent    = document.getElementById('typo-content');
+    const inspectorBtn   = document.getElementById('inspector-btn');
 
     const initialConfig = {
       paragraphStyle: ${JSON.stringify(initialParagraphStyle)},
-      theme: ${JSON.stringify(initialTheme)},
-      chapterOpener: ${JSON.stringify(initialOpener)},
+      theme:          ${JSON.stringify(initialTheme)},
+      chapterOpener:  ${JSON.stringify(initialOpener)},
     };
 
-    // ─── State (single source of truth for all four popovers) ────
-    const state = vscode.getState() || {};
-    let currentDevice = state.device || 'device-print-6x9';
-    let currentParagraphStyle = state.paragraphStyle || initialConfig.paragraphStyle;
-    let currentTheme = state.theme || initialConfig.theme;
-    let currentFont = state.bodyFont ?? (initialConfig.bodyFont || '');
-    let currentOrnament = state.sceneBreakOrnament ?? (initialConfig.sceneBreakOrnament || '');
-    let currentOpener = state.chapterOpener ?? initialConfig.chapterOpener;
+    // ── State ────────────────────────────────────────────────────
+    const stored = vscode.getState() || {};
+    let currentLayout        = stored.layout         || 'side';
+    let currentParagraphStyle = stored.paragraphStyle || initialConfig.paragraphStyle;
+    let currentTheme         = stored.theme          || initialConfig.theme;
+    let currentFont          = stored.bodyFont       ?? '';
+    let currentOrnament      = stored.sceneBreakOrnament ?? '';
+    let currentOpener        = stored.chapterOpener  ?? initialConfig.chapterOpener;
+    let inspectorEnabled     = stored.inspectorEnabled ?? false;
+    let inspectorLocked      = false;
 
-    // If the restored theme isn't one of the themes we know about
-    // (e.g. a bundled theme was renamed between releases), fall back.
-    const knownThemes = Array.from(document.querySelectorAll('[data-theme]')).map(el => el.dataset.theme);
-    if (!knownThemes.includes(currentTheme)) currentTheme = initialConfig.theme;
+    const knownStyles = Array.from(document.querySelectorAll('.bookstyle-sheet')).map(el => el.dataset.style).filter(Boolean);
+    if (!knownStyles.includes(currentTheme)) currentTheme = initialConfig.theme;
 
-    // Filter opener rows to show only those compatible with the current theme.
-    // Openers with an empty compatibleThemes array are shown for all themes.
-    function filterOpenerRows(themeId) {
-      document.querySelectorAll('[data-opener]').forEach(el => {
-        const raw = el.getAttribute('data-opener-themes');
-        if (raw === null) return; // the "None" option — always visible
-        try {
-          const compat = JSON.parse(raw);
-          const visible = compat.length === 0 || compat.includes(themeId);
-          el.style.display = visible ? '' : 'none';
-        } catch { /* leave visible on parse error */ }
+    // ── Book Style hot-swap ──────────────────────────────────────
+    // Toggle CSS media="" on pre-injected <style> tags — no host round-trip.
+    function applyTheme(styleId) {
+      currentTheme = styleId;
+      document.querySelectorAll('.bookstyle-sheet').forEach(el => {
+        el.media = el.dataset.style === styleId ? '' : 'not all';
       });
+      document.querySelectorAll('.bookstyle-print-sheet').forEach(el => {
+        el.media = el.dataset.style === styleId ? '' : 'not all';
+      });
+      filterOpenerRows(styleId);
+      updateSelectedRows();
+      repaginateAll();
     }
 
-    const DEVICE_NAMES = {
-      'device-print-6x9': 'Print 6×9',
-      'device-ipad': 'iPad — Apple Books',
-      'device-kindle': 'Kindle Paperwhite',
-    };
-
-    function applyDevice(device) {
-      currentDevice = device;
-      document.body.classList.remove('device-print-6x9', 'device-ipad', 'device-kindle');
-      document.body.classList.add(device);
-      deviceLabel.textContent = DEVICE_NAMES[device] || device;
-      // Print 6×9 is the only device that loads print-specific CSS
-      // overrides (h1 margins, font sizes in pt, drop-cap dimensions)
-      // so the preview matches the compiled PDF exactly. iPad/Kindle
-      // keep their EPUB-flavoured base typography.
-      syncPrintLayers();
-      updateSelectedRows();
-      repaginate();
-    }
-    function applyParagraphs(style) {
-      currentParagraphStyle = style;
-      document.body.classList.remove('paragraphs-indented', 'paragraphs-block');
-      document.body.classList.add('paragraphs-' + style);
-      updateSelectedRows();
-      repaginate();
-    }
-    function applyTheme(themeId) {
-      currentTheme = themeId;
-      filterOpenerRows(themeId);
-      updateSelectedRows();
-      vscode.postMessage({ type: 'load-theme', theme: themeId });
-    }
+    // ── Opener hot-swap ──────────────────────────────────────────
     function applyOpener(openerId) {
       currentOpener = openerId;
+      document.querySelectorAll('.opener-sheet').forEach(el => {
+        el.media = el.dataset.opener === openerId ? '' : 'not all';
+      });
+      document.querySelectorAll('.opener-print-sheet').forEach(el => {
+        el.media = el.dataset.opener === openerId ? '' : 'not all';
+      });
       updateSelectedRows();
-      vscode.postMessage({ type: 'load-chapter-opener', opener: openerId });
+      repaginateAll();
     }
-    function applyFont(fontValue) {
-      currentFont = fontValue;
-      applyOverrides();
+
+    // ── Layout modes ─────────────────────────────────────────────
+    function applyLayout(layout) {
+      currentLayout = layout;
+      document.body.classList.remove(
+        'layout-side',
+        'layout-single-print',
+        'layout-single-ipad',
+        'layout-single-kindle',
+      );
+      document.body.classList.add('layout-' + layout);
+      // Update focus button states
+      document.querySelectorAll('.pane-focus-btn').forEach(btn => {
+        btn.classList.toggle('active', 'single-' + btn.dataset.pane === layout);
+      });
       updateSelectedRows();
-      repaginate();
-    }
-    function applyOrnament(ornamentValue) {
-      currentOrnament = ornamentValue;
-      applyOverrides();
-      updateSelectedRows();
+      requestAnimationFrame(() => repaginateAll());
     }
 
-    // Mark the selected row in each popover with .selected so the ✓
-    // shows against whichever option is currently active.
-    function updateSelectedRows() {
-      const pairs = [
-        ['data-device', currentDevice],
-        ['data-theme', currentTheme],
-        ['data-opener', currentOpener],
-        ['data-font', currentFont],
-        ['data-ornament', currentOrnament],
-        ['data-paragraphs', currentParagraphStyle],
-      ];
-      for (const [attr, val] of pairs) {
-        document.querySelectorAll('[' + attr + ']').forEach(el => {
-          el.classList.toggle('selected', el.getAttribute(attr) === val);
-        });
-      }
-    }
-
-    applyDevice(currentDevice);
-    applyParagraphs(currentParagraphStyle);
-    applyOverrides();
-    filterOpenerRows(currentTheme);
-    updateSelectedRows();
-
-    if (currentTheme !== initialConfig.theme) {
-      vscode.postMessage({ type: 'load-theme', theme: currentTheme });
-    }
-    if (currentOpener !== initialConfig.chapterOpener && currentOpener) {
-      vscode.postMessage({ type: 'load-chapter-opener', opener: currentOpener });
-    }
-
-    // ─── Pagination ──────────────────────────────────────────────
-    // Distributes the children of #source-buffer across discrete
-    // .device-surface page elements. Each page is fixed-size; when
-    // appending the next child would overflow, we close the current
-    // page and start a new one. Splits only at block boundaries
-    // (paragraphs, scene breaks, tables) — no mid-paragraph breaks.
-    // That's visually less perfect than Paged.js but fast enough to
-    // run on every keystroke-debounced update.
+    // ── Pagination ───────────────────────────────────────────────
+    // Runs against all three panes simultaneously. Each pane's
+    // .device-surface has its own CSS-applied dimensions (576×864,
+    // 768×1024, 600×800) so overflow detection is pane-accurate.
     function newPage() {
       const p = document.createElement('div');
       p.className = 'device-surface';
       return p;
     }
 
-    function paginate(sourceEl) {
-      // Collect fresh child nodes from the buffer. We clone so the
-      // buffer stays populated (for repagination on device change).
+    function paginateInto(sourceEl, pagesEl) {
+      if (!pagesEl) return;
       const children = Array.from(sourceEl.children).map(n => n.cloneNode(true));
       pagesEl.innerHTML = '';
 
       if (!children.length) {
-        const empty = newPage();
-        empty.innerHTML = '<div class="empty-state"><p><em>No content yet.</em></p></div>';
-        pagesEl.appendChild(empty);
+        const p = newPage();
+        p.innerHTML = '<div class="empty-state"><p><em>No content yet.</em></p></div>';
+        pagesEl.appendChild(p);
         return;
       }
 
@@ -1503,12 +1238,9 @@ function buildWebviewHtml(
       for (const child of children) {
         page.appendChild(child);
         if (page.scrollHeight > page.clientHeight) {
-          // Overflow — pop the child, open a new page, put it there.
           page.removeChild(child);
           if (!page.children.length) {
-            // Child alone is bigger than a page (unusual: giant table,
-            // embedded image). Keep it on its own page to avoid an
-            // infinite loop; it'll be clipped by overflow:hidden.
+            // Single child larger than a page — keep it, it clips
             page.appendChild(child);
             continue;
           }
@@ -1518,14 +1250,7 @@ function buildWebviewHtml(
         }
       }
 
-      // Footer pass — number every page in sequence and place a
-      // .page-number element absolutely-positioned in the bottom margin
-      // of each .device-surface (per-device CSS controls the exact
-      // bottom offset, font size, and colour). Done AFTER the overflow
-      // distribution loop because position:absolute keeps the number
-      // out of the scrollHeight check — adding it during the loop would
-      // be safe too, but a separate pass keeps the pagination logic
-      // single-purpose. Empty-state pages skip numbering.
+      // Number pages after distribution
       const pages = pagesEl.children;
       for (let i = 0; i < pages.length; i++) {
         const surface = pages[i];
@@ -1537,18 +1262,16 @@ function buildWebviewHtml(
       }
     }
 
-    // Called by device/paragraph change — re-run pagination against
-    // the current buffer contents without a round-trip to the extension.
-    function repaginate() {
-      // Measurement depends on CSS-applied dimensions — defer a frame
-      // so the browser has the new body classes applied.
-      requestAnimationFrame(() => paginate(sourceBuffer));
+    function repaginateAll() {
+      requestAnimationFrame(() => {
+        paginateInto(sourceBuffer, document.getElementById('pages-print'));
+        paginateInto(sourceBuffer, document.getElementById('pages-ipad'));
+        paginateInto(sourceBuffer, document.getElementById('pages-kindle'));
+      });
     }
+
+    // ── Overrides (font + ornament custom props) ─────────────────
     function applyOverrides() {
-      // Emit a :root stylesheet setting --nw-body-font and
-      // --nw-scene-break-ornament from the current state. Empty string
-      // = "Theme default", skip the variable so the theme's fallback
-      // kicks in.
       const rules = [];
       if (currentFont) rules.push('--nw-body-font: ' + currentFont + ';');
       if (currentOrnament) {
@@ -1559,18 +1282,155 @@ function buildWebviewHtml(
       }
       overridesStyle.textContent = rules.length ? ':root { ' + rules.join(' ') + ' }' : '';
     }
-    function persist() {
-      vscode.setState({
-        device: currentDevice,
-        paragraphStyle: currentParagraphStyle,
-        theme: currentTheme,
-        chapterOpener: currentOpener,
-        bodyFont: currentFont,
-        sceneBreakOrnament: currentOrnament,
+
+    function applyParagraphs(style) {
+      currentParagraphStyle = style;
+      document.body.classList.remove('paragraphs-indented', 'paragraphs-block');
+      document.body.classList.add('paragraphs-' + style);
+      updateSelectedRows();
+      repaginateAll();
+    }
+
+    function applyFont(fontValue) {
+      currentFont = fontValue;
+      applyOverrides();
+      updateSelectedRows();
+      repaginateAll();
+    }
+
+    function applyOrnament(ornamentValue) {
+      currentOrnament = ornamentValue;
+      applyOverrides();
+      updateSelectedRows();
+    }
+
+    // ── Typography inspector ─────────────────────────────────────
+    function buildInspectorRows(el) {
+      const cs = getComputedStyle(el);
+      const fontFamily = (cs.fontFamily || '').split(',')[0].replace(/['"]/g, '').trim();
+      const fontSize   = cs.fontSize;
+      const lineHeight = cs.lineHeight;
+      const weight     = cs.fontWeight;
+      const style      = cs.fontStyle;
+      const ls         = cs.letterSpacing;
+      const tag        = el.tagName.toLowerCase();
+
+      let html = '<div class="typo-row"><span class="typo-key">Font</span><span class="typo-val">' + fontFamily + '</span></div>' +
+        '<div class="typo-row"><span class="typo-key">Size</span><span class="typo-val">' + fontSize + '</span></div>' +
+        '<div class="typo-row"><span class="typo-key">Leading</span><span class="typo-val">' + lineHeight + '</span></div>' +
+        '<div class="typo-row"><span class="typo-key">Weight</span><span class="typo-val">' + weight + '</span></div>';
+      if (style && style !== 'normal') {
+        html += '<div class="typo-row"><span class="typo-key">Style</span><span class="typo-val">' + style + '</span></div>';
+      }
+      if (ls && ls !== 'normal' && ls !== '0px') {
+        html += '<div class="typo-row"><span class="typo-key">Letter-sp.</span><span class="typo-val">' + ls + '</span></div>';
+      }
+      html += '<div class="typo-row"><span class="typo-key">Element</span><span class="typo-val">&lt;' + tag + '&gt;</span></div>';
+      return html;
+    }
+
+    function positionInspector(x, y) {
+      const margin = 14;
+      const iw = typoInspector.offsetWidth  || 240;
+      const ih = typoInspector.offsetHeight || 140;
+      typoInspector.style.left = Math.min(x + 14, window.innerWidth  - iw - margin) + 'px';
+      typoInspector.style.top  = Math.min(y + 14, window.innerHeight - ih - margin) + 'px';
+    }
+
+    function setInspectorEnabled(on) {
+      inspectorEnabled = on;
+      inspectorBtn.classList.toggle('active', on);
+      inspectorBtn.setAttribute('aria-pressed', String(on));
+      if (!on) {
+        inspectorLocked = false;
+        typoInspector.style.display = 'none';
+        typoInspector.classList.remove('locked');
+      }
+    }
+
+    inspectorBtn.addEventListener('click', () => {
+      setInspectorEnabled(!inspectorEnabled);
+      persist();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!inspectorEnabled || inspectorLocked) return;
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      if (!target || !target.closest('.device-surface')) {
+        typoInspector.style.display = 'none';
+        return;
+      }
+      typoContent.innerHTML = buildInspectorRows(target);
+      typoInspector.style.display = 'block';
+      positionInspector(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('click', e => {
+      if (!inspectorEnabled) return;
+      const onSurface = e.target && e.target.closest('.device-surface');
+      if (onSurface && typoInspector.style.display !== 'none') {
+        inspectorLocked = !inspectorLocked;
+        typoInspector.classList.toggle('locked', inspectorLocked);
+      } else if (!onSurface && !e.target.closest('#typo-inspector')) {
+        inspectorLocked = false;
+        typoInspector.style.display = 'none';
+        typoInspector.classList.remove('locked');
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        inspectorLocked = false;
+        typoInspector.style.display = 'none';
+        typoInspector.classList.remove('locked');
+        closeAllPopovers();
+      }
+    });
+
+    // ── Opener row filtering (by active theme) ───────────────────
+    function filterOpenerRows(themeId) {
+      document.querySelectorAll('[data-opener]').forEach(el => {
+        const raw = el.getAttribute('data-opener-themes');
+        if (raw === null) return; // no-filter option
+        try {
+          const compat = JSON.parse(raw);
+          el.style.display = (compat.length === 0 || compat.includes(themeId)) ? '' : 'none';
+        } catch { /* leave visible */ }
       });
     }
 
-    // ─── Popover open/close ──────────────────────────────────────
+    // ── Selected row markers ─────────────────────────────────────
+    function updateSelectedRows() {
+      const pairs = [
+        ['data-theme',      currentTheme],
+        ['data-opener',     currentOpener],
+        ['data-font',       currentFont],
+        ['data-ornament',   currentOrnament],
+        ['data-paragraphs', currentParagraphStyle],
+        ['data-layout',     currentLayout],
+      ];
+      for (const [attr, val] of pairs) {
+        document.querySelectorAll('[' + attr + ']').forEach(el => {
+          el.classList.toggle('selected', el.getAttribute(attr) === val);
+        });
+      }
+    }
+
+    // ── Initialise ───────────────────────────────────────────────
+    applyLayout(currentLayout);
+    applyParagraphs(currentParagraphStyle);
+    applyOverrides();
+    filterOpenerRows(currentTheme);
+    updateSelectedRows();
+    setInspectorEnabled(inspectorEnabled);
+
+    // Trigger load-theme/opener messages as fallback if CSS wasn't pre-loaded
+    // (shouldn't happen when loadAllThemesCss succeeded, but defensive)
+    if (!document.getElementById('bs-' + currentTheme)) {
+      vscode.postMessage({ type: 'load-theme', theme: currentTheme });
+    }
+
+    // ── Popovers ─────────────────────────────────────────────────
     function closeAllPopovers() {
       document.querySelectorAll('.popover.open').forEach(p => p.classList.remove('open'));
       document.querySelectorAll('.icon-btn.open').forEach(b => {
@@ -1578,6 +1438,7 @@ function buildWebviewHtml(
         b.setAttribute('aria-expanded', 'false');
       });
     }
+
     function openPopover(btn) {
       const id = btn.dataset.popover;
       if (!id) return;
@@ -1592,40 +1453,41 @@ function buildWebviewHtml(
     }
 
     document.querySelectorAll('.icon-btn[data-popover]').forEach(btn => {
-      btn.addEventListener('click', ev => {
-        ev.stopPropagation();
-        openPopover(btn);
-      });
+      btn.addEventListener('click', ev => { ev.stopPropagation(); openPopover(btn); });
     });
 
-    // Clicking a row applies the selection, persists, and closes the
-    // popover. We delegate from the popover itself so every row picks
-    // up the same handler without per-element binding.
     document.querySelectorAll('.popover').forEach(pop => {
       pop.addEventListener('click', ev => {
         const row = ev.target.closest('.popover-row');
         if (!row) return;
-        if (row.hasAttribute('data-device'))     applyDevice(row.dataset.device);
-        else if (row.hasAttribute('data-theme')) applyTheme(row.dataset.theme);
+        if (row.hasAttribute('data-theme'))      applyTheme(row.dataset.theme);
         else if (row.hasAttribute('data-opener')) applyOpener(row.dataset.opener);
         else if (row.hasAttribute('data-font'))  applyFont(row.dataset.font);
         else if (row.hasAttribute('data-ornament')) applyOrnament(row.dataset.ornament);
         else if (row.hasAttribute('data-paragraphs')) applyParagraphs(row.dataset.paragraphs);
+        else if (row.hasAttribute('data-layout')) applyLayout(row.dataset.layout);
         persist();
         closeAllPopovers();
       });
     });
 
-    // Click outside any popover/button closes them all. Escape too.
-    document.addEventListener('click', ev => {
-      if (!ev.target.closest('.popover-anchor')) closeAllPopovers();
-    });
-    document.addEventListener('keydown', ev => {
-      if (ev.key === 'Escape') closeAllPopovers();
+    document.querySelectorAll('.pane-focus-btn').forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const pane = btn.dataset.pane;
+        const single = 'single-' + pane;
+        applyLayout(currentLayout === single ? 'side' : single);
+        persist();
+      });
     });
 
-    // "Save as default" — same action regardless of which popover
-    // hosts the button. Writes the current state to compile.config.json.
+    document.addEventListener('click', ev => {
+      if (!ev.target.closest('.popover-anchor') && !ev.target.closest('.pane-focus-btn')) {
+        closeAllPopovers();
+      }
+    });
+
+    // ── Save as default ──────────────────────────────────────────
     document.querySelectorAll('.save-defaults-btn').forEach(btn => {
       btn.addEventListener('click', ev => {
         ev.stopPropagation();
@@ -1651,39 +1513,67 @@ function buildWebviewHtml(
       });
     });
 
-    const themeStyleEl = document.getElementById('theme-css');
-    const openerStyleEl = document.getElementById('opener-css');
+    // ── Persist state ─────────────────────────────────────────────
+    function persist() {
+      vscode.setState({
+        layout: currentLayout,
+        paragraphStyle: currentParagraphStyle,
+        theme: currentTheme,
+        chapterOpener: currentOpener,
+        bodyFont: currentFont,
+        sceneBreakOrnament: currentOrnament,
+        inspectorEnabled,
+      });
+    }
 
-    window.addEventListener('message', (event) => {
+    // ── Message handling ─────────────────────────────────────────
+    window.addEventListener('message', event => {
       const msg = event.data;
+
       if (msg && msg.type === 'update') {
-        // Fresh chapter render. Stash in the hidden buffer so we can
-        // re-paginate later (device change, theme change, paragraph
-        // style toggle) without a round-trip to the extension host.
         sourceBuffer.innerHTML = msg.html || '';
-        filename.textContent = msg.fileName || '—';
-        repaginate();
+        filenameEl.textContent = msg.fileName || '—';
+        repaginateAll();
+        return;
       }
+
+      // Fallback: theme-css arrives if a theme wasn't pre-loaded
       if (msg && msg.type === 'theme-css' && typeof msg.css === 'string') {
-        // Replace the theme stylesheet's text; the browser re-applies
-        // styles in-place without a repaint flash. Then re-paginate —
-        // a different theme may change font metrics / line heights.
-        themeStyleEl.textContent = msg.css;
-        if (typeof msg.printCss === 'string') {
-          cachedThemePrintCss = msg.printCss;
-          syncPrintLayers();
+        let el = document.getElementById('bs-' + msg.id);
+        if (!el) {
+          el = document.createElement('style');
+          el.id = 'bs-' + msg.id;
+          el.className = 'bookstyle-sheet';
+          el.dataset.style = msg.id;
+          document.head.appendChild(el);
         }
-        repaginate();
+        el.textContent = msg.css;
+        el.removeAttribute('media');
+        document.querySelectorAll('.bookstyle-sheet').forEach(s => {
+          if (s !== el) s.media = 'not all';
+        });
+        repaginateAll();
+        return;
       }
+
+      // Fallback: opener-css
       if (msg && msg.type === 'opener-css' && typeof msg.css === 'string') {
-        // Replace the opener stylesheet's text. The opener CSS sits
-        // AFTER theme CSS so opener rules win for chapter headings.
-        openerStyleEl.textContent = msg.css;
-        if (typeof msg.printCss === 'string') {
-          cachedOpenerPrintCss = msg.printCss;
-          syncPrintLayers();
+        const targetId = 'opener-' + (msg.id || 'none');
+        let el = document.getElementById(targetId);
+        if (!el) {
+          el = document.createElement('style');
+          el.id = targetId;
+          el.className = 'opener-sheet';
+          el.dataset.opener = msg.id || '';
+          document.head.appendChild(el);
         }
-        repaginate();
+        el.textContent = msg.css;
+        el.removeAttribute('media');
+        document.querySelectorAll('.opener-sheet').forEach(s => {
+          if (s !== el) s.media = 'not all';
+        });
+        repaginateAll();
+        return;
       }
     });
 
