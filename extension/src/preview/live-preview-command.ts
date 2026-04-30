@@ -346,38 +346,42 @@ interface ThemeDescriptor { id: string; name: string; }
 interface OpenerDescriptor { id: string; name: string; compatibleThemes: string[]; }
 
 async function discoverThemes(context: vscode.ExtensionContext): Promise<ThemeDescriptor[]> {
+  // Primary: book-styles/ (style.json) — synced from lib/compile/book-styles/
+  // Fallback: themes/ (theme.json) — legacy three-theme structure
+  const bookStylesRoot = path.join(context.extensionPath, 'resources', 'book-styles');
   const themesRoot = path.join(context.extensionPath, 'resources', 'themes');
-  let entries: string[];
-  try {
-    entries = await fs.readdir(themesRoot);
-  } catch (err) {
-    console.warn('[Storyline] theme discovery: cannot read', themesRoot, err);
-    return [{ id: 'classic-serif', name: 'Classic Serif' }];
-  }
-  const themes: ThemeDescriptor[] = [];
-  for (const name of entries) {
-    const themeDir = path.join(themesRoot, name);
-    try {
-      const stat = await fs.stat(themeDir);
-      if (!stat.isDirectory()) continue;
-      const metaPath = path.join(themeDir, 'theme.json');
-      const raw = await fs.readFile(metaPath, 'utf-8');
-      const meta = JSON.parse(raw) as { id?: string; name?: string };
-      themes.push({
-        id: typeof meta.id === 'string' && meta.id.trim() ? meta.id.trim() : name,
-        name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : name,
-      });
-    } catch (err) {
-      console.warn(`[Storyline] theme discovery: skipping "${name}"`, err);
+
+  async function readDir(root: string, metaFile: string): Promise<ThemeDescriptor[]> {
+    let entries: string[];
+    try { entries = await fs.readdir(root); } catch { return []; }
+    const results: ThemeDescriptor[] = [];
+    for (const name of entries) {
+      const dir = path.join(root, name);
+      try {
+        const stat = await fs.stat(dir);
+        if (!stat.isDirectory()) continue;
+        const raw = await fs.readFile(path.join(dir, metaFile), 'utf-8');
+        const meta = JSON.parse(raw) as { id?: string; name?: string };
+        results.push({
+          id: typeof meta.id === 'string' && meta.id.trim() ? meta.id.trim() : name,
+          name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : name,
+        });
+      } catch {
+        console.warn(`[Storyline] theme discovery: skipping "${name}" in ${root}`);
+      }
     }
+    return results;
   }
+
+  let themes = await readDir(bookStylesRoot, 'style.json');
+  if (themes.length === 0) themes = await readDir(themesRoot, 'theme.json');
+
   themes.sort((a, b) => {
     if (a.id === 'classic-serif') return -1;
     if (b.id === 'classic-serif') return 1;
     return a.name.localeCompare(b.name);
   });
-  if (themes.length > 0) return themes;
-  return [{ id: 'classic-serif', name: 'Classic Serif' }];
+  return themes.length > 0 ? themes : [{ id: 'classic-serif', name: 'Classic Serif' }];
 }
 
 async function discoverOpeners(context: vscode.ExtensionContext): Promise<OpenerDescriptor[]> {
@@ -418,18 +422,30 @@ async function loadOpenerCss(context: vscode.ExtensionContext, openerId: string)
 }
 
 async function loadThemeCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
-  const cssPath = path.join(context.extensionPath, 'resources', 'themes', themeId, 'theme.css');
-  try {
-    return await fs.readFile(cssPath, 'utf-8');
-  } catch {
-    return `body { font-family: Georgia, serif; line-height: 1.6; }
-      p { text-indent: 1.5em; margin: 0; }`;
+  // Prefer book-styles/style.css, fall back to legacy themes/theme.css
+  for (const [dir, file] of [
+    ['book-styles', 'style.css'],
+    ['themes', 'theme.css'],
+  ] as const) {
+    try {
+      return await fs.readFile(path.join(context.extensionPath, 'resources', dir, themeId, file), 'utf-8');
+    } catch { /* try next */ }
   }
+  return `body { font-family: Georgia, serif; line-height: 1.6; }
+      p { text-indent: 1.5em; margin: 0; }`;
 }
 
 async function loadThemePrintCss(context: vscode.ExtensionContext, themeId: string): Promise<string> {
-  const cssPath = path.join(context.extensionPath, 'resources', 'themes', themeId, 'theme-print-pdf.css');
-  try { return await fs.readFile(cssPath, 'utf-8'); } catch { return ''; }
+  // Prefer book-styles/style-print-pdf.css, fall back to legacy themes/theme-print-pdf.css
+  for (const [dir, file] of [
+    ['book-styles', 'style-print-pdf.css'],
+    ['themes', 'theme-print-pdf.css'],
+  ] as const) {
+    try {
+      return await fs.readFile(path.join(context.extensionPath, 'resources', dir, themeId, file), 'utf-8');
+    } catch { /* try next */ }
+  }
+  return '';
 }
 
 async function loadOpenerPrintCss(context: vscode.ExtensionContext, openerId: string): Promise<string> {

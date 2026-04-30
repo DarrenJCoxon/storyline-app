@@ -28,6 +28,11 @@ const targets = [
     src: resolve(root, 'lib', 'compile', 'chapter-openers'),
     dst: resolve(root, 'extension', 'resources', 'chapter-openers'),
   },
+  {
+    label: 'extension/resources/book-styles (live-preview 6 book styles)',
+    src: resolve(root, 'lib', 'compile', 'book-styles'),
+    dst: resolve(root, 'extension', 'resources', 'book-styles'),
+  },
 ]
 
 for (const { label, src, dst } of targets) {
