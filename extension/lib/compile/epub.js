@@ -100,32 +100,33 @@ function buildContentList(theme) {
   for (const item of theme.frontMatter) {
     entries.push({
       title: item.title,
-      data: wrapSection(item.html, item.sectionClass),
-      beforeToc: true,
+      data: wrapSection(item.html, item.sectionClass, item.id),
+      // Generated ToC page should appear in spine but not in epub nav (the
+      // epub library's auto nav handles reader navigation).
+      beforeToc: item.id !== 'gen-toc',
     });
   }
 
   for (const chapter of theme.chapters) {
     entries.push({
       title: chapter.title,
-      data: wrapSection(chapter.html, chapter.sectionClass),
+      data: wrapSection(chapter.html, chapter.sectionClass, chapter.id),
     });
   }
 
   for (const item of theme.backMatter) {
     entries.push({
       title: item.title,
-      data: wrapSection(item.html, item.sectionClass),
+      data: wrapSection(item.html, item.sectionClass, item.id),
     });
   }
 
   return entries;
 }
 
-// Each chapter's HTML is already themable (p.first for drop caps, etc.)
-// but needs a section wrapper so CSS can scope styles per section type.
-function wrapSection(bodyHtml, sectionClass) {
-  return `<section class="${sectionClass}">\n${bodyHtml}\n</section>`;
+function wrapSection(bodyHtml, sectionClass, id) {
+  const idAttr = id ? ` id="${id}"` : '';
+  return `<section class="${sectionClass || 'section'}"${idAttr}>\n${bodyHtml}\n</section>`;
 }
 
 // Drop characters that would fail on Windows/macOS file systems. Keep
