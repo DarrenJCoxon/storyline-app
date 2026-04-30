@@ -630,6 +630,7 @@ function buildWebviewHtml(
 
   <style>
     /* ── Panel shell ─────────────────────────────────────────────── */
+    /* font-family intentionally omitted — active book-style sets it on body */
     html, body {
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
@@ -637,7 +638,6 @@ function buildWebviewHtml(
       margin: 0; padding: 0;
       display: flex;
       flex-direction: column;
-      font-family: var(--vscode-font-family);
     }
 
     /* ── Toolbar ─────────────────────────────────────────────────── */
@@ -647,6 +647,7 @@ function buildWebviewHtml(
       padding: 8px 14px;
       border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.15));
       font-size: 11px;
+      font-family: var(--vscode-font-family);
       color: var(--vscode-descriptionForeground);
       display: flex;
       align-items: center;
@@ -837,47 +838,17 @@ function buildWebviewHtml(
       pointer-events: none;
     }
 
-    /* ── Shared content rules (apply inside all device surfaces) ─── */
-    .device-surface blockquote,
+    /* ── Shared content safety resets ───────────────────────────── */
+    /* Typography (p, h1, hr, blockquote, etc.) comes from book-style CSS.
+     * Only reset things that would look wrong regardless of style. */
     .device-surface code,
     .device-surface pre { background: transparent !important; color: inherit !important; }
 
     :where(.device-surface) img { max-width: 100%; display: block; margin: 1.2em auto; }
     :where(.device-surface) img:not([style*="height"]) { height: auto; }
 
-    .device-surface p { text-indent: 1.5em; margin: 0; }
-    .device-surface h1 + p,
-    .device-surface h2 + p,
-    .device-surface h3 + p,
-    .device-surface hr.scene-break + p,
-    .device-surface li p,
-    .device-surface td p,
-    .device-surface th p,
-    .device-surface blockquote p { text-indent: 0; }
-
+    /* chapter-number is injected by the preview host, not by book-styles */
     .device-surface .chapter-number { text-align: center; margin: 4em 0 0.5em; text-indent: 0; }
-    .device-surface h2, .device-surface h3 { font-weight: bold; margin: 1.5em 0 0.4em; }
-    .device-surface p.first::first-letter { float: left; font-size: 3.2em; line-height: 0.85; margin: 0.02em 0.08em 0 0; }
-    .device-surface hr.scene-break { border: none; text-align: center; margin: 2em 0; }
-    .device-surface hr.scene-break::before {
-      content: var(--nw-scene-break-ornament, "* * *");
-      display: block;
-      letter-spacing: 0.5em;
-      color: #666;
-      opacity: 0.7;
-    }
-    .device-surface hr.scene-break--soft { margin: 1.6em 0; }
-    .device-surface hr.scene-break--soft::before { content: none; }
-    .device-surface table { border-collapse: collapse; width: 100%; margin: 1.2em 0; font-size: 0.95em; }
-    .device-surface th, .device-surface td { border: 1px solid rgba(0,0,0,0.15); padding: 0.45em 0.75em; text-align: left; }
-    .device-surface th { background: rgba(0,0,0,0.04); }
-    .device-surface blockquote { margin: 1em 2em; font-style: italic; }
-
-    /* Callout blocks */
-    .device-surface aside.callout { margin: 1.4em 0; padding: 0.9em 1.2em; border-radius: 4px; }
-    .device-surface aside.callout > p { text-indent: 0 !important; }
-    .device-surface aside.callout > p:first-child { margin-top: 0 !important; }
-    .device-surface aside.callout > p:last-child  { margin-bottom: 0 !important; }
 
     /* ── Print 6×9 pane ──────────────────────────────────────────── */
     .pane-print .pane-stage {
@@ -902,13 +873,9 @@ function buildWebviewHtml(
       padding: 72px;
       background: #ffffff;
       color: #111;
-      font-family: var(--nw-body-font, Georgia, "Times New Roman", Times, serif);
       font-size: 11pt;
-      line-height: 1.45;
     }
     .pane-print .device-surface .page-number { bottom: 36px; font-size: 10pt; color: #555; }
-    .pane-print .device-surface p.first::first-letter { color: #111; }
-    .pane-print .device-surface aside.callout { background: #ececec; border-left: 3px solid #777; }
 
     /* ── iPad Apple Books pane ───────────────────────────────────── */
     .pane-ipad .pane-stage {
@@ -923,13 +890,9 @@ function buildWebviewHtml(
       background: #ffffff;
       color: #141414;
       border-radius: 4px;
-      font-family: var(--nw-body-font, "Palatino", "Iowan Old Style", Georgia, serif);
       font-size: 17px;
-      line-height: 1.55;
     }
     .pane-ipad .device-surface .page-number { bottom: 32px; font-size: 12px; color: #6b6b6b; }
-    .pane-ipad .device-surface p.first::first-letter { color: #141414; }
-    .pane-ipad .device-surface aside.callout { background: #e8f0fb; border-left: 3px solid #6c93c7; }
 
     /* ── Kindle Paperwhite pane ──────────────────────────────────── */
     .pane-kindle .pane-stage {
@@ -943,16 +906,10 @@ function buildWebviewHtml(
       padding: 60px 72px;
       background: #ececeb;
       color: #1c1c1c;
-      /* Slight e-ink simulation: reduce contrast, mute saturation */
       filter: grayscale(15%) contrast(0.92);
-      font-family: var(--nw-body-font, "Bookerly", Georgia, serif);
       font-size: 16px;
-      line-height: 1.55;
     }
     .pane-kindle .device-surface .page-number { bottom: 24px; font-size: 11px; color: #5c5c5c; }
-    .pane-kindle .device-surface hr.scene-break::before { color: #5c5c5c; }
-    .pane-kindle .device-surface p.first::first-letter { color: #1c1c1c; }
-    .pane-kindle .device-surface aside.callout { background: #dcdcd9; border-left: 3px solid #777; }
 
     /* ── Layout modes ────────────────────────────────────────────── */
     /* layout-side is default — all three visible */
@@ -964,9 +921,8 @@ function buildWebviewHtml(
     body.layout-single-kindle .pane-ipad { display: none; }
 
     /* ── Paragraph style overrides ───────────────────────────────── */
-    body.paragraphs-block .device-surface p { text-indent: 0; margin: 0 0 1em; }
-    body.paragraphs-block .device-surface p.first { text-indent: 0; margin-top: 0; }
-    body.paragraphs-block .device-surface hr.scene-break + p { text-indent: 0; }
+    body.paragraphs-block .device-surface p { text-indent: 0 !important; margin: 0 0 1em !important; }
+    body.paragraphs-block .device-surface p.first { text-indent: 0 !important; margin-top: 0 !important; }
 
     /* ── Typography inspector ────────────────────────────────────── */
     .typo-inspector {
@@ -1023,16 +979,16 @@ function buildWebviewHtml(
         </div>
       </div>
 
-      <!-- Book Style (hot-swap via media="" toggle) -->
+      <!-- Style picker: Book Style + Font override + Chapter Opening -->
       <div class="popover-anchor">
-        <button class="icon-btn" data-popover="pop-style" title="Book Style" aria-expanded="false" style="font-family:Georgia,serif;font-style:italic;">Aa</button>
+        <button class="icon-btn" data-popover="pop-style" title="Style" aria-expanded="false" style="font-family:Georgia,serif;font-style:italic;">Aa</button>
         <div class="popover" id="pop-style">
           <div class="popover-section">
             <div class="popover-section-title">Book Style</div>
             ${themeRows}
           </div>
           <div class="popover-section">
-            <div class="popover-section-title">Font</div>
+            <div class="popover-section-title">Font override</div>
             <button class="popover-row" data-font=""><span class="check">✓</span> Style default</button>
             <button class="popover-row" data-font='Georgia, "Times New Roman", Times, serif'><span class="check">✓</span> Georgia</button>
             <button class="popover-row" data-font='"Iowan Old Style", Palatino, Garamond, serif'><span class="check">✓</span> Iowan Old Style</button>
@@ -1040,6 +996,11 @@ function buildWebviewHtml(
             <button class="popover-row" data-font='Garamond, "Times New Roman", serif'><span class="check">✓</span> Garamond</button>
             <button class="popover-row" data-font='Baskerville, "Baskerville Old Face", serif'><span class="check">✓</span> Baskerville</button>
             <button class="popover-row" data-font='"Inter", "Helvetica Neue", Arial, sans-serif'><span class="check">✓</span> Inter</button>
+          </div>
+          <div class="popover-section">
+            <div class="popover-section-title">Chapter opening</div>
+            <button class="popover-row" data-opener=""><span class="check">✓</span> Style default</button>
+            ${openerRows}
           </div>
           <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>
@@ -1053,21 +1014,6 @@ function buildWebviewHtml(
             <div class="popover-section-title">Paragraphs</div>
             <button class="popover-row" data-paragraphs="indented"><span class="check">✓</span> Indented (first-line indent)</button>
             <button class="popover-row" data-paragraphs="block"><span class="check">✓</span> Block (spaced)</button>
-          </div>
-          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
-        </div>
-      </div>
-
-      <!-- Chapter opener -->
-      <div class="popover-anchor">
-        <button class="icon-btn" data-popover="pop-opener" title="Chapter first page style" aria-expanded="false">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3" x2="14" y2="3" stroke-width="2"/><line x1="4" y1="7" x2="12" y2="7"/><line x1="3" y1="10" x2="13" y2="10"/><line x1="3" y1="13" x2="11" y2="13"/></svg>
-        </button>
-        <div class="popover" id="pop-opener">
-          <div class="popover-section">
-            <div class="popover-section-title">Chapter first page style</div>
-            <button class="popover-row" data-opener=""><span class="check">✓</span> Style default</button>
-            ${openerRows}
           </div>
           <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>
