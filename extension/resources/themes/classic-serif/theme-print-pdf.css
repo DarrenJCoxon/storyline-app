@@ -1,41 +1,22 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Classic Serif — Print variant (loaded on top of theme.css for 6x9 PDF)
+ * Classic Serif — Print variant (loaded on top of theme.css for print PDF)
  *
- * Adds CSS Paged Media rules that Paged.js interprets to produce the
- * print-ready layout:
- *   - 6x9" trim size
- *   - Asymmetric margins (inside wider than outside for binding)
- *   - Running headers (book title on verso / chapter title on recto)
- *   - Page numbers (roman for front matter, Arabic from chapter 1)
- *   - Chapter first page suppresses header + page number (convention)
- *   - Chapters start on a right page (recto)
- *   - Widow/orphan control (no one-line fragments at page boundaries)
+ * Trim size and page margins are owned by the trim CSS layer (loaded
+ * BEFORE this file in print-pdf.js). This file owns:
+ *   - Running header / page number typography (@top-left, @top-right,
+ *     @bottom-center on @page :left and @page :right)
+ *   - chapter-first / :blank / front-matter-page rules
+ *   - Body typography, h1, drop caps, scene breaks
+ *   - String setters for book-title and chapter-title
  *
  * Paged.js expects:
  *   - <span class="book-title">…</span>  (first element, hidden visually)
  *     for the verso running header — captured via `string-set`.
  *   - An H1 in each chapter — captured via `string-set` for the recto.
- *
- * Story 4.3 adds the wrapping HTML that provides these elements.
  * ═══════════════════════════════════════════════════════════════════════ */
-
-/* Trim size + base margins ─────────────────────────────────────────── */
-
-/* Default margins (top/bottom) — left/right are overridden by :left / :right
- * so the inside (gutter) margin is wider than the outside. */
-@page {
-  size: 6in 9in;
-  margin-top: 0.75in;
-  margin-bottom: 0.75in;
-  margin-outside: 0.625in;
-  margin-inside: 0.875in;
-}
 
 /* Left (verso) page: even page numbers */
 @page :left {
-  margin-left: 0.625in;   /* outside */
-  margin-right: 0.875in;  /* inside */
-
   @top-left {
     content: string(book-title);
     font-family: Georgia, "Times New Roman", Times, serif;
@@ -56,9 +37,6 @@
 
 /* Right (recto) page: odd page numbers */
 @page :right {
-  margin-left: 0.875in;   /* inside */
-  margin-right: 0.625in;  /* outside */
-
   @top-right {
     content: string(chapter-title);
     font-family: Georgia, "Times New Roman", Times, serif;

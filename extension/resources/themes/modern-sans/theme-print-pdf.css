@@ -1,26 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Modern Sans — Print variant (loaded on top of theme.css for 6x9 PDF)
+ * Modern Sans — Print variant (loaded on top of theme.css for print PDF)
  *
- * Same @page structure as Classic Serif (6x9, asymmetric margins, running
- * headers on verso/recto, chapter-first suppression), but with sans-serif
- * running headers and modern-sans-specific typography tweaks.
+ * Trim size and page margins are owned by the trim CSS layer (loaded
+ * BEFORE this file). This file owns sans-serif running headers,
+ * modern-sans h1 treatment, and supporting typography tweaks.
  * ═══════════════════════════════════════════════════════════════════════ */
-
-/* Trim size + base margins ─────────────────────────────────────────── */
-
-@page {
-  size: 6in 9in;
-  margin-top: 0.75in;
-  margin-bottom: 0.75in;
-  margin-outside: 0.625in;
-  margin-inside: 0.875in;
-}
 
 /* Verso (left) — even page numbers, book title top-left */
 @page :left {
-  margin-left: 0.625in;
-  margin-right: 0.875in;
-
   @top-left {
     content: string(book-title);
     font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -43,9 +30,6 @@
 
 /* Recto (right) — odd page numbers, chapter title top-right */
 @page :right {
-  margin-left: 0.875in;
-  margin-right: 0.625in;
-
   @top-right {
     content: string(chapter-title);
     font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;

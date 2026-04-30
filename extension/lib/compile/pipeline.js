@@ -16,7 +16,7 @@ import chalk from 'chalk';
 import { assemble } from './assembler.js';
 import { runPreflight } from './preflight.js';
 import { markdownToHtml } from './markdown-to-html.js';
-import { applyTheme } from './theme.js';
+import { applyBookStyle } from './book-style.js';
 import { packageEpub } from './epub.js';
 import { packagePrintPdf } from './print-pdf.js';
 
@@ -69,7 +69,7 @@ const PHASES = [
   {
     id: 'theme',
     label: 'Apply theme',
-    run: applyTheme,
+    run: applyBookStyle,
     summarise: (ctx) => {
       const t = ctx.theme;
       if (!t) return '';

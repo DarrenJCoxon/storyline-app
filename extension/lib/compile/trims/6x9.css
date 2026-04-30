@@ -1,0 +1,33 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Trim — Trade Paperback 6×9
+ *
+ * The default trade paperback trim. Standard for novels, novellas, and
+ * most adult fiction. Supported by KDP (paperback + hardcover) and
+ * IngramSpark.
+ *
+ * Loaded BEFORE the active theme's theme-print-pdf.css. Owns trim size
+ * and page margins; theme owns running header typography, h1 treatment
+ * and other type details.
+ *
+ * Margins follow KDP's recommendations for ≤300 pages with binding-safe
+ * inside (gutter). Inside is wider than outside so text doesn't disappear
+ * into the spine.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@page {
+  size: 6in 9in;
+  margin-top: 0.75in;
+  margin-bottom: 0.75in;
+  margin-outside: 0.625in;
+  margin-inside: 0.875in;
+}
+
+@page :left {
+  margin-left: 0.625in;   /* outside */
+  margin-right: 0.875in;  /* inside */
+}
+
+@page :right {
+  margin-left: 0.875in;   /* inside */
+  margin-right: 0.625in;  /* outside */
+}

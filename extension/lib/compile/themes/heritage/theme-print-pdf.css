@@ -1,29 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Heritage — Print variant (loaded on top of theme.css for 6x9 PDF)
+ * Heritage — Print variant (loaded on top of theme.css for print PDF)
  *
- * Same @page structure as the other themes (6x9, asymmetric margins,
- * verso/recto running headers, chapter-first suppression). Heritage
- * uses slightly more generous margins and small-caps running headers
- * for the traditional trade-edition look.
+ * Trim size and page margins are owned by the trim CSS layer (loaded
+ * BEFORE this file). This file owns running header typography, h1
+ * treatment, drop caps, and small-caps trim for the traditional
+ * trade-edition look.
  * ═══════════════════════════════════════════════════════════════════════ */
-
-/* Trim size + base margins ─────────────────────────────────────────── */
-
-/* Slightly more generous than Classic Serif — heritage typography wants
- * more breathing room around the text block. */
-@page {
-  size: 6in 9in;
-  margin-top: 0.85in;
-  margin-bottom: 0.85in;
-  margin-outside: 0.75in;
-  margin-inside: 1in;
-}
 
 /* Verso (left) — even page numbers, book title top-left */
 @page :left {
-  margin-left: 0.75in;
-  margin-right: 1in;
-
   @top-left {
     content: string(book-title);
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino,
@@ -47,9 +32,6 @@
 
 /* Recto (right) — odd page numbers, chapter title top-right */
 @page :right {
-  margin-left: 1in;
-  margin-right: 0.75in;
-
   @top-right {
     content: string(chapter-title);
     font-family: "Iowan Old Style", "Palatino Linotype", Palatino,

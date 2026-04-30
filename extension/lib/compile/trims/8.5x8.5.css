@@ -1,0 +1,29 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Trim — Picture Book (Square) 8.5×8.5
+ *
+ * The iconic square picture-book trim. Reads as "picture book" at a
+ * glance and the symmetry makes image-heavy spreads easier to design.
+ * Supported by both KDP and IngramSpark.
+ *
+ * Same margin philosophy as 8×10 portrait — slim enough that text
+ * doesn't crowd illustrations, with a 0.75in inside gutter for safe
+ * binding.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@page {
+  size: 8.5in 8.5in;
+  margin-top: 0.5in;
+  margin-bottom: 0.5in;
+  margin-outside: 0.5in;
+  margin-inside: 0.75in;
+}
+
+@page :left {
+  margin-left: 0.5in;     /* outside */
+  margin-right: 0.75in;   /* inside */
+}
+
+@page :right {
+  margin-left: 0.75in;    /* inside */
+  margin-right: 0.5in;    /* outside */
+}

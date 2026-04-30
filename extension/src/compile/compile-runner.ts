@@ -1,10 +1,12 @@
 import * as path from 'path'
 
 export type CompileFormat = 'epub' | 'print-pdf'
+export type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
 
 export interface CompileOptions {
   projectPath: string
   format: CompileFormat
+  trim?: PrintTrim
   onProgress?: (phase: string) => void
 }
 
@@ -52,6 +54,7 @@ export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
   let ctx: Record<string, unknown> = {
     projectPath: opts.projectPath,
     format: opts.format,
+    trim: opts.trim,
   }
 
   opts.onProgress?.('Assembling chapters')
