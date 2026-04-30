@@ -21,6 +21,7 @@ import { stat } from 'fs/promises';
 import pkg from 'fs-extra';
 const { ensureDir, writeFile, readFile } = pkg;
 import { TRIMS, DEFAULT_TRIM, resolveTrimCssPath, isValidTrim } from './trims/index.js';
+import { printFontFaceBlock } from './font-loader.js';
 
 const PAGED_POLYFILL_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -60,8 +61,11 @@ export async function packagePrintPdf(context) {
   const previewHtmlPath = resolve(outputDir, `${slug}-print-preview.html`);
   const pdfPath = resolve(outputDir, `${slug}-print-${trim.fileSlug}.pdf`);
 
+  // Font IDs declared in theme.json (e.g. ["crimson-pro"]).
+  const fontIds = Array.isArray(theme.meta?.fonts) ? theme.meta.fonts : [];
+
   // 1. Build and write the preview HTML (kept on disk for inspection).
-  const html = await buildPagedHtml({ metadata, theme, trimCss });
+  const html = await buildPagedHtml({ metadata, theme, trimCss, fontIds });
   await writeFile(previewHtmlPath, html, 'utf-8');
 
   // 2-6. Render to PDF via Puppeteer + Paged.js.
@@ -149,8 +153,9 @@ async function renderPdf({ previewHtmlPath, pdfPath }) {
 
 // ── HTML assembly (unchanged from Story 4.3) ────────────────────
 
-async function buildPagedHtml({ metadata, theme, trimCss }) {
+async function buildPagedHtml({ metadata, theme, trimCss, fontIds = [] }) {
   const pagedPolyfill = await readFile(PAGED_POLYFILL_PATH, 'utf-8');
+  const fontFaceRules = fontIds.length ? printFontFaceBlock(fontIds) + '\n' : '';
 
   const sectionsHtml = [
     ...theme.frontMatter.map(item => renderSection(item, 'front-matter')),
@@ -182,7 +187,8 @@ async function buildPagedHtml({ metadata, theme, trimCss }) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escHtml(metadata.title)}${metadata.author ? ' — ' + escHtml(metadata.author) : ''}</title>
   <style>
-/* ── Trim layer (page size + margins) ───────────────────────────── */
+/* ── Font face declarations (file:// URIs for Chromium) ─────────── */
+${fontFaceRules}/* ── Trim layer (page size + margins) ───────────────────────────── */
 ${trimCss}
 /* ── Theme layer (typography + running headers) ─────────────────── */
 ${theme.css}

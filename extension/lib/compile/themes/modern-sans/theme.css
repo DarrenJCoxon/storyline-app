@@ -1,14 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════
  * Modern Sans — contemporary theme for Storyline EPUB compile
  *
- * Trade-paperback thriller aesthetic. Sans-serif body, left-aligned bold
- * chapter headings, three-dot scene breaks, no drop caps. Uses system
- * sans fonts (Inter / Helvetica / Arial chain) so no embedding.
+ * Contemporary commercial fiction and narrative non-fiction. Primary
+ * body: Plus Jakarta Sans (bundled, OFL 1.1). Display / headings:
+ * Inter. System-font fallback chain for readers that strip embedded fonts.
  *
  * Conventions targeted:
- *   <h1>                   — chapter heading (left-aligned, bold)
- *   <p class="first">      — first paragraph of a chapter (no drop cap;
- *                            first three words in small-caps)
+ *   <h1>                   — chapter heading (left-aligned, bold, Inter)
+ *   <p class="first">      — first paragraph (small-caps first line, no
+ *                            drop cap — the modern "Strand" idiom)
  *   <hr class="scene-break"> — between-scenes ornament ('· · ·')
  *   hr + p                 — first paragraph of new scene (no indent)
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -21,31 +21,40 @@ html, body {
 }
 
 body {
-  font-family: var(--nw-body-font, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-family: var(--nw-body-font,
+               "Plus Jakarta Sans", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
   font-size: 1em;
   line-height: 1.5;
-  text-align: left;   /* ragged-right is part of the modern look */
+  text-align: left;
+  /* Tabular figures for sans-serif body; ligatures on for common pairs. */
+  font-feature-settings: "liga" 1, "kern" 1;
   -webkit-hyphens: auto;
   -epub-hyphens: auto;
   hyphens: auto;
+  -webkit-hyphenate-limit-chars: 6 3 3;
+  hyphenate-limit-chars: 6 3 3;
+  -webkit-hyphenate-limit-lines: 2;
+  hyphenate-limit-lines: 2;
+  text-wrap: pretty;
   orphans: 2;
   widows: 2;
 }
 
 /* Chapter heading ──────────────────────────────────────────────────── */
 
-/* Left-aligned, bold, generous top margin — confident, no italic flourish.
- * Overridable via --nw-chapter-* custom properties so a writer can flip
- * this to small-caps or italic-centred without editing theme CSS. */
+/* Left-aligned, bold — confident, no italic flourish. Inter is used for
+ * display text (headings, running heads) for the classic Inter/Jakarta pairing.
+ * Overridable via --nw-chapter-* custom properties. */
 h1 {
-  font-family: var(--nw-body-font, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 1.8em;
   font-weight: var(--nw-chapter-font-weight, 700);
   font-style: var(--nw-chapter-font-style, normal);
   font-variant: var(--nw-chapter-font-variant, normal);
   text-align: var(--nw-chapter-text-align, left);
-  letter-spacing: var(--nw-chapter-letter-spacing, -0.01em);
+  letter-spacing: var(--nw-chapter-letter-spacing, -0.02em);
   text-transform: var(--nw-chapter-text-transform, none);
+  font-feature-settings: "liga" 1, "kern" 1;
   margin: 2.5em 0 1.5em 0;
   line-height: 1.15;
   page-break-before: always;
@@ -59,6 +68,7 @@ h2, h3 {
   font-weight: 600;
   font-style: normal;
   text-align: left;
+  font-feature-settings: "liga" 1, "kern" 1;
   margin: 2em 0 0.75em 0;
   line-height: 1.25;
 }
@@ -68,8 +78,6 @@ h3 { font-size: 1.1em; }
 
 /* Paragraphs ───────────────────────────────────────────────────────── */
 
-/* Small first-line indent — modern books still indent, just less than
- * classic serif does. 1em feels sparse without being affected. */
 p {
   text-indent: 1em;
   margin: 0;
@@ -77,23 +85,21 @@ p {
   widows: 2;
 }
 
-/* First paragraph of chapter — no indent, and the first three words
- * render in small-caps letter-spacing (Vellum's "Modern" idiom).
- * Achieved via p.first::first-line giving a subtle differential; a
- * proper "first three words" would need spans the renderer doesn't
- * emit, so we settle for ::first-line which works across Kindle / iBooks. */
 p.first {
   text-indent: 0;
   margin-top: 0;
 }
 
+/* Small-caps first line — the modern chapter-opening idiom.
+ * smcp gives true small caps from Inter's extensive OpenType table;
+ * font-variant is the fallback for EPUB readers that don't support it. */
 p.first::first-line {
   font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
   letter-spacing: 0.06em;
   font-weight: 500;
 }
 
-/* First paragraph after a scene break — no indent (new scene begins) */
 hr.scene-break + p {
   text-indent: 0;
 }
@@ -121,17 +127,11 @@ hr.scene-break::before {
 
 /* Emphasis ─────────────────────────────────────────────────────────── */
 
-em, i {
-  font-style: italic;
-}
-
-strong, b {
-  font-weight: 700;
-}
+em, i { font-style: italic; }
+strong, b { font-weight: 700; }
 
 /* Block quotes ─────────────────────────────────────────────────────── */
 
-/* Left-border pullquote treatment — distinctly modern, not italic. */
 blockquote {
   margin: 1em 1.5em;
   padding-left: 1em;
@@ -141,14 +141,10 @@ blockquote {
   text-indent: 0;
 }
 
-blockquote p {
-  text-indent: 0;
-}
+blockquote p { text-indent: 0; }
 
+/* Callout ───────────────────────────────────────────────────────────── */
 
-/* Callout — block aside (tip / note / context box). Pale neutral grey works
- * across all readers (Kindle e-ink, Apple Books, paperback print) — the
- * writer-facing live preview shows iPad-mode in pale blue separately. */
 aside.callout {
   margin: 1.4em 0;
   padding: 0.9em 1.2em;
@@ -162,15 +158,11 @@ aside.callout > p { text-indent: 0; }
 aside.callout > p:first-child { margin-top: 0; }
 aside.callout > p:last-child  { margin-bottom: 0; }
 
-/* Lists ───────────────────────────────────────────────────────────── */
+/* Lists ────────────────────────────────────────────────────────────── */
 
 ul, ol {
   margin: 1em 0 1em 1.5em;
   padding: 0;
-  /* Kindle's KFX renderer defaults to page-break-before: always on
-   * block-level lists, which forces every bullet block onto a new
-   * page. Explicitly let lists flow with surrounding prose — they
-   * only break when pagination genuinely needs the space. */
   page-break-before: auto;
   break-before: auto;
   page-break-after: auto;
@@ -187,7 +179,7 @@ li p {
   margin: 0;
 }
 
-/* Code ────────────────────────────────────────────────────────────── */
+/* Code ─────────────────────────────────────────────────────────────── */
 
 code {
   font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
@@ -202,17 +194,15 @@ pre {
   text-indent: 0;
 }
 
-/* Links ──────────────────────────────────────────────────────────── */
+/* Links ─────────────────────────────────────────────────────────────── */
 
 a {
   color: #0055aa;
   text-decoration: underline;
 }
 
-/* Tables ─────────────────────────────────────────────────────────── */
+/* Tables ────────────────────────────────────────────────────────────── */
 
-/* Modern tables: no vertical borders, only horizontal dividers. Cleaner
- * look on both EPUB readers and print. */
 table {
   border-collapse: collapse;
   width: 100%;
@@ -241,7 +231,7 @@ th p, td p {
   text-align: left;
 }
 
-/* Front matter ──────────────────────────────────────────────────── */
+/* Front matter ─────────────────────────────────────────────────────── */
 
 .front-matter {
   text-align: center;
@@ -263,7 +253,7 @@ th p, td p {
   letter-spacing: -0.02em;
 }
 
-/* Back matter ──────────────────────────────────────────────────── */
+/* Back matter ───────────────────────────────────────────────────────── */
 
 .back-matter p {
   text-indent: 0;
