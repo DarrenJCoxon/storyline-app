@@ -924,6 +924,94 @@ function buildWebviewHtml(
     body.paragraphs-block .device-surface p { text-indent: 0 !important; margin: 0 0 1em !important; }
     body.paragraphs-block .device-surface p.first { text-indent: 0 !important; margin-top: 0 !important; }
 
+    /* ── Chapter heading overrides ───────────────────────────────── */
+    body.ch-bold-left .device-surface h1 {
+      font-style: normal !important; font-weight: 700 !important;
+      text-align: left !important; letter-spacing: -0.01em !important;
+      text-transform: none !important; font-variant: normal !important;
+    }
+    body.ch-small-caps .device-surface h1 {
+      font-variant: small-caps !important; font-weight: normal !important;
+      letter-spacing: 0.14em !important; text-align: center !important;
+      font-style: normal !important; text-transform: none !important;
+    }
+    body.ch-uppercase .device-surface h1 {
+      text-transform: uppercase !important; font-weight: 600 !important;
+      letter-spacing: 0.15em !important; text-align: center !important;
+      font-style: normal !important; font-variant: normal !important; font-size: 1.25em !important;
+    }
+    body.ch-spaced .device-surface h1 {
+      text-transform: uppercase !important; font-weight: 400 !important;
+      letter-spacing: 0.22em !important; text-align: center !important;
+      font-style: normal !important; font-variant: normal !important; font-size: 1.15em !important;
+    }
+    body.ch-ruled .device-surface h1 {
+      font-style: normal !important; font-weight: 700 !important;
+      text-align: left !important; border-bottom: 2px solid currentColor !important;
+      padding-bottom: 0.3em !important; letter-spacing: normal !important;
+      text-transform: none !important;
+    }
+
+    /* ── Subheading overrides ─────────────────────────────────────── */
+    body.sh-italic-centred .device-surface h2,
+    body.sh-italic-centred .device-surface h3 {
+      font-style: italic !important; text-align: center !important;
+      font-weight: normal !important;
+    }
+    body.sh-small-caps .device-surface h2,
+    body.sh-small-caps .device-surface h3 {
+      font-variant: small-caps !important; font-weight: normal !important;
+      letter-spacing: 0.1em !important; font-style: normal !important;
+    }
+    body.sh-uppercase .device-surface h2,
+    body.sh-uppercase .device-surface h3 {
+      text-transform: uppercase !important; letter-spacing: 0.14em !important;
+      font-weight: 600 !important; font-style: normal !important; font-size: 0.85em !important;
+    }
+    body.sh-ruled .device-surface h2,
+    body.sh-ruled .device-surface h3 {
+      border-bottom: 1px solid currentColor !important; padding-bottom: 0.35em !important;
+      font-style: normal !important; font-weight: 700 !important;
+    }
+
+    /* ── Block quote overrides ────────────────────────────────────── */
+    body.bq-left-border .device-surface blockquote {
+      border-left: 3px solid rgba(0,0,0,0.35) !important;
+      padding-left: 1.2em !important; margin: 1em 0.5em !important;
+      font-style: normal !important; background: transparent !important;
+    }
+    body.bq-box .device-surface blockquote {
+      border: 1px solid rgba(0,0,0,0.18) !important;
+      border-left: 1px solid rgba(0,0,0,0.18) !important;
+      padding: 0.8em 1.2em !important; border-radius: 4px !important;
+      margin: 1em 0 !important; font-style: normal !important; background: transparent !important;
+    }
+    body.bq-tinted .device-surface blockquote {
+      background: rgba(0,0,0,0.045) !important;
+      border: none !important; padding: 0.8em 1.4em !important;
+      border-radius: 4px !important; margin: 1em 0 !important; font-style: italic !important;
+    }
+    body.bq-poetry .device-surface blockquote {
+      text-align: center !important; margin: 2em auto !important;
+      max-width: 80% !important; font-style: italic !important;
+      padding: 0 !important; border: none !important; background: transparent !important;
+    }
+
+    /* ── Callout overrides ────────────────────────────────────────── */
+    body.callout-note .device-surface aside.callout {
+      background: rgba(0,100,220,0.07) !important; border-left: 3px solid #0064dc !important;
+    }
+    body.callout-tip .device-surface aside.callout {
+      background: rgba(0,140,60,0.07) !important; border-left: 3px solid #008c3c !important;
+    }
+    body.callout-alert .device-surface aside.callout {
+      background: rgba(200,130,0,0.07) !important; border-left: 3px solid #c88200 !important;
+    }
+    body.callout-boxed .device-surface aside.callout {
+      border: 1px solid rgba(0,0,0,0.2) !important; border-left: 1px solid rgba(0,0,0,0.2) !important;
+      background: transparent !important; border-radius: 4px !important;
+    }
+
     /* ── Typography inspector ────────────────────────────────────── */
     .typo-inspector {
       display: none;
@@ -1014,6 +1102,49 @@ function buildWebviewHtml(
             <div class="popover-section-title">Paragraphs</div>
             <button class="popover-row" data-paragraphs="indented"><span class="check">✓</span> Indented (first-line indent)</button>
             <button class="popover-row" data-paragraphs="block"><span class="check">✓</span> Block (spaced)</button>
+          </div>
+          <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
+        </div>
+      </div>
+
+      <!-- Element styles -->
+      <div class="popover-anchor">
+        <button class="icon-btn" data-popover="pop-elements" title="Element styles" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="4" x2="9" y2="4" stroke-width="2.2"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="11.5" x2="12" y2="11.5"/><line x1="2" y1="14.5" x2="10" y2="14.5"/></svg>
+        </button>
+        <div class="popover" id="pop-elements">
+          <div class="popover-section">
+            <div class="popover-section-title">Chapter heading</div>
+            <button class="popover-row" data-cheading="default"><span class="check">✓</span> Style default</button>
+            <button class="popover-row" data-cheading="bold-left"><span class="check">✓</span> Bold, left-aligned</button>
+            <button class="popover-row" data-cheading="small-caps"><span class="check">✓</span> Small caps, centred</button>
+            <button class="popover-row" data-cheading="uppercase"><span class="check">✓</span> Uppercase, centred</button>
+            <button class="popover-row" data-cheading="spaced"><span class="check">✓</span> Spaced caps</button>
+            <button class="popover-row" data-cheading="ruled"><span class="check">✓</span> Bold + rule below</button>
+          </div>
+          <div class="popover-section">
+            <div class="popover-section-title">Subheadings (h2 / h3)</div>
+            <button class="popover-row" data-subhead="default"><span class="check">✓</span> Style default</button>
+            <button class="popover-row" data-subhead="italic-centred"><span class="check">✓</span> Italic, centred</button>
+            <button class="popover-row" data-subhead="small-caps"><span class="check">✓</span> Small caps</button>
+            <button class="popover-row" data-subhead="uppercase"><span class="check">✓</span> Uppercase</button>
+            <button class="popover-row" data-subhead="ruled"><span class="check">✓</span> Bold + underline</button>
+          </div>
+          <div class="popover-section">
+            <div class="popover-section-title">Block quote</div>
+            <button class="popover-row" data-blockquote="default"><span class="check">✓</span> Style default</button>
+            <button class="popover-row" data-blockquote="left-border"><span class="check">✓</span> Left border</button>
+            <button class="popover-row" data-blockquote="box"><span class="check">✓</span> Outlined box</button>
+            <button class="popover-row" data-blockquote="tinted"><span class="check">✓</span> Tinted background</button>
+            <button class="popover-row" data-blockquote="poetry"><span class="check">✓</span> Poetry (centred)</button>
+          </div>
+          <div class="popover-section">
+            <div class="popover-section-title">Callout</div>
+            <button class="popover-row" data-callout="default"><span class="check">✓</span> Style default</button>
+            <button class="popover-row" data-callout="note"><span class="check">✓</span> Note (blue)</button>
+            <button class="popover-row" data-callout="tip"><span class="check">✓</span> Tip (green)</button>
+            <button class="popover-row" data-callout="alert"><span class="check">✓</span> Alert (amber)</button>
+            <button class="popover-row" data-callout="boxed"><span class="check">✓</span> Outlined box</button>
           </div>
           <div class="popover-footer"><button class="save-defaults-btn">Save as default</button></div>
         </div>
@@ -1122,6 +1253,10 @@ function buildWebviewHtml(
     let currentOpener        = stored.chapterOpener  ?? initialConfig.chapterOpener;
     let inspectorEnabled     = stored.inspectorEnabled ?? false;
     let inspectorLocked      = false;
+    let currentChapterHeading = stored.chapterHeading  ?? 'default';
+    let currentSubheading     = stored.subheading      ?? 'default';
+    let currentBlockquote     = stored.blockquote      ?? 'default';
+    let currentCallout        = stored.callout         ?? 'default';
 
     const knownStyles = Array.from(document.querySelectorAll('.bookstyle-sheet')).map(el => el.dataset.style).filter(Boolean);
     if (!knownStyles.includes(currentTheme)) currentTheme = initialConfig.theme;
@@ -1266,6 +1401,36 @@ function buildWebviewHtml(
       updateSelectedRows();
     }
 
+    const CH_CLASSES  = ['ch-bold-left','ch-small-caps','ch-uppercase','ch-spaced','ch-ruled'];
+    const SH_CLASSES  = ['sh-italic-centred','sh-small-caps','sh-uppercase','sh-ruled'];
+    const BQ_CLASSES  = ['bq-left-border','bq-box','bq-tinted','bq-poetry'];
+    const CAL_CLASSES = ['callout-note','callout-tip','callout-alert','callout-boxed'];
+
+    function applyChapterHeading(val) {
+      currentChapterHeading = val;
+      CH_CLASSES.forEach(c => document.body.classList.remove(c));
+      if (val && val !== 'default') document.body.classList.add('ch-' + val);
+      updateSelectedRows();
+    }
+    function applySubheading(val) {
+      currentSubheading = val;
+      SH_CLASSES.forEach(c => document.body.classList.remove(c));
+      if (val && val !== 'default') document.body.classList.add('sh-' + val);
+      updateSelectedRows();
+    }
+    function applyBlockquote(val) {
+      currentBlockquote = val;
+      BQ_CLASSES.forEach(c => document.body.classList.remove(c));
+      if (val && val !== 'default') document.body.classList.add('bq-' + val);
+      updateSelectedRows();
+    }
+    function applyCallout(val) {
+      currentCallout = val;
+      CAL_CLASSES.forEach(c => document.body.classList.remove(c));
+      if (val && val !== 'default') document.body.classList.add('callout-' + val);
+      updateSelectedRows();
+    }
+
     // ── Typography inspector ─────────────────────────────────────
     function buildInspectorRows(el) {
       const cs = getComputedStyle(el);
@@ -1370,6 +1535,10 @@ function buildWebviewHtml(
         ['data-ornament',   currentOrnament],
         ['data-paragraphs', currentParagraphStyle],
         ['data-layout',     currentLayout],
+        ['data-cheading',   currentChapterHeading  || 'default'],
+        ['data-subhead',    currentSubheading      || 'default'],
+        ['data-blockquote', currentBlockquote      || 'default'],
+        ['data-callout',    currentCallout         || 'default'],
       ];
       for (const [attr, val] of pairs) {
         document.querySelectorAll('[' + attr + ']').forEach(el => {
@@ -1385,6 +1554,10 @@ function buildWebviewHtml(
     filterOpenerRows(currentTheme);
     updateSelectedRows();
     setInspectorEnabled(inspectorEnabled);
+    applyChapterHeading(currentChapterHeading);
+    applySubheading(currentSubheading);
+    applyBlockquote(currentBlockquote);
+    applyCallout(currentCallout);
 
     // Trigger load-theme/opener messages as fallback if CSS wasn't pre-loaded
     // (shouldn't happen when loadAllThemesCss succeeded, but defensive)
@@ -1428,6 +1601,10 @@ function buildWebviewHtml(
         else if (row.hasAttribute('data-ornament')) applyOrnament(row.dataset.ornament);
         else if (row.hasAttribute('data-paragraphs')) applyParagraphs(row.dataset.paragraphs);
         else if (row.hasAttribute('data-layout')) applyLayout(row.dataset.layout);
+        else if (row.hasAttribute('data-cheading'))   applyChapterHeading(row.dataset.cheading);
+        else if (row.hasAttribute('data-subhead'))    applySubheading(row.dataset.subhead);
+        else if (row.hasAttribute('data-blockquote')) applyBlockquote(row.dataset.blockquote);
+        else if (row.hasAttribute('data-callout'))    applyCallout(row.dataset.callout);
         persist();
         closeAllPopovers();
       });
@@ -1485,6 +1662,10 @@ function buildWebviewHtml(
         bodyFont: currentFont,
         sceneBreakOrnament: currentOrnament,
         inspectorEnabled,
+        chapterHeading: currentChapterHeading,
+        subheading:     currentSubheading,
+        blockquote:     currentBlockquote,
+        callout:        currentCallout,
       });
     }
 
