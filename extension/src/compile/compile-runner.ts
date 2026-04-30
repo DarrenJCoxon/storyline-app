@@ -1,6 +1,6 @@
 import * as path from 'path'
 
-export type CompileFormat = 'epub' | 'print-pdf'
+export type CompileFormat = 'epub' | 'print-pdf' | 'bundle'
 export type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
 
 export interface CompileOptions {
@@ -30,25 +30,31 @@ export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
 
   const [
     { assemble },
+    { generateFrontMatter },
     { runPreflight },
     { markdownToHtml },
-    { applyTheme },
+    { applyBookStyle },
     { packageEpub },
     { packagePrintPdf },
+    { distributeOutputs },
   ] = await Promise.all([
     import(path.join(libBase, 'assembler.js')),
+    import(path.join(libBase, 'front-matter-generator.js')),
     import(path.join(libBase, 'preflight.js')),
     import(path.join(libBase, 'markdown-to-html.js')),
-    import(path.join(libBase, 'theme.js')),
+    import(path.join(libBase, 'book-style.js')),
     import(path.join(libBase, 'epub.js')),
     import(path.join(libBase, 'print-pdf.js')),
+    import(path.join(libBase, 'distribution.js')),
   ]) as [
     { assemble: Phase },
+    { generateFrontMatter: Phase },
     { runPreflight: Phase },
     { markdownToHtml: Phase },
-    { applyTheme: Phase },
+    { applyBookStyle: Phase },
     { packageEpub: Phase },
     { packagePrintPdf: Phase },
+    { distributeOutputs: Phase },
   ]
 
   let ctx: Record<string, unknown> = {
@@ -59,6 +65,9 @@ export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
 
   opts.onProgress?.('Assembling chapters')
   ctx = await assemble(ctx)
+
+  opts.onProgress?.('Generating front matter')
+  ctx = await generateFrontMatter(ctx)
 
   opts.onProgress?.('Running pre-flight check')
   ctx = await runPreflight(ctx)
@@ -72,7 +81,7 @@ export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
   ctx = await markdownToHtml(ctx)
 
   opts.onProgress?.('Applying theme')
-  ctx = await applyTheme(ctx)
+  ctx = await applyBookStyle(ctx)
 
   // Generate research artefacts (endnotes, bibliography, fact-check report)
   // before packaging so they ship inside the EPUB/PDF. No-ops if the project
@@ -80,8 +89,13 @@ export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
   opts.onProgress?.('Generating research artefacts')
   await generateResearchArtefacts(opts.projectPath, ctx)
 
-  opts.onProgress?.(opts.format === 'print-pdf' ? 'Rendering PDF (may take 30s)' : 'Packaging EPUB')
-  ctx = await (opts.format === 'print-pdf' ? packagePrintPdf(ctx) : packageEpub(ctx))
+  if (opts.format === 'bundle') {
+    opts.onProgress?.('Distributing all targets')
+    ctx = await distributeOutputs(ctx)
+  } else {
+    opts.onProgress?.(opts.format === 'print-pdf' ? 'Rendering PDF (may take 30s)' : 'Packaging EPUB')
+    ctx = await (opts.format === 'print-pdf' ? packagePrintPdf(ctx) : packageEpub(ctx))
+  }
 
   const output = ctx.output as { path: string; bytes: number } | undefined
   if (!output?.path) throw new Error('Compile finished but no output file was written.')
