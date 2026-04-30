@@ -29,6 +29,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const STYLES_DIR  = resolve(__dir, 'book-styles');
 const THEMES_DIR  = resolve(__dir, 'themes');       // fallback for legacy projects
 const PRINT_RESET_PATH = resolve(__dir, 'print-reset.css');
+const PRIMITIVES_CSS_PATH = resolve(__dir, 'primitives', '_base.css');
 const DEFAULT_STYLE_ID = 'classic-serif';
 const DEFAULT_PARAGRAPH_STYLE = 'indented';
 const VALID_PARAGRAPH_STYLES = new Set(['indented', 'block']);
@@ -83,6 +84,15 @@ async function loadPrintResetCss() {
   return cachedPrintResetCss;
 }
 
+let cachedPrimitivesCss = null;
+async function loadPrimitivesCss() {
+  if (cachedPrimitivesCss !== null) return cachedPrimitivesCss;
+  cachedPrimitivesCss = (await pathExists(PRIMITIVES_CSS_PATH))
+    ? await readFile(PRIMITIVES_CSS_PATH, 'utf-8') + '\n\n'
+    : '';
+  return cachedPrimitivesCss;
+}
+
 export async function applyBookStyle(context) {
   if (!context.html) {
     throw new Error('Book Style phase requires the HTML phase to run first');
@@ -98,8 +108,9 @@ export async function applyBookStyle(context) {
   );
 
   const printResetCss = context.format === 'print-pdf' ? await loadPrintResetCss() : '';
+  const primitivesCss = await loadPrimitivesCss();
 
-  const effectiveCss = style.css + printResetCss + overrideCss + paragraphStyleOverride(paragraphStyle);
+  const effectiveCss = primitivesCss + style.css + printResetCss + overrideCss + paragraphStyleOverride(paragraphStyle);
 
   context.theme = {
     id: style.id,
@@ -115,13 +126,21 @@ export async function applyBookStyle(context) {
       sectionClass: 'front-matter',
     })),
     chapters: context.html.chapters.map(chapter => {
+      const fm = chapter.frontmatter || {};
       const needsHeading = !chapter.html.trimStart().startsWith('<h1');
-      const headingBlock = needsHeading
-        ? `<div class="chapter-number">${chapter.number}</div>\n<h1>${escapeHtmlText(chapter.title)}</h1>\n`
-        : '';
+      let headingBlock = '';
+      if (needsHeading) {
+        const subtitleHtml = fm.subtitle
+          ? `<p class="chapter-subtitle">${escapeHtmlText(fm.subtitle)}</p>\n`
+          : '';
+        const epigraphHtml = fm.epigraph
+          ? `<p class="chapter-epigraph">${escapeHtmlText(fm.epigraph)}</p>\n`
+          : '';
+        headingBlock = `<div class="chapter-number">${chapter.number}</div>\n<h1>${escapeHtmlText(chapter.title)}</h1>\n${subtitleHtml}${epigraphHtml}`;
+      }
       return {
         ...chapter,
-        html: markChapterOpenerMarkup(headingBlock + chapter.html),
+        html: markChapterOpenerMarkup(headingBlock + chapter.html, fm.dropCap === false),
         sectionClass: 'chapter',
       };
     }),
@@ -303,8 +322,9 @@ function escapeHtmlText(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function markChapterOpenerMarkup(html) {
+function markChapterOpenerMarkup(html, noDropCap = false) {
   let result = html.replace('<h2>', '<h2 class="first-section">');
-  result = result.replace('<p>', '<p class="first first-paragraph">');
+  const firstClass = noDropCap ? 'first first-paragraph no-drop-cap' : 'first first-paragraph';
+  result = result.replace('<p>', `<p class="${firstClass}">`);
   return result;
 }

@@ -12,6 +12,12 @@ import { Markdown } from 'tiptap-markdown'
 import { SceneBreak } from './extensions/SceneBreak.js'
 import { Footnote } from './extensions/Footnote.js'
 import { Callout } from './extensions/Callout.js'
+import { Epigraph } from './extensions/Epigraph.js'
+import { PullQuote } from './extensions/PullQuote.js'
+import { Sidebar } from './extensions/Sidebar.js'
+import { Verse } from './extensions/Verse.js'
+import { Takeaway } from './extensions/Takeaway.js'
+import { Letter } from './extensions/Letter.js'
 import { vscode } from './vscode.js'
 import { debounce } from './debounce.js'
 import { Image as ImageIcon, AlignVerticalJustifyCenter, Type } from 'lucide-react'
@@ -108,6 +114,12 @@ export function Editor(): JSX.Element | null {
       SceneBreak,
       Footnote,
       Callout,
+      Epigraph,
+      PullQuote,
+      Sidebar,
+      Verse,
+      Takeaway,
+      Letter,
       ResizableImage.configure({ inline: false, HTMLAttributes: { class: 'editor-img' } }),
       Table.configure({ resizable: false }),
       TableRow,
