@@ -13,7 +13,8 @@ export type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
 
 export interface CompileConfig {
   metadata: CompileMetadata
-  theme: string
+  bookStyle?: string
+  theme?: string   // legacy alias for bookStyle; kept for one-release compat
   paragraphStyle?: 'indented' | 'spaced'
   epub?: { theme?: string }
   pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
@@ -50,7 +51,7 @@ export function ensureCompileConfig(projectDir: string): CompileConfig {
 
   const config: CompileConfig = {
     metadata: { title, author: null, language: 'en', publisher: 'Independent' },
-    theme: 'classic-serif',
+    bookStyle: 'classic-serif',
     paragraphStyle: 'indented',
   }
   writeCompileConfig(projectDir, config)

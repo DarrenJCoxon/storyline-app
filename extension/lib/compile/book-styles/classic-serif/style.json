@@ -1,0 +1,11 @@
+{
+  "id": "classic-serif",
+  "name": "Classic Serif",
+  "genre": "Traditional fiction",
+  "description": "Crimson Pro with a three-line bold drop cap and * * * scene break. The default, works for most fiction.",
+  "fonts": ["crimson-pro"],
+  "ornaments": {
+    "sceneBreak": "* * *"
+  },
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}

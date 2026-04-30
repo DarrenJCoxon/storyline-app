@@ -22,14 +22,68 @@ type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
 
 interface CompileConfig {
   metadata: CompileMetadata
-  theme: string
+  bookStyle?: string
+  theme?: string   // legacy alias
   epub?: { theme?: string }
   pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
   nonfiction?: { citationStyle?: 'chicago' | 'apa' | 'mla'; generateExtras?: boolean }
 }
 
+interface BookStyleInfo {
+  id: string
+  name: string
+  genre: string
+  description: string
+  accent: string
+}
+
 type Format = 'epub' | 'print-pdf'
 type Screen = 'form' | 'compiling' | 'done'
+
+const BOOK_STYLES: BookStyleInfo[] = [
+  {
+    id: 'atticus',
+    name: 'Atticus',
+    genre: 'Literary fiction',
+    description: 'Crimson Pro, four-line italic drop cap, ❦ fleuron, hairline chapter rule.',
+    accent: '#5c6e4a',
+  },
+  {
+    id: 'classic-serif',
+    name: 'Classic Serif',
+    genre: 'Traditional fiction',
+    description: 'Crimson Pro, bold three-line drop cap, * * * scene break.',
+    accent: '#7a6248',
+  },
+  {
+    id: 'heritage',
+    name: 'Heritage',
+    genre: 'Historical / Regency',
+    description: 'EB Garamond, true small caps, four-line drop cap, ❦ fleuron.',
+    accent: '#7a3535',
+  },
+  {
+    id: 'riverside',
+    name: 'Riverside',
+    genre: 'Contemporary literary',
+    description: 'Source Serif 4, hairline chapter rules, small-caps opening, minimal scene break.',
+    accent: '#3a6e7a',
+  },
+  {
+    id: 'strand',
+    name: 'Strand',
+    genre: 'Thriller / Commercial',
+    description: 'Source Serif 4 body, bold Jakarta Sans numerals, no drop cap. Tight and driven.',
+    accent: '#1e1e1e',
+  },
+  {
+    id: 'modern-sans',
+    name: 'Modern Sans',
+    genre: 'Contemporary / Non-fiction',
+    description: 'Plus Jakarta Sans body, Inter display, small-caps opening, · · · scene break.',
+    accent: '#3a5a7a',
+  },
+]
 
 const TRIM_OPTIONS: Array<{ id: PrintTrim; label: string; sub: string }> = [
   { id: '6x9', label: 'Trade Paperback', sub: '6 × 9 in — novels (default)' },
@@ -63,7 +117,7 @@ type Action =
   | { type: 'setTitle'; title: string }
   | { type: 'setAuthor'; author: string }
   | { type: 'setCover'; coverPath: string; coverThumbUri: string | null }
-  | { type: 'setTheme'; theme: string }
+  | { type: 'setBookStyle'; bookStyle: string }
   | { type: 'setCitationStyle'; style: 'chicago' | 'apa' | 'mla' }
   | { type: 'setGenerateExtras'; enabled: boolean }
   | { type: 'compileStart'; format: Format }
@@ -111,8 +165,8 @@ function reduce(state: State, action: Action): State {
         },
         coverThumbUri: action.coverThumbUri,
       }
-    case 'setTheme':
-      return { ...state, config: { ...state.config, theme: action.theme } }
+    case 'setBookStyle':
+      return { ...state, config: { ...state.config, bookStyle: action.bookStyle } }
     case 'setCitationStyle':
       return { ...state, config: { ...state.config, nonfiction: { ...state.config.nonfiction, citationStyle: action.style } } }
     case 'setGenerateExtras':
@@ -140,7 +194,7 @@ function reduce(state: State, action: Action): State {
 
 const INITIAL: State = {
   screen: 'form',
-  config: { metadata: { title: '', author: null, language: 'en' }, theme: 'classic-serif' },
+  config: { metadata: { title: '', author: null, language: 'en' }, bookStyle: 'classic-serif' },
   format: 'epub',
   trim: '6x9',
   projectMode: 'fiction',
@@ -309,18 +363,13 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
 
       <div className="divider" />
 
-      {/* Theme */}
+      {/* Book Style picker */}
       <div className="section">
-        <div className="section-label">Theme</div>
-        <select
-          className="theme-select"
-          value={config.theme}
-          onChange={e => dispatch({ type: 'setTheme', theme: e.target.value })}
-        >
-          <option value="classic-serif">Classic Serif</option>
-          <option value="heritage">Heritage</option>
-          <option value="modern-sans">Modern Sans</option>
-        </select>
+        <div className="section-label">Book Style</div>
+        <BookStylePicker
+          selected={config.bookStyle ?? config.theme ?? 'classic-serif'}
+          onChange={id => dispatch({ type: 'setBookStyle', bookStyle: id })}
+        />
       </div>
 
       {/* Chapter order */}
@@ -381,6 +430,29 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
           Add chapters to manuscript/ to enable compile.
         </p>
       )}
+    </div>
+  )
+}
+
+// ── Book Style Picker ─────────────────────────────────────────────────────────
+
+function BookStylePicker({ selected, onChange }: { selected: string; onChange: (id: string) => void }): JSX.Element {
+  return (
+    <div className="book-style-grid">
+      {BOOK_STYLES.map(style => (
+        <button
+          key={style.id}
+          className={`book-style-card${selected === style.id ? ' selected' : ''}`}
+          onClick={() => onChange(style.id)}
+          title={style.description}
+        >
+          <span className="book-style-accent" style={{ background: style.accent }} />
+          <span className="book-style-body">
+            <span className="book-style-name">{style.name}</span>
+            <span className="book-style-genre">{style.genre}</span>
+          </span>
+        </button>
+      ))}
     </div>
   )
 }

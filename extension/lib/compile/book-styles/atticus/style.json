@@ -1,0 +1,12 @@
+{
+  "id": "atticus",
+  "name": "Atticus",
+  "genre": "Literary fiction",
+  "description": "Crimson Pro with four-line italic drop cap, small-caps first-line continuation, ❦ fleuron, thin ornamental rule under chapter title. The flagship literary style.",
+  "fonts": ["crimson-pro"],
+  "ornaments": {
+    "sceneBreak": "❦",
+    "dropCap": { "lines": 4, "style": "italic", "smallCapsContinuation": true }
+  },
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}
