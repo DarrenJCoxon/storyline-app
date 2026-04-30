@@ -927,27 +927,32 @@ function buildWebviewHtml(
     /* ── Chapter heading overrides ───────────────────────────────── */
     body.ch-bold-left .device-surface h1 {
       font-style: normal !important; font-weight: 700 !important;
-      text-align: left !important; letter-spacing: -0.01em !important;
+      text-align: left !important; text-align-last: left !important;
+      letter-spacing: -0.01em !important;
       text-transform: none !important; font-variant: normal !important;
     }
     body.ch-small-caps .device-surface h1 {
       font-variant: small-caps !important; font-weight: normal !important;
       letter-spacing: 0.14em !important; text-align: center !important;
+      text-align-last: center !important;
       font-style: normal !important; text-transform: none !important;
     }
     body.ch-uppercase .device-surface h1 {
       text-transform: uppercase !important; font-weight: 600 !important;
       letter-spacing: 0.15em !important; text-align: center !important;
+      text-align-last: center !important;
       font-style: normal !important; font-variant: normal !important; font-size: 1.25em !important;
     }
     body.ch-spaced .device-surface h1 {
       text-transform: uppercase !important; font-weight: 400 !important;
       letter-spacing: 0.22em !important; text-align: center !important;
+      text-align-last: center !important;
       font-style: normal !important; font-variant: normal !important; font-size: 1.15em !important;
     }
     body.ch-ruled .device-surface h1 {
       font-style: normal !important; font-weight: 700 !important;
-      text-align: left !important; border-bottom: 2px solid currentColor !important;
+      text-align: left !important; text-align-last: left !important;
+      border-bottom: 2px solid currentColor !important;
       padding-bottom: 0.3em !important; letter-spacing: normal !important;
       text-transform: none !important;
     }
