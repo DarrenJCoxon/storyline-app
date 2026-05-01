@@ -28,8 +28,8 @@ export function Welcome({ onNavigate, onUseFree, onActivateKey, validating, vali
         Plan your book. Write your story.
       </p>
 
-      <button onClick={onUseFree} style={primaryBtn}>
-        Start free — one complete book plan
+      <button onClick={onUseFree} disabled={validating} style={{ ...primaryBtn, opacity: validating ? 0.6 : 1 }}>
+        {validating ? 'Activating free plan…' : 'Start free — one complete book plan'}
       </button>
       <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px', margin: '-2px 0 14px' }}>
         Plan an entire book with AI for free. Image generation and additional plans require credits.

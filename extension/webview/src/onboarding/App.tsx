@@ -33,6 +33,7 @@ interface AppState {
   scaffolded: boolean
   error: string | null
   returningUser: ReturningUser | null
+  validating: boolean
 }
 
 type Action =
@@ -42,6 +43,7 @@ type Action =
   | { type: 'TEST_RESULT'; success: boolean; error?: string }
   | { type: 'SCAFFOLDED' }
   | { type: 'ERROR'; message: string }
+  | { type: 'SET_VALIDATING'; value: boolean }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -57,6 +59,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, scaffolded: true }
     case 'ERROR':
       return { ...state, error: action.message }
+    case 'SET_VALIDATING':
+      return { ...state, validating: action.value }
     default:
       return state
   }
@@ -70,6 +74,7 @@ const INITIAL: AppState = {
   scaffolded: false,
   error: null,
   returningUser: null,
+  validating: false,
 }
 
 export function App() {
@@ -96,9 +101,10 @@ export function App() {
         }),
       ),
       on<{ to: Screen }>('navigate', m => dispatch({ type: 'NAVIGATE', to: m.to })),
-      on<{ success: boolean; creditBalance?: number; error?: string }>('validateResult', m =>
-        dispatch({ type: 'VALIDATE_RESULT', ...m }),
-      ),
+      on<{ success: boolean; creditBalance?: number; error?: string }>('validateResult', m => {
+        dispatch({ type: 'VALIDATE_RESULT', ...m })
+        dispatch({ type: 'SET_VALIDATING', value: false })
+      }),
       on<{ success: boolean; error?: string }>('testResult', m =>
         dispatch({ type: 'TEST_RESULT', ...m }),
       ),
@@ -134,9 +140,9 @@ export function App() {
       {screen === 'welcome' && (
         <Welcome
           onNavigate={navigate}
-          onUseFree={() => { send({ type: 'useFree' }) }}
-          onActivateKey={key => send({ type: 'validateLicence', key })}
-          validating={false}
+          onUseFree={() => { dispatch({ type: 'SET_VALIDATING', value: true }); send({ type: 'useFree' }) }}
+          onActivateKey={key => { dispatch({ type: 'SET_VALIDATING', value: true }); send({ type: 'validateLicence', key }) }}
+          validating={state.validating}
           validateError={validateResult && !validateResult.success ? validateResult.error ?? 'Activation failed.' : null}
         />
       )}
