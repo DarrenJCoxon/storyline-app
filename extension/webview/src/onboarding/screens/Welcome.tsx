@@ -28,11 +28,18 @@ export function Welcome({ onNavigate, onUseFree, onActivateKey, validating, vali
         Plan your book. Write your story.
       </p>
 
-      <button onClick={() => onNavigate('buy-credits')} style={primaryBtn}>
+      <button onClick={onUseFree} style={primaryBtn}>
+        Start free — one complete book plan
+      </button>
+      <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px', margin: '-2px 0 14px' }}>
+        Plan an entire book with AI for free. Image generation and additional plans require credits.
+      </p>
+
+      <button onClick={() => onNavigate('buy-credits')} style={secondaryBtn}>
         Buy credits
       </button>
       <button onClick={() => onNavigate('byok')} style={secondaryBtn}>
-        Bring your own key
+        Bring your own AI key
       </button>
 
       <div style={{ marginTop: '14px', textAlign: 'center' }}>
@@ -82,14 +89,6 @@ export function Welcome({ onNavigate, onUseFree, onActivateKey, validating, vali
         )}
       </div>
 
-      <div style={{ textAlign: 'center', marginTop: '24px' }}>
-        <button
-          onClick={onUseFree}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '11px', padding: 0, textDecoration: 'underline' }}
-        >
-          Start with the free plan
-        </button>
-      </div>
     </div>
   )
 }

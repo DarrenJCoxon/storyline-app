@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import { LicenceManager } from '../auth/licence.js'
+import { FREE_LICENCE_KEY } from '../panels/OnboardingPanel.js'
 
 const SNOOZE_KEY = 'storyline.licencePromptSnoozedUntil'
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000 // 3 days
@@ -46,19 +47,34 @@ async function showKeyPrompt(
   manager: LicenceManager,
 ): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
-    'Welcome to Storyline! Enter your licence key to activate, or try it free for 3 days.',
+    'Welcome to Storyline! Start with one free book plan, or enter a licence key.',
     { modal: false },
+    'Start free plan',
     'Enter Licence Key',
-    'Try Free (3 days)',
   )
 
   if (choice === 'Enter Licence Key') {
     await promptForKey(context, manager)
-  } else if (choice === 'Try Free (3 days)') {
-    await context.globalState.update(SNOOZE_KEY, Date.now() + SNOOZE_MS)
-    void vscode.window.showInformationMessage(
-      "You're on the free trial. Your licence key will be needed in 3 days — check your email if you already purchased.",
-    )
+  } else if (choice === 'Start free plan') {
+    // Auto-activate the seeded free-tier key. The Worker's KV holds an entry
+    // for SL-FREE-0000-0000-FREE granting a credit pool sized to cover one
+    // complete planning run (chat + critique). Image generation is blocked
+    // server-side regardless of remaining credits.
+    await manager.setLicenceKey(FREE_LICENCE_KEY)
+    const info = await manager.validate({})
+    if (info.valid) {
+      await context.globalState.update(SNOOZE_KEY, undefined)
+      await context.globalState.update('storyline.freePlan', { active: true })
+      void vscode.window.showInformationMessage(
+        `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Image generation requires paid credits; top up any time.`,
+      )
+    } else {
+      // KV not seeded — clear so we don't lock the user into a dead key.
+      await manager.clearLicenceKey()
+      void vscode.window.showErrorMessage(
+        "Free plan unavailable right now — please try again later or enter a licence key.",
+      )
+    }
   }
   // Dismissed without choosing → show again next session
 }

@@ -28,6 +28,16 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
   if (!record || !record.valid) return errJson('Invalid licence key', 401)
   if (record.type === 'byok') return errJson('BYOK licences use your own API key for image generation', 403)
 
+  // Free tier covers chat + critique for one book plan only — never images.
+  // The credit balance on a free record is reserved for planning chat; image
+  // generation requires a paid top-up regardless of remaining free credits.
+  if (record.type === 'free') {
+    return errJson(
+      'Image generation is not included in the free book plan. Top up credits to use covers and illustrations.',
+      402,
+    )
+  }
+
   const quality: 'low' | 'medium' | 'high' = body.quality ?? 'high'
   const creditCost = CREDITS_BY_QUALITY[quality] ?? IMAGE_CREDIT_COST
   if (record.creditBalance < creditCost) {

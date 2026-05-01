@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import * as vscode from 'vscode'
 import type { LicenceManager } from '../auth/licence.js'
 import { reportError } from '../ai/error-reporter.js'
 
@@ -112,6 +113,21 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
     try { err = JSON.parse(text) } catch { err = { error: text || `HTTP ${res.status}` } }
     console.error('[Storyline] /illustrate failed:', res.status, err)
     reportError({ endpoint: 'illustrate', statusCode: res.status, message: err.error || text || `HTTP ${res.status}`, licenceKey })
+
+    // Free-tier-no-images is a known 402 path — show a Top Up Credits action
+    // button so the user lands in the buy-credits screen with one click.
+    // Detected by message content (the Worker returns the canonical phrase).
+    const isFreeTierBlock = res.status === 402 && /free book plan|free plan/i.test(err.error ?? '')
+    if (isFreeTierBlock) {
+      void vscode.window.showWarningMessage(
+        'Image generation needs paid credits — the free plan covers chat-based planning only.',
+        'Top Up Credits',
+      ).then(choice => {
+        if (choice === 'Top Up Credits') {
+          void vscode.commands.executeCommand('storyline.topUpCredits')
+        }
+      })
+    }
     throw new Error(err.error ?? `Image generation failed (${res.status})`)
   }
 

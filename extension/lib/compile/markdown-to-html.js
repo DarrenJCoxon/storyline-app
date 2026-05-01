@@ -37,11 +37,29 @@ function createRenderer() {
   return md;
 }
 
+// Strip dangerous HTML that markdown-it's `html: true` mode would
+// otherwise pass through. We need html:true for the editor's
+// ResizableImage <img width="..."> markup, but we never want raw
+// <script>, <iframe>, or inline event handlers reaching the EPUB / PDF
+// — they're a vector for malicious manuscript content and break
+// EPUBCheck. Cheap regex-strip is sufficient because the legitimate
+// inputs we accept (img, br, hr, sup, sub, span) are tag-shaped and
+// don't contain the patterns we strip.
+function sanitizeRawHtml(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<script\b[^>]*\/>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<iframe\b[^>]*\/>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '');
+}
+
 function renderItems(md, items, baseDir) {
   return items.map(item => {
     // Generated front/back matter items arrive pre-rendered; pass through.
     if (item.rawHtml !== undefined) return { ...item, html: item.rawHtml };
-    return { ...item, html: splitLeadingImages(transformImages(md.render(item.body ?? ''), baseDir)) };
+    return { ...item, html: splitLeadingImages(transformImages(sanitizeRawHtml(md.render(item.body ?? '')), baseDir)) };
   });
 }
 
