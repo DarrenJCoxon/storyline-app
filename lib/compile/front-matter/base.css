@@ -1,0 +1,307 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Generated front / back matter — base stylesheet
+ *
+ * Loaded after primitives/_base.css and before every Book Style's
+ * style.css. Provides layout and typography defaults for all auto-
+ * generated pages (half-title, title, copyright, dedication, epigraph,
+ * ToC, about-author, also-by). Book Styles override via CSS specificity.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared: front-matter page wrapper ─────────────────────────────── */
+
+.front-matter-page {
+  page-break-before: always;
+  break-before: always;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.front-matter-page > *:first-child { margin-top: 0; }
+
+/* ── Half-title ────────────────────────────────────────────────────── */
+
+.half-title-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 78vh;
+  text-align: center;
+}
+
+.half-title {
+  font-size: 2em;
+  font-weight: normal;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+/* ── Title page ────────────────────────────────────────────────────── */
+
+.title-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 78vh;
+  text-align: center;
+}
+
+.book-title {
+  font-size: 2.8em;
+  font-weight: bold;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin: 0 0 0.15em;
+  padding: 0;
+  border: none;
+}
+
+.book-subtitle {
+  font-style: italic;
+  font-size: 1.25em;
+  margin: 0 0 1.4em;
+  text-indent: 0;
+}
+
+.book-author {
+  font-size: 1.25em;
+  margin: 0 0 1.5em;
+  text-indent: 0;
+}
+
+.title-rule {
+  width: 4em;
+  height: 0;
+  border: none;
+  border-top: 1px solid currentColor;
+  margin: 0 auto 1.5em;
+  padding: 0;
+  display: block;
+}
+
+.book-publisher {
+  font-size: 0.87em;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-indent: 0;
+  margin: 0;
+}
+
+/* ── Copyright page ────────────────────────────────────────────────── */
+
+.copyright-page {
+  font-size: 0.78em;
+  line-height: 1.7;
+  padding-top: 5em;
+}
+
+.copyright-page p {
+  text-indent: 0;
+  margin: 0 0 0.7em;
+}
+
+.printing-line {
+  letter-spacing: 0.22em;
+  margin-top: 1.8em !important;
+}
+
+.copyright-typeset {
+  font-style: italic;
+}
+
+/* ── Dedication ────────────────────────────────────────────────────── */
+
+.dedication-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.dedication-text {
+  font-style: italic;
+  font-size: 1.1em;
+  max-width: 22em;
+  text-indent: 0;
+  line-height: 1.75;
+  margin: 0;
+}
+
+.dedication-text + .dedication-text {
+  margin-top: 0.5em;
+}
+
+/* ── Book-level epigraph page ──────────────────────────────────────── */
+
+.epigraph-page {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-height: 55vh;
+  text-align: right;
+  padding-bottom: 4em;
+}
+
+.book-epigraph {
+  font-style: italic;
+  max-width: 22em;
+  text-indent: 0;
+  margin: 0 0 0.6em;
+  line-height: 1.65;
+}
+
+.epigraph-attribution {
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  font-size: 0.84em;
+  letter-spacing: 0.08em;
+  text-indent: 0;
+  margin: 0;
+  opacity: 0.75;
+}
+
+/* ── Table of Contents ─────────────────────────────────────────────── */
+
+.toc-page {
+  padding-top: 2em;
+}
+
+.toc-title {
+  text-align: center;
+  font-size: 1.2em;
+  font-weight: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 2.5em;
+  padding: 0;
+  border: none;
+}
+
+.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc-entry {
+  margin-bottom: 1em;
+}
+
+.toc-entry a,
+.toc-row {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+}
+
+.toc-chapter-number {
+  flex-shrink: 0;
+  min-width: 7em;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  font-size: 0.85em;
+  letter-spacing: 0.05em;
+}
+
+.toc-chapter-title {
+  flex: 1;
+}
+
+.toc-leader {
+  flex: 1;
+  overflow: hidden;
+  min-width: 1em;
+  max-width: 8em;
+  margin: 0 0.3em 0.18em;
+  border-bottom: 1px dotted currentColor;
+  height: 0;
+  align-self: flex-end;
+}
+
+.toc-page-number {
+  flex-shrink: 0;
+  min-width: 2em;
+  text-align: right;
+}
+
+/* Print: resolve page number via CSS counter */
+@media print {
+  .toc-page-number[data-href]::after {
+    content: target-counter(attr(data-href url), page);
+  }
+}
+
+/* ── About the Author ──────────────────────────────────────────────── */
+
+.about-author-page {
+  padding-top: 2em;
+}
+
+.about-author-title {
+  text-align: center;
+  font-size: 1.2em;
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  margin-bottom: 1.8em;
+}
+
+.author-photo {
+  display: block;
+  margin: 0 auto 1.6em;
+  max-width: 120px;
+  max-height: 120px;
+  border-radius: 50%;
+}
+
+.author-bio {
+  max-width: 36em;
+  margin: 0 auto;
+}
+
+.author-bio p {
+  text-indent: 0;
+  margin: 0 0 0.8em;
+}
+
+/* ── Also By ───────────────────────────────────────────────────────── */
+
+.also-by-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  text-align: center;
+}
+
+.also-by-title {
+  font-size: 1em;
+  font-weight: normal;
+  font-style: italic;
+  margin: 0 0 2em;
+  text-align: center;
+}
+
+.also-by-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.also-by-list li {
+  margin-bottom: 0.8em;
+  font-size: 1em;
+}
+
+.also-by-year {
+  font-style: normal;
+  font-size: 0.82em;
+  opacity: 0.65;
+}

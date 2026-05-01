@@ -14,11 +14,13 @@
 
 import chalk from 'chalk';
 import { assemble } from './assembler.js';
+import { generateFrontMatter } from './front-matter-generator.js';
 import { runPreflight } from './preflight.js';
 import { markdownToHtml } from './markdown-to-html.js';
-import { applyTheme } from './theme.js';
+import { applyBookStyle } from './book-style.js';
 import { packageEpub } from './epub.js';
 import { packagePrintPdf } from './print-pdf.js';
+import { distributeOutputs } from './distribution.js';
 
 // Phase order matters. Assembly must run before preflight so the
 // validator can inspect real manuscript content (word counts, chapter
@@ -38,6 +40,19 @@ const PHASES = [
       if (a.frontMatter.length) parts.push(`${a.frontMatter.length} front`);
       if (a.backMatter.length) parts.push(`${a.backMatter.length} back`);
       return parts.join(', ');
+    },
+  },
+  {
+    id: 'front-matter',
+    label: 'Generate front / back matter',
+    run: generateFrontMatter,
+    summarise: (ctx) => {
+      const s = ctx.frontMatterSummary;
+      if (!s) return '';
+      const parts = [];
+      if (s.generatedFront.length) parts.push(`${s.generatedFront.length} front generated`);
+      if (s.generatedBack.length)  parts.push(`${s.generatedBack.length} back generated`);
+      return parts.join(', ') || 'none generated';
     },
   },
   {
@@ -69,7 +84,7 @@ const PHASES = [
   {
     id: 'theme',
     label: 'Apply theme',
-    run: applyTheme,
+    run: applyBookStyle,
     summarise: (ctx) => {
       const t = ctx.theme;
       if (!t) return '';
@@ -79,12 +94,21 @@ const PHASES = [
   },
   {
     id: 'output',
-    label: (ctx) => ctx.format === 'print-pdf' ? 'Package Print PDF' : 'Package EPUB',
+    label: (ctx) => {
+      if (ctx.format === 'bundle') return 'Distribute all targets';
+      return ctx.format === 'print-pdf' ? 'Package Print PDF' : 'Package EPUB';
+    },
     run: async (ctx) => {
+      if (ctx.format === 'bundle') return distributeOutputs(ctx);
       if (ctx.format === 'print-pdf') return packagePrintPdf(ctx);
       return packageEpub(ctx);
     },
     summarise: (ctx) => {
+      if (ctx.outputs) {
+        const ok  = ctx.outputs.filter(o => !o.error).length;
+        const err = ctx.outputs.filter(o =>  o.error).length;
+        return err ? `${ok} ok, ${err} failed` : `${ok} target${ok === 1 ? '' : 's'}`;
+      }
       const o = ctx.output;
       if (!o?.path) return '';
       return `${formatBytes(o.bytes)} → ${o.path.split('/').slice(-2).join('/')}`;

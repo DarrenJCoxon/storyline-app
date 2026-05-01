@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Trim — Picture Book (Portrait) 8×10
+ *
+ * The conservative picture-book trim — supported by both KDP and
+ * IngramSpark, and the safer choice if the writer plans wider trade
+ * distribution via Ingram. Same shape ratio as classic illustrated
+ * children's books.
+ *
+ * Margins are slimmer than novel trims because picture books typically
+ * pair text with full-page illustrations — text margins shouldn't
+ * dominate the spread. Inside (gutter) is held at 0.75in for safe
+ * binding while keeping the text block centered enough that
+ * illustrations on the facing page can breathe.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@page {
+  size: 8in 10in;
+  margin-top: 0.5in;
+  margin-bottom: 0.5in;
+  margin-outside: 0.5in;
+  margin-inside: 0.75in;
+}
+
+@page :left {
+  margin-left: 0.5in;     /* outside */
+  margin-right: 0.75in;   /* inside */
+}
+
+@page :right {
+  margin-left: 0.75in;    /* inside */
+  margin-right: 0.5in;    /* outside */
+}

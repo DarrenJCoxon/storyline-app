@@ -18,6 +18,7 @@ import { randomUUID } from 'crypto';
 import { stat } from 'fs/promises';
 import pkg from 'fs-extra';
 const { ensureDir } = pkg;
+import { fontFaceCss, epubFontEntries } from './font-loader.js';
 
 export async function packageEpub(context) {
   if (!context.theme) {
@@ -35,8 +36,13 @@ export async function packageEpub(context) {
   await ensureDir(outputDir);
   const outputPath = resolve(outputDir, sanitiseFilename(metadata.title) + '.epub');
 
+  // Font IDs declared in theme.json (e.g. ["crimson-pro"]).
+  const fontIds = Array.isArray(theme.meta?.fonts) ? theme.meta.fonts : [];
+  const fontEntries = epubFontEntries(fontIds);
+  const fontCss = fontIds.length ? fontFaceCss(fontIds) : '';
+
   const content = buildContentList(theme);
-  const epubOptions = buildEpubOptions(metadata, theme, content);
+  const epubOptions = buildEpubOptions(metadata, theme, content, fontCss, fontEntries, context.projectPath);
 
   const epub = new EPub(epubOptions, outputPath);
   await epub.render();
@@ -54,8 +60,13 @@ export async function packageEpub(context) {
 
 // ── private helpers ─────────────────────────────────────────────
 
-function buildEpubOptions(metadata, theme, content) {
+function buildEpubOptions(metadata, theme, content, fontCss = '', fontEntries = [], projectPath = '') {
   const identifier = metadata.identifier || `urn:uuid:${randomUUID()}`;
+
+  // @font-face rules go first so the font-family declarations in theme.css
+  // resolve correctly. fontCss uses relative `fonts/<file>` URLs that the
+  // epub library resolves against the EPUB's internal CSS path.
+  const css = fontCss ? fontCss + '\n\n' + theme.css : theme.css;
 
   const opts = {
     title: metadata.title,
@@ -64,50 +75,69 @@ function buildEpubOptions(metadata, theme, content) {
     lang: metadata.language || 'en',
     tocTitle: 'Contents',
     appendChapterTitles: false, // we control chapter titles via <h1> in body
-    css: theme.css,
+    css,
     content,
     version: 3,
     uuid: identifier,
     verbose: false,
   };
 
+  // Embed font files in the EPUB zip. The library copies each filePath into
+  // OEBPS/fonts/ and adds an OPF manifest entry. fontEntries is empty when
+  // the theme declares no bundled fonts (graceful no-op).
+  if (fontEntries.length > 0) {
+    opts.fonts = fontEntries.map(e => e.filePath);
+  }
+
   if (metadata.description) opts.description = metadata.description;
+
+  if (metadata.coverImage && projectPath) {
+    const coverPath = resolve(projectPath, metadata.coverImage);
+    opts.cover = coverPath;
+  }
 
   return opts;
 }
 
 function buildContentList(theme) {
   const entries = [];
+  const bodyClasses = theme.bodyClasses || '';
 
   for (const item of theme.frontMatter) {
     entries.push({
       title: item.title,
-      data: wrapSection(item.html, item.sectionClass),
-      beforeToc: true,
+      data: wrapSection(item.html, item.sectionClass, item.id, bodyClasses),
+      // Generated ToC page should appear in spine but not in epub nav (the
+      // epub library's auto nav handles reader navigation).
+      beforeToc: item.id !== 'gen-toc',
     });
   }
 
   for (const chapter of theme.chapters) {
     entries.push({
       title: chapter.title,
-      data: wrapSection(chapter.html, chapter.sectionClass),
+      data: wrapSection(chapter.html, chapter.sectionClass, chapter.id, bodyClasses),
     });
   }
 
   for (const item of theme.backMatter) {
     entries.push({
       title: item.title,
-      data: wrapSection(item.html, item.sectionClass),
+      data: wrapSection(item.html, item.sectionClass, item.id, bodyClasses),
     });
   }
 
   return entries;
 }
 
-// Each chapter's HTML is already themable (p.first for drop caps, etc.)
-// but needs a section wrapper so CSS can scope styles per section type.
-function wrapSection(bodyHtml, sectionClass) {
-  return `<section class="${sectionClass}">\n${bodyHtml}\n</section>`;
+function wrapSection(bodyHtml, sectionClass, id, extraClasses = '') {
+  const idAttr = id ? ` id="${id}"` : '';
+  // EPUB wraps each section in its own xhtml file; the html-to-epub lib
+  // gives us no <body> hook, so the preview body classes are emitted on
+  // the <section> instead. element-overrides.css uses bare class selectors
+  // (.ch-x, .sh-x ...) so the same rules match in either context.
+  const cls = [sectionClass || 'section', extraClasses].filter(Boolean).join(' ');
+  return `<section class="${cls}"${idAttr}>\n${bodyHtml}\n</section>`;
 }
 
 // Drop characters that would fail on Windows/macOS file systems. Keep

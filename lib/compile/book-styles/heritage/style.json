@@ -1,0 +1,11 @@
+{
+  "id": "heritage",
+  "name": "Heritage",
+  "genre": "Historical / Regency",
+  "description": "EB Garamond with true small caps, four-line drop cap, and a ❦ fleuron scene break. Penguin Classics aesthetic.",
+  "fonts": ["eb-garamond"],
+  "ornaments": {
+    "sceneBreak": "❦"
+  },
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}

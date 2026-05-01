@@ -1,0 +1,11 @@
+{
+  "id": "modern-sans",
+  "name": "Modern Sans",
+  "genre": "Contemporary / Commercial",
+  "description": "Plus Jakarta Sans body with Inter headings. Small-caps opening line, · · · scene break. Contemporary nonfiction and commercial fiction.",
+  "fonts": ["plus-jakarta-sans", "inter"],
+  "ornaments": {
+    "sceneBreak": "· · ·"
+  },
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}

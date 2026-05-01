@@ -68,6 +68,12 @@
     "sql.js": "^1.14.1"
   },
   "devDependencies": {
+    "@fontsource/crimson-pro": "^5.2.8",
+    "@fontsource/eb-garamond": "^5.2.7",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/newsreader": "^5.2.10",
+    "@fontsource/plus-jakarta-sans": "^5.2.8",
+    "@fontsource/source-serif-4": "^5.2.9",
     "vitest": "^1.4.0"
   }
 }

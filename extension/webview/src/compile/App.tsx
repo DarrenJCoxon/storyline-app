@@ -18,21 +18,85 @@ interface CompileMetadata {
   coverImage?: string | null
 }
 
+type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
+
 interface CompileConfig {
   metadata: CompileMetadata
-  theme: string
+  bookStyle?: string
+  theme?: string   // legacy alias
   epub?: { theme?: string }
-  pdf?: { pageSize?: 'A5' | 'US Letter' }
+  pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
   nonfiction?: { citationStyle?: 'chicago' | 'apa' | 'mla'; generateExtras?: boolean }
 }
 
-type Format = 'epub' | 'print-pdf'
+interface BookStyleInfo {
+  id: string
+  name: string
+  genre: string
+  description: string
+  accent: string
+}
+
+type Format = 'epub' | 'print-pdf' | 'bundle'
 type Screen = 'form' | 'compiling' | 'done'
+
+const BOOK_STYLES: BookStyleInfo[] = [
+  {
+    id: 'atticus',
+    name: 'Atticus',
+    genre: 'Literary fiction',
+    description: 'Crimson Pro, four-line italic drop cap, ❦ fleuron, hairline chapter rule.',
+    accent: '#5c6e4a',
+  },
+  {
+    id: 'classic-serif',
+    name: 'Classic Serif',
+    genre: 'Traditional fiction',
+    description: 'Crimson Pro, bold three-line drop cap, * * * scene break.',
+    accent: '#7a6248',
+  },
+  {
+    id: 'heritage',
+    name: 'Heritage',
+    genre: 'Historical / Regency',
+    description: 'EB Garamond, true small caps, four-line drop cap, ❦ fleuron.',
+    accent: '#7a3535',
+  },
+  {
+    id: 'riverside',
+    name: 'Riverside',
+    genre: 'Contemporary literary',
+    description: 'Source Serif 4, hairline chapter rules, small-caps opening, minimal scene break.',
+    accent: '#3a6e7a',
+  },
+  {
+    id: 'strand',
+    name: 'Strand',
+    genre: 'Thriller / Commercial',
+    description: 'Source Serif 4 body, bold Jakarta Sans numerals, no drop cap. Tight and driven.',
+    accent: '#1e1e1e',
+  },
+  {
+    id: 'modern-sans',
+    name: 'Modern Sans',
+    genre: 'Contemporary / Non-fiction',
+    description: 'Plus Jakarta Sans body, Inter display, small-caps opening, · · · scene break.',
+    accent: '#3a5a7a',
+  },
+]
+
+const TRIM_OPTIONS: Array<{ id: PrintTrim; label: string; sub: string }> = [
+  { id: '6x9', label: 'Trade Paperback', sub: '6 × 9 in — novels (default)' },
+  { id: '7x10', label: 'Academic / Textbook', sub: '7 × 10 in — non-fiction, scholarly' },
+  { id: '8x10', label: 'Picture Book — Portrait', sub: '8 × 10 in — illustrated children’s' },
+  { id: '8.5x8.5', label: 'Picture Book — Square', sub: '8.5 × 8.5 in — square picture book' },
+]
 
 interface State {
   screen: Screen
   config: CompileConfig
   format: Format
+  trim: PrintTrim
   projectMode: 'fiction' | 'nonfiction'
   chapters: string[]
   // Webview-safe URI for the cover thumbnail (built host-side via
@@ -49,10 +113,11 @@ interface State {
 type Action =
   | { type: 'init'; config: CompileConfig; projectMode: 'fiction' | 'nonfiction'; chapters: string[]; initialFormat?: Format; coverThumbUri?: string | null }
   | { type: 'setFormat'; format: Format }
+  | { type: 'setTrim'; trim: PrintTrim }
   | { type: 'setTitle'; title: string }
   | { type: 'setAuthor'; author: string }
   | { type: 'setCover'; coverPath: string; coverThumbUri: string | null }
-  | { type: 'setTheme'; theme: string }
+  | { type: 'setBookStyle'; bookStyle: string }
   | { type: 'setCitationStyle'; style: 'chicago' | 'apa' | 'mla' }
   | { type: 'setGenerateExtras'; enabled: boolean }
   | { type: 'compileStart'; format: Format }
@@ -62,17 +127,26 @@ type Action =
 
 function reduce(state: State, action: Action): State {
   switch (action.type) {
-    case 'init':
+    case 'init': {
+      const persistedTrim = action.config.pdf?.trim
       return {
         ...state,
         config: action.config,
         projectMode: action.projectMode,
         chapters: action.chapters,
         format: action.initialFormat ?? state.format,
+        trim: persistedTrim ?? state.trim,
         coverThumbUri: action.coverThumbUri ?? null,
       }
+    }
     case 'setFormat':
       return { ...state, format: action.format }
+    case 'setTrim':
+      return {
+        ...state,
+        trim: action.trim,
+        config: { ...state.config, pdf: { ...state.config.pdf, trim: action.trim } },
+      }
     case 'setTitle':
       return { ...state, config: { ...state.config, metadata: { ...state.config.metadata, title: action.title } } }
     case 'setAuthor':
@@ -91,8 +165,8 @@ function reduce(state: State, action: Action): State {
         },
         coverThumbUri: action.coverThumbUri,
       }
-    case 'setTheme':
-      return { ...state, config: { ...state.config, theme: action.theme } }
+    case 'setBookStyle':
+      return { ...state, config: { ...state.config, bookStyle: action.bookStyle } }
     case 'setCitationStyle':
       return { ...state, config: { ...state.config, nonfiction: { ...state.config.nonfiction, citationStyle: action.style } } }
     case 'setGenerateExtras':
@@ -120,8 +194,9 @@ function reduce(state: State, action: Action): State {
 
 const INITIAL: State = {
   screen: 'form',
-  config: { metadata: { title: '', author: null, language: 'en' }, theme: 'classic-serif' },
+  config: { metadata: { title: '', author: null, language: 'en' }, bookStyle: 'classic-serif' },
   format: 'epub',
+  trim: '6x9',
   projectMode: 'fiction',
   chapters: [],
   coverThumbUri: null,
@@ -192,12 +267,12 @@ export function App(): JSX.Element {
 // ── Form screen ───────────────────────────────────────────────────────────────
 
 function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }): JSX.Element {
-  const { config, format, projectMode, chapters, coverThumbUri } = state
+  const { config, format, trim, projectMode, chapters, coverThumbUri } = state
   const { metadata } = config
   const coverName = metadata.coverImage ? metadata.coverImage.split('/').pop() : null
 
   const handleCompile = () => {
-    vscode.postMessage({ type: 'compile', config, format })
+    vscode.postMessage({ type: 'compile', config, format, trim })
   }
 
   return (
@@ -217,8 +292,29 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
             className={`format-btn${format === 'print-pdf' ? ' active' : ''}`}
             onClick={() => dispatch({ type: 'setFormat', format: 'print-pdf' })}
           >Print PDF</button>
+          <button
+            className={`format-btn${format === 'bundle' ? ' active' : ''}`}
+            onClick={() => dispatch({ type: 'setFormat', format: 'bundle' })}
+            title="Compile all EPUB and print targets and write a distribution manifest"
+          >Distribute</button>
         </div>
       </div>
+
+      {/* Trim selector — only relevant for Print PDF */}
+      {format === 'print-pdf' && (
+        <div className="section">
+          <div className="section-label">Print trim size</div>
+          <select
+            className="theme-select"
+            value={trim}
+            onChange={e => dispatch({ type: 'setTrim', trim: e.target.value as PrintTrim })}
+          >
+            {TRIM_OPTIONS.map(opt => (
+              <option key={opt.id} value={opt.id}>{opt.label} — {opt.sub}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="divider" />
 
@@ -272,18 +368,14 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
 
       <div className="divider" />
 
-      {/* Theme */}
+      {/* Book Style is set via Live Preview — preview is the single source
+          of truth for compile typography. Show the current selection only. */}
       <div className="section">
-        <div className="section-label">Theme</div>
-        <select
-          className="theme-select"
-          value={config.theme}
-          onChange={e => dispatch({ type: 'setTheme', theme: e.target.value })}
-        >
-          <option value="classic-serif">Classic Serif</option>
-          <option value="heritage">Heritage</option>
-          <option value="modern-sans">Modern Sans</option>
-        </select>
+        <div className="section-label">Book Style</div>
+        <p className="chapter-list-empty">
+          Set in <strong>Live Chapter Preview</strong> (⌘⇧V). Currently:{' '}
+          <code>{config.bookStyle ?? config.theme ?? 'classic-serif'}</code>
+        </p>
       </div>
 
       {/* Chapter order */}
@@ -337,7 +429,7 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
       <div className="divider" />
 
       <button className="btn-compile" onClick={handleCompile} disabled={chapters.length === 0}>
-        Compile to {format === 'epub' ? 'EPUB' : 'Print PDF'}
+        {format === 'epub' ? 'Compile to EPUB' : format === 'print-pdf' ? 'Compile to Print PDF' : 'Distribute All Targets'}
       </button>
       {chapters.length === 0 && (
         <p style={{ fontSize: 12, color: 'var(--vscode-descriptionForeground)', marginTop: 8 }}>
@@ -348,10 +440,33 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
   )
 }
 
+// ── Book Style Picker ─────────────────────────────────────────────────────────
+
+function BookStylePicker({ selected, onChange }: { selected: string; onChange: (id: string) => void }): JSX.Element {
+  return (
+    <div className="book-style-grid">
+      {BOOK_STYLES.map(style => (
+        <button
+          key={style.id}
+          className={`book-style-card${selected === style.id ? ' selected' : ''}`}
+          onClick={() => onChange(style.id)}
+          title={style.description}
+        >
+          <span className="book-style-accent" style={{ background: style.accent }} />
+          <span className="book-style-body">
+            <span className="book-style-name">{style.name}</span>
+            <span className="book-style-genre">{style.genre}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ── Compiling screen ──────────────────────────────────────────────────────────
 
 function CompileProgress({ state }: { state: State }): JSX.Element {
-  const label = state.format === 'epub' ? 'EPUB' : 'Print PDF'
+  const label = state.format === 'epub' ? 'EPUB' : state.format === 'print-pdf' ? 'Print PDF' : 'all targets'
   return (
     <div className="compile-panel">
       <div className="compile-progress">

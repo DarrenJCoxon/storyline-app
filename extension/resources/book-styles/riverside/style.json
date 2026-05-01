@@ -1,0 +1,12 @@
+{
+  "id": "riverside",
+  "name": "Riverside",
+  "genre": "Contemporary literary",
+  "description": "Source Serif 4 with hairline rules framing chapter titles, small-caps opening line, minimal hairline scene break. Clean, literary-modern.",
+  "fonts": ["source-serif-4"],
+  "ornaments": {
+    "sceneBreak": "—",
+    "dropCap": { "lines": 0, "smallCapsContinuation": true }
+  },
+  "overridable": ["bodyFont", "sceneBreakOrnament"]
+}

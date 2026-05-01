@@ -1,0 +1,69 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Print typography reset — applied for print-pdf format only.
+ *
+ * Themes set `body { text-align: justify }` so prose paragraphs justify
+ * across the page. EPUB readers leave single-line elements (headings,
+ * list items, callouts) ragged, but Chromium / Paged.js stretches them
+ * across the full measure when the line is the whole element — turning
+ * "Act 1, Scene 1" into "A C T … 1".
+ *
+ * Goal: neutralise that justify-stretching for single-line elements
+ * WITHOUT clobbering the alignment chosen by the active book style.
+ * Earlier versions hard-set `text-align: left` here, which overrode
+ * (e.g.) classic-serif's centred h1 and made print output diverge from
+ * preview. Now we only override text-align-last + disable hyphens, so
+ * the theme's text-align (centre, left, etc.) survives untouched.
+ *
+ * Loaded BEFORE chapter-opener CSS so opener-defined centred chapter
+ * titles still win.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Chapter drop: use page-relative height for print-pdf (overrides the
+   em-based margin in _base.css which is needed for reflowable EPUB). */
+.chapter-open-drop {
+  height: 30%;
+  margin-top: 0;
+}
+
+h1, h2, h3, h4, h5, h6,
+ul, ol, li, dt, dd,
+blockquote, blockquote p,
+aside, aside.callout, aside.callout p, .callout, .callout p,
+figure, figcaption,
+table, th, td,
+.chapter-number {
+  /* Belt-and-braces against Chromium's print-path quirk where the only
+   * line of a justified-inheriting element gets stretched. Auto =
+   * "follow text-align except when justify, then start" — exactly what
+   * we want, and it preserves any centred theme h1 unchanged. */
+  text-align-last: auto;
+  hyphens: manual;
+}
+
+/* Body paragraphs (the only place justify is intentional) keep their
+ * last-line forced to left so the final line of every paragraph doesn't
+ * stretch across the full measure. */
+p, blockquote p {
+  text-align-last: left;
+}
+
+/* ── Widow / orphan control ─────────────────────────────────────────── */
+/* Headings must stay with the content that follows them — never
+ * marooned at the bottom of a page above their own body. break-after:
+ * avoid tells Paged.js / Chromium to push the page break BEFORE the
+ * heading rather than after it. */
+h1, h2, h3, h4, h5, h6,
+.chapter-number, .chapter-subtitle {
+  page-break-after: avoid;
+  break-after: avoid;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Paragraph-level: don't leave a single line stranded at the top or
+ * bottom of a page. 2 = at least 2 lines together either side of a
+ * page break. */
+p, li, blockquote p {
+  widows: 2;
+  orphans: 2;
+}

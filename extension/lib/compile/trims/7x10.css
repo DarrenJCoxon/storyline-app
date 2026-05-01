@@ -1,0 +1,30 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Trim — Academic / Textbook 7×10
+ *
+ * The scholarly textbook standard. Used for non-fiction, academic
+ * monographs, technical books, and reference works. Wider measure
+ * accommodates figures, tables, and longer line lengths. Supported by
+ * KDP and IngramSpark.
+ *
+ * Margins are slightly more generous than 6×9 trade (the page can
+ * carry it) and the inside gutter is bumped to 1in so binding can
+ * comfortably handle 300+ page books typical of the genre.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@page {
+  size: 7in 10in;
+  margin-top: 0.875in;
+  margin-bottom: 0.875in;
+  margin-outside: 0.75in;
+  margin-inside: 1in;
+}
+
+@page :left {
+  margin-left: 0.75in;    /* outside */
+  margin-right: 1in;      /* inside */
+}
+
+@page :right {
+  margin-left: 1in;       /* inside */
+  margin-right: 0.75in;   /* outside */
+}

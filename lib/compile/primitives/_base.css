@@ -1,0 +1,326 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Layout primitives — base stylesheet
+ *
+ * Loaded before every Book Style's style.css. Provides sensible default
+ * rendering for all non-paragraph block primitives. Book Styles override
+ * only what they want different; everything else inherits from here.
+ *
+ * Primitives covered:
+ *   .epigraph          right-aligned italic block with attribution
+ *   .pull-quote        large italic centred text, bordered top + bottom
+ *   .sidebar           boxed aside (can float or block)
+ *   .takeaway          tinted key-takeaway box with checkmark glyph
+ *   .exercise          numbered exercise block
+ *   .verse             poetry / verse (whitespace-preserving)
+ *   .letter            letter or journal-entry block
+ *   figure             image + caption pair
+ *   figcaption         figure caption
+ *   .chapter-epigraph  pre-chapter epigraph from YAML frontmatter
+ *   .chapter-subtitle  chapter subtitle from YAML frontmatter
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Justified-text last-line fix ────────────────────────────────────── */
+/* Without this, the final line of every justified paragraph can stretch
+ * across the full measure (huge word-gaps), especially in Chromium when
+ * combined with hyphens: auto. Apply ONLY to paragraph-level elements,
+ * NOT to body — `text-align-last` inherits, and inheriting `left` onto
+ * centered elements (.page-number, .chapter-number, h1) forces their
+ * single line to left-align and overrides their `text-align: center`. */
+p, li, blockquote p, td, th {
+  text-align-last: left;
+  -moz-text-align-last: left;
+}
+/* Belt-and-braces: explicitly reset text-align-last on known-centred
+ * elements so an inherited or stylesheet-imposed `left` can't break them. */
+h1, h2, h3, h4, h5, h6,
+.page-number, .chapter-number, .chapter-subtitle, .chapter-epigraph,
+aside.epigraph, aside.pull-quote {
+  text-align-last: auto;
+  -moz-text-align-last: auto;
+}
+
+/* ── First paragraph after a break: no indent ────────────────────────── */
+/* Even when the writer uses indented paragraphs (the default in fiction),
+ * the first paragraph after a scene break (hr) or chapter heading should
+ * be flush left, never indented. Applies regardless of paragraph mode. */
+hr + p,
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+p.first, p.first-paragraph {
+  text-indent: 0 !important;
+}
+
+/* ── Epigraph ────────────────────────────────────────────────────────── */
+
+aside.epigraph {
+  margin: 2em auto 2em auto;
+  max-width: 68%;
+  text-align: right;
+  font-style: italic;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+aside.epigraph p {
+  text-indent: 0;
+  font-style: italic;
+  margin: 0 0 0.2em 0;
+}
+
+aside.epigraph cite,
+aside.epigraph .attribution {
+  display: block;
+  font-style: normal;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.06em;
+  font-size: 0.84em;
+  margin-top: 0.6em;
+  opacity: 0.75;
+}
+
+/* ── Pull quote ──────────────────────────────────────────────────────── */
+
+aside.pull-quote {
+  margin: 2em 0;
+  padding: 0.5em 0;
+  font-size: 1.2em;
+  font-style: italic;
+  text-align: center;
+  text-indent: 0;
+  border-top: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+aside.pull-quote p {
+  text-indent: 0;
+  margin: 0.3em 0;
+}
+
+aside.pull-quote cite {
+  display: block;
+  font-style: normal;
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  margin-top: 0.5em;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+
+aside.sidebar {
+  margin: 1.8em 0;
+  padding: 1em 1.2em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.92em;
+  line-height: 1.55;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+aside.sidebar > p {
+  text-indent: 0;
+  margin: 0.5em 0;
+}
+aside.sidebar > p:first-child { margin-top: 0; }
+aside.sidebar > p:last-child  { margin-bottom: 0; }
+
+/* ── Key takeaway ────────────────────────────────────────────────────── */
+
+aside.takeaway {
+  margin: 1.6em 0;
+  padding: 0.85em 1.1em 0.85em 2.8em;
+  background: #eff4ef;
+  border-left: 3px solid #4a7a4a;
+  border-radius: 4px;
+  position: relative;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+aside.takeaway::before {
+  content: "✓";
+  position: absolute;
+  left: 0.9em;
+  top: 0.85em;
+  font-size: 1em;
+  color: #4a7a4a;
+  font-style: normal;
+  font-variant: normal;
+}
+
+aside.takeaway > p {
+  text-indent: 0;
+  margin: 0.4em 0;
+}
+aside.takeaway > p:first-child { margin-top: 0; }
+aside.takeaway > p:last-child  { margin-bottom: 0; }
+
+/* ── Exercise ────────────────────────────────────────────────────────── */
+
+aside.exercise {
+  margin: 1.6em 0;
+  padding: 0.85em 1.1em;
+  background: #f6f4ef;
+  border-left: 3px solid #8a7a4a;
+  border-radius: 4px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+aside.exercise > p {
+  text-indent: 0;
+  margin: 0.4em 0;
+}
+aside.exercise > p:first-child { margin-top: 0; }
+aside.exercise > p:last-child  { margin-bottom: 0; }
+
+/* ── Verse / Poetry ──────────────────────────────────────────────────── */
+
+div.verse {
+  font-family: inherit;
+  font-size: 1em;
+  text-align: left;
+  hyphens: none;
+  -webkit-hyphens: none;
+  -epub-hyphens: none;
+  text-indent: 0 !important;
+  margin: 1.8em 0 1.8em 2.5em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  line-height: 1.7;
+}
+
+div.verse p {
+  text-indent: 0;
+  margin: 0;
+  hyphens: none;
+  -webkit-hyphens: none;
+}
+
+/* Stanza break: an empty paragraph inside verse = extra margin */
+div.verse p:empty {
+  height: 0.8em;
+}
+
+/* ── Letter / Journal ────────────────────────────────────────────────── */
+
+aside.letter {
+  margin: 1.8em 0;
+  padding-left: 2.2em;
+  font-style: italic;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+aside.letter > p {
+  text-indent: 0;
+  margin: 0.4em 0;
+}
+
+aside.letter .letter-header {
+  font-style: normal;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  font-size: 0.84em;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.9em;
+  color: #666;
+  text-indent: 0;
+}
+
+/* ── Figure with caption ─────────────────────────────────────────────── */
+
+figure {
+  margin: 1.8em 0;
+  text-align: center;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+figcaption {
+  font-size: 0.84em;
+  color: #555;
+  font-style: italic;
+  text-align: center;
+  text-indent: 0;
+  margin-top: 0.6em;
+  line-height: 1.45;
+}
+
+/* ── Chapter epigraph (injected from YAML frontmatter) ───────────────── */
+
+.chapter-epigraph {
+  margin: 0 auto 2.8em auto;
+  max-width: 65%;
+  text-align: right;
+  font-style: italic;
+  font-size: 0.95em;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.chapter-epigraph p {
+  text-indent: 0;
+  margin: 0;
+}
+
+.chapter-epigraph .epigraph-attribution {
+  display: block;
+  font-style: normal;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  font-size: 0.82em;
+  letter-spacing: 0.05em;
+  margin-top: 0.5em;
+  opacity: 0.72;
+}
+
+/* ── Chapter subtitle (injected from YAML frontmatter) ───────────────── */
+
+.chapter-subtitle {
+  font-style: italic;
+  font-size: 0.9em;
+  text-align: center;
+  margin: -1.4em 0 2.6em 0;
+  opacity: 0.78;
+  text-indent: 0;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+/* ── Drop cap suppress (YAML frontmatter: dropCap: false) ───────────── */
+
+p.no-drop-cap::first-letter {
+  float: none;
+  font-size: inherit;
+  line-height: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+
+/* ── Chapter drop spacer ─────────────────────────────────────────────── */
+/* Pushes the first chapter heading ~1/3 down the page (conventional
+   "chapter drop"). Uses margin-top in em so it works in reflowable EPUB
+   (height:% requires a definite containing-block height, which EPUB pages
+   don't provide). print-reset.css overrides this back to height:30% for
+   print-pdf where the @page box gives a definite height. */
+
+.chapter-open-drop {
+  display: block;
+  height: 0;
+  margin-top: 12em;
+  page-break-after: avoid;
+  break-after: avoid;
+}
