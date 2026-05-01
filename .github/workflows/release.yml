@@ -94,7 +94,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Storyline ${{ github.ref_name }}'
           releaseBody: 'Download the Storyline installer below.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
 
   build-windows:
@@ -128,7 +128,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Storyline ${{ github.ref_name }}'
           releaseBody: 'Download the Storyline installer below.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
 
   upload-vsix:
@@ -147,4 +147,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: storyline.vsix
-          draft: true
+          # draft: false means each pushed tag publishes immediately and
+          # appears at github.com/.../releases. Earlier drafts can still
+          # be edited; this only affects future tag pushes.
+          draft: false
+          generate_release_notes: true
