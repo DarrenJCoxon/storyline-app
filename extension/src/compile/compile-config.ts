@@ -40,14 +40,24 @@ export function writeCompileConfig(projectDir: string, config: CompileConfig): v
 }
 
 export function ensureCompileConfig(projectDir: string): CompileConfig {
-  const existing = readCompileConfig(projectDir)
-  if (existing) return existing
-
   let title = path.basename(projectDir)
   try {
     const state = JSON.parse(fs.readFileSync(path.join(projectDir, '.storyline', 'state.json'), 'utf-8'))
     title = state?._meta?.projectTitle ?? state?.projectName ?? title
   } catch { /* use dirname */ }
+
+  const existing = readCompileConfig(projectDir)
+  if (existing) {
+    // Live Preview's saveDefaultsToConfig writes a partial config (theme/
+    // paragraphStyle only) and would leave metadata undefined for projects
+    // where Live Preview ran before Compile. Backfill metadata so the
+    // webview can always render.
+    if (!existing.metadata) {
+      existing.metadata = { title, author: null, language: 'en', publisher: 'Independent' }
+      try { writeCompileConfig(projectDir, existing) } catch { /* non-fatal */ }
+    }
+    return existing
+  }
 
   const config: CompileConfig = {
     metadata: { title, author: null, language: 'en', publisher: 'Independent' },

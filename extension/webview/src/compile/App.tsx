@@ -268,7 +268,7 @@ export function App(): JSX.Element {
 
 function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }): JSX.Element {
   const { config, format, trim, projectMode, chapters, coverThumbUri } = state
-  const { metadata } = config
+  const metadata = config.metadata ?? { title: '', author: null, language: 'en' }
   const coverName = metadata.coverImage ? metadata.coverImage.split('/').pop() : null
 
   const handleCompile = () => {

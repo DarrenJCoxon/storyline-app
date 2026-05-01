@@ -3,7 +3,6 @@ import * as http from 'http'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import * as child_process from 'child_process'
 import * as vscode from 'vscode'
 
 const GITHUB_REPO = 'DarrenJCoxon/storyline-app'
@@ -70,13 +69,24 @@ async function getLatestRelease(): Promise<GitHubRelease | null> {
   }
 }
 
-function tryInstallVsix(vsixPath: string): Promise<boolean> {
-  return new Promise(resolve => {
-    const codeBin = process.platform === 'win32' ? 'code.cmd' : 'code'
-    child_process.execFile(codeBin, ['--install-extension', vsixPath, '--force'], { shell: true }, err => {
-      resolve(!err)
-    })
-  })
+/**
+ * Install a VSIX from inside the running extension host. Uses the built-in
+ * `workbench.extensions.installExtension` command which goes through VS Code's
+ * extension manager — same code path as right-click → Install in the
+ * Extensions view. Critically, this is the *only* supported way to update an
+ * already-loaded extension while VS Code is running.
+ *
+ * Shelling out to `code --install-extension` from in-process produced
+ * "Please restart VS Code before reinstalling" errors and left half-extracted
+ * directories under ~/.vscode/extensions/ that broke subsequent installs.
+ */
+async function tryInstallVsix(vsixPath: string): Promise<boolean> {
+  try {
+    await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(vsixPath))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function checkForUpdate(context: vscode.ExtensionContext): Promise<void> {
@@ -127,9 +137,13 @@ export async function checkForUpdate(context: vscode.ExtensionContext): Promise<
             void vscode.commands.executeCommand('workbench.action.reloadWindow')
           }
         } else {
-          void vscode.window.showWarningMessage(
-            `Storyline update downloaded. Install manually: code --install-extension "${tmpPath}"`
+          const choice = await vscode.window.showWarningMessage(
+            `Storyline update downloaded but couldn't be installed automatically. Install via the Extensions view → ⋯ menu → "Install from VSIX…"`,
+            'Reveal VSIX',
           )
+          if (choice === 'Reveal VSIX') {
+            void vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(tmpPath))
+          }
         }
       } catch {
         void vscode.window.showWarningMessage('Storyline: update download failed. Check your internet connection.')
