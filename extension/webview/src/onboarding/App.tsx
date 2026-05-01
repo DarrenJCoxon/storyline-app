@@ -134,7 +134,7 @@ export function App() {
       {screen === 'welcome' && (
         <Welcome
           onNavigate={navigate}
-          onUseFree={() => { send({ type: 'useFree' }); navigate('new-project') }}
+          onUseFree={() => { send({ type: 'useFree' }) }}
           onActivateKey={key => send({ type: 'validateLicence', key })}
           validating={false}
           validateError={validateResult && !validateResult.success ? validateResult.error ?? 'Activation failed.' : null}

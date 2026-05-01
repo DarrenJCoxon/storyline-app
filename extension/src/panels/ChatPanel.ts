@@ -20,6 +20,7 @@ import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequest
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
+import { FREE_LICENCE_KEY } from '../panels/OnboardingPanel.js'
 import { ManagedProvider } from '../ai/managed-provider.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
@@ -124,9 +125,13 @@ export class ChatPanel {
       // needs re-activation (expired, backend reset, etc.). Surface a friendly
       // prompt here rather than letting the opening AI call fail with a 401.
       if (!licenceInfo.valid && await this.licenceManager.getLicenceKey()) {
+        const key = await this.licenceManager.getLicenceKey()
+        const isFree = key === FREE_LICENCE_KEY
         this.post({
           type: 'streamError',
-          message: 'Unable to verify your Storyline licence. Run "Storyline: Enter Licence Key" to re-activate.',
+          message: isFree
+            ? 'Free plan is unavailable right now. Please try again later, or run "Storyline: Enter Licence Key" to activate with a paid key.'
+            : 'Unable to verify your Storyline licence. Run "Storyline: Enter Licence Key" to re-activate.',
         })
         return
       }
@@ -1034,9 +1039,13 @@ export class ChatPanel {
         void promptOnCreditsExhausted(this.context, getBackendUrl())
       } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
         await this.licenceManager.clearCache()
+        const key = await this.licenceManager.getLicenceKey()
+        const isFree = key === FREE_LICENCE_KEY
         this.post({
           type: 'streamError',
-          message: 'Licence verification failed. Run "Storyline: Enter Licence Key" to re-activate.',
+          message: isFree
+            ? 'Free plan is unavailable right now. Please try again later, or run "Storyline: Enter Licence Key" to activate with a paid key.'
+            : 'Licence verification failed. Run "Storyline: Enter Licence Key" to re-activate.',
         })
       } else {
         this.post({ type: 'streamError', message: msg })

@@ -197,7 +197,19 @@ export class OnboardingPanel {
 
       case 'useFree': {
         await this.licenceManager.setLicenceKey(FREE_LICENCE_KEY)
-        await this.context.globalState.update('storyline.freePlan', { active: true })
+        try {
+          const info = await this.licenceManager.validate({})
+          if (info.valid) {
+            await this.context.globalState.update('storyline.freePlan', { active: true })
+            this.post({ type: 'validateResult', success: true, creditBalance: info.creditBalance })
+          } else {
+            await this.licenceManager.clearLicenceKey()
+            this.post({ type: 'validateResult', success: false, error: 'Free plan unavailable right now — please try again later or enter a licence key.' })
+          }
+        } catch {
+          await this.licenceManager.clearLicenceKey()
+          this.post({ type: 'validateResult', success: false, error: 'Could not reach activation server. Check your connection.' })
+        }
         break
       }
 
