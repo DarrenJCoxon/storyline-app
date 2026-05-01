@@ -203,5 +203,6 @@ function buildMetadata(state, config) {
     genre: override.genre || genre.primaryGenre || null,
     subGenre: override.subGenre || genre.subGenre || null,
     tags: override.tags || [],
+    coverImage: override.coverImage || null,
   };
 }

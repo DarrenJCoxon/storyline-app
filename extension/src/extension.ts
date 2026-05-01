@@ -91,6 +91,23 @@ function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Kill any restored Live Chapter Preview webviews on activation. VS Code
+  // restores webview tabs across window reloads, but they hold stale HTML
+  // from before the extension update. Force-close them so the user must
+  // re-run the command and gets fresh HTML.
+  vscode.window.registerWebviewPanelSerializer('storyline.livePreview', {
+    async deserializeWebviewPanel(panel: vscode.WebviewPanel): Promise<void> {
+      panel.dispose()
+    },
+  })
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      if (tab.label === 'Live Chapter Preview') {
+        void vscode.window.tabGroups.close(tab)
+      }
+    }
+  }
+
   // One-shot backfill: projects created before research/ existed don't have
   // the folder, so the AI silently has nothing to read. Auto-create on
   // activation if a Storyline project is detected. No-op if already there.

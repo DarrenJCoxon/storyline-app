@@ -65,7 +65,7 @@ export async function packagePrintPdf(context) {
   const fontIds = Array.isArray(theme.meta?.fonts) ? theme.meta.fonts : [];
 
   // 1. Build and write the preview HTML (kept on disk for inspection).
-  const html = await buildPagedHtml({ metadata, theme, trimCss, fontIds });
+  const html = await buildPagedHtml({ metadata, theme, trimCss, fontIds, bodyClasses: theme.bodyClasses });
   await writeFile(previewHtmlPath, html, 'utf-8');
 
   // 2-6. Render to PDF via Puppeteer + Paged.js.
@@ -153,7 +153,7 @@ async function renderPdf({ previewHtmlPath, pdfPath }) {
 
 // ── HTML assembly (unchanged from Story 4.3) ────────────────────
 
-async function buildPagedHtml({ metadata, theme, trimCss, fontIds = [] }) {
+async function buildPagedHtml({ metadata, theme, trimCss, fontIds = [], bodyClasses = '' }) {
   const pagedPolyfill = await readFile(PAGED_POLYFILL_PATH, 'utf-8');
   const fontFaceRules = fontIds.length ? printFontFaceBlock(fontIds) + '\n' : '';
 
@@ -183,7 +183,7 @@ ${trimCss}
 ${theme.css}
   </style>
 </head>
-<body>
+<body${bodyClasses ? ' class="' + escAttr(bodyClasses) + '"' : ''}>
 ${bookTitleMarker}
 ${frontHtml}
 ${chaptersHtml}

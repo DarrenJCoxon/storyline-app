@@ -368,13 +368,14 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
 
       <div className="divider" />
 
-      {/* Book Style picker */}
+      {/* Book Style is set via Live Preview — preview is the single source
+          of truth for compile typography. Show the current selection only. */}
       <div className="section">
         <div className="section-label">Book Style</div>
-        <BookStylePicker
-          selected={config.bookStyle ?? config.theme ?? 'classic-serif'}
-          onChange={id => dispatch({ type: 'setBookStyle', bookStyle: id })}
-        />
+        <p className="chapter-list-empty">
+          Set in <strong>Live Chapter Preview</strong> (⌘⇧V). Currently:{' '}
+          <code>{config.bookStyle ?? config.theme ?? 'classic-serif'}</code>
+        </p>
       </div>
 
       {/* Chapter order */}

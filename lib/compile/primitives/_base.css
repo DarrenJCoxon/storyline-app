@@ -19,6 +19,36 @@
  *   .chapter-subtitle  chapter subtitle from YAML frontmatter
  * ═══════════════════════════════════════════════════════════════════════ */
 
+/* ── Justified-text last-line fix ────────────────────────────────────── */
+/* Without this, the final line of every justified paragraph can stretch
+ * across the full measure (huge word-gaps), especially in Chromium when
+ * combined with hyphens: auto. Apply ONLY to paragraph-level elements,
+ * NOT to body — `text-align-last` inherits, and inheriting `left` onto
+ * centered elements (.page-number, .chapter-number, h1) forces their
+ * single line to left-align and overrides their `text-align: center`. */
+p, li, blockquote p, td, th {
+  text-align-last: left;
+  -moz-text-align-last: left;
+}
+/* Belt-and-braces: explicitly reset text-align-last on known-centred
+ * elements so an inherited or stylesheet-imposed `left` can't break them. */
+h1, h2, h3, h4, h5, h6,
+.page-number, .chapter-number, .chapter-subtitle, .chapter-epigraph,
+aside.epigraph, aside.pull-quote {
+  text-align-last: auto;
+  -moz-text-align-last: auto;
+}
+
+/* ── First paragraph after a break: no indent ────────────────────────── */
+/* Even when the writer uses indented paragraphs (the default in fiction),
+ * the first paragraph after a scene break (hr) or chapter heading should
+ * be flush left, never indented. Applies regardless of paragraph mode. */
+hr + p,
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+p.first, p.first-paragraph {
+  text-indent: 0 !important;
+}
+
 /* ── Epigraph ────────────────────────────────────────────────────────── */
 
 aside.epigraph {
@@ -277,4 +307,20 @@ p.no-drop-cap::first-letter {
   font-weight: inherit;
   margin: 0;
   padding: 0;
+}
+
+
+/* ── Chapter drop spacer ─────────────────────────────────────────────── */
+/* Pushes the first chapter heading ~1/3 down the page (conventional
+   "chapter drop"). Uses margin-top in em so it works in reflowable EPUB
+   (height:% requires a definite containing-block height, which EPUB pages
+   don't provide). print-reset.css overrides this back to height:30% for
+   print-pdf where the @page box gives a definite height. */
+
+.chapter-open-drop {
+  display: block;
+  height: 0;
+  margin-top: 12em;
+  page-break-after: avoid;
+  break-after: avoid;
 }

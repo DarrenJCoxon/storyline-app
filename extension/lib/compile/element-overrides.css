@@ -1,0 +1,152 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Element overrides — body-class typography toggles.
+ *
+ * Loaded after the active book-style so its !important rules win.
+ * The Live Preview emits classes onto <body>; the compile pipeline reads
+ * `previewClasses` from compile.config.json and injects the same classes
+ * onto <body> in the rendered HTML, so preview and compile output match
+ * pixel-for-pixel.
+ *
+ * Selectors do NOT scope to .device-surface — they target body class +
+ * element directly so the same rule applies in both preview (where the
+ * page is `.device-surface`) and compile (where the page is the body).
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Chapter heading overrides ──────────────────────────────────────── */
+body.ch-bold-left h1 {
+  font-style: normal !important; font-weight: 700 !important;
+  text-align: left !important; text-align-last: left !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important; font-variant: normal !important;
+}
+body.ch-small-caps h1 {
+  font-variant: small-caps !important; font-weight: normal !important;
+  letter-spacing: 0.14em !important; text-align: center !important;
+  text-align-last: center !important;
+  font-style: normal !important; text-transform: none !important;
+}
+body.ch-uppercase h1 {
+  text-transform: uppercase !important; font-weight: 600 !important;
+  letter-spacing: 0.15em !important; text-align: center !important;
+  text-align-last: center !important;
+  font-style: normal !important; font-variant: normal !important; font-size: 1.25em !important;
+}
+body.ch-spaced h1 {
+  text-transform: uppercase !important; font-weight: 400 !important;
+  letter-spacing: 0.22em !important; text-align: center !important;
+  text-align-last: center !important;
+  font-style: normal !important; font-variant: normal !important; font-size: 1.15em !important;
+}
+body.ch-ruled h1 {
+  font-style: normal !important; font-weight: 700 !important;
+  text-align: left !important; text-align-last: left !important;
+  border-bottom: 2px solid currentColor !important;
+  padding-bottom: 0.3em !important; letter-spacing: normal !important;
+  text-transform: none !important;
+}
+body.ch-display-heavy h1 {
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, system-ui, sans-serif !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.05 !important;
+  text-align: left !important; text-align-last: left !important;
+  font-style: normal !important; font-variant: normal !important;
+  font-size: 1.6em !important;
+}
+body.ch-display-centred h1 {
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.1 !important;
+  text-align: center !important; text-align-last: center !important;
+  font-style: normal !important; font-variant: normal !important;
+  font-size: 1.5em !important;
+}
+
+body.ch-bold-left      h1::before,
+body.ch-small-caps     h1::before,
+body.ch-uppercase      h1::before,
+body.ch-spaced         h1::before,
+body.ch-ruled          h1::before,
+body.ch-display-heavy  h1::before,
+body.ch-display-centred h1::before { display: none !important; }
+
+/* ── Subheading overrides ───────────────────────────────────────────── */
+body.sh-italic-centred h2,
+body.sh-italic-centred h3 {
+  font-style: italic !important; text-align: center !important;
+  font-weight: normal !important;
+}
+body.sh-small-caps h2,
+body.sh-small-caps h3 {
+  font-variant: small-caps !important; font-weight: normal !important;
+  letter-spacing: 0.1em !important; font-style: normal !important;
+}
+body.sh-uppercase h2,
+body.sh-uppercase h3 {
+  text-transform: uppercase !important; letter-spacing: 0.14em !important;
+  font-weight: 600 !important; font-style: normal !important; font-size: 0.85em !important;
+}
+body.sh-ruled h2,
+body.sh-ruled h3 {
+  border-bottom: 1px solid currentColor !important; padding-bottom: 0.35em !important;
+  font-style: normal !important; font-weight: 700 !important;
+}
+body.sh-display-heavy h2,
+body.sh-display-heavy h3 {
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, system-ui, sans-serif !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.02em !important;
+  font-style: normal !important; font-variant: normal !important;
+  font-size: 0.95em !important;
+}
+body.sh-display-medium h2,
+body.sh-display-medium h3 {
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, system-ui, sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-style: normal !important; font-variant: normal !important;
+  font-size: 0.82em !important;
+}
+
+/* ── Blockquote overrides ───────────────────────────────────────────── */
+body.bq-left-border blockquote {
+  border-left: 3px solid rgba(0,0,0,0.35) !important;
+  padding-left: 1.2em !important; margin: 1em 0.5em !important;
+  font-style: normal !important; background: transparent !important;
+}
+body.bq-box blockquote {
+  border: 1px solid rgba(0,0,0,0.18) !important;
+  border-left: 1px solid rgba(0,0,0,0.18) !important;
+  padding: 0.8em 1.2em !important; border-radius: 4px !important;
+  margin: 1em 0 !important; font-style: normal !important; background: transparent !important;
+}
+body.bq-tinted blockquote {
+  background: rgba(0,0,0,0.045) !important;
+  border: none !important; padding: 0.8em 1.4em !important;
+  border-radius: 4px !important; margin: 1em 0 !important; font-style: italic !important;
+}
+body.bq-poetry blockquote {
+  text-align: center !important; margin: 2em auto !important;
+  max-width: 80% !important; font-style: italic !important;
+  padding: 0 !important; border: none !important; background: transparent !important;
+}
+
+/* ── Callout overrides ──────────────────────────────────────────────── */
+body.callout-note aside.callout {
+  background: rgba(0,100,220,0.07) !important; border-left: 3px solid #0064dc !important;
+}
+body.callout-tip aside.callout {
+  background: rgba(0,140,60,0.07) !important; border-left: 3px solid #008c3c !important;
+}
+body.callout-alert aside.callout {
+  background: rgba(200,130,0,0.07) !important; border-left: 3px solid #c88200 !important;
+}
+body.callout-boxed aside.callout {
+  border: 1px solid rgba(0,0,0,0.2) !important; border-left: 1px solid rgba(0,0,0,0.2) !important;
+  background: transparent !important; border-radius: 4px !important;
+}
