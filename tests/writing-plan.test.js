@@ -174,7 +174,7 @@ describe('getWritingPlan — NF Pipeline A (canonical nfStages shape)', () => {
     const ch1 = plan.nfChapters[0];
     expect(ch1.slug).toBe('the-cost-of-being-liked');
     expect(ch1.manuscriptFile).toBe('manuscript/01-the-cost-of-being-liked.md');
-    expect(ch1.cardFile).toBe('docs/chapters/01-the-cost-of-being-liked.md');
+    expect(ch1.cardFile).toBe('planning/chapters/01-the-cost-of-being-liked.md');
   });
 
   it('populates NF chapter sections', () => {

@@ -38,10 +38,11 @@ function createRenderer() {
 }
 
 function renderItems(md, items, baseDir) {
-  return items.map(item => ({
-    ...item,
-    html: splitLeadingImages(transformImages(md.render(item.body), baseDir)),
-  }));
+  return items.map(item => {
+    // Generated front/back matter items arrive pre-rendered; pass through.
+    if (item.rawHtml !== undefined) return { ...item, html: item.rawHtml };
+    return { ...item, html: splitLeadingImages(transformImages(md.render(item.body ?? ''), baseDir)) };
+  });
 }
 
 // Split any leading <img> out of a <p> into its own paragraph. When the

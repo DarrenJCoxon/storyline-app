@@ -26,9 +26,13 @@ import pkg from 'fs-extra';
 const { readFile, pathExists } = pkg;
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const STYLES_DIR  = resolve(__dir, 'book-styles');
-const THEMES_DIR  = resolve(__dir, 'themes');       // fallback for legacy projects
+const STYLES_DIR   = resolve(__dir, 'book-styles');
+const THEMES_DIR   = resolve(__dir, 'themes');       // fallback for legacy projects
+const OPENERS_DIR  = resolve(__dir, 'chapter-openers');
 const PRINT_RESET_PATH = resolve(__dir, 'print-reset.css');
+const PRIMITIVES_CSS_PATH = resolve(__dir, 'primitives', '_base.css');
+const FRONT_MATTER_CSS_PATH = resolve(__dir, 'front-matter', 'base.css');
+const ELEMENT_OVERRIDES_CSS_PATH = resolve(__dir, 'element-overrides.css');
 const DEFAULT_STYLE_ID = 'classic-serif';
 const DEFAULT_PARAGRAPH_STYLE = 'indented';
 const VALID_PARAGRAPH_STYLES = new Set(['indented', 'block']);
@@ -75,7 +79,7 @@ const CHAPTER_HEADING_PRESETS = {
 };
 
 let cachedPrintResetCss = null;
-async function loadPrintResetCss() {
+export async function loadPrintResetCss() {
   if (cachedPrintResetCss !== null) return cachedPrintResetCss;
   cachedPrintResetCss = (await pathExists(PRINT_RESET_PATH))
     ? await readFile(PRINT_RESET_PATH, 'utf-8')
@@ -83,12 +87,50 @@ async function loadPrintResetCss() {
   return cachedPrintResetCss;
 }
 
+let cachedPrimitivesCss = null;
+export async function loadPrimitivesCss() {
+  if (cachedPrimitivesCss !== null) return cachedPrimitivesCss;
+  cachedPrimitivesCss = (await pathExists(PRIMITIVES_CSS_PATH))
+    ? await readFile(PRIMITIVES_CSS_PATH, 'utf-8') + '\n\n'
+    : '';
+  return cachedPrimitivesCss;
+}
+
+let cachedFrontMatterCss = null;
+export async function loadFrontMatterCss() {
+  if (cachedFrontMatterCss !== null) return cachedFrontMatterCss;
+  cachedFrontMatterCss = (await pathExists(FRONT_MATTER_CSS_PATH))
+    ? await readFile(FRONT_MATTER_CSS_PATH, 'utf-8') + '\n\n'
+    : '';
+  return cachedFrontMatterCss;
+}
+
+let cachedElementOverridesCss = null;
+export async function loadElementOverridesCss() {
+  if (cachedElementOverridesCss !== null) return cachedElementOverridesCss;
+  cachedElementOverridesCss = (await pathExists(ELEMENT_OVERRIDES_CSS_PATH))
+    ? await readFile(ELEMENT_OVERRIDES_CSS_PATH, 'utf-8') + '\n\n'
+    : '';
+  return cachedElementOverridesCss;
+}
+
+export async function loadOpenerCss(openerId, format) {
+  if (!openerId) return '';
+  const base = resolve(OPENERS_DIR, openerId, 'opener.css');
+  if (!(await pathExists(base))) return '';
+  let css = await readFile(base, 'utf-8');
+  // Optional format-specific layer (e.g. opener-print-pdf.css)
+  const formatLayer = resolve(OPENERS_DIR, openerId, `opener-${format}.css`);
+  if (await pathExists(formatLayer)) css += '\n\n' + await readFile(formatLayer, 'utf-8');
+  return css + '\n\n';
+}
+
 export async function applyBookStyle(context) {
   if (!context.html) {
     throw new Error('Book Style phase requires the HTML phase to run first');
   }
 
-  const { styleId, paragraphStyle, themeOverrides } = await resolveBookStyleConfig(context);
+  const { styleId, paragraphStyle, themeOverrides, openerId, previewClasses } = await resolveBookStyleConfig(context);
   const style = await loadBookStyle(styleId, context.format);
 
   const { css: overrideCss, warnings: overrideWarnings } = buildOverrideCss(
@@ -97,9 +139,18 @@ export async function applyBookStyle(context) {
     styleId,
   );
 
-  const printResetCss = context.format === 'print-pdf' ? await loadPrintResetCss() : '';
+  const printResetCss      = context.format === 'print-pdf' ? await loadPrintResetCss() : '';
+  const primitivesCss      = await loadPrimitivesCss();
+  const frontMatterCss     = await loadFrontMatterCss();
+  const openerCss          = await loadOpenerCss(openerId, context.format);
+  const elementOverridesCss = await loadElementOverridesCss();
 
-  const effectiveCss = style.css + printResetCss + overrideCss + paragraphStyleOverride(paragraphStyle);
+  // opener CSS sits after book-style so it can layer decorative treatment on
+  // top, but before overrides so config variables can still win the cascade.
+  // element-overrides.css sits LAST so its body-class !important rules win
+  // over book-style and opener defaults — that's how preview body classes
+  // (ch-*, sh-*, bq-*, callout-*) take effect in compile output too.
+  const effectiveCss = frontMatterCss + primitivesCss + style.css + openerCss + printResetCss + overrideCss + paragraphStyleOverride(paragraphStyle) + elementOverridesCss;
 
   context.theme = {
     id: style.id,
@@ -107,28 +158,42 @@ export async function applyBookStyle(context) {
     css: effectiveCss,
     paragraphStyle,
     overrideWarnings,
-    openerId: null,      // book styles have no separate opener axis
+    openerId: openerId || null,
     openerMeta: null,
+    bodyClasses: buildBodyClasses(previewClasses),
     frontMatter: context.html.frontMatter.map(item => ({
       ...item,
       html: item.html,
-      sectionClass: 'front-matter',
+      sectionClass: item.sectionClass || 'front-matter',
     })),
-    chapters: context.html.chapters.map(chapter => {
+    chapters: context.html.chapters.map((chapter, i) => {
+      const fm = chapter.frontmatter || {};
       const needsHeading = !chapter.html.trimStart().startsWith('<h1');
-      const headingBlock = needsHeading
-        ? `<div class="chapter-number">${chapter.number}</div>\n<h1>${escapeHtmlText(chapter.title)}</h1>\n`
-        : '';
+      let headingBlock = '';
+      if (needsHeading) {
+        const subtitleHtml = fm.subtitle
+          ? `<p class="chapter-subtitle">${escapeHtmlText(fm.subtitle)}</p>\n`
+          : '';
+        const epigraphHtml = fm.epigraph
+          ? `<p class="chapter-epigraph">${escapeHtmlText(fm.epigraph)}</p>\n`
+          : '';
+        // Only surface the ordinal number when the title is custom — if the
+        // title is just "Chapter N" the number is already implicit and showing
+        // it separately would duplicate it (mirrors preview host logic).
+        const isGenericTitle = /^chapter\s+\d+$/i.test(String(chapter.title).trim());
+        const chNumHtml = isGenericTitle ? '' : `<div class="chapter-number">${chapter.number}</div>\n`;
+        headingBlock = `<div class="chapter-open-drop"></div>\n${chNumHtml}<h1>${escapeHtmlText(chapter.title)}</h1>\n${subtitleHtml}${epigraphHtml}`;
+      }
       return {
         ...chapter,
-        html: markChapterOpenerMarkup(headingBlock + chapter.html),
-        sectionClass: 'chapter',
+        html: markChapterOpenerMarkup(headingBlock + chapter.html, fm.dropCap === false),
+        sectionClass: i === 0 ? 'chapter first-chapter' : 'chapter',
       };
     }),
     backMatter: context.html.backMatter.map(item => ({
       ...item,
       html: item.html,
-      sectionClass: 'back-matter',
+      sectionClass: item.sectionClass || 'back-matter',
     })),
   };
 
@@ -142,6 +207,8 @@ async function resolveBookStyleConfig(context) {
     styleId: DEFAULT_STYLE_ID,
     paragraphStyle: DEFAULT_PARAGRAPH_STYLE,
     themeOverrides: {},
+    openerId: '',
+    previewClasses: {},
   };
   const configPath = resolve(context.projectPath, 'compile.config.json');
   if (!(await pathExists(configPath))) return defaults;
@@ -156,7 +223,10 @@ async function resolveBookStyleConfig(context) {
     const paragraphStyle = VALID_PARAGRAPH_STYLES.has(rawStyle) ? rawStyle : DEFAULT_PARAGRAPH_STYLE;
     const themeOverrides = (config?.themeOverrides && typeof config.themeOverrides === 'object')
       ? config.themeOverrides : {};
-    return { styleId, paragraphStyle, themeOverrides };
+    const openerId = typeof config?.chapterOpener === 'string' ? config.chapterOpener.trim() : '';
+    const previewClasses = (config?.previewClasses && typeof config.previewClasses === 'object')
+      ? config.previewClasses : {};
+    return { styleId, paragraphStyle, themeOverrides, openerId, previewClasses };
   } catch {
     return defaults;
   }
@@ -165,7 +235,7 @@ async function resolveBookStyleConfig(context) {
 // Load CSS + meta for a Book Style.
 // Looks in book-styles/<id>/ first; falls back to themes/<id>/ for
 // projects that still use the legacy theme ids.
-async function loadBookStyle(styleId, format) {
+export async function loadBookStyle(styleId, format) {
   const styleDir  = resolve(STYLES_DIR, styleId);
   const themeDir  = resolve(THEMES_DIR, styleId);  // legacy fallback
 
@@ -303,8 +373,27 @@ function escapeHtmlText(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function markChapterOpenerMarkup(html) {
+function markChapterOpenerMarkup(html, noDropCap = false) {
   let result = html.replace('<h2>', '<h2 class="first-section">');
-  result = result.replace('<p>', '<p class="first first-paragraph">');
+  const firstClass = noDropCap ? 'first first-paragraph no-drop-cap' : 'first first-paragraph';
+  result = result.replace('<p>', `<p class="${firstClass}">`);
   return result;
+}
+
+/** Convert preview-class config tokens (e.g. chapterHeading: "display-heavy")
+ *  into the body-class strings element-overrides.css expects (e.g.
+ *  "ch-display-heavy"). */
+function buildBodyClasses(previewClasses) {
+  const classes = [];
+  const map = {
+    chapterHeading: 'ch-',
+    subheading:     'sh-',
+    blockquote:     'bq-',
+    callout:        'callout-',
+  };
+  for (const [key, prefix] of Object.entries(map)) {
+    const v = previewClasses?.[key];
+    if (typeof v === 'string' && v && v !== 'default') classes.push(prefix + v);
+  }
+  return classes.join(' ');
 }

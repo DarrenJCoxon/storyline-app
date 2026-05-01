@@ -254,14 +254,14 @@ describe('generatePromisePayoffLedger', () => {
   it('written markdown contains the book title', () => {
     const plan = getWritingPlan(makeRichState())
     generatePromisePayoffLedger(plan, tmpDir)
-    const md = readFileSync(resolve(tmpDir, 'output', 'promise-payoff-ledger.md'), 'utf-8')
+    const md = readFileSync(resolve(tmpDir, 'planning', 'promise-payoff-ledger.md'), 'utf-8')
     expect(md).toContain('The Glass Detective')
   })
 
   it('written markdown contains summary stats line', () => {
     const plan = getWritingPlan(makeRichState())
     generatePromisePayoffLedger(plan, tmpDir)
-    const md = readFileSync(resolve(tmpDir, 'output', 'promise-payoff-ledger.md'), 'utf-8')
+    const md = readFileSync(resolve(tmpDir, 'planning', 'promise-payoff-ledger.md'), 'utf-8')
     expect(md).toContain('4 promises tracked')
     expect(md).toContain('2 high risk')
     expect(md).toContain('2 unresolved')
@@ -270,14 +270,14 @@ describe('generatePromisePayoffLedger', () => {
   it('written markdown contains Risk Summary section when gaps exist', () => {
     const plan = getWritingPlan(makeRichState())
     generatePromisePayoffLedger(plan, tmpDir)
-    const md = readFileSync(resolve(tmpDir, 'output', 'promise-payoff-ledger.md'), 'utf-8')
+    const md = readFileSync(resolve(tmpDir, 'planning', 'promise-payoff-ledger.md'), 'utf-8')
     expect(md).toContain('## Risk Summary')
   })
 
   it('written markdown contains Promise Tracker table headers', () => {
     const plan = getWritingPlan(makeRichState())
     generatePromisePayoffLedger(plan, tmpDir)
-    const md = readFileSync(resolve(tmpDir, 'output', 'promise-payoff-ledger.md'), 'utf-8')
+    const md = readFileSync(resolve(tmpDir, 'planning', 'promise-payoff-ledger.md'), 'utf-8')
     expect(md).toContain('## Promise Tracker')
     expect(md).toContain('| Risk | Type | Promise |')
     expect(md).toContain('### Unresolved')
@@ -288,14 +288,14 @@ describe('generatePromisePayoffLedger', () => {
   it('unresolved row uses red badge', () => {
     const plan = getWritingPlan(makeRichState())
     generatePromisePayoffLedger(plan, tmpDir)
-    const md = readFileSync(resolve(tmpDir, 'output', 'promise-payoff-ledger.md'), 'utf-8')
+    const md = readFileSync(resolve(tmpDir, 'planning', 'promise-payoff-ledger.md'), 'utf-8')
     expect(md).toContain('🔴')
   })
 
   it('paid-off row uses green badge', () => {
     const plan = getWritingPlan(makeRichState())
     generatePromisePayoffLedger(plan, tmpDir)
-    const md = readFileSync(resolve(tmpDir, 'output', 'promise-payoff-ledger.md'), 'utf-8')
+    const md = readFileSync(resolve(tmpDir, 'planning', 'promise-payoff-ledger.md'), 'utf-8')
     expect(md).toContain('🟢')
   })
 

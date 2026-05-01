@@ -58,11 +58,13 @@ describe('themeOverrides — bodyFont', () => {
     expect(ctx.theme.overrideWarnings).toHaveLength(0);
   });
 
-  it('theme fallback still works when override is absent (Classic Serif uses Georgia)', async () => {
+  it('theme fallback still works when override is absent (Classic Serif chain includes Georgia)', async () => {
     writeConfig(tmp, { theme: 'classic-serif' });
     const ctx = await applyTheme(htmlContext({ projectPath: tmp }));
-    // The theme CSS itself references var(--nw-body-font, Georgia, ...).
-    expect(ctx.theme.css).toMatch(/var\(--nw-body-font,\s*Georgia/);
+    // The fallback chain leads with Crimson Pro (bundled WOFF2 webfont)
+    // and falls through to Georgia / Times — assert the chain still
+    // contains Georgia after the primary serif, in order.
+    expect(ctx.theme.css).toMatch(/var\(--nw-body-font,\s*"Crimson Pro"[^)]*Georgia/);
   });
 });
 

@@ -6,7 +6,7 @@ import { GitHubAuth } from './github/auth.js'
 import { GitHubSyncService } from './github/sync.js'
 import { GitHubSyncStatusBar } from './github/status-bar.js'
 import { registerGitHubCommands, maybeOfferConnect } from './github/commands.js'
-import { OnboardingPanel, STRIPE_PORTAL_URL } from './panels/OnboardingPanel.js'
+import { OnboardingPanel } from './panels/OnboardingPanel.js'
 import { EditorPanel } from './panels/EditorPanel.js'
 import { CompilePanel } from './panels/CompilePanel.js'
 import { CoverPanel } from './panels/CoverPanel.js'
@@ -91,6 +91,23 @@ function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Kill any restored Live Chapter Preview webviews on activation. VS Code
+  // restores webview tabs across window reloads, but they hold stale HTML
+  // from before the extension update. Force-close them so the user must
+  // re-run the command and gets fresh HTML.
+  vscode.window.registerWebviewPanelSerializer('storyline.livePreview', {
+    async deserializeWebviewPanel(panel: vscode.WebviewPanel): Promise<void> {
+      panel.dispose()
+    },
+  })
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      if (tab.label === 'Live Chapter Preview') {
+        void vscode.window.tabGroups.close(tab)
+      }
+    }
+  }
+
   // One-shot backfill: projects created before research/ existed don't have
   // the folder, so the AI silently has nothing to read. Auto-create on
   // activation if a Storyline project is detected. No-op if already there.
@@ -274,10 +291,6 @@ export function activate(context: vscode.ExtensionContext): void {
       const outputDir = path.join(folder.uri.fsPath, 'output')
       fs.mkdirSync(outputDir, { recursive: true })
       vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir))
-    }),
-
-    vscode.commands.registerCommand('storyline.manageSubscription', () => {
-      vscode.env.openExternal(vscode.Uri.parse(STRIPE_PORTAL_URL))
     }),
 
     vscode.commands.registerCommand('storyline.changeProvider', () => {

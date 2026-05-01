@@ -97,7 +97,7 @@ describe('Drift D2 — plot-thread Type column reads canonical threadType', () =
       { id: 't2', name: 'A relationship', threadType: 'relationship', status: 'open', resolutionPlan: 'Reconcile' },
     ]);
     await generateMasterDocument(state, tmp);
-    const md = readFileSync(resolve(tmp, 'output/master-document.md'), 'utf-8');
+    const md = readFileSync(resolve(tmp, 'planning/master-document.md'), 'utf-8');
     expect(md).toContain('| mystery |');
     expect(md).toContain('| relationship |');
     expect(md, 'D2 regression: column must never show literal "undefined"').not.toContain('| undefined |');
@@ -108,7 +108,7 @@ describe('Drift D2 — plot-thread Type column reads canonical threadType', () =
       { id: 't1', name: 'Legacy thread', type: 'mystery', status: 'open', resolutionPlan: 'Reveal' },
     ]);
     await generateMasterDocument(state, tmp);
-    const md = readFileSync(resolve(tmp, 'output/master-document.md'), 'utf-8');
+    const md = readFileSync(resolve(tmp, 'planning/master-document.md'), 'utf-8');
     expect(md).toContain('| mystery |');
     expect(md).not.toContain('| undefined |');
   });
@@ -118,7 +118,7 @@ describe('Drift D2 — plot-thread Type column reads canonical threadType', () =
       { id: 't1', name: 'Bare thread', status: 'open' },
     ]);
     await generateMasterDocument(state, tmp);
-    const md = readFileSync(resolve(tmp, 'output/master-document.md'), 'utf-8');
+    const md = readFileSync(resolve(tmp, 'planning/master-document.md'), 'utf-8');
     expect(md).not.toContain('| undefined |');
     expect(md).toContain('| - |');
   });
@@ -130,7 +130,7 @@ describe('Drift D2 — plot-thread Type column reads canonical threadType', () =
       { id: 't3', name: 'Both — canonical wins', threadType: 'relationship', type: 'should-be-ignored', status: 'open' },
     ]);
     await generateMasterDocument(state, tmp);
-    const md = readFileSync(resolve(tmp, 'output/master-document.md'), 'utf-8');
+    const md = readFileSync(resolve(tmp, 'planning/master-document.md'), 'utf-8');
     expect(md).toContain('| mystery |');
     expect(md).toContain('| character-arc |');
     expect(md).toContain('| relationship |');

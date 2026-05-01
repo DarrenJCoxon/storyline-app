@@ -1,0 +1,304 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Heritage — traditional trade-edition theme for Storyline
+ *
+ * Penguin Classic / NYRB / Everyman's Library aesthetic. Primary face:
+ * EB Garamond (bundled, OFL 1.1) — classical proportions, true small
+ * caps via the smcp OpenType feature, old-style figures. System-font
+ * fallback chain for readers that strip embedded fonts.
+ *
+ * Conventions targeted:
+ *   <h1>                   — chapter heading (true small-caps, centred,
+ *                            letter-spaced)
+ *   <p class="first">      — first paragraph (4-line drop cap + true
+ *                            small-caps first line)
+ *   <hr class="scene-break"> — between-scenes ornament ('❦' fleuron)
+ *   hr + p                 — first paragraph of new scene (no indent,
+ *                            small-caps first line)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Reset + base ─────────────────────────────────────────────────────── */
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--nw-body-font,
+               "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif);
+  font-size: 1em;
+  line-height: 1.6;
+  text-align: justify;
+  /* Old-style figures (onum) are the Heritage signature — numbers sit on
+   * the baseline with ascenders and descenders like letters, not the
+   * uniform-height lining figures of modern typography. Ligatures and
+   * discretionary ligatures (dlig) for ct, st pairs in Garamond. */
+  font-feature-settings: "liga" 1, "dlig" 1, "kern" 1, "onum" 1;
+  -webkit-hyphens: auto;
+  -epub-hyphens: auto;
+  hyphens: auto;
+  -webkit-hyphenate-limit-chars: 6 3 3;
+  hyphenate-limit-chars: 6 3 3;
+  -webkit-hyphenate-limit-lines: 2;
+  hyphenate-limit-lines: 2;
+  text-wrap: pretty;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Chapter heading ──────────────────────────────────────────────────── */
+
+/* True OpenType small caps (smcp) rather than the browser's synthesised
+ * scaled-caps. With EB Garamond the difference is stark: real smcp has
+ * matching stem weight; synthesised is too thin. */
+h1 {
+  font-family: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif;
+  font-size: 1.4em;
+  font-weight: normal;
+  font-style: normal;
+  /* font-variant for readers that don't support font-feature-settings */
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1, "lnum" 1;
+  letter-spacing: 0.18em;
+  text-align: center;
+  margin: 3.5em 0 2.5em 0;
+  line-height: 1.3;
+  page-break-before: always;
+  break-before: page;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+h2, h3 {
+  font-family: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif;
+  font-weight: normal;
+  font-style: italic;
+  text-align: center;
+  font-feature-settings: "liga" 1, "kern" 1, "lnum" 1;
+  margin: 2em 0 1em 0;
+  line-height: 1.3;
+}
+
+h2 { font-size: 1.2em; }
+h3 { font-size: 1.05em; }
+
+/* Paragraphs ───────────────────────────────────────────────────────── */
+
+/* Deeper indent than Classic Serif — literary trade convention. */
+p {
+  text-indent: 1.75em;
+  margin: 0;
+  orphans: 3;
+  widows: 3;
+}
+
+/* First paragraph: no indent; drop cap and small-caps first line follow */
+p.first {
+  text-indent: 0;
+  margin-top: 0;
+}
+
+/* True small caps for the first line of each chapter opening and each
+ * scene continuation. smcp uses proper drawn small caps from EB Garamond;
+ * falls back to font-variant on EPUB readers that strip feature settings. */
+p.first::first-line {
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.04em;
+}
+
+hr.scene-break + p {
+  text-indent: 0;
+}
+
+hr.scene-break + p::first-line {
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.04em;
+}
+
+/* Drop cap — four lines tall, using EB Garamond's natural cap proportions.
+ * line-height 0.82 aligns the cap's baseline with the fourth text line.
+ * No bold weight — Garamond's 400-weight cap is proportioned for display. */
+p.first::first-letter {
+  float: left;
+  font-family: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino,
+               Garamond, "Times New Roman", Times, serif;
+  font-size: 4.8em;
+  line-height: 0.82;
+  margin: 0.03em 0.09em 0 0;
+  padding: 0;
+  font-weight: normal;
+  font-style: normal;
+  font-feature-settings: "kern" 1;
+  color: #1a1a1a;
+}
+
+/* Scene break ornament ─────────────────────────────────────────────── */
+
+hr.scene-break {
+  border: none;
+  text-align: center;
+  margin: 2.5em 0;
+  height: auto;
+  page-break-after: avoid;
+  page-break-before: avoid;
+  break-after: avoid;
+  break-before: avoid;
+}
+
+hr.scene-break::before {
+  content: var(--nw-scene-break-ornament, "\2766");  /* ❦ FLORAL HEART */
+  display: block;
+  font-size: 1.4em;
+  line-height: 1;
+  color: #666;
+}
+
+/* Emphasis ─────────────────────────────────────────────────────────── */
+
+em, i { font-style: italic; }
+strong, b { font-weight: bold; }
+
+/* Block quotes ─────────────────────────────────────────────────────── */
+
+blockquote {
+  margin: 1.5em 2.5em;
+  font-style: italic;
+  text-indent: 0;
+}
+
+blockquote p { text-indent: 0; }
+
+/* Callout ───────────────────────────────────────────────────────────── */
+
+aside.callout {
+  margin: 1.4em 0;
+  padding: 0.9em 1.2em;
+  background: #ececec;
+  border-left: 3px solid #777;
+  border-radius: 4px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+aside.callout > p { text-indent: 0; }
+aside.callout > p:first-child { margin-top: 0; }
+aside.callout > p:last-child  { margin-bottom: 0; }
+
+/* Lists ────────────────────────────────────────────────────────────── */
+
+ul, ol {
+  margin: 1em 0 1em 2em;
+  padding: 0;
+  page-break-before: auto;
+  break-before: auto;
+  page-break-after: auto;
+  break-after: auto;
+}
+
+li {
+  margin: 0.3em 0;
+  text-indent: 0;
+}
+
+li p {
+  text-indent: 0;
+  margin: 0;
+}
+
+/* Code ─────────────────────────────────────────────────────────────── */
+
+code {
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+pre {
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+  margin: 1em 0;
+  white-space: pre-wrap;
+  text-indent: 0;
+}
+
+/* Links ─────────────────────────────────────────────────────────────── */
+
+a {
+  color: #333;
+  text-decoration: underline;
+}
+
+/* Tables ────────────────────────────────────────────────────────────── */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.4em 0;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #aaa;
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f5f0e6;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.05em;
+  font-weight: normal;
+}
+
+th p, td p {
+  text-indent: 0;
+  margin: 0;
+  text-align: left;
+}
+
+/* Front matter ─────────────────────────────────────────────────────── */
+
+.front-matter {
+  text-align: center;
+}
+
+.front-matter p {
+  text-indent: 0;
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+.front-matter h1 {
+  page-break-before: auto;
+  break-before: auto;
+  margin-top: 6em;
+  font-size: 2em;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.12em;
+  font-weight: normal;
+}
+
+/* Back matter ───────────────────────────────────────────────────────── */
+
+.back-matter p {
+  text-indent: 0;
+  margin: 0.9em 0;
+}
+
+.back-matter h1 {
+  font-size: 1.2em;
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.15em;
+  font-weight: normal;
+  text-align: center;
+  margin: 3em 0 2em 0;
+}

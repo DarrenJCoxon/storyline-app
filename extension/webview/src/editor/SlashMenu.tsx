@@ -6,6 +6,7 @@ export interface SlashCommand {
   label: string
   hint: string
   keywords: string[]
+  category?: string
   run: (editor: Editor) => void
 }
 
@@ -81,6 +82,54 @@ function buildCommands(projectMode: 'fiction' | 'nonfiction'): SlashCommand[] {
           },
         }]
       : []),
+    {
+      id: 'epigraph',
+      label: 'Epigraph',
+      hint: 'Italic quote block',
+      keywords: ['epigraph', 'quote', 'italic', 'block'],
+      category: 'Block elements',
+      run: (e: Editor) => { type Ext = Editor & { commands: Editor['commands'] & { toggleEpigraph: () => boolean } }; (e as Ext).commands.toggleEpigraph() },
+    },
+    {
+      id: 'verse',
+      label: 'Verse / Poetry',
+      hint: 'Preserve line breaks, no indent',
+      keywords: ['verse', 'poem', 'poetry', 'lines', 'stanza'],
+      category: 'Block elements',
+      run: (e: Editor) => { type Ext = Editor & { commands: Editor['commands'] & { toggleVerse: () => boolean } }; (e as Ext).commands.toggleVerse() },
+    },
+    {
+      id: 'letter',
+      label: 'Letter / Journal',
+      hint: 'Italic indented block',
+      keywords: ['letter', 'journal', 'diary', 'italic', 'indent'],
+      category: 'Block elements',
+      run: (e: Editor) => { type Ext = Editor & { commands: Editor['commands'] & { toggleLetter: () => boolean } }; (e as Ext).commands.toggleLetter() },
+    },
+    {
+      id: 'pull-quote',
+      label: 'Pull Quote',
+      hint: 'Highlight a key passage',
+      keywords: ['pull', 'quote', 'pullquote', 'highlight', 'large'],
+      category: 'Block elements',
+      run: (e: Editor) => { type Ext = Editor & { commands: Editor['commands'] & { togglePullQuote: () => boolean } }; (e as Ext).commands.togglePullQuote() },
+    },
+    {
+      id: 'sidebar',
+      label: 'Sidebar',
+      hint: 'Related info in a shaded box',
+      keywords: ['sidebar', 'box', 'info', 'aside', 'related'],
+      category: 'Block elements',
+      run: (e: Editor) => { type Ext = Editor & { commands: Editor['commands'] & { toggleSidebar: () => boolean } }; (e as Ext).commands.toggleSidebar() },
+    },
+    {
+      id: 'takeaway',
+      label: 'Takeaway',
+      hint: 'Key point with check mark',
+      keywords: ['takeaway', 'key', 'point', 'check', 'tip'],
+      category: 'Block elements',
+      run: (e: Editor) => { type Ext = Editor & { commands: Editor['commands'] & { toggleTakeaway: () => boolean } }; (e as Ext).commands.toggleTakeaway() },
+    },
   ]
   return cmds
 }
@@ -187,6 +236,41 @@ export function SlashMenu({
 
   if (!state.open || filtered.length === 0) return null
 
+  const renderItem = (cmd: SlashCommand, i: number) => (
+    <button
+      key={cmd.id}
+      className={`slash-item${i === activeIdx ? ' active' : ''}`}
+      onMouseDown={ev => { ev.preventDefault(); commit(cmd) }}
+      onMouseEnter={() => setActiveIdx(i)}
+      role="option"
+      aria-selected={i === activeIdx}
+    >
+      <span className="slash-label">{cmd.label}</span>
+      <span className="slash-hint">{cmd.hint}</span>
+    </button>
+  )
+
+  // When searching, show flat results. When browsing, group by category.
+  let content: React.ReactNode
+  if (state.query) {
+    content = filtered.map((cmd, i) => renderItem(cmd, i))
+  } else {
+    const groups: Array<{ cat: string; items: Array<{ cmd: SlashCommand; idx: number }> }> = []
+    let idx = 0
+    for (const cmd of filtered) {
+      const cat = cmd.category ?? ''
+      const last = groups[groups.length - 1]
+      if (!last || last.cat !== cat) groups.push({ cat, items: [] })
+      groups[groups.length - 1].items.push({ cmd, idx: idx++ })
+    }
+    content = groups.map(g => (
+      <React.Fragment key={g.cat || '__default'}>
+        {g.cat && <div className="slash-category">{g.cat}</div>}
+        {g.items.map(({ cmd, idx: i }) => renderItem(cmd, i))}
+      </React.Fragment>
+    ))
+  }
+
   return (
     <div
       ref={popRef}
@@ -194,19 +278,7 @@ export function SlashMenu({
       style={{ position: 'fixed', top: state.top, left: state.left, zIndex: 100 }}
       role="listbox"
     >
-      {filtered.map((cmd, i) => (
-        <button
-          key={cmd.id}
-          className={`slash-item${i === activeIdx ? ' active' : ''}`}
-          onMouseDown={ev => { ev.preventDefault(); commit(cmd) }}
-          onMouseEnter={() => setActiveIdx(i)}
-          role="option"
-          aria-selected={i === activeIdx}
-        >
-          <span className="slash-label">{cmd.label}</span>
-          <span className="slash-hint">{cmd.hint}</span>
-        </button>
-      ))}
+      {content}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import type { AIProvider, Message, ChatOptions } from './provider.js'
+import { reportError } from './error-reporter.js'
 
 /**
  * Calls our Cloudflare Worker `/chat` endpoint.
@@ -31,17 +32,23 @@ export class ManagedProvider implements AIProvider {
       }),
     })
 
+    // 402 (credits exhausted) is an expected user-facing state, not a bug —
+    // skip telemetry. Same for 401 with no key. Everything else is an
+    // operational failure worth surfacing.
     if (response.status === 402) {
       throw new Error('Credits exhausted — top up to continue')
     }
     if (response.status === 401) {
+      reportError({ endpoint: 'chat', statusCode: 401, message: 'Invalid licence key', licenceKey, stageId })
       throw new Error('Invalid licence key')
     }
     if (response.status === 503) {
+      reportError({ endpoint: 'chat', statusCode: 503, message: 'Server restart mid-request', licenceKey, stageId })
       throw new Error('The server restarted mid-request — please try again')
     }
     if (!response.ok) {
-      const text = await response.text()
+      const text = await response.text().catch(() => '')
+      reportError({ endpoint: 'chat', statusCode: response.status, message: text || `HTTP ${response.status}`, licenceKey, stageId })
       throw new Error(`Backend error ${response.status}: ${text}`)
     }
 

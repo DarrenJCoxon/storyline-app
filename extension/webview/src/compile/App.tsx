@@ -37,7 +37,7 @@ interface BookStyleInfo {
   accent: string
 }
 
-type Format = 'epub' | 'print-pdf'
+type Format = 'epub' | 'print-pdf' | 'bundle'
 type Screen = 'form' | 'compiling' | 'done'
 
 const BOOK_STYLES: BookStyleInfo[] = [
@@ -292,6 +292,11 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
             className={`format-btn${format === 'print-pdf' ? ' active' : ''}`}
             onClick={() => dispatch({ type: 'setFormat', format: 'print-pdf' })}
           >Print PDF</button>
+          <button
+            className={`format-btn${format === 'bundle' ? ' active' : ''}`}
+            onClick={() => dispatch({ type: 'setFormat', format: 'bundle' })}
+            title="Compile all EPUB and print targets and write a distribution manifest"
+          >Distribute</button>
         </div>
       </div>
 
@@ -363,13 +368,14 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
 
       <div className="divider" />
 
-      {/* Book Style picker */}
+      {/* Book Style is set via Live Preview — preview is the single source
+          of truth for compile typography. Show the current selection only. */}
       <div className="section">
         <div className="section-label">Book Style</div>
-        <BookStylePicker
-          selected={config.bookStyle ?? config.theme ?? 'classic-serif'}
-          onChange={id => dispatch({ type: 'setBookStyle', bookStyle: id })}
-        />
+        <p className="chapter-list-empty">
+          Set in <strong>Live Chapter Preview</strong> (⌘⇧V). Currently:{' '}
+          <code>{config.bookStyle ?? config.theme ?? 'classic-serif'}</code>
+        </p>
       </div>
 
       {/* Chapter order */}
@@ -423,7 +429,7 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
       <div className="divider" />
 
       <button className="btn-compile" onClick={handleCompile} disabled={chapters.length === 0}>
-        Compile to {format === 'epub' ? 'EPUB' : 'Print PDF'}
+        {format === 'epub' ? 'Compile to EPUB' : format === 'print-pdf' ? 'Compile to Print PDF' : 'Distribute All Targets'}
       </button>
       {chapters.length === 0 && (
         <p style={{ fontSize: 12, color: 'var(--vscode-descriptionForeground)', marginTop: 8 }}>
@@ -460,7 +466,7 @@ function BookStylePicker({ selected, onChange }: { selected: string; onChange: (
 // ── Compiling screen ──────────────────────────────────────────────────────────
 
 function CompileProgress({ state }: { state: State }): JSX.Element {
-  const label = state.format === 'epub' ? 'EPUB' : 'Print PDF'
+  const label = state.format === 'epub' ? 'EPUB' : state.format === 'print-pdf' ? 'Print PDF' : 'all targets'
   return (
     <div className="compile-panel">
       <div className="compile-progress">

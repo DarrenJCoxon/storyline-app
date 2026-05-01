@@ -3,6 +3,14 @@ import * as vscode from 'vscode'
 const SECRET_KEY = 'storyline.licenceKey'
 const CACHE_KEY  = 'storyline.licenceCache'
 
+// Local-only developer bypass. Validates without hitting the backend so
+// `npm run ship`-built dev installs can use the AI in a test project even
+// when the Cloudflare KV doesn't have the user's key seeded. Never check
+// for this key client-side from anything that calls /chat or /illustrate
+// — those endpoints will still 401 on the server. This bypass only affects
+// the local /validate path.
+export const DEV_LICENCE_KEY = 'SL-DEV-LOCAL-TEST-KEY'
+
 export interface LicenceInfo {
   valid: boolean
   type: 'free' | 'credits' | 'byok'
@@ -39,6 +47,13 @@ export class LicenceManager {
 
     const key = await this.getLicenceKey()
     if (!key) return fallback
+
+    // Local-only dev bypass — see DEV_LICENCE_KEY comment above.
+    if (key === DEV_LICENCE_KEY) {
+      const info: LicenceInfo = { valid: true, type: 'credits', creditBalance: 999999 }
+      await this.context.globalState.update(CACHE_KEY, { key, info })
+      return info
+    }
 
     if (opts.useCache) {
       const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)

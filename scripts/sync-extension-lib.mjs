@@ -28,6 +28,16 @@ const targets = [
     src: resolve(root, 'lib', 'compile', 'chapter-openers'),
     dst: resolve(root, 'extension', 'resources', 'chapter-openers'),
   },
+  {
+    label: 'extension/resources/book-styles (live-preview 6 book styles)',
+    src: resolve(root, 'lib', 'compile', 'book-styles'),
+    dst: resolve(root, 'extension', 'resources', 'book-styles'),
+  },
+  {
+    label: 'extension/resources/fonts (bundled WOFF2 fonts for live-preview)',
+    src: resolve(root, 'lib', 'compile', 'fonts'),
+    dst: resolve(root, 'extension', 'resources', 'fonts'),
+  },
 ]
 
 for (const { label, src, dst } of targets) {

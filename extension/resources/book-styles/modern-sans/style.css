@@ -1,0 +1,268 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Modern Sans — contemporary theme for Storyline EPUB compile
+ *
+ * Contemporary commercial fiction and narrative non-fiction. Primary
+ * body: Plus Jakarta Sans (bundled, OFL 1.1). Display / headings:
+ * Inter. System-font fallback chain for readers that strip embedded fonts.
+ *
+ * Conventions targeted:
+ *   <h1>                   — chapter heading (left-aligned, bold, Inter)
+ *   <p class="first">      — first paragraph (small-caps first line, no
+ *                            drop cap — the modern "Strand" idiom)
+ *   <hr class="scene-break"> — between-scenes ornament ('· · ·')
+ *   hr + p                 — first paragraph of new scene (no indent)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Reset + base ─────────────────────────────────────────────────────── */
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--nw-body-font,
+               "Plus Jakarta Sans", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-size: 1em;
+  line-height: 1.5;
+  text-align: left;
+  /* Tabular figures for sans-serif body; ligatures on for common pairs. */
+  font-feature-settings: "liga" 1, "kern" 1;
+  -webkit-hyphens: auto;
+  -epub-hyphens: auto;
+  hyphens: auto;
+  -webkit-hyphenate-limit-chars: 6 3 3;
+  hyphenate-limit-chars: 6 3 3;
+  -webkit-hyphenate-limit-lines: 2;
+  hyphenate-limit-lines: 2;
+  text-wrap: pretty;
+  orphans: 2;
+  widows: 2;
+}
+
+/* Chapter heading ──────────────────────────────────────────────────── */
+
+/* Left-aligned, bold — confident, no italic flourish. Inter is used for
+ * display text (headings, running heads) for the classic Inter/Jakarta pairing.
+ * Overridable via --nw-chapter-* custom properties. */
+h1 {
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 1.8em;
+  font-weight: var(--nw-chapter-font-weight, 700);
+  font-style: var(--nw-chapter-font-style, normal);
+  font-variant: var(--nw-chapter-font-variant, normal);
+  text-align: var(--nw-chapter-text-align, left);
+  letter-spacing: var(--nw-chapter-letter-spacing, -0.02em);
+  text-transform: var(--nw-chapter-text-transform, none);
+  font-feature-settings: "liga" 1, "kern" 1;
+  margin: 2.5em 0 1.5em 0;
+  line-height: 1.15;
+  page-break-before: always;
+  break-before: page;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+h2, h3 {
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  font-style: normal;
+  text-align: left;
+  font-feature-settings: "liga" 1, "kern" 1;
+  margin: 2em 0 0.75em 0;
+  line-height: 1.25;
+}
+
+h2 { font-size: 1.3em; }
+h3 { font-size: 1.1em; }
+
+/* Paragraphs ───────────────────────────────────────────────────────── */
+
+p {
+  text-indent: 1em;
+  margin: 0;
+  orphans: 2;
+  widows: 2;
+}
+
+p.first {
+  text-indent: 0;
+  margin-top: 0;
+}
+
+/* Small-caps first line — the modern chapter-opening idiom.
+ * smcp gives true small caps from Inter's extensive OpenType table;
+ * font-variant is the fallback for EPUB readers that don't support it. */
+p.first::first-line {
+  font-variant: small-caps;
+  font-feature-settings: "smcp" 1, "kern" 1;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+hr.scene-break + p {
+  text-indent: 0;
+}
+
+/* Scene break ornament ─────────────────────────────────────────────── */
+
+hr.scene-break {
+  border: none;
+  text-align: center;
+  margin: 2em 0;
+  height: auto;
+  page-break-after: avoid;
+  page-break-before: avoid;
+  break-after: avoid;
+  break-before: avoid;
+}
+
+hr.scene-break::before {
+  content: var(--nw-scene-break-ornament, "\00B7 \00B7 \00B7");   /* · · · */
+  display: block;
+  letter-spacing: 0.8em;
+  font-size: 1em;
+  color: #888;
+}
+
+/* Emphasis ─────────────────────────────────────────────────────────── */
+
+em, i { font-style: italic; }
+strong, b { font-weight: 700; }
+
+/* Block quotes ─────────────────────────────────────────────────────── */
+
+blockquote {
+  margin: 1em 1.5em;
+  padding-left: 1em;
+  border-left: 2px solid #bbb;
+  font-style: normal;
+  color: #333;
+  text-indent: 0;
+}
+
+blockquote p { text-indent: 0; }
+
+/* Callout ───────────────────────────────────────────────────────────── */
+
+aside.callout {
+  margin: 1.4em 0;
+  padding: 0.9em 1.2em;
+  background: #ececec;
+  border-left: 3px solid #777;
+  border-radius: 4px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+aside.callout > p { text-indent: 0; }
+aside.callout > p:first-child { margin-top: 0; }
+aside.callout > p:last-child  { margin-bottom: 0; }
+
+/* Lists ────────────────────────────────────────────────────────────── */
+
+ul, ol {
+  margin: 1em 0 1em 1.5em;
+  padding: 0;
+  page-break-before: auto;
+  break-before: auto;
+  page-break-after: auto;
+  break-after: auto;
+}
+
+li {
+  margin: 0.25em 0;
+  text-indent: 0;
+}
+
+li p {
+  text-indent: 0;
+  margin: 0;
+}
+
+/* Code ─────────────────────────────────────────────────────────────── */
+
+code {
+  font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+pre {
+  font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  font-size: 0.9em;
+  margin: 1em 0;
+  white-space: pre-wrap;
+  text-indent: 0;
+}
+
+/* Links ─────────────────────────────────────────────────────────────── */
+
+a {
+  color: #0055aa;
+  text-decoration: underline;
+}
+
+/* Tables ────────────────────────────────────────────────────────────── */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  font-size: 0.95em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th, td {
+  border: none;
+  border-bottom: 1px solid #ddd;
+  padding: 0.5em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  border-bottom: 2px solid #333;
+  font-weight: 600;
+}
+
+th p, td p {
+  text-indent: 0;
+  margin: 0;
+  text-align: left;
+}
+
+/* Front matter ─────────────────────────────────────────────────────── */
+
+.front-matter {
+  text-align: center;
+}
+
+.front-matter p {
+  text-indent: 0;
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+.front-matter h1 {
+  page-break-before: auto;
+  break-before: auto;
+  margin-top: 5em;
+  font-size: 2em;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+/* Back matter ───────────────────────────────────────────────────────── */
+
+.back-matter p {
+  text-indent: 0;
+  margin: 0.8em 0;
+}
+
+.back-matter h1 {
+  font-size: 1.4em;
+  font-weight: 700;
+  text-align: left;
+  margin: 3em 0 1.5em 0;
+}

@@ -7,6 +7,7 @@ import { handleStripeWebhook } from './stripe-webhook.js'
 import { handleTranscribe } from './transcribe.js'
 import { handleSuccess } from './success.js'
 import { handleResendKey } from './resend-key.js'
+import { handleLogError } from './log-error.js'
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -54,6 +55,8 @@ export default {
       case '/stripe-webhook':
       case '/stripe/webhook':
         return handleStripeWebhook(req, env)
+      case '/log-error':
+        return handleLogError(req, env)
       case '/dev/seed-licence':
         return handleDevSeed(req, env)
       default:
