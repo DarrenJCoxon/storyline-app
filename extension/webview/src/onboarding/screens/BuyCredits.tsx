@@ -3,8 +3,8 @@ import { Check } from 'lucide-react'
 import { primaryBtn, inputStyle, headingStyle, BackButton } from '../shared.js'
 
 const PACKS = [
-  { id: '10' as const, price: '£10', credits: '50 credits', description: '~6 complete book journeys' },
-  { id: '20' as const, price: '£20', credits: '120 credits', description: '~14 complete book journeys' },
+  { id: '10' as const, price: '£9.99', credits: '1,000 credits', description: '~120 complete book journeys' },
+  { id: '20' as const, price: '£17.99', credits: '2,200 credits', description: '~264 complete book journeys' },
 ]
 
 interface ValidateResult {

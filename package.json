@@ -1,6 +1,6 @@
 {
   "name": "storyline-vsc",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "description": "Storyline — a planning and writing environment for novelists and non-fiction authors, built around Save the Cat story structure and a three-pipeline non-fiction harness, with AI co-planning support powered by Claude.",
   "type": "module",
   "bin": {

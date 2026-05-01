@@ -208,9 +208,8 @@ export class OnboardingPanel {
           return
         }
         const name = (msg.name as string | undefined)?.trim() || folders[0].name
-        const genreHint = msg.genreHint as string | undefined
         try {
-          scaffoldProject(folders[0].uri.fsPath, name, genreHint)
+          scaffoldProject(folders[0].uri.fsPath, name)
           this.post({ type: 'scaffolded' })
           const cb = this.onScaffolded
           setTimeout(() => {

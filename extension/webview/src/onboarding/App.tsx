@@ -163,7 +163,7 @@ export function App() {
           workspaceName={workspaceName}
           scaffolded={scaffolded}
           returningUser={returningUser}
-          onScaffold={(name, genreHint) => send({ type: 'scaffold', name, genreHint })}
+          onScaffold={name => send({ type: 'scaffold', name })}
         />
       )}
     </div>

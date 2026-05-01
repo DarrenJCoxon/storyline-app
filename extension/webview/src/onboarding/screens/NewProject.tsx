@@ -2,11 +2,6 @@ import React, { useState } from 'react'
 import { Check } from 'lucide-react'
 import { primaryBtn, inputStyle, labelStyle, headingStyle } from '../shared.js'
 
-const GENRE_HINTS = [
-  '', 'Thriller', 'Literary Fiction', 'Romance', 'Fantasy', 'Science Fiction',
-  'Mystery', 'Historical Fiction', 'Horror', 'Young Adult', 'Other',
-]
-
 interface ReturningUser {
   creditBalance?: number
   licenceType?: string
@@ -17,18 +12,17 @@ interface Props {
   workspaceName: string
   scaffolded: boolean
   returningUser?: ReturningUser | null
-  onScaffold: (name: string, genreHint?: string) => void
+  onScaffold: (name: string) => void
 }
 
 export function NewProject({ workspaceName, scaffolded, returningUser, onScaffold }: Props) {
   const [name, setName] = useState(workspaceName)
-  const [genre, setGenre] = useState('')
   const [pending, setPending] = useState(false)
 
   const handleCreate = () => {
     if (!name.trim() || pending) return
     setPending(true)
-    onScaffold(name.trim(), genre || undefined)
+    onScaffold(name.trim())
   }
 
   if (scaffolded) {
@@ -80,18 +74,9 @@ export function NewProject({ workspaceName, scaffolded, returningUser, onScaffol
       <input
         value={name}
         onChange={e => setName(e.target.value)}
-        style={{ ...inputStyle, marginBottom: '12px' }}
+        style={{ ...inputStyle, marginBottom: '24px' }}
         onKeyDown={e => e.key === 'Enter' && handleCreate()}
       />
-
-      <label style={labelStyle}>What kind of book? (optional)</label>
-      <select
-        value={genre}
-        onChange={e => setGenre(e.target.value)}
-        style={{ ...inputStyle, marginBottom: '24px' }}
-      >
-        {GENRE_HINTS.map(g => <option key={g} value={g}>{g || 'Not sure yet'}</option>)}
-      </select>
 
       <button
         onClick={handleCreate}

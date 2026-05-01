@@ -12,7 +12,6 @@ import { ensureCompileConfig } from '../compile/compile-config.js'
 export function scaffoldProject(
   workspaceRoot: string,
   name: string,
-  genreHint?: string,
 ): string {
   // 1. Directories
   // Layout convention:
@@ -47,7 +46,6 @@ export function scaffoldProject(
         createdAt: now,
         updatedAt: now,
       },
-      ...(genreHint ? { genre: { ...DEFAULT_STATE.genre, primaryGenre: genreHint } } : {}),
     }
     fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8')
   }
