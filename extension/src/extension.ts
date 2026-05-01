@@ -6,7 +6,7 @@ import { GitHubAuth } from './github/auth.js'
 import { GitHubSyncService } from './github/sync.js'
 import { GitHubSyncStatusBar } from './github/status-bar.js'
 import { registerGitHubCommands, maybeOfferConnect } from './github/commands.js'
-import { OnboardingPanel, STRIPE_PORTAL_URL } from './panels/OnboardingPanel.js'
+import { OnboardingPanel } from './panels/OnboardingPanel.js'
 import { EditorPanel } from './panels/EditorPanel.js'
 import { CompilePanel } from './panels/CompilePanel.js'
 import { CoverPanel } from './panels/CoverPanel.js'
@@ -291,10 +291,6 @@ export function activate(context: vscode.ExtensionContext): void {
       const outputDir = path.join(folder.uri.fsPath, 'output')
       fs.mkdirSync(outputDir, { recursive: true })
       vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir))
-    }),
-
-    vscode.commands.registerCommand('storyline.manageSubscription', () => {
-      vscode.env.openExternal(vscode.Uri.parse(STRIPE_PORTAL_URL))
     }),
 
     vscode.commands.registerCommand('storyline.changeProvider', () => {

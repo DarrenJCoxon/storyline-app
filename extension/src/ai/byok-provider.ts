@@ -1,4 +1,5 @@
 import type { AIProvider, Message, ChatOptions } from './provider.js'
+import { reportError } from './error-reporter.js'
 
 export type BYOKConfig =
   | { kind: 'anthropic';  apiKey: string }
@@ -41,7 +42,8 @@ export class BYOKProvider implements AIProvider {
     })
 
     if (!response.ok) {
-      const text = await response.text()
+      const text = await response.text().catch(() => '')
+      reportError({ endpoint: 'chat-byok-anthropic', statusCode: response.status, message: text || `HTTP ${response.status}` })
       throw new Error(`Anthropic ${response.status}: ${text}`)
     }
 
@@ -70,7 +72,8 @@ export class BYOKProvider implements AIProvider {
     })
 
     if (!response.ok) {
-      const text = await response.text()
+      const text = await response.text().catch(() => '')
+      reportError({ endpoint: 'chat-byok-openai', statusCode: response.status, message: text || `HTTP ${response.status}` })
       throw new Error(`${this.config.baseUrl} ${response.status}: ${text}`)
     }
 

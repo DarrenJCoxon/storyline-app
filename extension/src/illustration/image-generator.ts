@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type { LicenceManager } from '../auth/licence.js'
+import { reportError } from '../ai/error-reporter.js'
 
 export interface GenerateImageOptions {
   prompt: string
@@ -97,7 +98,9 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
       }),
     })
   } catch (netErr) {
+    const msg = netErr instanceof Error ? netErr.message : String(netErr)
     console.error('[Storyline] /illustrate network error:', netErr)
+    reportError({ endpoint: 'illustrate', statusCode: 0, message: `network: ${msg}`, licenceKey })
     throw new Error(`Cannot reach backend at ${opts.backendUrl}. Is wrangler dev running?`)
   }
 
@@ -108,6 +111,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
     let err: { error?: string }
     try { err = JSON.parse(text) } catch { err = { error: text || `HTTP ${res.status}` } }
     console.error('[Storyline] /illustrate failed:', res.status, err)
+    reportError({ endpoint: 'illustrate', statusCode: res.status, message: err.error || text || `HTTP ${res.status}`, licenceKey })
     throw new Error(err.error ?? `Image generation failed (${res.status})`)
   }
 

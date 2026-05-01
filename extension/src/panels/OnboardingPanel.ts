@@ -10,12 +10,11 @@ const BACKEND_URL = 'https://api.storyline.my'
 // { type: 'free', valid: true, creditBalance: 50, totalPurchased: 50 }
 export const FREE_LICENCE_KEY = 'SL-FREE-0000-0000-FREE'
 
+// One-time top-up Payment Links (no subscription product — credits only).
 const STRIPE_LINKS: Record<string, string> = {
   '10': 'https://buy.stripe.com/7sYdR9bwndIa8Pv7Ye3wQ01',
   '20': 'https://buy.stripe.com/cNicN5gQH7jM3vbguK3wQ02',
 }
-
-export const STRIPE_PORTAL_URL = 'https://billing.stripe.com/p/login/PLACEHOLDER'
 
 type Screen = 'welcome' | 'buy-credits' | 'byok' | 'new-project'
 
