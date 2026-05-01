@@ -119,11 +119,14 @@ describe('modern-sans theme — print-pdf variant', () => {
     expect(print.theme.css).toContain('print-pdf layer');
   });
 
-  it('defines 6x9 @page sizing and running headers', async () => {
+  it('defines running headers (page-size + margins now live in the trim layer)', async () => {
     const print = await loadWith({ theme: 'modern-sans', _ctx: { format: 'print-pdf' } });
-    expect(print.theme.css).toMatch(/@page\s*\{[^}]*size:\s*6in\s+9in/);
+    // @page size + margins moved to lib/compile/trims/ when print trims
+    // became selectable. Theme owns running-header strings only.
     expect(print.theme.css).toMatch(/string\(book-title\)/);
     expect(print.theme.css).toMatch(/string\(chapter-title\)/);
+    const trim6x9 = await readFile(resolve(HERE, '..', '..', 'lib', 'compile', 'trims', '6x9.css'), 'utf-8');
+    expect(trim6x9).toMatch(/@page\s*\{[^}]*size:\s*6in\s+9in/);
   });
 
   it('running headers use sans-serif not serif', async () => {

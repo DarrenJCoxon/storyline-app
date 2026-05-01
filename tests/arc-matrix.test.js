@@ -197,7 +197,7 @@ describe('generateCharacterArcMatrix — supporting characters', () => {
 
 describe('arc matrix handoff file contract', () => {
   it('arc-matrix file absent before generation', () => {
-    const matrixPath = join(tmpDir, 'output', 'character-arc-matrix.md')
+    const matrixPath = join(tmpDir, 'planning', 'character-arc-matrix.md')
     expect(existsSync(matrixPath)).toBe(false)
   })
 
@@ -205,12 +205,12 @@ describe('arc matrix handoff file contract', () => {
     const state = loadFixture('fiction-real-world.json')
     const plan = getWritingPlan(state)
     generateCharacterArcMatrix(plan, tmpDir)
-    const matrixPath = join(tmpDir, 'output', 'character-arc-matrix.md')
+    const matrixPath = join(tmpDir, 'planning', 'character-arc-matrix.md')
     expect(existsSync(matrixPath)).toBe(true)
   })
 
   it('story-bible file absent before generation', () => {
-    const biblePath = join(tmpDir, 'output', 'story-bible.md')
+    const biblePath = join(tmpDir, 'planning', 'story-bible.md')
     expect(existsSync(biblePath)).toBe(false)
   })
 
@@ -218,7 +218,7 @@ describe('arc matrix handoff file contract', () => {
     const state = loadFixture('fiction-real-world.json')
     const plan = getWritingPlan(state)
     generateStoryBible(plan, tmpDir)
-    const biblePath = join(tmpDir, 'output', 'story-bible.md')
+    const biblePath = join(tmpDir, 'planning', 'story-bible.md')
     expect(existsSync(biblePath)).toBe(true)
   })
 })

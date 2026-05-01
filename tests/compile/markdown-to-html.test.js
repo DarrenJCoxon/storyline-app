@@ -12,7 +12,13 @@ import { markdownToHtml } from '../../lib/compile/markdown-to-html.js';
 
 function minimalContext(bodies) {
   return {
+    // markdownToHtml resolves relative <img> paths against
+    // projectPath + assembly.manuscriptPath. Tests don't include images,
+    // so any string is fine — '/tmp' is a valid absolute path on every
+    // platform vitest runs on.
+    projectPath: '/tmp',
     assembly: {
+      manuscriptPath: 'manuscript',
       frontMatter: [],
       chapters: bodies.map((body, i) => ({ slug: `ch${i + 1}`, title: `Chapter ${i + 1}`, body })),
       backMatter: [],

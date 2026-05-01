@@ -151,12 +151,12 @@ describe('writeAllChapterCards', () => {
     };
     const result = await writeAllChapterCards(state, tmp);
     expect(result.written).toHaveLength(2);
-    expect(existsSync(path.join(tmp, 'docs', 'chapters', '01-open.md'))).toBe(true);
-    expect(existsSync(path.join(tmp, 'docs', 'chapters', '02-setup.md'))).toBe(true);
+    expect(existsSync(path.join(tmp, 'planning', 'chapters', '01-open.md'))).toBe(true);
+    expect(existsSync(path.join(tmp, 'planning', 'chapters', '02-setup.md'))).toBe(true);
   });
 
   it('removes stale chapter files that no longer match any chapter in state', async () => {
-    const chaptersDir = path.join(tmp, 'docs', 'chapters');
+    const chaptersDir = path.join(tmp, 'planning', 'chapters');
     await mkdir(chaptersDir, { recursive: true });
     // Pre-seed stale card from a renamed chapter
     await writeFile(path.join(chaptersDir, '03-old-name.md'), '# old', 'utf-8');
@@ -169,11 +169,11 @@ describe('writeAllChapterCards', () => {
     const result = await writeAllChapterCards(state, tmp);
     expect(existsSync(path.join(chaptersDir, '03-new-name.md'))).toBe(true);
     expect(existsSync(path.join(chaptersDir, '03-old-name.md'))).toBe(false);
-    expect(result.removed).toContain(path.join('docs', 'chapters', '03-old-name.md'));
+    expect(result.removed).toContain(path.join('planning', 'chapters', '03-old-name.md'));
   });
 
   it('does not delete non-card files the writer put in docs/chapters/', async () => {
-    const chaptersDir = path.join(tmp, 'docs', 'chapters');
+    const chaptersDir = path.join(tmp, 'planning', 'chapters');
     await mkdir(chaptersDir, { recursive: true });
     await writeFile(path.join(chaptersDir, 'notes.md'), 'writer notes', 'utf-8');
     await writeFile(path.join(chaptersDir, 'README.md'), '# readme', 'utf-8');
@@ -190,7 +190,7 @@ describe('writeAllChapterCards', () => {
       ],
     };
     await writeAllChapterCards(state1, tmp);
-    const v1 = await readFile(path.join(tmp, 'docs', 'chapters', '01-open.md'), 'utf-8');
+    const v1 = await readFile(path.join(tmp, 'planning', 'chapters', '01-open.md'), 'utf-8');
     expect(v1).toContain('v1');
 
     const state2 = {
@@ -199,7 +199,7 @@ describe('writeAllChapterCards', () => {
       ],
     };
     await writeAllChapterCards(state2, tmp);
-    const v2 = await readFile(path.join(tmp, 'docs', 'chapters', '01-open.md'), 'utf-8');
+    const v2 = await readFile(path.join(tmp, 'planning', 'chapters', '01-open.md'), 'utf-8');
     expect(v2).toContain('v2');
     expect(v2).not.toContain('v1');
   });
@@ -207,6 +207,6 @@ describe('writeAllChapterCards', () => {
   it('handles empty chapterOutline by creating the dir but writing nothing', async () => {
     const result = await writeAllChapterCards({ chapterOutline: [] }, tmp);
     expect(result.written).toHaveLength(0);
-    expect(existsSync(path.join(tmp, 'docs', 'chapters'))).toBe(true);
+    expect(existsSync(path.join(tmp, 'planning', 'chapters'))).toBe(true);
   });
 });
