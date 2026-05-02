@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import { scaffoldProject } from './project-scaffold.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
 import { WelcomePanel } from '../panels/WelcomePanel.js'
+import { scheduleExplorerFocusRetries } from '../editor/layout-init.js'
 
 /**
  * Tabs/labels we recognise as VS Code's default welcome / get-started UI
@@ -93,14 +94,14 @@ export async function postActivateOpenWorkspace(
   await vscode.commands.executeCommand('storyline.openPlanning')
 
   // 7. Make sure the Explorer is visible in the side bar — and focused.
-  //    This runs LAST because opening webview panels can incidentally swap
-  //    the active side-bar view (e.g. another extension's view comes back
-  //    after a panel is created). focusFilesExplorer is the strongest
-  //    command that both reveals the Explorer AND moves keyboard focus
-  //    to it, overriding whatever was active before.
-  await new Promise(r => setTimeout(r, 200))
-  try { await vscode.commands.executeCommand('workbench.view.explorer') } catch { /* */ }
-  try { await vscode.commands.executeCommand('workbench.files.action.focusFilesExplorer') } catch { /* */ }
+  //    Runs as a spaced-retry chain (50/500/1500/3500/6000ms) because
+  //    extensions that activate on `onStartupFinished` (Claude Code,
+  //    GitLens, etc.) typically register their own sidebar view at
+  //    800-1500ms and would win a single attempt here. Fire-and-forget;
+  //    don't await — we want this CTA path to return so VS Code can
+  //    finish layout, while the retries pull the Explorer back as
+  //    competing extensions settle.
+  void scheduleExplorerFocusRetries()
 }
 
 /**

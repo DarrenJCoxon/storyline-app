@@ -58,14 +58,22 @@ export async function initLayout(context: vscode.ExtensionContext): Promise<void
 
 const FOCUS_RETRY_DELAYS_MS = [50, 500, 1500, 3500, 6000]
 
-async function scheduleExplorerFocusRetries(): Promise<void> {
+/**
+ * Spaced-retry chain that pulls the Explorer back to the sidebar after
+ * any extension that activates on `onStartupFinished` (Claude Code,
+ * GitLens, etc.) tries to grab it. The last delay needs to be well
+ * beyond when those extensions finish loading; 6 seconds is enough on
+ * cold-boot Mac and Windows. Exported so post-activate flows that
+ * don't go through initLayout can reuse the same logic.
+ */
+export async function scheduleExplorerFocusRetries(): Promise<void> {
   for (const delay of FOCUS_RETRY_DELAYS_MS) {
     await new Promise(r => setTimeout(r, delay))
     await ensureExplorerFocus()
   }
 }
 
-async function ensureExplorerFocus(): Promise<void> {
+export async function ensureExplorerFocus(): Promise<void> {
   try { await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar') } catch { /* */ }
   try { await vscode.commands.executeCommand('workbench.action.closePanel') } catch { /* */ }
   try { await vscode.commands.executeCommand('workbench.view.explorer') } catch { /* */ }
