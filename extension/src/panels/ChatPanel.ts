@@ -91,6 +91,10 @@ export class ChatPanel {
     return ChatPanel.instance
   }
 
+  public dispose(): void {
+    this.panel.dispose()
+  }
+
   // Called every time the webview signals it is ready (including after reloads).
   // One-time setup (provider, store, turn history paths) is guarded by
   // this.initialised so it only runs once per panel lifetime. State delivery

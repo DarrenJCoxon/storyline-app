@@ -49,9 +49,9 @@ describe('POST /free-plan/issue', () => {
     expect(a.licenceKey).not.toBe(b.licenceKey)
   })
 
-  it('rate-limits a single IP after 10 issuances per day', async () => {
+  it('rate-limits a single IP after 30 issuances per day', async () => {
     const { env } = makeEnv()
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 30; i++) {
       const ok = await handleFreePlanIssue(makeReq('10.0.0.3'), env)
       expect(ok.status).toBe(200)
     }

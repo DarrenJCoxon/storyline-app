@@ -9,11 +9,12 @@ const FREE_PLAN_CREDITS = 250
  * by one user can't deplete another's free plan.
  */
 export async function handleFreePlanIssue(req: Request, env: Env): Promise<Response> {
-  // Rate limit per IP — 10 free plans per IP per day. Loose enough that
-  // household NATs, school networks, or genuine reinstalls don't get
-  // mistaken for abuse, but still tight enough to block scripted mass
-  // issuance from a single IP.
-  const rl = await checkRateLimit(req, env, { prefix: 'rl:free-issue', max: 10, windowSecs: 86400 })
+  // Rate limit per IP — 30 free plans per IP per day. Reset & start over
+  // mints a fresh key each click, and a user troubleshooting their first
+  // activation can easily hit 5-10 attempts. 30/day comfortably covers
+  // that plus household NATs / school networks, while still blocking
+  // scripted abuse from a single IP.
+  const rl = await checkRateLimit(req, env, { prefix: 'rl:free-issue', max: 30, windowSecs: 86400 })
   if (rl.limited) return rateLimitedResponse(rl.retryAfter)
 
   const licenceKey = generateFreeKey()

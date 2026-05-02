@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import * as path from 'path'
 import * as fs from 'fs'
 import { scaffoldProject } from './project-scaffold.js'
+import { ChatPanel } from '../panels/ChatPanel.js'
 
 /**
  * One-click forward into a working Storyline session — used by every
@@ -34,6 +35,20 @@ export async function postActivateOpenWorkspace(): Promise<void> {
       console.error('[Storyline] postActivate: scaffold failed', err)
     }
   }
+
+  // After Reset & start over, the user re-mints a free key and we re-open
+  // chat. The existing ChatPanel singleton holds turn history loaded from
+  // .storyline/conversation.json — if the previous activation got far
+  // enough to write any turns there, fireOpeningPrompt won't fire and the
+  // user sees no welcome message in the fresh chat. Wipe the conversation
+  // files and dispose the singleton so the next openPlanning gets a
+  // genuinely fresh state.
+  const convFile = path.join(projectDir, '.storyline', 'conversation.json')
+  const displayFile = path.join(projectDir, '.storyline', 'chat-display.json')
+  for (const f of [convFile, displayFile]) {
+    try { if (fs.existsSync(f)) fs.unlinkSync(f) } catch { /* non-fatal */ }
+  }
+  ChatPanel.current()?.dispose()
 
   const welcomeUri = vscode.Uri.file(path.join(projectDir, 'docs', 'welcome.md'))
   if (fs.existsSync(welcomeUri.fsPath)) {
