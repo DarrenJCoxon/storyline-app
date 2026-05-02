@@ -30,9 +30,30 @@ jobs:
           name: storyline-vsix
           path: extension/storyline.vsix
 
+  create-release:
+    name: Create GitHub Release
+    needs: build-vsix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Idempotent: if the release for this tag already exists (e.g. a
+      # previous failed run), softprops updates it instead of erroring.
+      # Pre-creating the release here removes the race where two matrix
+      # jobs (silicon + intel) both try to create it simultaneously and
+      # the loser fails with "already_exists" (this is what dropped the
+      # aarch64 DMG from v0.1.30).
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: 'Storyline ${{ github.ref_name }}'
+          body: 'Download the Storyline installer below.'
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
   build-macos:
     name: Build macOS (${{ matrix.arch }})
-    needs: build-vsix
+    needs: [build-vsix, create-release]
     runs-on: macos-latest
     strategy:
       matrix:
@@ -99,7 +120,7 @@ jobs:
 
   build-windows:
     name: Build Windows
-    needs: build-vsix
+    needs: [build-vsix, create-release]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,7 +154,7 @@ jobs:
 
   upload-vsix:
     name: Attach VSIX to Release
-    needs: [build-macos, build-vsix]
+    needs: [build-macos, build-vsix, create-release]
     runs-on: ubuntu-latest
     steps:
       - name: Download VSIX artifact
