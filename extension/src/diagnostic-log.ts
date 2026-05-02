@@ -1,4 +1,8 @@
-import * as vscode from 'vscode'
+// Type-only import — erased before bundling, so vitest doesn't try to
+// resolve the synthetic `vscode` module. The runtime reference is loaded
+// lazily inside `initDiagnosticLog` (see also: extension/src/ai/error-reporter.ts
+// which documents the same pattern).
+import type * as vscode from 'vscode'
 
 /**
  * Persistent output channel for Storyline diagnostics. Lives at
@@ -11,7 +15,13 @@ let channel: vscode.OutputChannel | undefined
 
 export function initDiagnosticLog(): vscode.OutputChannel {
   if (!channel) {
-    channel = vscode.window.createOutputChannel('Storyline')
+    // Lazy require: keeps unit tests (vitest) able to import this module
+    // transitively (via diagnostic-log → managed-provider → providers.test)
+    // without crashing on the unresolvable `vscode` module. Real extension
+    // activation always has the VS Code runtime, so this branch is hot.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const vscodeRuntime = require('vscode') as typeof import('vscode')
+    channel = vscodeRuntime.window.createOutputChannel('Storyline')
   }
   return channel
 }
