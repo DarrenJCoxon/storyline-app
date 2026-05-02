@@ -173,8 +173,15 @@ async function collectCollaborators(): Promise<string[]> {
   return [...set];
 }
 
+// Per-workspace flag — once the user clicks "Don't Ask Again" inside a
+// project, this project never prompts them again. They can still set up
+// GitHub sync in OTHER projects (a writer might back up a memoir to
+// GitHub but not a private journaling project, etc.), so this is
+// deliberately scoped to workspaceState, not globalState.
+const DECLINED_KEY = 'storyline.github.declinedConnect';
+
 // Used by extension activation to prompt the writer to set up sync if
-// they haven't yet. Non-blocking; one-shot per session.
+// they haven't yet. Non-blocking.
 export async function maybeOfferConnect(
   context: vscode.ExtensionContext,
   workspaceRoot: vscode.Uri,
@@ -187,6 +194,11 @@ export async function maybeOfferConnect(
     return;
   } catch { /* not configured, fine */ }
 
+  // Honour the user's previous "Don't Ask Again" for THIS project.
+  // The flag was being written on dismissal but never read here, so the
+  // prompt re-fired every workspace open. This single check is the fix.
+  if (context.workspaceState.get<boolean>(DECLINED_KEY)) return;
+
   const CONNECT = 'Connect GitHub';
   const LATER = 'Later';
   const NEVER = 'Don\'t Ask Again';
@@ -197,10 +209,10 @@ export async function maybeOfferConnect(
   if (choice === CONNECT) {
     await runConnectFlow(context, workspaceRoot, auth);
   } else if (choice === NEVER) {
-    await context.workspaceState.update('storyline.github.declinedConnect', true);
+    await context.workspaceState.update(DECLINED_KEY, true);
   }
 }
 
 export function hasDeclinedConnect(context: vscode.ExtensionContext): boolean {
-  return !!context.workspaceState.get<boolean>('storyline.github.declinedConnect');
+  return !!context.workspaceState.get<boolean>(DECLINED_KEY);
 }
