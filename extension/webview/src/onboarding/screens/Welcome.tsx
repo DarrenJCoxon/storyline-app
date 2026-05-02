@@ -43,9 +43,6 @@ export function Welcome({ onNavigate, onUseFree, onActivateKey, validating, vali
       <button onClick={() => onNavigate('buy-credits')} style={secondaryBtn}>
         Buy credits
       </button>
-      <button onClick={() => onNavigate('byok')} style={secondaryBtn}>
-        Bring your own AI key
-      </button>
 
       <div style={{ marginTop: '14px', textAlign: 'center' }}>
         <button

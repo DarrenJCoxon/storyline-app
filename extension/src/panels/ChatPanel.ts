@@ -25,8 +25,6 @@ import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
 const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
 import { ManagedProvider } from '../ai/managed-provider.js'
-import { BYOKProvider } from '../ai/byok-provider.js'
-import { OllamaProvider } from '../ai/ollama-provider.js'
 import type { AIProvider, Message } from '../ai/provider.js'
 import { getQualityMode } from '../ai/quality-config.js'
 
@@ -1103,28 +1101,13 @@ export class ChatPanel {
     return 'Custom'
   }
 
-  private async resolveProvider(licence?: { type: string; valid: boolean }): Promise<AIProvider> {
-    const info = licence ?? await this.licenceManager.validate({ useCache: true })
-
-    if (info.type === 'byok') {
-      const config = this.context.globalState.get<{ kind: 'anthropic' | 'openai'; baseUrl?: string }>('storyline.byokConfig')
-      const apiKey = await this.context.secrets.get('storyline.byokApiKey') ?? ''
-
-      if (config) {
-        return new BYOKProvider(
-          config.kind === 'anthropic'
-            ? { kind: 'anthropic', apiKey }
-            : { kind: 'openai', apiKey, baseUrl: config.baseUrl ?? 'https://api.openai.com/v1' },
-        )
-      }
-    }
-
-    const ollamaEnabled = this.context.globalState.get<boolean>('storyline.ollamaEnabled')
-    if (ollamaEnabled) {
-      const ollamaUrl = this.context.globalState.get<string>('storyline.ollamaUrl') ?? 'http://localhost:11434'
-      return new OllamaProvider(ollamaUrl)
-    }
-
+  private async resolveProvider(_licence?: { type: string; valid: boolean }): Promise<AIProvider> {
+    // BYOK and Ollama paths are disabled in this build — every chat call
+    // routes through the managed Cloudflare Worker. Stale BYOK/Ollama
+    // flags from earlier testing were silently sending chat to dead
+    // local endpoints whose failure messages happen to contain "401",
+    // tripping the "didn't recognise your free plan" error path. This
+    // forces the only known-good code path.
     return new ManagedProvider(getBackendUrl(), () => this.licenceManager.getLicenceKey())
   }
 

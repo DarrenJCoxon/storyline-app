@@ -109,6 +109,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
+  // BYOK / Ollama paths are disabled in this build. Wipe any stale flags
+  // from earlier testing so resolveProvider doesn't get tripped by them
+  // (the dead-endpoint failure messages contain "401" which used to
+  // route the user to the misleading "didn't recognise free plan" UI).
+  // Idempotent — no-op for users who never had these flags set.
+  void context.globalState.update('storyline.byokConfig', undefined)
+  void context.globalState.update('storyline.ollamaEnabled', undefined)
+  void context.globalState.update('storyline.ollamaUrl', undefined)
+  void context.secrets.delete('storyline.byokApiKey')
+
   // One-shot backfill: projects created before research/ existed don't have
   // the folder, so the AI silently has nothing to read. Auto-create on
   // activation if a Storyline project is detected. No-op if already there.
