@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
 import * as fs from 'fs'
+import { secretsGet } from '../utils/secrets-timeout.js'
 
 export async function shouldShowOnboarding(context: vscode.ExtensionContext): Promise<boolean> {
   const hasProject = hasStorylineProject()
@@ -16,7 +17,7 @@ function hasStorylineProject(): boolean {
 }
 
 async function hasAnyCredential(context: vscode.ExtensionContext): Promise<boolean> {
-  const key = await context.secrets.get('storyline.licenceKey')
+  const key = await secretsGet(context, 'storyline.licenceKey')
   if (key) return true
   const byok = context.globalState.get('storyline.byokConfig')
   if (byok) return true

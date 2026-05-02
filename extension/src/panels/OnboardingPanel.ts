@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import { scaffoldProject } from '../onboarding/project-scaffold.js'
 import { postActivateOpenWorkspace } from '../onboarding/post-activate.js'
+import { secretsStore } from '../utils/secrets-timeout.js'
 import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
@@ -187,7 +188,7 @@ export class OnboardingPanel {
             baseUrl: cfg.baseUrl,
           })
           if (cfg.apiKey) {
-            await this.context.secrets.store('storyline.byokApiKey', cfg.apiKey)
+            await secretsStore(this.context, 'storyline.byokApiKey', cfg.apiKey)
           }
         }
         break

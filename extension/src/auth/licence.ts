@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import { secretsGet, secretsStore, secretsDelete } from '../utils/secrets-timeout.js'
 
 const SECRET_KEY = 'storyline.licenceKey'
 const CACHE_KEY  = 'storyline.licenceCache'
@@ -31,15 +32,15 @@ export class LicenceManager {
   ) {}
 
   async getLicenceKey(): Promise<string | undefined> {
-    return this.context.secrets.get(SECRET_KEY)
+    return secretsGet(this.context, SECRET_KEY)
   }
 
   async setLicenceKey(key: string): Promise<void> {
-    await this.context.secrets.store(SECRET_KEY, key)
+    await secretsStore(this.context, SECRET_KEY, key)
   }
 
   async clearLicenceKey(): Promise<void> {
-    await this.context.secrets.delete(SECRET_KEY)
+    await secretsDelete(this.context, SECRET_KEY)
     this.context.globalState.update(CACHE_KEY, undefined)
   }
 

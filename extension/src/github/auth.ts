@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as https from 'https';
+import { secretsGet, secretsStore, secretsDelete } from '../utils/secrets-timeout.js';
 
 // GitHub Device Flow auth — no callback server needed in the extension.
 // We register an OAuth App on github.com and use its client_id (public,
@@ -49,11 +50,11 @@ export class GitHubAuth {
   constructor(private readonly context: vscode.ExtensionContext) {}
 
   async getToken(): Promise<string | null> {
-    return (await this.context.secrets.get(SECRET_KEY)) ?? null;
+    return (await secretsGet(this.context, SECRET_KEY)) ?? null;
   }
 
   async getStoredUser(): Promise<GitHubUser | null> {
-    const raw = await this.context.secrets.get(SECRET_USER_KEY);
+    const raw = await secretsGet(this.context, SECRET_USER_KEY);
     if (!raw) return null;
     try {
       return JSON.parse(raw) as GitHubUser;
@@ -67,8 +68,8 @@ export class GitHubAuth {
   }
 
   async disconnect(): Promise<void> {
-    await this.context.secrets.delete(SECRET_KEY);
-    await this.context.secrets.delete(SECRET_USER_KEY);
+    await secretsDelete(this.context, SECRET_KEY);
+    await secretsDelete(this.context, SECRET_USER_KEY);
   }
 
   // Full Device Flow: request a device code, show it to the user,
@@ -102,9 +103,9 @@ export class GitHubAuth {
     );
     if (!token) return null;
 
-    await this.context.secrets.store(SECRET_KEY, token);
+    await secretsStore(this.context, SECRET_KEY, token);
     const user = await fetchUser(token);
-    await this.context.secrets.store(SECRET_USER_KEY, JSON.stringify(user));
+    await secretsStore(this.context, SECRET_USER_KEY, JSON.stringify(user));
     return user;
   }
 

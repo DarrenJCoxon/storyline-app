@@ -30,4 +30,10 @@ cat ~/.vscode/extensions/extensions.json 2>/dev/null | \
 echo "6. Removing .storyline test dirs..."
 find ~/Documents/Codebases/tests -name ".storyline" -type d -exec rm -rf {} + 2>/dev/null || true
 
+# Windows Credential Manager cleanup (run from Git Bash / WSL)
+if command -v powershell.exe >/dev/null 2>&1; then
+  echo "7. Clearing Windows Credential Manager entries..."
+  powershell.exe -Command "Get-StoredCredential -Target '*storyline*' -ErrorAction SilentlyContinue | ForEach-Object { cmdkey /delete:$($_.TargetName) }" 2>/dev/null || true
+fi
+
 echo "Done. Now fully quit VS Code (Cmd+Q) and reinstall."

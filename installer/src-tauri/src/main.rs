@@ -10,8 +10,10 @@ fn vscode_present() -> bool {
     }
     #[cfg(target_os = "windows")]
     {
-        let base = std::env::var("LOCALAPPDATA").unwrap_or_default();
-        std::path::Path::new(&format!(r"{base}\Programs\Microsoft VS Code\Code.exe")).exists()
+        let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
+        std::path::Path::new(&format!(r"{local}\Programs\Microsoft VS Code\Code.exe")).exists()
+            || std::path::Path::new(&format!(r"{program_files}\Microsoft VS Code\Code.exe")).exists()
     }
     #[cfg(target_os = "linux")]
     {
@@ -129,8 +131,15 @@ fn vscode_cli() -> std::path::PathBuf {
     { std::path::PathBuf::from("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code") }
     #[cfg(target_os = "windows")]
     {
-        let base = std::env::var("LOCALAPPDATA").unwrap_or_default();
-        std::path::PathBuf::from(format!(r"{base}\Programs\Microsoft VS Code\bin\code.cmd"))
+        let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
+        let user_cli = format!(r"{local}\Programs\Microsoft VS Code\bin\code.cmd");
+        let system_cli = format!(r"{program_files}\Microsoft VS Code\bin\code.cmd");
+        if std::path::Path::new(&user_cli).exists() {
+            std::path::PathBuf::from(user_cli)
+        } else {
+            std::path::PathBuf::from(system_cli)
+        }
     }
     #[cfg(target_os = "linux")]
     { std::path::PathBuf::from("code") }

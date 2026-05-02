@@ -24,6 +24,7 @@ import { LicenceManager } from './auth/licence.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { LocalStore } from './state/local-store.js'
 import { checkForUpdate } from './update/auto-updater.js'
+import { secretsDelete } from './utils/secrets-timeout.js'
 
 function getBackendUrl(): string {
   return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
@@ -124,7 +125,7 @@ export function activate(context: vscode.ExtensionContext): void {
   void context.globalState.update('storyline.byokConfig', undefined)
   void context.globalState.update('storyline.ollamaEnabled', undefined)
   void context.globalState.update('storyline.ollamaUrl', undefined)
-  void context.secrets.delete('storyline.byokApiKey')
+  void secretsDelete(context, 'storyline.byokApiKey')
 
   // One-shot backfill: projects created before research/ existed don't have
   // the folder, so the AI silently has nothing to read. Auto-create on
@@ -398,7 +399,7 @@ export function activate(context: vscode.ExtensionContext): void {
       await context.globalState.update('storyline.byokConfig', undefined)
       await context.globalState.update('storyline.ollamaEnabled', undefined)
       await context.globalState.update('storyline.ollamaUrl', undefined)
-      await context.secrets.delete('storyline.byokApiKey')
+      await secretsDelete(context, 'storyline.byokApiKey')
       vscode.window.showInformationMessage('Storyline: activation cleared. Run "Storyline: Start a New Story" to start over.')
     }),
 

@@ -10,6 +10,7 @@ import { ManagedProvider } from '../ai/managed-provider.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
 import type { AIProvider } from '../ai/provider.js'
+import { secretsGet } from '../utils/secrets-timeout.js'
 
 function getBackendUrl(): string {
   return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
@@ -470,7 +471,7 @@ export class CoverPanel {
     const info = await this.licenceManager.validate({ useCache: true })
     if (info.type === 'byok') {
       const config = this.context.globalState.get<{ kind: 'anthropic' | 'openai'; baseUrl?: string }>('storyline.byokConfig')
-      const apiKey = await this.context.secrets.get('storyline.byokApiKey') ?? ''
+      const apiKey = await secretsGet(this.context, 'storyline.byokApiKey') ?? ''
       if (config) {
         return new BYOKProvider(
           config.kind === 'anthropic'
