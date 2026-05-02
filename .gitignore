@@ -16,6 +16,9 @@ node_modules/
 extension/dist/
 extension/storyline-extension-*.vsix
 
+# Worker bundle (rebuilt by wrangler deploy or local esbuild for dashboard uploads)
+backend/dist/
+
 # Generated output (root-level only — lib/output/ is source code)
 /output/
 

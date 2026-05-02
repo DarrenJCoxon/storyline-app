@@ -318,6 +318,18 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
+    vscode.commands.registerCommand('storyline.resetActivation', async () => {
+      const manager = new LicenceManager(context, getBackendUrl())
+      await manager.clearLicenceKey()
+      await manager.clearCache()
+      await context.globalState.update('storyline.freePlan', undefined)
+      await context.globalState.update('storyline.byokConfig', undefined)
+      await context.globalState.update('storyline.ollamaEnabled', undefined)
+      await context.globalState.update('storyline.ollamaUrl', undefined)
+      await context.secrets.delete('storyline.byokApiKey')
+      vscode.window.showInformationMessage('Storyline: activation cleared. Run "Storyline: Start a New Story" to start over.')
+    }),
+
     vscode.commands.registerCommand('storyline.doctor', async () => {
       const store = LocalStore.fromWorkspace()
       if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }

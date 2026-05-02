@@ -1,5 +1,6 @@
 import type { Env } from './types.js'
 import { handleValidate } from './validate.js'
+import { handleFreePlanIssue } from './free-plan.js'
 import { handleChat, handleAdminStats } from './chat.js'
 import { handleCritique } from './critique.js'
 import { handleIllustrate } from './illustrate.js'
@@ -44,6 +45,8 @@ export default {
     switch (pathname) {
       case '/validate':
         return handleValidate(req, env)
+      case '/free-plan/issue':
+        return handleFreePlanIssue(req, env)
       case '/chat':
         return handleChat(req, env)
       case '/critique':

@@ -1,14 +1,11 @@
 import * as vscode from 'vscode'
 import { scaffoldProject } from '../onboarding/project-scaffold.js'
 import { LicenceManager } from '../auth/licence.js'
+import { issueFreePlan } from '../auth/free-plan-issue.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
 
 const BACKEND_URL = 'https://api.storyline.my'
-
-// Hardcoded free-tier key — the Worker's KV must have this seeded with
-// { type: 'free', valid: true, creditBalance: 50, totalPurchased: 50 }
-export const FREE_LICENCE_KEY = 'SL-FREE-0000-0000-FREE'
 
 // One-time top-up Payment Links (no subscription product — credits only).
 const STRIPE_LINKS: Record<string, string> = {
@@ -196,19 +193,32 @@ export class OnboardingPanel {
       }
 
       case 'useFree': {
-        await this.licenceManager.setLicenceKey(FREE_LICENCE_KEY)
+        // Mint a per-install free key so each user has their own 250-credit
+        // pool. The backend creates a unique SL-FREE-XXXX-XXXX-XXXX record;
+        // we then validate it the same way as any other key.
+        console.log('[Storyline] useFree: handler entered')
         try {
+          console.log('[Storyline] useFree: calling /free-plan/issue at', BACKEND_URL)
+          const issued = await issueFreePlan(BACKEND_URL)
+          console.log('[Storyline] useFree: issued', issued.licenceKey, 'credits=', issued.creditBalance)
+          await this.licenceManager.setLicenceKey(issued.licenceKey)
           const info = await this.licenceManager.validate({})
+          console.log('[Storyline] useFree: validate result', info)
           if (info.valid) {
             await this.context.globalState.update('storyline.freePlan', { active: true })
             this.post({ type: 'validateResult', success: true, creditBalance: info.creditBalance })
           } else {
             await this.licenceManager.clearLicenceKey()
-            this.post({ type: 'validateResult', success: false, error: 'Free plan unavailable right now — please try again later or enter a licence key.' })
+            this.post({ type: 'validateResult', success: false, error: 'Free plan activation failed — please try again or enter a licence key.' })
           }
-        } catch {
+        } catch (err) {
+          console.error('[Storyline] useFree: failed', err)
           await this.licenceManager.clearLicenceKey()
-          this.post({ type: 'validateResult', success: false, error: 'Could not reach activation server. Check your connection.' })
+          const raw = err instanceof Error ? err.message : String(err)
+          const message = /429/.test(raw)
+            ? 'Free plan limit reached for this network. Please try again later or enter a licence key.'
+            : `Could not reach activation server: ${raw}`
+          this.post({ type: 'validateResult', success: false, error: message })
         }
         break
       }

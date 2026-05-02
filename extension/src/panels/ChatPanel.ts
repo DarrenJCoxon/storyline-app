@@ -20,7 +20,9 @@ import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequest
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
-import { FREE_LICENCE_KEY } from '../panels/OnboardingPanel.js'
+// Free-tier keys are minted server-side per install and all begin with
+// SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
+const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
 import { ManagedProvider } from '../ai/managed-provider.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
@@ -118,19 +120,21 @@ export class ChatPanel {
         this.turnHistory.setDisplayStorePath(path.join(workspaceFolder, '.storyline', 'chat-display.json'))
       }
 
+      const storedKey = await this.licenceManager.getLicenceKey()
+      console.log('[Storyline] ChatPanel.init: stored key prefix =', storedKey?.slice(0, 12) ?? '(none)')
       const licenceInfo = await this.licenceManager.validate({ useCache: false })
+      console.log('[Storyline] ChatPanel.init: validate =', licenceInfo)
       this.provider = await this.resolveProvider(licenceInfo)
 
       // If validation returned invalid AND the user has a stored key, the key
       // needs re-activation (expired, backend reset, etc.). Surface a friendly
       // prompt here rather than letting the opening AI call fail with a 401.
-      if (!licenceInfo.valid && await this.licenceManager.getLicenceKey()) {
-        const key = await this.licenceManager.getLicenceKey()
-        const isFree = key === FREE_LICENCE_KEY
+      if (!licenceInfo.valid && storedKey) {
+        const isFree = isFreeKey(storedKey)
         this.post({
           type: 'streamError',
           message: isFree
-            ? 'Free plan is unavailable right now. Please try again later, or run "Storyline: Enter Licence Key" to activate with a paid key.'
+            ? `Free plan key ${storedKey.slice(0, 12)}… isn't valid. Run "Storyline: Reset Activation" then click Start free again.`
             : 'Unable to verify your Storyline licence. Run "Storyline: Enter Licence Key" to re-activate.',
         })
         return
@@ -1040,7 +1044,7 @@ export class ChatPanel {
       } else if (msg.includes('401') || /invalid licence|invalid license/i.test(msg)) {
         await this.licenceManager.clearCache()
         const key = await this.licenceManager.getLicenceKey()
-        const isFree = key === FREE_LICENCE_KEY
+        const isFree = isFreeKey(key)
         this.post({
           type: 'streamError',
           message: isFree

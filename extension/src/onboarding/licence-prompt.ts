@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { LicenceManager } from '../auth/licence.js'
-import { FREE_LICENCE_KEY } from '../panels/OnboardingPanel.js'
+import { issueFreePlan } from '../auth/free-plan-issue.js'
 
 const SNOOZE_KEY = 'storyline.licencePromptSnoozedUntil'
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000 // 3 days
@@ -16,7 +16,7 @@ export async function checkLicencePrompt(
   const snoozedUntil = context.globalState.get<number>(SNOOZE_KEY, 0)
   if (Date.now() < snoozedUntil) return
 
-  await showKeyPrompt(context, manager)
+  await showKeyPrompt(context, manager, backendUrl)
 }
 
 /** Call this when the backend returns 402 / creditsExhausted */
@@ -28,7 +28,7 @@ export async function promptOnCreditsExhausted(
   const key = await manager.getLicenceKey()
 
   if (!key) {
-    await showKeyPrompt(context, manager)
+    await showKeyPrompt(context, manager, backendUrl)
     return
   }
 
@@ -45,6 +45,7 @@ export async function promptOnCreditsExhausted(
 async function showKeyPrompt(
   context: vscode.ExtensionContext,
   manager: LicenceManager,
+  backendUrl: string,
 ): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
     'Welcome to Storyline! Start with one free book plan, or enter a licence key.',
@@ -56,27 +57,40 @@ async function showKeyPrompt(
   if (choice === 'Enter Licence Key') {
     await promptForKey(context, manager)
   } else if (choice === 'Start free plan') {
-    // Auto-activate the seeded free-tier key. The Worker's KV holds an entry
-    // for SL-FREE-0000-0000-FREE granting a credit pool sized to cover one
-    // complete planning run (chat + critique). Image generation is blocked
-    // server-side regardless of remaining credits.
-    await manager.setLicenceKey(FREE_LICENCE_KEY)
-    const info = await manager.validate({})
-    if (info.valid) {
-      await context.globalState.update(SNOOZE_KEY, undefined)
-      await context.globalState.update('storyline.freePlan', { active: true })
-      void vscode.window.showInformationMessage(
-        `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Image generation requires paid credits; top up any time.`,
-      )
-    } else {
-      // KV not seeded — clear so we don't lock the user into a dead key.
+    console.log('[Storyline] licence-prompt: Start free plan chosen — calling /free-plan/issue at', backendUrl)
+    try {
+      const issued = await issueFreePlan(backendUrl)
+      console.log('[Storyline] licence-prompt: issued', issued.licenceKey, 'credits=', issued.creditBalance)
+      await manager.setLicenceKey(issued.licenceKey)
+      const info = await manager.validate({})
+      console.log('[Storyline] licence-prompt: validate result', info)
+      if (info.valid) {
+        await context.globalState.update(SNOOZE_KEY, undefined)
+        await context.globalState.update('storyline.freePlan', { active: true })
+        // One-click forward: open the planning chat (or scaffold first if the
+        // workspace doesn't have a Storyline project yet). storyline.openPlanning
+        // diverts to storyline.startNew automatically when no .storyline/state.json
+        // exists, so this single call handles both fresh and returning users.
+        void vscode.window.showInformationMessage(
+          `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
+        )
+        await vscode.commands.executeCommand('storyline.openPlanning')
+      } else {
+        await manager.clearLicenceKey()
+        void vscode.window.showErrorMessage(
+          `Free plan activation failed: ${info.type}/${info.creditBalance} — please try again or enter a licence key.`,
+        )
+      }
+    } catch (err) {
+      console.error('[Storyline] licence-prompt: failed', err)
       await manager.clearLicenceKey()
-      void vscode.window.showErrorMessage(
-        "Free plan unavailable right now — please try again later or enter a licence key.",
-      )
+      const raw = err instanceof Error ? err.message : String(err)
+      const message = /429/.test(raw)
+        ? 'Free plan limit reached for this network. Please try again later or enter a licence key.'
+        : `Could not reach activation server: ${raw}`
+      void vscode.window.showErrorMessage(message)
     }
   }
-  // Dismissed without choosing → show again next session
 }
 
 async function promptForKey(
@@ -98,8 +112,9 @@ async function promptForKey(
   if (info.valid) {
     await context.globalState.update(SNOOZE_KEY, undefined)
     void vscode.window.showInformationMessage(
-      `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready.`,
+      `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
     )
+    await vscode.commands.executeCommand('storyline.openPlanning')
   } else {
     await manager.clearLicenceKey()
     void vscode.window.showErrorMessage(
