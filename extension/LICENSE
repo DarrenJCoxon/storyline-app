@@ -1,0 +1,80 @@
+Storyline — Proprietary Software Licence
+
+Copyright (c) 2026 Darren Coxon. All rights reserved.
+
+This software, including its source code, build artefacts, documentation, and
+all associated materials (collectively, the "Software"), is the proprietary and
+confidential property of Darren Coxon ("Licensor"). The Software is licensed,
+not sold.
+
+1. Grant of licence
+
+   Licensor grants you a personal, non-exclusive, non-transferable, revocable
+   licence to install and use the Software solely for its intended purpose
+   (planning and writing your own creative work) on devices you control, subject
+   to the terms below.
+
+2. Restrictions
+
+   You may NOT, without prior written permission from Licensor:
+
+     (a) copy, redistribute, sublicense, sell, lease, rent, lend, host, or
+         otherwise make the Software available to any third party;
+
+     (b) modify, adapt, translate, port, or create derivative works based on
+         the Software, in whole or in part;
+
+     (c) reverse engineer, decompile, disassemble, or otherwise attempt to
+         derive the source code, algorithms, or internal structure of the
+         Software (except to the extent this restriction is prohibited by
+         applicable law);
+
+     (d) remove, obscure, or alter any proprietary notices, branding, or
+         licence terms contained in the Software;
+
+     (e) use the Software, or any output produced via Storyline's managed AI
+         services, to train or fine-tune any machine learning model;
+
+     (f) use the Software to provide a competing service, whether as a hosted
+         offering, redistributed package, or otherwise.
+
+3. Reservation of rights
+
+   All rights not expressly granted in this licence are reserved by Licensor.
+   No rights are granted by implication, estoppel, or otherwise.
+
+4. Third-party components
+
+   The Software may incorporate third-party open-source components, each of
+   which remains governed by its own licence. Those licences continue to apply
+   only to those individual components, not to the Software as a whole.
+
+5. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF
+   ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+6. Limitation of liability
+
+   IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+7. Termination
+
+   This licence terminates automatically if you breach any of its terms. On
+   termination you must cease all use of the Software and destroy all copies
+   in your possession.
+
+8. Governing law
+
+   This licence is governed by the laws of England and Wales, without regard
+   to its conflict of laws provisions.
+
+For permissions beyond the scope of this licence — including commercial
+redistribution, OEM bundling, or source access — contact:
+
+  Darren Coxon
+  coxondj@gmail.com
