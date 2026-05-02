@@ -12,10 +12,10 @@ export default function HomePage() {
         </h1>
         <p className={styles.tagline}>Plan your book. Write your story.</p>
         <p className={styles.heroLede}>
-          Storyline is a complete environment for novelists — from your first idea to a
-          finished, illustrated book. Plan with proven story structure, draft in a
-          distraction-free editor, generate covers and interior images, and compile to
-          professional EPUB and PDF. All in one place.
+          A complete environment for writing books — fiction or non-fiction. Plan with
+          proven structure, draft in a distraction-free editor, generate covers and
+          interior images, and compile to professional EPUB and PDF. From first idea
+          to finished book, in one place.
         </p>
 
         <div className={styles.heroCta}>
@@ -23,81 +23,116 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── End-to-end pitch ─────────────────────────────────── */}
+      {/* ── End-to-end column flow ───────────────────────────── */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>From blank page to finished book</h2>
         <p className={styles.sectionLede}>
-          Most novelists juggle four or five tools — a planning doc, a writing app, an
-          image generator, an EPUB converter. Storyline replaces all of them with a
-          single environment built around the way novels are actually made.
+          Most writers juggle four or five tools — a planning doc, a writing app, an
+          image generator, an EPUB converter. Storyline replaces all of them with one
+          environment built around the way books are actually made.
         </p>
-        <ol className={styles.flow}>
-          <li>
+        <div className={styles.flowGrid}>
+          <article className={styles.flowCard}>
             <span className={styles.flowNum}>01</span>
-            <div>
-              <strong>Plan</strong> — work through 14 conversational stages with an AI
-              planning partner trained on Save the Cat story structure.
-            </div>
-          </li>
-          <li>
+            <h3 className={styles.flowTitle}>Plan</h3>
+            <p>
+              Conversational planning with an AI partner trained on Save the Cat for
+              fiction, and structured frameworks for memoir, how-to, history and other
+              non-fiction.
+            </p>
+          </article>
+          <article className={styles.flowCard}>
             <span className={styles.flowNum}>02</span>
-            <div>
-              <strong>Write</strong> — draft chapters in a distraction-free rich editor.
-              Files stay as plain markdown on your disk.
-            </div>
-          </li>
-          <li>
+            <h3 className={styles.flowTitle}>Write</h3>
+            <p>
+              Draft chapters in a distraction-free rich editor. Files stay as plain
+              markdown on your disk — yours forever.
+            </p>
+          </article>
+          <article className={styles.flowCard}>
             <span className={styles.flowNum}>03</span>
-            <div>
-              <strong>Illustrate</strong> — generate book covers and interior
-              illustrations with AI, styled to your story.
-            </div>
-          </li>
-          <li>
+            <h3 className={styles.flowTitle}>Illustrate</h3>
+            <p>
+              Generate book covers and interior illustrations with AI, styled to match
+              your story or subject.
+            </p>
+          </article>
+          <article className={styles.flowCard}>
             <span className={styles.flowNum}>04</span>
-            <div>
-              <strong>Compile</strong> — export a professional-grade EPUB or print-ready
-              PDF, with live preview as paperback, iPad and Kindle.
-            </div>
-          </li>
-        </ol>
+            <h3 className={styles.flowTitle}>Compile</h3>
+            <p>
+              Export a professional-grade EPUB or print-ready PDF, with live preview as
+              paperback, iPad and Kindle.
+            </p>
+          </article>
+        </div>
       </section>
 
       {/* ── Pillar 1: Plan ───────────────────────────────────── */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Plan with Save the Cat</h2>
+        <h2 className={styles.sectionTitle}>Plan with proven structure</h2>
         <p className={styles.sectionLede}>
-          Storyline uses Blake Snyder’s 15-beat structure — the same framework behind
-          countless bestselling novels and screenplays. You walk through 14 planning
-          stages in conversation, never staring at a blank template.
+          Whether you’re writing a novel, a memoir, a how-to, or narrative non-fiction,
+          Storyline gives you a structured planning conversation matched to your form —
+          never a blank template.
         </p>
-        <ul className={styles.featureList}>
-          <li>
-            <strong>Genre-aware variants</strong> — Buddy Love, Whydunit, Golden Fleece,
-            and seven more, each with structure tuned to its conventions.
-          </li>
-          <li>
-            <strong>Character-first</strong> — protagonist and supporting cast built
-            before the beat sheet, so plot serves character, not the other way round.
-          </li>
-          <li>
-            <strong>AI critique at every stage</strong> — flags structural issues,
-            pacing risks and consistency drift before they reach the page.
-          </li>
-          <li>
-            <strong>Two-pass scene outline</strong> — high-level approved first, then
-            chapter-by-chapter flesh-out with goal, obstacle, stakes and turn.
-          </li>
-        </ul>
+        <div className={styles.twoCol}>
+          <div className={styles.colCard}>
+            <h3 className={styles.colCardTitle}>Fiction</h3>
+            <ul className={styles.featureList}>
+              <li>
+                <strong>Save the Cat 15-beat structure</strong> — the framework behind
+                countless bestselling novels and screenplays.
+              </li>
+              <li>
+                <strong>Genre variants</strong> — Buddy Love, Whydunit, Golden Fleece
+                and seven more, each tuned to genre conventions.
+              </li>
+              <li>
+                <strong>Character-first</strong> — protagonist and supporting cast
+                built before the beat sheet, so plot serves character.
+              </li>
+              <li>
+                <strong>Two-pass scene outline</strong> — high-level approved first,
+                then chapter-by-chapter with goal, obstacle, stakes and turn.
+              </li>
+            </ul>
+          </div>
+          <div className={styles.colCard}>
+            <h3 className={styles.colCardTitle}>Non-fiction</h3>
+            <ul className={styles.featureList}>
+              <li>
+                <strong>Book DNA</strong> — premise, audience, promise and through-line
+                defined before you write a word.
+              </li>
+              <li>
+                <strong>Form-aware pipelines</strong> — different planning paths for
+                memoir / narrative, how-to / curriculum, and history / journalism.
+              </li>
+              <li>
+                <strong>Sourcing register</strong> — track every claim back to its
+                source, with a verification status on each one.
+              </li>
+              <li>
+                <strong>Timeline tools</strong> — chronologies, skill trees and
+                progression structures for the books that need them.
+              </li>
+            </ul>
+          </div>
+        </div>
+        <p className={styles.featureFooter}>
+          AI critique runs at every stage — flagging structural issues, pacing risks
+          and consistency drift before they reach the page.
+        </p>
       </section>
 
       {/* ── Pillar 2: Write ──────────────────────────────────── */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>A writing surface built for novelists</h2>
+        <h2 className={styles.sectionTitle}>A writing surface built for books</h2>
         <p className={styles.sectionLede}>
           Markdown on disk, rich-text experience on screen. Your prose lives in plain
           files you own forever, edited through an interface designed for long-form
-          fiction.
+          writing — fiction or non-fiction.
         </p>
         <ul className={styles.featureList}>
           <li>
@@ -113,8 +148,8 @@ export default function HomePage() {
             from the plan, Storyline tells you where and why.
           </li>
           <li>
-            <strong>Research panel</strong> — capture sources, link them to scenes and
-            chapters, see what backs every claim.
+            <strong>Research panel</strong> — capture sources, link them to chapters
+            and scenes, see what backs every claim.
           </li>
           <li>
             <strong>GitHub auto-sync</strong> — every save is backed up to a private
@@ -128,17 +163,17 @@ export default function HomePage() {
         <h2 className={styles.sectionTitle}>Illustrate without leaving the app</h2>
         <p className={styles.sectionLede}>
           Generate the visual layer of your book inside the same workspace where you
-          plan and write — book covers and interior illustrations, both grounded in the
-          characters and scenes you’ve already defined.
+          plan and write — covers, chapter art, diagrams, character portraits — all
+          grounded in the work you’ve already defined.
         </p>
         <ul className={styles.featureList}>
           <li>
             <strong>Book covers</strong> — front, back and spine with title, author and
-            blurb, generated from your premise and genre.
+            blurb, generated from your premise and genre or subject.
           </li>
           <li>
-            <strong>Chapter illustrations</strong> — visualise key scenes with prompts
-            that draw automatically from your scene outline.
+            <strong>Chapter illustrations</strong> — visualise key scenes or concepts
+            with prompts that draw automatically from your outline.
           </li>
           <li>
             <strong>Style-locked output</strong> — keep visual consistency across every
@@ -178,7 +213,7 @@ export default function HomePage() {
           <div className={styles.diff}>
             <h3 className={styles.diffTitle}>Plan and write in one place</h3>
             <p>
-              No exporting a beat sheet from one app and pasting it into another. The
+              No exporting an outline from one app and pasting it into another. The
               plan is right next to the draft, always.
             </p>
           </div>

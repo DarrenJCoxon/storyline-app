@@ -1,5 +1,5 @@
 .main {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 64px 24px 48px;
   width: 100%;
@@ -37,7 +37,7 @@
 }
 
 .heroLede {
-  max-width: 540px;
+  max-width: 580px;
   margin: 0 auto 36px;
   font-size: 16px;
   line-height: 1.65;
@@ -72,42 +72,81 @@
   line-height: 1.7;
   color: var(--text);
   opacity: 0.85;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  max-width: 720px;
 }
 
-/* ── End-to-end flow ────────────────────────────────────── */
-.flow {
-  list-style: none;
+/* ── End-to-end column flow ─────────────────────────────── */
+.flowGrid {
   display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
+  margin-top: 8px;
 }
 
-.flow li {
-  display: flex;
-  gap: 16px;
-  align-items: baseline;
-  padding: 14px 18px;
+.flowCard {
+  padding: 22px 18px;
   background: var(--chat-rail-bg);
   border: 1px solid var(--sep);
   border-radius: var(--radius-card);
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text);
-  opacity: 0.9;
-}
-
-.flow li strong {
-  color: var(--accent);
-  font-weight: 600;
+  display: flex;
+  flex-direction: column;
 }
 
 .flowNum {
   font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: 20px;
   color: var(--accent);
   letter-spacing: 0.02em;
-  flex-shrink: 0;
-  min-width: 28px;
+  margin-bottom: 10px;
+}
+
+.flowTitle {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.flowCard p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  opacity: 0.8;
+  margin: 0;
+}
+
+/* ── Two-column (Fiction / Non-fiction) ─────────────────── */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.colCard {
+  padding: 22px 22px 20px;
+  background: var(--chat-rail-bg);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-card);
+}
+
+.colCardTitle {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--accent);
+  margin-bottom: 14px;
+  letter-spacing: -0.005em;
+}
+
+.featureFooter {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ── Feature lists ──────────────────────────────────────── */
@@ -115,14 +154,14 @@
   list-style: none;
   display: grid;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .featureList li {
   position: relative;
-  padding-left: 20px;
-  font-size: 14px;
-  line-height: 1.65;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
   color: var(--text);
   opacity: 0.85;
 }
@@ -131,9 +170,9 @@
   content: '';
   position: absolute;
   left: 0;
-  top: 0.7em;
-  width: 6px;
-  height: 6px;
+  top: 0.65em;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent);
 }
@@ -142,6 +181,17 @@
   color: var(--text);
   opacity: 1;
   font-weight: 600;
+}
+
+/* Top-level (outside col cards) feature lists get the larger size */
+.section > .featureList li {
+  font-size: 14px;
+  padding-left: 20px;
+}
+.section > .featureList li::before {
+  width: 6px;
+  height: 6px;
+  top: 0.7em;
 }
 
 /* ── Differentiators grid ───────────────────────────────── */
@@ -229,6 +279,12 @@
 }
 
 /* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 880px) {
+  .flowGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .main {
     padding: 40px 18px 32px;
@@ -244,6 +300,12 @@
   }
   .ctaTitle {
     font-size: 24px;
+  }
+  .flowGrid {
+    grid-template-columns: 1fr;
+  }
+  .twoCol {
+    grid-template-columns: 1fr;
   }
   .diffGrid {
     grid-template-columns: 1fr;
