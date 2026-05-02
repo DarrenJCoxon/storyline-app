@@ -5,7 +5,8 @@ export interface FreePlanIssueResult {
 
 /**
  * Request a per-install free-tier licence from the backend. Each call mints
- * a new unique SL-FREE-XXXX-XXXX-XXXX key with its own 250-credit pool.
+ * a new unique SL-FREE-XXXX-XXXX-XXXX key with its own credit pool (size
+ * controlled by FREE_PLAN_CREDITS in backend/src/free-plan.ts).
  * Throws on network failure or non-2xx response.
  */
 export async function issueFreePlan(backendUrl: string): Promise<FreePlanIssueResult> {

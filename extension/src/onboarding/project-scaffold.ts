@@ -149,7 +149,7 @@ Ready when you are. Delete this placeholder and write your opening.
 
 const WELCOME_DOC = `# Welcome to Storyline
 
-You're in. Your free plan is active (250 credits) and the **planning chat** has opened on the right. The chat will walk you through your book one stage at a time — start by typing a few words about what you want to write, and the AI will pick up from there.
+You're in. Your free plan is active (150 credits) and the **planning chat** has opened on the right. The chat will walk you through your book one stage at a time — start by typing a few words about what you want to write, and the AI will pick up from there.
 
 ## How Storyline works
 
@@ -182,9 +182,9 @@ Press \`Cmd+Shift+P\` (Mac) or \`Ctrl+Shift+P\` (Windows) and type:
 
 ## Free plan limits
 
-- 250 credits cover one full book plan with critique (typically 14 stages × 1 chat each).
+- 150 credits cover one full book plan with critique (typically 14 stages × 1 chat each).
 - Image generation always requires paid credits; it's never on the free plan.
-- The free plan is per install. Reinstalling on the same machine will not give you a fresh 250 credits — that's by design.
+- The free plan is per install. Reinstalling on the same machine will not give you a fresh 150 credits — that's by design.
 
 ## Tips
 

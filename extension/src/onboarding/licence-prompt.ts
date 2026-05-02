@@ -49,7 +49,7 @@ async function showKeyPrompt(
   backendUrl: string,
 ): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
-    'Welcome to Storyline! Start with one free book plan (250 credits), or enter a licence key. By continuing you accept the Terms and Privacy Policy.',
+    'Welcome to Storyline! Start with one free book plan (150 credits), or enter a licence key. By continuing you accept the Terms and Privacy Policy.',
     { modal: false },
     'Start free plan',
     'Enter Licence Key',

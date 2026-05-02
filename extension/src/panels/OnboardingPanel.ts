@@ -195,8 +195,9 @@ export class OnboardingPanel {
       }
 
       case 'useFree': {
-        // Mint a per-install free key so each user has their own 250-credit
-        // pool. The backend creates a unique SL-FREE-XXXX-XXXX-XXXX record;
+        // Mint a per-install free key so each user has their own credit
+        // pool (size set by FREE_PLAN_CREDITS in backend/src/free-plan.ts).
+        // The backend creates a unique SL-FREE-XXXX-XXXX-XXXX record;
         // we then validate it the same way as any other key. On success this
         // is a one-click flow — we scaffold the project (using the workspace
         // folder name), dispose this panel, and open the planning chat plus

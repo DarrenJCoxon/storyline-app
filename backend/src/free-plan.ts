@@ -1,12 +1,18 @@
 import type { Env, LicenceRecord } from './types.js'
 import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 
-const FREE_PLAN_CREDITS = 250
+// 150 is the "finish one complete book plan, then hit the wall" sweet spot.
+// A typical 14-stage plan runs ~70-140 chat turns at 1 credit each, so 150
+// lets users finish one plan and feel the value, without enough left over
+// to start a second free book — preserving the natural conversion trigger.
+// Earlier 250 allowed a full second plan before hitting the wall, which
+// blunted conversion pressure.
+const FREE_PLAN_CREDITS = 150
 
 /**
  * Mint a per-install free-tier licence. Each first-run user gets their own
- * unique SL-FREE-XXXX-XXXX-XXXX key with its own 250-credit pool, so usage
- * by one user can't deplete another's free plan.
+ * unique SL-FREE-XXXX-XXXX-XXXX key with its own credit pool (FREE_PLAN_CREDITS
+ * above), so usage by one user can't deplete another's free plan.
  */
 export async function handleFreePlanIssue(req: Request, env: Env): Promise<Response> {
   // Rate limit per IP — 30 free plans per IP per day. Reset & start over

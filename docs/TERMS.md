@@ -24,7 +24,7 @@ compromised, email **coxondj@gmail.com** so we can revoke and reissue it.
 
 ## 3. Free plan, credits, and billing
 
-3.1. **Free plan.** New users may activate one free plan giving 250 credits, at
+3.1. **Free plan.** New users may activate one free plan giving 150 credits, at
 our sole discretion and subject to anti-abuse rate limits. The free plan does
 not include image generation, which always requires paid credits.
 
