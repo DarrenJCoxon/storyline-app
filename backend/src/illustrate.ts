@@ -7,12 +7,24 @@ const CORS = {
   'Access-Control-Allow-Headers': 'content-type',
 }
 
+// Credit costs sized for ~80% gross margin against Pack A post-Stripe
+// revenue (£9.99 / 1,000 credits, ~1.5%+£0.20 fees ≈ $0.0121/credit net),
+// which is the more common pack. Cost basis is OpenAI's per-image price
+// for the aspect ratios we actually generate at — 1024×1536 / 1536×1024,
+// NOT square 1024×1024 — so these are the realistic worst-case costs.
+//   Low    cost ~$0.016 → revenue $0.097 (8 cr × $0.0121)  → 84% margin
+//   Medium cost ~$0.063 → revenue $0.387 (32 cr × $0.0121) → 84% margin
+//   High   cost ~$0.250 → revenue $1.210 (100 cr × $0.0121) → 80% margin
+// Note: a full book-cover generation fires TWO /illustrate calls (front +
+// back), so a complete cover at "high" actually charges 200 credits ≈
+// $2.42 against $0.50 of OpenAI cost — same 80% margin, larger envelope.
+// Pack B buyers (lower revenue per credit) get ~74-75% on these tiers.
 const CREDITS_BY_QUALITY: Record<'low' | 'medium' | 'high', number> = {
-  low: 5,      // ~$0.011 per image — character portraits, refs, ornaments
-  medium: 15,  // ~$0.042 per image — chapter headers, maps, in-book illustrations
-  high: 40,    // ~$0.17 per image — book covers only
+  low: 8,       // ~$0.016 raw — character portraits, refs, ornaments
+  medium: 32,   // ~$0.063 raw — chapter headers, maps, in-book illustrations
+  high: 100,    // ~$0.25 raw  — single cover face (front or back)
 }
-const IMAGE_CREDIT_COST = 40 // default for backward compat (cover)
+const IMAGE_CREDIT_COST = 100 // default for backward compat (cover)
 
 export async function handleIllustrate(req: Request, env: Env): Promise<Response> {
   let body: IllustrateRequest

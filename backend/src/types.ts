@@ -49,7 +49,9 @@ export interface IllustrateRequest {
   size?: string
   /** Aspect ratio hint for models that take it (e.g. "2:3", "1:1"). */
   aspectRatio?: string
-  /** Quality tier — controls model spend. low ≈ $0.011, medium ≈ $0.042, high ≈ $0.17 per image. */
+  /** Quality tier — controls model spend. At 1024×1536 / 1536×1024 (the
+   *  aspects we actually use): low ≈ $0.016, medium ≈ $0.063, high ≈ $0.25
+   *  per image. (Square 1024×1024 is ~⅔ of these.) */
   quality?: 'low' | 'medium' | 'high'
   /** Single reference image (e.g. front cover used as ref for the back cover). */
   referenceImageBase64?: string

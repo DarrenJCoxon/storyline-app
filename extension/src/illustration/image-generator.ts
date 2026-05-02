@@ -14,10 +14,13 @@ export interface GenerateImageOptions {
   aspectRatio?: string
   /** Generation size sent to the model (e.g. "1024x1536"). */
   generationSize?: string
-  /** Quality tier — drives model spend.
-   *   low    ≈ $0.011 / 5 credits   character refs, ornaments, mood
-   *   medium ≈ $0.042 / 15 credits  chapter headers, maps, illustrations
-   *   high   ≈ $0.17  / 40 credits  book cover only */
+  /** Quality tier — drives model spend. Costs below are for the 1024×1536
+   *  / 1536×1024 aspect ratios we actually generate at (NOT square). A
+   *  full book-cover generation fires TWO calls (front + back), so a
+   *  complete "high" cover charges 200 credits in total.
+   *   low    ≈ $0.016 /   8 credits   character refs, ornaments, mood
+   *   medium ≈ $0.063 /  32 credits   chapter headers, maps, illustrations
+   *   high   ≈ $0.25  / 100 credits   single cover face (front or back) */
   quality?: 'low' | 'medium' | 'high'
   /** Single ref (legacy — used by back-cover-from-front continuity). */
   referenceImagePath?: string
@@ -49,10 +52,13 @@ export const COVER_GEN_W = 1024
 export const COVER_GEN_H = 1536
 export const COVER_ASPECT_RATIO = '2:3'
 
-// Per-quality credit cost — must match the backend's CREDITS_BY_QUALITY map.
-export const CREDITS_LOW    = 5
-export const CREDITS_MEDIUM = 15
-export const CREDITS_HIGH   = 40
+// Per-quality credit cost — MUST match backend/src/illustrate.ts
+// CREDITS_BY_QUALITY exactly. Sized for ~80% margin against Pack A post-
+// Stripe revenue. Covers fire two /illustrate calls (front + back), so a
+// complete cover bills 200 credits at high quality.
+export const CREDITS_LOW    = 8
+export const CREDITS_MEDIUM = 32
+export const CREDITS_HIGH   = 100
 /** @deprecated use CREDITS_HIGH directly when referring to cover cost. */
 export const IMAGE_CREDIT_COST = CREDITS_HIGH
 

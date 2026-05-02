@@ -191,7 +191,7 @@ const TYPES: IllustrationType[] = [
   },
 ]
 
-const CREDITS_BY_QUALITY: Record<'low' | 'medium' | 'high', number> = { low: 5, medium: 15, high: 40 }
+const CREDITS_BY_QUALITY: Record<'low' | 'medium' | 'high', number> = { low: 8, medium: 32, high: 100 }
 
 export function App(): JSX.Element {
   const [s, dispatch] = useReducer(reduce, INITIAL)
@@ -341,9 +341,9 @@ export function App(): JSX.Element {
               onChange={e => setQualityOverride(e.target.value as 'low' | 'medium' | 'high')}
               disabled={s.generating}
             >
-              <option value="low">Low — 5 credits</option>
-              <option value="medium">Medium — 15 credits</option>
-              <option value="high">High — 40 credits</option>
+              <option value="low">Low — 8 credits</option>
+              <option value="medium">Medium — 32 credits</option>
+              <option value="high">High — 100 credits</option>
             </select>
           </div>
           {(s.refs.length > 0 || s.styleBible.characters.length > 0) && (
