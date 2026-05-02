@@ -1,0 +1,100 @@
+.main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 80px 24px 48px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.title {
+  font-size: 56px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+
+.tagline {
+  font-size: 19px;
+  color: var(--ink-soft);
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.sectionTitle {
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+
+.steps {
+  margin-top: 64px;
+}
+
+.stepList {
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  gap: 16px;
+}
+
+.stepList li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 44px;
+  color: var(--ink-soft);
+}
+
+.stepList li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stepList strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.footer {
+  margin-top: 80px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.link {
+  color: var(--accent);
+  border-bottom: 1px solid currentColor;
+}
+
+.link:hover {
+  color: var(--accent-hover);
+}
+
+@media (max-width: 600px) {
+  .main {
+    padding: 48px 20px 32px;
+  }
+  .title {
+    font-size: 44px;
+  }
+  .tagline {
+    font-size: 17px;
+  }
+}

@@ -1,0 +1,106 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+}
+
+.primary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--accent);
+  color: white;
+  padding: 20px 32px;
+  border-radius: 8px;
+  text-align: center;
+  transition: background 0.15s ease;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.primaryLabel {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.primarySub {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+.toggle {
+  display: block;
+  margin: 16px auto 0;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.toggle:hover {
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.fallback {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.fallbackText {
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.altList {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.altLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.altLink:hover {
+  border-color: var(--accent);
+  background: white;
+}
+
+.altArrow {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.helpText {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-align: center;
+}
