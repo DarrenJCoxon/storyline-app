@@ -149,7 +149,7 @@ export function activate(context: vscode.ExtensionContext): void {
           void vscode.window.showInformationMessage(
             `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready.`,
           )
-          await postActivateOpenWorkspace()
+          await postActivateOpenWorkspace(context, context.extensionUri)
         } else {
           await manager.clearLicenceKey()
           void vscode.window.showErrorMessage(

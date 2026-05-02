@@ -84,7 +84,7 @@ async function showKeyPrompt(
         void vscode.window.showInformationMessage(
           `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
         )
-        await postActivateOpenWorkspace()
+        await postActivateOpenWorkspace(context, context.extensionUri)
       } else {
         // Newly-issued key didn't validate — safe to clear, we know the
         // stored key is the one we just wrote.
@@ -129,7 +129,7 @@ async function promptForKey(
     void vscode.window.showInformationMessage(
       `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
     )
-    await postActivateOpenWorkspace()
+    await postActivateOpenWorkspace(context, context.extensionUri)
   } else {
     await manager.clearLicenceKey()
     void vscode.window.showErrorMessage(

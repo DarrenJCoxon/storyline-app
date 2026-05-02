@@ -60,7 +60,7 @@ async function offerFreeReactivation(context: vscode.ExtensionContext): Promise<
         void vscode.window.showInformationMessage(
           `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready.`,
         )
-        await postActivateOpenWorkspace()
+        await postActivateOpenWorkspace(context, context.extensionUri)
       } else {
         await manager.clearLicenceKey()
         void vscode.window.showErrorMessage(
@@ -109,7 +109,7 @@ async function offerPaidReactivation(
       void vscode.window.showInformationMessage(
         `Activated — ${info.creditBalance.toLocaleString()} credits ready.`,
       )
-      await postActivateOpenWorkspace()
+      await postActivateOpenWorkspace(context, context.extensionUri)
     } else {
       await manager.clearLicenceKey()
       void vscode.window.showErrorMessage(

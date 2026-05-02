@@ -217,7 +217,7 @@ export class OnboardingPanel {
             // panel disposes — feels less abrupt than a hard cut.
             setTimeout(async () => {
               this.panel.dispose()
-              await postActivateOpenWorkspace()
+              await postActivateOpenWorkspace(this.context, this.extensionUri)
             }, 600)
           } else {
             // We DID set a freshly-issued key but it failed to validate —

@@ -3,21 +3,46 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { scaffoldProject } from './project-scaffold.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
+import { WelcomePanel } from '../panels/WelcomePanel.js'
+
+/**
+ * Tabs/labels we recognise as VS Code's default welcome / get-started UI
+ * (and adjacent noise we want to clear so the activation lands on a clean
+ * three-column Storyline layout). Match is case-insensitive substring.
+ */
+const NOISE_TAB_LABELS = [
+  'welcome',
+  'get started',
+  'getting started',
+  'release notes',
+]
 
 /**
  * One-click forward into a working Storyline session — used by every
  * activation path (Start Free button, welcome notification, Stripe
- * deep-link). Scaffolds the workspace if needed, opens the welcome doc
- * preview in column 1, and opens the planning chat beside it.
+ * deep-link, Reset & start over). Produces a clean three-column layout:
  *
- * Order matters: the welcome doc opens FIRST so the rendered preview
- * lives in column 1. Doing it after the chat is opened would land the
- * preview in chat's column and visually hide it.
+ *   [ Explorer ] | [ Storyline Welcome ] | [ Storyline Chat ]
  *
- * Quietly no-ops on workspaces with no folder (notifies the user
- * instead) so the activation never silently swallows.
+ * No VS Code Get Started tab, no auxiliary bar, no right-side Copilot
+ * chat, no extension-noise tabs.
+ *
+ * Why each step:
+ *   1. Scaffold the workspace if the project doesn't exist yet.
+ *   2. Wipe stale conversation files — Reset & start over re-mints a key
+ *      and the chat panel reads turn history from these files; old turns
+ *      cause fireOpeningPrompt to skip and the user sees a silent chat.
+ *   3. Dispose existing Storyline panels so they re-init cleanly.
+ *   4. Close VS Code's default welcome / get-started tabs and any
+ *      auxiliary panel that's holding focus.
+ *   5. Show the Explorer in column 0 (file tree).
+ *   6. Open Storyline Welcome in column 1 (rendered guide).
+ *   7. Open Storyline Chat in column 2 (planning conversation).
  */
-export async function postActivateOpenWorkspace(): Promise<void> {
+export async function postActivateOpenWorkspace(
+  context: vscode.ExtensionContext,
+  extensionUri: vscode.Uri,
+): Promise<void> {
   const folders = vscode.workspace.workspaceFolders
   if (!folders?.length) {
     void vscode.window.showInformationMessage(
@@ -27,6 +52,8 @@ export async function postActivateOpenWorkspace(): Promise<void> {
   }
 
   const projectDir = folders[0].uri.fsPath
+
+  // 1. Scaffold the project layout (idempotent — only writes missing files).
   const stateFile = path.join(projectDir, '.storyline', 'state.json')
   if (!fs.existsSync(stateFile)) {
     try {
@@ -36,36 +63,65 @@ export async function postActivateOpenWorkspace(): Promise<void> {
     }
   }
 
-  // After Reset & start over, the user re-mints a free key and we re-open
-  // chat. The existing ChatPanel singleton holds turn history loaded from
-  // .storyline/conversation.json — if the previous activation got far
-  // enough to write any turns there, fireOpeningPrompt won't fire and the
-  // user sees no welcome message in the fresh chat. Wipe the conversation
-  // files and dispose the singleton so the next openPlanning gets a
-  // genuinely fresh state.
-  const convFile = path.join(projectDir, '.storyline', 'conversation.json')
-  const displayFile = path.join(projectDir, '.storyline', 'chat-display.json')
-  for (const f of [convFile, displayFile]) {
+  // 2. Wipe stale conversation files so Reset & start over gets a clean
+  //    chat with the AI's opening prompt firing again.
+  for (const f of [
+    path.join(projectDir, '.storyline', 'conversation.json'),
+    path.join(projectDir, '.storyline', 'chat-display.json'),
+  ]) {
     try { if (fs.existsSync(f)) fs.unlinkSync(f) } catch { /* non-fatal */ }
   }
-  ChatPanel.current()?.dispose()
 
-  const welcomeUri = vscode.Uri.file(path.join(projectDir, 'docs', 'welcome.md'))
-  if (fs.existsSync(welcomeUri.fsPath)) {
-    try {
-      const doc = await vscode.workspace.openTextDocument(welcomeUri)
-      await vscode.window.showTextDocument(doc, {
-        viewColumn: vscode.ViewColumn.One,
-        preview: false,
-      })
-      await vscode.commands.executeCommand('markdown.showPreview', welcomeUri)
-      // Close the raw markdown source tab — leaves only the rendered
-      // preview in column 1.
-      await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
-    } catch (err) {
-      console.error('[Storyline] postActivate: welcome doc open failed', err)
+  // 3. Dispose existing Storyline panels so the next show() re-creates
+  //    them with fresh state.
+  ChatPanel.current()?.dispose()
+  WelcomePanel.current()?.dispose()
+
+  // 4. Close VS Code's default welcome / get-started / release-notes tabs
+  //    and the auxiliary bar (right-side panels like Copilot Chat).
+  await closeNoise()
+
+  // 5. Make sure the Explorer is visible in column 0 (the file tree).
+  try { await vscode.commands.executeCommand('workbench.view.explorer') } catch { /* non-fatal */ }
+
+  // 6. Open Storyline Welcome in column 1 (main editor area).
+  WelcomePanel.show(context, extensionUri)
+
+  // Brief beat so the welcome panel renders before chat steals focus.
+  await new Promise(r => setTimeout(r, 250))
+
+  // 7. Open Storyline Chat in column 2.
+  await vscode.commands.executeCommand('storyline.openPlanning')
+}
+
+/**
+ * Close VS Code's default welcome / get-started tabs and the right-side
+ * auxiliary bar so the activation lands on a clean Storyline-only layout.
+ * Quietly ignores everything that fails — these commands are
+ * best-effort cosmetic cleanup, never fatal.
+ */
+async function closeNoise(): Promise<void> {
+  // Close auxiliary bar — this hides Copilot Chat / Cline / any
+  // right-side extension panel that was open.
+  try { await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar') } catch { /* */ }
+  // Close the bottom panel (terminal / problems / output) — lets the
+  // user see the chat without a panel below cropping it.
+  try { await vscode.commands.executeCommand('workbench.action.closePanel') } catch { /* */ }
+
+  // Close any tab whose label matches the noise set. Iterate over a copy
+  // because closing tabs mutates the live list.
+  const tabsToClose: vscode.Tab[] = []
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      const label = (tab.label ?? '').toLowerCase()
+      if (NOISE_TAB_LABELS.some(noise => label.includes(noise))) {
+        // Don't close OUR welcome — only VS Code's.
+        if (label === 'welcome to storyline') continue
+        tabsToClose.push(tab)
+      }
     }
   }
-
-  await vscode.commands.executeCommand('storyline.openPlanning')
+  for (const tab of tabsToClose) {
+    try { await vscode.window.tabGroups.close(tab) } catch { /* */ }
+  }
 }
