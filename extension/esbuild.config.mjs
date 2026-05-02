@@ -75,9 +75,16 @@ await build({
   // dynamic await import() from illustration code only — keep it external so
   // its native binaries resolve at runtime from node_modules. Everything else
   // (chalk, fs-extra, isomorphic-git, etc.) MUST be bundled — vsce package
-  // does not always copy transitive deps into the VSIX, so external deps
-  // throw "Cannot find module" at activation on a fresh user machine.
+  // is invoked with --no-dependencies in the release workflow, so external
+  // deps throw "Cannot find module" at activation on a fresh user machine.
   external: ['vscode', 'sharp'],
+  // Workspace deps in ../packages/core and ../lib import fs-extra/chalk via
+  // require()/import. esbuild resolves those from the importing file's
+  // location and won't find them in extension/node_modules without this
+  // hint. Without nodePaths, the CI build fails with "Could not resolve
+  // 'fs-extra'" because npm only installs deps listed in extension's own
+  // package.json into extension/node_modules.
+  nodePaths: ['node_modules'],
   sourcemap: false,
   minify: true,
   treeShaking: true,
