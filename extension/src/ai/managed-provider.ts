@@ -21,16 +21,23 @@ export class ManagedProvider implements AIProvider {
     // (routing is server-side)
     const stageId = (options as ChatOptions & { stageId?: string }).stageId ?? 'unknown'
 
-    const response = await fetch(`${this.backendUrl}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        licenceKey,
-        messages,
-        stageId,
-        systemPrompt: options.systemPrompt,
-      }),
-    })
+    // Cloudflare KV is eventually consistent across colos. A freshly-issued
+    // free-tier licence record sometimes isn't visible to the colo serving
+    // /chat for several seconds, even though /validate (which we ran in the
+    // activation flow) already saw it. If we get a 401 on a SL-FREE-* key,
+    // wait briefly and retry once — that absorbs the propagation window.
+    const isFree = licenceKey.startsWith('SL-FREE-')
+    let response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
+    if (response.status === 401 && isFree) {
+      console.log('[Storyline] /chat 401 on free key — assuming KV propagation race, retrying in 3s')
+      await new Promise(r => setTimeout(r, 3000))
+      response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
+      if (response.status === 401) {
+        console.log('[Storyline] /chat 401 persists after retry, waiting 7s and retrying once more')
+        await new Promise(r => setTimeout(r, 7000))
+        response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
+      }
+    }
 
     // 402 (credits exhausted) is an expected user-facing state, not a bug —
     // skip telemetry. Same for 401 with no key. Everything else is an
@@ -53,6 +60,19 @@ export class ManagedProvider implements AIProvider {
     }
 
     yield* readSSEStream(response, options.onUsage)
+  }
+
+  private postChat(
+    licenceKey: string,
+    messages: Message[],
+    stageId: string,
+    systemPrompt: string | undefined,
+  ): Promise<Response> {
+    return fetch(`${this.backendUrl}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenceKey, messages, stageId, systemPrompt }),
+    })
   }
 
   async isAvailable(): Promise<boolean> {

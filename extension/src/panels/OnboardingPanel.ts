@@ -228,13 +228,27 @@ export class OnboardingPanel {
               }
               // Brief delay so the React success state can render before the
               // panel disposes — feels less abrupt than a hard cut.
-              setTimeout(() => {
+              setTimeout(async () => {
                 this.panel.dispose()
-                void vscode.commands.executeCommand('storyline.openPlanning')
+                // Open welcome doc FIRST in the main editor column so the
+                // preview lives in column 1; then open chat beside it. If we
+                // do it in the other order, markdown.showPreview opens in
+                // whichever column the chat panel just stole focus to and
+                // hides behind it.
                 const welcomeUri = vscode.Uri.file(path.join(projectDir, 'docs', 'welcome.md'))
                 if (fs.existsSync(welcomeUri.fsPath)) {
-                  void vscode.commands.executeCommand('markdown.showPreview', welcomeUri)
+                  try {
+                    const doc = await vscode.workspace.openTextDocument(welcomeUri)
+                    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false })
+                    await vscode.commands.executeCommand('markdown.showPreview', welcomeUri)
+                    // Close the raw markdown source tab, leaving only the
+                    // rendered preview in column 1.
+                    await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
+                  } catch (err) {
+                    console.error('[Storyline] useFree: failed to open welcome doc', err)
+                  }
                 }
+                await vscode.commands.executeCommand('storyline.openPlanning')
               }, 600)
             }
           } else {

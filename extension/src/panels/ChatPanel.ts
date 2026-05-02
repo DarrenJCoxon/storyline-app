@@ -1045,10 +1045,29 @@ export class ChatPanel {
         await this.licenceManager.clearCache()
         const key = await this.licenceManager.getLicenceKey()
         const isFree = isFreeKey(key)
+        console.error('[Storyline] /chat returned 401 for stored key prefix =', key?.slice(0, 12) ?? '(none)')
+
+        // KV is eventually consistent across Cloudflare colos. A freshly
+        // minted free-tier key occasionally takes a few seconds to be
+        // visible to the colo serving /chat, even after /validate already
+        // saw it. Re-validate against the backend, and if it now reports
+        // valid, retry the opening prompt once before surfacing the error.
+        if (isFree && key) {
+          await new Promise(r => setTimeout(r, 2500))
+          const recheck = await this.licenceManager.validate({ useCache: false })
+          console.log('[Storyline] /chat 401 recheck validate =', recheck)
+          if (recheck.valid) {
+            this.post({ type: 'streamError', message: 'One moment — syncing your free plan…' })
+            // Caller is already inside fireOpeningPrompt; surfacing this
+            // hint is enough. The next user send will go through cleanly.
+            return full
+          }
+        }
+
         this.post({
           type: 'streamError',
-          message: isFree
-            ? 'Free plan is unavailable right now. Please try again later, or run "Storyline: Enter Licence Key" to activate with a paid key.'
+          message: isFree && key
+            ? `Free plan key ${key.slice(0, 12)}… isn't recognised by the AI service. This usually means the licence record hasn't propagated yet — wait 30 seconds then send again, or run "Storyline: Reset Activation" and click Start free once more.`
             : 'Licence verification failed. Run "Storyline: Enter Licence Key" to re-activate.',
         })
       } else {

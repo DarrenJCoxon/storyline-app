@@ -85,17 +85,25 @@ async function showKeyPrompt(
         void vscode.window.showInformationMessage(
           `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
         )
-        await vscode.commands.executeCommand('storyline.openPlanning')
-        // Show the welcome doc in markdown preview so the user lands with
-        // usage instructions visible alongside the chat. Quiet failure if the
-        // file isn't present (e.g. older project that pre-dates the scaffold).
+        // Open welcome doc FIRST in column 1 so the rendered preview is
+        // visible alongside the chat. Doing it after openPlanning would
+        // open the preview in chat's column and hide it.
         const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
         if (folder) {
           const welcomePath = path.join(folder, 'docs', 'welcome.md')
           if (fs.existsSync(welcomePath)) {
-            void vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.file(welcomePath))
+            try {
+              const welcomeUri = vscode.Uri.file(welcomePath)
+              const doc = await vscode.workspace.openTextDocument(welcomeUri)
+              await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false })
+              await vscode.commands.executeCommand('markdown.showPreview', welcomeUri)
+              await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
+            } catch (err) {
+              console.error('[Storyline] licence-prompt: failed to open welcome doc', err)
+            }
           }
         }
+        await vscode.commands.executeCommand('storyline.openPlanning')
       } else {
         // Newly-issued key didn't validate — safe to clear, we know the
         // stored key is the one we just wrote.
