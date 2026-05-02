@@ -37,8 +37,8 @@ export default function HomePage() {
             <h3 className={styles.flowTitle}>Plan</h3>
             <p>
               Conversational planning with an AI partner trained on Save the Cat for
-              fiction, and structured frameworks for memoir, how-to, history and other
-              non-fiction.
+              fiction, and structured frameworks for memoir, how-to, history,
+              textbooks, study guides and other non-fiction.
             </p>
           </article>
           <article className={styles.flowCard}>
@@ -72,9 +72,9 @@ export default function HomePage() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Plan with proven structure</h2>
         <p className={styles.sectionLede}>
-          Whether you’re writing a novel, a memoir, a how-to, or narrative non-fiction,
-          Storyline gives you a structured planning conversation matched to your form —
-          never a blank template.
+          Whether you’re writing a novel, a memoir, a how-to, narrative non-fiction,
+          a textbook or a study guide, Storyline gives you a structured planning
+          conversation matched to your form — never a blank template.
         </p>
         <div className={styles.twoCol}>
           <div className={styles.colCard}>
@@ -107,15 +107,21 @@ export default function HomePage() {
               </li>
               <li>
                 <strong>Form-aware pipelines</strong> — different planning paths for
-                memoir / narrative, how-to / curriculum, and history / journalism.
+                memoir, how-to, history, textbooks and study guides — each tuned to
+                its conventions.
               </li>
               <li>
                 <strong>Sourcing register</strong> — track every claim back to its
                 source, with a verification status on each one.
               </li>
               <li>
-                <strong>Timeline tools</strong> — chronologies, skill trees and
-                progression structures for the books that need them.
+                <strong>Skill trees and learning objectives</strong> — for textbooks
+                and study guides, plan progression, prerequisites and assessment
+                points before a single chapter is drafted.
+              </li>
+              <li>
+                <strong>Timeline tools</strong> — chronologies and progression
+                structures for memoir, history and biography.
               </li>
             </ul>
           </div>
