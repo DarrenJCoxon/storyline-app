@@ -17,6 +17,7 @@ const bootBanner = `"use strict";
     var __fs = require('fs');
     var __os = require('os');
     var __path = require('path');
+    var __Module = require('module');
     var __dir = process.platform === 'win32'
       ? __path.join(process.env.LOCALAPPDATA || __os.tmpdir(), 'Storyline')
       : __os.homedir();
@@ -24,15 +25,40 @@ const bootBanner = `"use strict";
       ? __path.join(__dir, 'boot.log')
       : __path.join(__dir, '.storyline-boot.log');
     try { __fs.mkdirSync(__dir, { recursive: true }); } catch(_){}
-    __fs.appendFileSync(__file,
-      '\\n=== bundle-start ' + new Date().toISOString() +
+    var __t0 = Date.now();
+    var __append = function(line){
+      try { __fs.appendFileSync(__file, line, 'utf8'); } catch(_){}
+    };
+    __append('\\n=== bundle-start ' + new Date().toISOString() +
       ' pid=' + process.pid +
       ' platform=' + process.platform +
       ' arch=' + process.arch +
       ' node=' + process.version +
-      ' ===\\n', 'utf8');
+      ' ===\\n');
     globalThis.__storylineBootLog = function(msg){
-      try { __fs.appendFileSync(__file, '+banner ' + msg + '\\n', 'utf8'); } catch(_){}
+      __append('+' + (Date.now() - __t0) + 'ms  ' + msg + '\\n');
+    };
+    // Trace every require so the LAST line written before the hang names
+    // the module that's blocking. The hook also logs completion so we can
+    // see whether the require started but never returned (the smoking gun
+    // for a sync init that hangs on Windows).
+    var __orig = __Module._load;
+    var __depth = 0;
+    __Module._load = function(request, parent, isMain){
+      var indent = '';
+      for (var i = 0; i < __depth; i++) indent += '  ';
+      __append('+' + (Date.now() - __t0) + 'ms  ' + indent + 'require> ' + request + '\\n');
+      __depth++;
+      try {
+        var __res = __orig.apply(this, arguments);
+        __depth--;
+        __append('+' + (Date.now() - __t0) + 'ms  ' + indent + 'require< ' + request + '\\n');
+        return __res;
+      } catch (e) {
+        __depth--;
+        __append('+' + (Date.now() - __t0) + 'ms  ' + indent + 'require! ' + request + ' :: ' + (e && e.message || e) + '\\n');
+        throw e;
+      }
     };
   } catch(_){}
 })();
