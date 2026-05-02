@@ -1,5 +1,6 @@
 import type { Env, CritiqueRequest, LicenceRecord } from './types.js'
 import { reasoningEffortForTier, buildReasoningParam } from './reasoning.js'
+import { getDevLicenceRecord } from './dev-bypass.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -419,7 +420,8 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
   }
 
   // Validate licence
-  const record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  let record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  if (!record) record = getDevLicenceRecord(body.licenceKey, req.url, env)
   if (!record || !record.valid) {
     return errJson('Invalid licence key', 401)
   }

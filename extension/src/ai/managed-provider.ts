@@ -1,5 +1,6 @@
 import type { AIProvider, Message, ChatOptions } from './provider.js'
 import { reportError } from './error-reporter.js'
+import { logInfo, logError } from '../diagnostic-log.js'
 
 /**
  * Calls our Cloudflare Worker `/chat` endpoint.
@@ -27,19 +28,19 @@ export class ManagedProvider implements AIProvider {
     // activation flow) already saw it. If we get a 401 on a SL-FREE-* key,
     // wait briefly and retry once — that absorbs the propagation window.
     const isFree = licenceKey.startsWith('SL-FREE-')
-    console.log(`[Storyline] /chat POST key=${licenceKey.slice(0, 12)}… stage=${stageId}`)
+    logInfo(`[Storyline] /chat POST url=${this.backendUrl}/chat key=${licenceKey.slice(0, 12)}… stage=${stageId}`)
     let response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
-    console.log(`[Storyline] /chat status=${response.status}`)
+    logInfo(`[Storyline] /chat status=${response.status}`)
     if (response.status === 401 && isFree) {
-      console.log('[Storyline] /chat 401 on free key — assuming KV propagation race, retrying in 3s')
+      logInfo('[Storyline] /chat 401 on free key — KV propagation race, retrying in 3s')
       await new Promise(r => setTimeout(r, 3000))
       response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
-      console.log(`[Storyline] /chat retry-1 status=${response.status}`)
+      logInfo(`[Storyline] /chat retry-1 status=${response.status}`)
       if (response.status === 401) {
-        console.log('[Storyline] /chat 401 persists, waiting 7s and retrying once more')
+        logInfo('[Storyline] /chat 401 persists, waiting 7s and retrying once more')
         await new Promise(r => setTimeout(r, 7000))
         response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
-        console.log(`[Storyline] /chat retry-2 status=${response.status}`)
+        logInfo(`[Storyline] /chat retry-2 status=${response.status}`)
       }
     }
 
@@ -51,7 +52,7 @@ export class ManagedProvider implements AIProvider {
     }
     if (response.status === 401) {
       const body = await response.text().catch(() => '')
-      console.error(`[Storyline] /chat final 401 body=${body}`)
+      logError(`[Storyline] /chat final 401 body=${body}`)
       reportError({ endpoint: 'chat', statusCode: 401, message: `Invalid licence key — body: ${body}`, licenceKey, stageId })
       throw new Error('Invalid licence key')
     }

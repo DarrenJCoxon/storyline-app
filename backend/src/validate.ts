@@ -1,5 +1,6 @@
 import type { Env, ValidateRequest, ValidateResponse, LicenceRecord } from './types.js'
 import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
+import { getDevLicenceRecord } from './dev-bypass.js'
 
 export async function handleValidate(req: Request, env: Env): Promise<Response> {
   // Rate limit: 10 attempts per IP per minute — prevents key enumeration
@@ -17,7 +18,8 @@ export async function handleValidate(req: Request, env: Env): Promise<Response> 
     return json({ error: 'licenceKey is required' }, 400)
   }
 
-  const record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  let record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  if (!record) record = getDevLicenceRecord(body.licenceKey, req.url, env)
 
   if (!record || !record.valid) {
     return json<ValidateResponse>({ valid: false, type: 'free', creditBalance: 0 }, 401)

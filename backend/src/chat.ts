@@ -1,5 +1,6 @@
 import type { Env, ChatRequest, LicenceRecord, OpenRouterUsage, DailyStats } from './types.js'
 import { reasoningEffortForStage, buildReasoningParam } from './reasoning.js'
+import { getDevLicenceRecord } from './dev-bypass.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,9 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
     console.error('[/chat] KV read error:', e)
     return errJson('Service temporarily unavailable', 503)
   }
+
+  // Dev-mode fallback so SL-DEV-LOCAL-TEST-KEY works for local testing.
+  if (!record) record = getDevLicenceRecord(body.licenceKey, req.url, env)
 
   if (!record || !record.valid) {
     // Log key prefix + KV state so we can diagnose propagation races via

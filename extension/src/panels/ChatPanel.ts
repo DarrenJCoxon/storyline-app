@@ -25,6 +25,7 @@ import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
 const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
 import { ManagedProvider } from '../ai/managed-provider.js'
+import { logInfo, logError } from '../diagnostic-log.js'
 import type { AIProvider, Message } from '../ai/provider.js'
 import { getQualityMode } from '../ai/quality-config.js'
 
@@ -42,6 +43,7 @@ export class ChatPanel {
   private store: LocalStore | null = null
   private provider: AIProvider | null = null
   private initialised = false
+  private webviewReadyFired = false
   private streamCancelled = false
   private recordingProcess: ChildProcess | null = null
   private recordingTempFile: string | null = null
@@ -70,7 +72,9 @@ export class ChatPanel {
     this.panel.onDidDispose(() => { ChatPanel.instance = undefined })
 
     // Fallback: if the webview's 'ready' signal is somehow missed, init after 2s.
-    setTimeout(() => { void this.handleWebviewReady() }, 2000)
+    setTimeout(() => {
+      if (!this.webviewReadyFired) void this.handleWebviewReady()
+    }, 2000)
   }
 
   public static show(
@@ -98,6 +102,8 @@ export class ChatPanel {
   // this.initialised so it only runs once per panel lifetime. State delivery
   // to the webview always runs so a reloaded webview is never stuck.
   private async handleWebviewReady(): Promise<void> {
+    if (this.webviewReadyFired) return
+    this.webviewReadyFired = true
     try {
       await this._handleWebviewReady()
     } catch (err) {
@@ -124,7 +130,7 @@ export class ChatPanel {
       }
 
       const storedKey = await this.licenceManager.getLicenceKey()
-      console.log('[Storyline] ChatPanel.init: stored key prefix =', storedKey?.slice(0, 12) ?? '(none)')
+      logInfo('[Storyline] ChatPanel.init: stored key prefix =', storedKey?.slice(0, 12) ?? '(none)')
       // Trust the cached validate from the activation flow — useFree (and
       // the toast / deep-link paths) all run validate({}) just before opening
       // chat. Re-validating here would force a backend round-trip that races
@@ -132,7 +138,7 @@ export class ChatPanel {
       // activation was confirmed seconds ago and the in-panel /chat retry
       // logic can absorb any remaining colo lag.
       const licenceInfo = await this.licenceManager.validate({ useCache: true })
-      console.log('[Storyline] ChatPanel.init: validate =', licenceInfo)
+      logInfo('[Storyline] ChatPanel.init: validate =', licenceInfo)
       this.provider = await this.resolveProvider(licenceInfo)
 
       // If validation returned invalid AND the user has a stored key, the key
@@ -1047,7 +1053,7 @@ export class ChatPanel {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Storyline] streamResponse failed:', err)
+      logError('[Storyline] streamResponse failed:', msg)
       if (msg.includes('402') || /credit|quota|exhausted/i.test(msg)) {
         this.post({ type: 'creditsExhausted' })
         void promptOnCreditsExhausted(this.context, getBackendUrl())

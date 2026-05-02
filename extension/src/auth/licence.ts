@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 
 const SECRET_KEY = 'storyline.licenceKey'
 const CACHE_KEY  = 'storyline.licenceCache'
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes — long enough to absorb KV propagation races, short enough to discard stale entries after a backend reset
 
 // Local-only developer bypass. Validates without hitting the backend so
 // `npm run ship`-built dev installs can use the AI in a test project even
@@ -15,6 +16,12 @@ export interface LicenceInfo {
   valid: boolean
   type: 'free' | 'credits' | 'byok'
   creditBalance: number
+}
+
+interface CacheEntry {
+  key: string
+  info: LicenceInfo
+  ts: number
 }
 
 export class LicenceManager {
@@ -51,17 +58,17 @@ export class LicenceManager {
     // Local-only dev bypass — see DEV_LICENCE_KEY comment above.
     if (key === DEV_LICENCE_KEY) {
       const info: LicenceInfo = { valid: true, type: 'credits', creditBalance: 999999 }
-      await this.context.globalState.update(CACHE_KEY, { key, info })
+      await this.context.globalState.update(CACHE_KEY, { key, info, ts: Date.now() })
       return info
     }
 
     if (opts.useCache) {
-      const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)
-      // Only use the cache if it was recorded against THIS licence key.
-      // Without this check a stale cache (from a previous key, or from
-      // before a wrangler KV reset) keeps showing fake credits while
-      // /chat 401s on every send.
-      if (cached?.key === key) return cached.info
+      const cached = this.context.globalState.get<CacheEntry>(CACHE_KEY)
+      // Only use the cache if it was recorded against THIS licence key AND
+      // is within the TTL. Without the TTL a stale cache (from a previous
+      // key, or from before a wrangler KV reset) keeps showing fake credits
+      // while /chat 401s on every send.
+      if (cached?.key === key && Date.now() - (cached.ts ?? 0) < CACHE_TTL_MS) return cached.info
     }
 
     // Cloudflare KV is eventually consistent across colos. A freshly-minted
@@ -84,15 +91,18 @@ export class LicenceManager {
         if (response.ok) {
           info = await response.json() as LicenceInfo
           if (info.valid) {
-            await this.context.globalState.update(CACHE_KEY, { key, info })
+            await this.context.globalState.update(CACHE_KEY, { key, info, ts: Date.now() })
             return info
           }
         }
         // Otherwise loop and try again (or fall through after last attempt)
       } catch {
-        // Offline / network error — return last cached result if matched
-        const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)
-        return cached?.key === key ? cached.info : fallback
+        // Offline / network error — return last cached result if matched and fresh
+        const cached = this.context.globalState.get<CacheEntry>(CACHE_KEY)
+        if (cached?.key === key && Date.now() - (cached.ts ?? 0) < CACHE_TTL_MS) {
+          return cached.info
+        }
+        return fallback
       }
     }
 

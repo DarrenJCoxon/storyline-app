@@ -21,6 +21,7 @@ import { ensureResearchFolder, ensurePlanningFolder } from './onboarding/project
 import { postActivateOpenWorkspace } from './onboarding/post-activate.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
+import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { LocalStore } from './state/local-store.js'
 import { checkForUpdate } from './update/auto-updater.js'
 
@@ -92,6 +93,12 @@ function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Persistent diagnostic log — visible at Output → Storyline. Every
+  // [Storyline] log line in the extension flows through here so users
+  // and us can read activation + chat lifecycle without dev tools.
+  initDiagnosticLog()
+  logInfo('[Storyline] activate: extension host starting up')
+
   // Kill any restored Live Chapter Preview webviews on activation. VS Code
   // restores webview tabs across window reloads, but they hold stale HTML
   // from before the extension update. Force-close them so the user must
@@ -369,6 +376,10 @@ export function activate(context: vscode.ExtensionContext): void {
       } else {
         vscode.window.showErrorMessage('Storyline: invalid or expired key.')
       }
+    }),
+
+    vscode.commands.registerCommand('storyline.showLog', () => {
+      showLog(false)
     }),
 
     vscode.commands.registerCommand('storyline.viewTerms', () => {

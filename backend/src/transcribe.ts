@@ -1,4 +1,5 @@
 import type { Env, LicenceRecord } from './types.js'
+import { getDevLicenceRecord } from './dev-bypass.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +29,8 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
     return errJson('licenceKey, audioBase64, and mimeType are required', 400)
   }
 
-  const record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  let record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
+  if (!record) record = getDevLicenceRecord(body.licenceKey, req.url, env)
   if (!record || !record.valid) {
     return errJson('Invalid licence key', 401)
   }

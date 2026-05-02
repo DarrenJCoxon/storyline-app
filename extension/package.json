@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -90,6 +90,10 @@
       {
         "command": "storyline.resetActivation",
         "title": "Storyline: Reset Activation (clear licence/BYOK)"
+      },
+      {
+        "command": "storyline.showLog",
+        "title": "Storyline: Show Diagnostic Log"
       },
       {
         "command": "storyline.viewTerms",
