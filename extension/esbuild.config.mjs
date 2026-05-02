@@ -71,7 +71,13 @@ await build({
   target: 'node18',
   format: 'cjs',
   outfile: 'dist/extension.js',
-  external: ['vscode', 'sharp', 'chalk', 'fs-extra'],
+  // `vscode` is provided by the host. `sharp` is a native module loaded via
+  // dynamic await import() from illustration code only — keep it external so
+  // its native binaries resolve at runtime from node_modules. Everything else
+  // (chalk, fs-extra, isomorphic-git, etc.) MUST be bundled — vsce package
+  // does not always copy transitive deps into the VSIX, so external deps
+  // throw "Cannot find module" at activation on a fresh user machine.
+  external: ['vscode', 'sharp'],
   sourcemap: false,
   minify: true,
   treeShaking: true,
