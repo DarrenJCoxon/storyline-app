@@ -48,10 +48,21 @@ export async function initLayout(context: vscode.ExtensionContext): Promise<void
   } catch { /* panel not ready yet */ }
 
   // Clean layout: close auxiliary bar, focus Explorer, ensure no extension
-  // panels steal the sidebar. Runs after a brief beat so VS Code's view
-  // restoration is complete.
-  await new Promise(r => setTimeout(r, 300))
-  await ensureExplorerFocus()
+  // panels steal the sidebar. Other extensions (Claude Code, GitLens, etc.)
+  // activate on onStartupFinished — typically 800-1500ms after our run —
+  // and any of them can yank the sidebar to their own view container as
+  // they register. We retry at increasing delays so the LAST focus wins,
+  // beyond when any reasonable extension finishes activating.
+  void scheduleExplorerFocusRetries()
+}
+
+const FOCUS_RETRY_DELAYS_MS = [50, 500, 1500, 3500, 6000]
+
+async function scheduleExplorerFocusRetries(): Promise<void> {
+  for (const delay of FOCUS_RETRY_DELAYS_MS) {
+    await new Promise(r => setTimeout(r, delay))
+    await ensureExplorerFocus()
+  }
 }
 
 async function ensureExplorerFocus(): Promise<void> {
