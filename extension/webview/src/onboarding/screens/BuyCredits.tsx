@@ -25,16 +25,31 @@ export function BuyCredits({ onBack, onNavigate, validateResult, onOpenStripe, o
   const [selectedPack, setSelectedPack] = useState<'10' | '20' | null>(null)
   const [keyInput, setKeyInput] = useState('')
   const [pending, setPending] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
 
   const handleValidate = () => {
     if (!keyInput.trim() || pending) return
     setPending(true)
+    setTimedOut(false)
     onValidate(keyInput.trim())
   }
+
+  // Hard upper bound on the "Checking…" state. The backend /validate +
+  // round-trip should complete in <2s; 12s gives generous slack and still
+  // unblocks the user if a postMessage never round-trips for any reason.
+  useEffect(() => {
+    if (!pending) return
+    const id = setTimeout(() => {
+      setPending(false)
+      setTimedOut(true)
+    }, 12000)
+    return () => clearTimeout(id)
+  }, [pending])
 
   useEffect(() => {
     if (!validateResult) return
     setPending(false)
+    setTimedOut(false)
     if (validateResult.success) {
       setTimeout(() => onNavigate('new-project'), 800)
     }
@@ -98,6 +113,11 @@ export function BuyCredits({ onBack, onNavigate, validateResult, onOpenStripe, o
         {validateResult?.error && (
           <p style={{ fontSize: '11px', color: '#EF4444', margin: '4px 0 0' }}>
             {validateResult.error}
+          </p>
+        )}
+        {timedOut && !validateResult && (
+          <p style={{ fontSize: '11px', color: '#EF4444', margin: '4px 0 0' }}>
+            That took longer than expected. Check your connection and try again — your key is still in the box.
           </p>
         )}
         {validateResult?.success && (

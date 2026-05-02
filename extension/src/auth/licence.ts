@@ -108,15 +108,24 @@ export class LicenceManager {
     const isFree = key.startsWith('SL-FREE-')
     const attemptDelays = isFree ? [0, 3000, 7000] : [0]
 
+    // 8s upper bound on each /validate fetch so a hung network or
+    // misrouted DNS can't lock the activation flow forever. Cloudflare
+    // typically replies in <300ms; 8s is generous slack for cold-colo
+    // routing without being so long the user thinks the app crashed.
+    const FETCH_TIMEOUT_MS = 8000
+
     let info: LicenceInfo | null = null
     for (const delay of attemptDelays) {
       if (delay > 0) await new Promise(r => setTimeout(r, delay))
       try {
+        const ac = new AbortController()
+        const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS)
         const response = await fetch(`${this.backendUrl}/validate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ licenceKey: key }),
-        })
+          signal: ac.signal,
+        }).finally(() => clearTimeout(timer))
         if (response.ok) {
           info = await response.json() as LicenceInfo
           if (info.valid) {

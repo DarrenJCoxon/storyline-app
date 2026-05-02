@@ -139,18 +139,25 @@ export class OnboardingPanel {
 
       case 'validateLicence': {
         const key = (msg.key as string).trim()
-        await this.licenceManager.setLicenceKey(key)
+        console.log('[Storyline] validateLicence: handler entered, keyPrefix=', key.slice(0, 12))
         try {
+          await this.licenceManager.setLicenceKey(key)
+          console.log('[Storyline] validateLicence: setLicenceKey resolved')
           const info = await this.licenceManager.validate({})
+          console.log('[Storyline] validateLicence: validate result', info)
           if (info.valid) {
             this.post({ type: 'validateResult', success: true, creditBalance: info.creditBalance })
           } else {
             await this.licenceManager.clearLicenceKey()
             this.post({ type: 'validateResult', success: false, error: 'Invalid or expired licence key.' })
           }
-        } catch {
-          await this.licenceManager.clearLicenceKey()
-          this.post({ type: 'validateResult', success: false, error: 'Could not reach activation server. Check your connection.' })
+        } catch (err) {
+          console.error('[Storyline] validateLicence: threw', err)
+          // DO NOT clear the licence key here. Catch fires for both network
+          // failures AND for unexpected exceptions inside validate(). On a
+          // network blip we want to keep the just-pasted key so the user
+          // can retry — clearing it forces them to paste it again.
+          this.post({ type: 'validateResult', success: false, error: 'Could not reach activation server — check your connection and try again.' })
         }
         break
       }
