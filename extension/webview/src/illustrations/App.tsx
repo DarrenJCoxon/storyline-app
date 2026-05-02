@@ -341,9 +341,9 @@ export function App(): JSX.Element {
               onChange={e => setQualityOverride(e.target.value as 'low' | 'medium' | 'high')}
               disabled={s.generating}
             >
-              <option value="low">Low — 5 credits  (~$0.011)</option>
-              <option value="medium">Medium — 15 credits  (~$0.042)</option>
-              <option value="high">High — 40 credits  (~$0.17)</option>
+              <option value="low">Low — 5 credits</option>
+              <option value="medium">Medium — 15 credits</option>
+              <option value="high">High — 40 credits</option>
             </select>
           </div>
           {(s.refs.length > 0 || s.styleBible.characters.length > 0) && (
