@@ -64,26 +64,41 @@ export class LicenceManager {
       if (cached?.key === key) return cached.info
     }
 
-    try {
-      const response = await fetch(`${this.backendUrl}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licenceKey: key }),
-      })
+    // Cloudflare KV is eventually consistent across colos. A freshly-minted
+    // SL-FREE-* key sometimes isn't visible to the colo serving /validate
+    // for a few seconds. Retry transparently before declaring failure so
+    // ChatPanel and the activation flow self-heal across the propagation
+    // window. Paid keys are stable in KV, so we don't pay this cost there.
+    const isFree = key.startsWith('SL-FREE-')
+    const attemptDelays = isFree ? [0, 3000, 7000] : [0]
 
-      if (!response.ok) {
-        // Clear any stale cache so we don't keep returning the old "valid" record.
-        await this.context.globalState.update(CACHE_KEY, undefined)
-        return fallback
+    let info: LicenceInfo | null = null
+    for (const delay of attemptDelays) {
+      if (delay > 0) await new Promise(r => setTimeout(r, delay))
+      try {
+        const response = await fetch(`${this.backendUrl}/validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenceKey: key }),
+        })
+        if (response.ok) {
+          info = await response.json() as LicenceInfo
+          if (info.valid) {
+            await this.context.globalState.update(CACHE_KEY, { key, info })
+            return info
+          }
+        }
+        // Otherwise loop and try again (or fall through after last attempt)
+      } catch {
+        // Offline / network error — return last cached result if matched
+        const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)
+        return cached?.key === key ? cached.info : fallback
       }
-
-      const info = await response.json() as LicenceInfo
-      await this.context.globalState.update(CACHE_KEY, { key, info })
-      return info
-    } catch {
-      // Offline — return last cached result only if it matches the current key.
-      const cached = this.context.globalState.get<{ key: string; info: LicenceInfo }>(CACHE_KEY)
-      return cached?.key === key ? cached.info : fallback
     }
+
+    // Every attempt returned non-ok or invalid. Clear stale cache and fall
+    // back. The reactivate UX takes over from here.
+    await this.context.globalState.update(CACHE_KEY, undefined)
+    return info ?? fallback
   }
 }

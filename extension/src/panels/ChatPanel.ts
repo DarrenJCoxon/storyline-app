@@ -123,7 +123,13 @@ export class ChatPanel {
 
       const storedKey = await this.licenceManager.getLicenceKey()
       console.log('[Storyline] ChatPanel.init: stored key prefix =', storedKey?.slice(0, 12) ?? '(none)')
-      const licenceInfo = await this.licenceManager.validate({ useCache: false })
+      // Trust the cached validate from the activation flow — useFree (and
+      // the toast / deep-link paths) all run validate({}) just before opening
+      // chat. Re-validating here would force a backend round-trip that races
+      // KV propagation for a freshly-minted free key. Cache hit means the
+      // activation was confirmed seconds ago and the in-panel /chat retry
+      // logic can absorb any remaining colo lag.
+      const licenceInfo = await this.licenceManager.validate({ useCache: true })
       console.log('[Storyline] ChatPanel.init: validate =', licenceInfo)
       this.provider = await this.resolveProvider(licenceInfo)
 
@@ -135,8 +141,8 @@ export class ChatPanel {
         this.post({
           type: 'streamError',
           message: isFree
-            ? 'Activation needs a moment — see the notification at the bottom right.'
-            : 'Licence verification failed — see the notification at the bottom right.',
+            ? 'Couldn\'t reach your free plan. A "Reset & start over" prompt is at the bottom right of VS Code — click it to re-mint your free credits. (No email needed for the free plan.)'
+            : 'Couldn\'t verify your licence. A reactivation prompt is at the bottom right of VS Code — click "Paste key from email" to enter the licence key from your purchase email.',
         })
         void offerReactivation(this.context, getBackendUrl(), { isFree })
         return
@@ -1069,8 +1075,8 @@ export class ChatPanel {
         this.post({
           type: 'streamError',
           message: isFree
-            ? 'Activation needs a moment — see the notification at the bottom right.'
-            : 'Licence verification failed — see the notification at the bottom right.',
+            ? 'The AI didn\'t recognise your free plan. A "Reset & start over" prompt is at the bottom right — click it to re-mint your free credits.'
+            : 'The AI couldn\'t verify your licence. A "Paste key from email" prompt is at the bottom right.',
         })
         void offerReactivation(this.context, getBackendUrl(), { isFree })
       } else {

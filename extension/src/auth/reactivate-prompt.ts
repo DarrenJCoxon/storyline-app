@@ -1,31 +1,88 @@
 import * as vscode from 'vscode'
 import { LicenceManager } from './licence.js'
+import { issueFreePlan } from './free-plan-issue.js'
+import { postActivateOpenWorkspace } from '../onboarding/post-activate.js'
+
+const BACKEND_URL = 'https://api.storyline.my'
 
 /**
- * Single source of truth for "your licence isn't working — do something about
- * it" UX. Shows a notification with action buttons that DO the action in one
- * click. Never sends users to the command palette.
+ * Show a notification with action buttons that DO the action in one click —
+ * never sends users to the command palette. The action set differs by plan
+ * type because the recovery options are different:
  *
- * The two action buttons are:
+ *   - Free plan: re-mint a fresh per-install key (no email exists, paid keys
+ *     don't apply). Offer "Reset & start over" which clears state and
+ *     re-runs the Start Free flow end-to-end.
  *
- *   - "Try again"        — re-runs the open-planning flow, which re-validates
- *                          the stored key. Fixes transient KV propagation
- *                          races (KV is eventually consistent across colos).
- *   - "Paste key from email" — opens an input box for the user to paste a
- *                          licence key. This is the new-device-add path; the
- *                          email contains the key for exactly this case.
+ *   - Paid plan: ask the user to paste the licence key from their purchase
+ *     email. This is the legitimate device-add path.
+ *
+ * In both cases "Try again" re-runs the open-planning flow so transient
+ * propagation races self-heal.
  */
 export async function offerReactivation(
   context: vscode.ExtensionContext,
   backendUrl: string,
   opts: { isFree: boolean },
 ): Promise<void> {
-  const message = opts.isFree
-    ? 'Storyline can\'t reach your free plan right now. This usually clears in a moment.'
-    : 'Storyline can\'t verify your licence right now.'
+  if (opts.isFree) {
+    await offerFreeReactivation(context)
+  } else {
+    await offerPaidReactivation(context, backendUrl)
+  }
+}
 
+async function offerFreeReactivation(context: vscode.ExtensionContext): Promise<void> {
   const action = await vscode.window.showWarningMessage(
-    message,
+    'Storyline can\'t reach your free plan right now.',
+    { modal: false },
+    'Try again',
+    'Reset & start over',
+  )
+
+  if (action === 'Try again') {
+    await vscode.commands.executeCommand('storyline.openPlanning')
+    return
+  }
+
+  if (action === 'Reset & start over') {
+    const manager = new LicenceManager(context, BACKEND_URL)
+    await manager.clearLicenceKey()
+    await manager.clearCache()
+    await context.globalState.update('storyline.freePlan', undefined)
+
+    try {
+      const issued = await issueFreePlan(BACKEND_URL)
+      await manager.setLicenceKey(issued.licenceKey)
+      const info = await manager.validate({})
+      if (info.valid) {
+        await context.globalState.update('storyline.freePlan', { active: true })
+        void vscode.window.showInformationMessage(
+          `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready.`,
+        )
+        await postActivateOpenWorkspace()
+      } else {
+        await manager.clearLicenceKey()
+        void vscode.window.showErrorMessage(
+          'Couldn\'t reactivate the free plan. The activation server is reachable but the new key didn\'t validate. Email coxondj@gmail.com if this persists.',
+        )
+      }
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err)
+      const message = /429/.test(raw)
+        ? 'Free plan limit reached for this network — try again in a few hours, or buy credits to continue.'
+        : `Could not reach activation server: ${raw}`
+      void vscode.window.showErrorMessage(message)
+    }
+  }
+}
+
+async function offerPaidReactivation(
+  context: vscode.ExtensionContext,
+  backendUrl: string,
+): Promise<void> {
+  const action = await vscode.window.showWarningMessage(
+    'Storyline can\'t verify your licence right now.',
     'Try again',
     'Paste key from email',
   )
@@ -52,7 +109,7 @@ export async function offerReactivation(
       void vscode.window.showInformationMessage(
         `Activated — ${info.creditBalance.toLocaleString()} credits ready.`,
       )
-      await vscode.commands.executeCommand('storyline.openPlanning')
+      await postActivateOpenWorkspace()
     } else {
       await manager.clearLicenceKey()
       void vscode.window.showErrorMessage(
