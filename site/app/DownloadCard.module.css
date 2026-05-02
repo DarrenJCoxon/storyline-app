@@ -42,6 +42,22 @@
   margin: -2px 0 14px;
 }
 
+.platformNote {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: -8px 0 14px;
+  padding: 8px 14px;
+  background: var(--sep, rgba(255, 255, 255, 0.04));
+  border-radius: 6px;
+}
+
+.platformNote strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* Toggle for "Different computer?" — borderless underlined mini-button
  * matching the secondary text-link pattern used in Welcome.tsx. */
 .toggle {

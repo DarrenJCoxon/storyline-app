@@ -75,6 +75,9 @@ export default function DownloadCard() {
           <p className={styles.helperLine}>
             Free to install. Includes a one-book free plan — no card required.
           </p>
+          <p className={styles.platformNote}>
+            Desktop app for <strong>Mac &amp; Windows</strong>. Not available on iOS, Android, or in a web browser — Storyline runs as a VS Code extension on your computer.
+          </p>
           <button
             type="button"
             className={styles.toggle}
@@ -85,7 +88,12 @@ export default function DownloadCard() {
           </button>
         </>
       ) : (
-        <p className={styles.helperLine}>Choose your system to download:</p>
+        <>
+          <p className={styles.helperLine}>Choose your system to download:</p>
+          <p className={styles.platformNote}>
+            Desktop app for <strong>Mac &amp; Windows</strong>. Not available on iOS, Android, or in a web browser — Storyline runs as a VS Code extension on your computer.
+          </p>
+        </>
       )}
 
       {(showAll || !primaryEntry) && (
