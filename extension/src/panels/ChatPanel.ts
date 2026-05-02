@@ -680,85 +680,56 @@ export class ChatPanel {
 
     const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
     if (projectDir) {
-      writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
+      // Artefact regeneration runs in the background — never block the next-
+      // stage opening prompt on it. These generators read the project state,
+      // walk chapters/scenes/beats, and write large markdown files via sync
+      // fs.writeFileSync. Inlining them here used to add 3-8s of blocked
+      // main thread between stageComplete and stageAdvance — the user saw
+      // a long silence after locking a stage. Deferring to the next
+      // microtask via Promise.resolve().then() lets the synchronous flow
+      // proceed to fireOpeningPrompt immediately; artefacts catch up after.
       const plan = getWritingPlan(finalState)
-      try {
-        seedManuscriptFromPlan(plan, projectDir)
-      } catch (err) {
-        console.warn('[Storyline] seedManuscriptFromPlan failed', err)
+      const defer = (label: string, fn: () => unknown): void => {
+        void Promise.resolve().then(() => {
+          try { fn() } catch (err) { console.warn(`[Storyline] ${label} failed`, err) }
+        })
       }
+
+      writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
+      defer('seedManuscriptFromPlan', () => seedManuscriptFromPlan(plan, projectDir))
+
       // Regenerate promise/payoff ledger after any chapter-outline or plot-thread save.
       if (finalState.mode === 'fiction' && (stageId === 'chapterOutline' || stageId === 'plotThreads')) {
-        try {
-          generatePromisePayoffLedger(plan, projectDir)
-        } catch (err) {
-          console.warn('[Storyline] generatePromisePayoffLedger failed', err)
-        }
+        defer('generatePromisePayoffLedger', () => generatePromisePayoffLedger(plan, projectDir))
       }
       // Regenerate story bible after cast / relationship / chapter / beat saves.
       const STORY_BIBLE_STAGES = ['characters', 'relationships', 'chapterOutline', 'beatSheet']
       if (finalState.mode === 'fiction' && STORY_BIBLE_STAGES.includes(stageId)) {
-        try {
-          generateStoryBible(plan, projectDir)
-        } catch (err) {
-          console.warn('[Storyline] generateStoryBible failed', err)
-        }
+        defer('generateStoryBible', () => generateStoryBible(plan, projectDir))
       }
       // Regenerate arc matrix after protagonist / cast / chapter / beat saves.
       const ARC_MATRIX_STAGES = ['protagonist', 'characters', 'chapterOutline', 'beatSheet']
       if (finalState.mode === 'fiction' && ARC_MATRIX_STAGES.includes(stageId)) {
-        try {
-          generateCharacterArcMatrix(plan, projectDir)
-        } catch (err) {
-          console.warn('[Storyline] generateCharacterArcMatrix failed', err)
-        }
+        defer('generateCharacterArcMatrix', () => generateCharacterArcMatrix(plan, projectDir))
       }
       // NF artefacts — regenerate after relevant stage saves.
       if (finalState.mode === 'nonfiction') {
-        // NF master doc after any master stage. Academic projects get the
-        // richer academic-master-doc generator (level/register, syllabus,
-        // learning-outcome inventory, prerequisite chain, glossary, chapter
-        // plan with outcomes/terms/exercises). Other pipelines fall through
-        // to the generic NF master doc.
         if (stageId === 'ac-master' && plan.academic) {
-          try {
-            generateAcademicMasterDocument(plan, finalState, projectDir)
-          } catch (err) {
-            console.warn('[Storyline] generateAcademicMasterDocument failed', err)
-          }
+          defer('generateAcademicMasterDocument', () => generateAcademicMasterDocument(plan, finalState, projectDir))
         } else if (stageId === 'pa-master' || stageId === 'pb-master' || stageId === 'pc-master') {
-          try {
-            generateNfMasterDocument(plan, finalState, projectDir)
-          } catch (err) {
-            console.warn('[Storyline] generateNfMasterDocument failed', err)
-          }
+          defer('generateNfMasterDocument', () => generateNfMasterDocument(plan, finalState, projectDir))
         }
-        // Research todo after chapter-plan or evidence-map saves.
         const RESEARCH_TODO_STAGES = ['pa-chapters', 'pb-chapters', 'pc-lessons', 'pa-evidence', 'pb-evidence']
         if (RESEARCH_TODO_STAGES.includes(stageId)) {
-          try {
-            generateResearchTodo(plan, projectDir)
-          } catch (err) {
-            console.warn('[Storyline] generateResearchTodo failed', err)
-          }
+          defer('generateResearchTodo', () => generateResearchTodo(plan, projectDir))
         }
-        // NF-12: Claim/evidence ledger after evidence or sourcing stage saves.
         const CLAIM_LEDGER_STAGES = ['pa-evidence', 'pb-sourcing', 'pa-master', 'pb-master', 'pc-master']
         if (CLAIM_LEDGER_STAGES.includes(stageId)) {
-          try {
-            generateClaimEvidenceLedger(plan, projectDir)
-          } catch (err) {
-            console.warn('[Storyline] generateClaimEvidenceLedger failed', err)
-          }
+          defer('generateClaimEvidenceLedger', () => generateClaimEvidenceLedger(plan, projectDir))
         }
-        // NF-13: Figure registry after chapter-plan saves.
         const FIGURE_REGISTRY_STAGES = ['pa-chapters', 'pb-chapters', 'pc-lessons']
         if (FIGURE_REGISTRY_STAGES.includes(stageId)) {
-          try {
-            generateFigureRegistry(plan, projectDir)
-          } catch (err) {
-            console.warn('[Storyline] generateFigureRegistry failed', err)
-          }
+          defer('generateFigureRegistry', () => generateFigureRegistry(plan, projectDir))
         }
       }
     }
@@ -1009,7 +980,19 @@ export class ChatPanel {
       : `Begin the ${stageId} stage.`
 
     this.turnHistory.append(stageId, { role: 'user', content: kickoffText })
-    const messages: Message[] = this.turnHistory.allForStage(stageId)
+
+    // For any stage AFTER the first, prepend the tail of the cross-stage
+    // display log so the AI knows what the user just said. Without this,
+    // the new stage's opening question is asked cold and ignores anything
+    // the user told the previous stage — e.g. naming the book's subject
+    // during mode-detection, then being asked for the subject again at
+    // the start of dna-category. We cap the tail at PRIOR_CONTEXT_TURNS
+    // so token cost stays bounded.
+    const PRIOR_CONTEXT_TURNS = 4
+    const prior = stageId === 'mode'
+      ? []
+      : this.turnHistory.allDisplay().slice(-PRIOR_CONTEXT_TURNS)
+    const messages: Message[] = [...prior, ...this.turnHistory.allForStage(stageId)]
 
     // No seed — the AI generates the opener fresh from the stage brief in
     // the system prompt. Pre-seeding the canned `opening` caused
