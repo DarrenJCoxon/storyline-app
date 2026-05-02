@@ -12,7 +12,7 @@ services at `storyline.my` and `api.storyline.my`.
 The data controller is:
 
   Darren Coxon
-  coxondj@gmail.com
+  darren@coxon.ai
 
 If you have questions about this policy or want to exercise any of your rights
 below, contact us at the address above.
@@ -116,7 +116,7 @@ Under UK GDPR / EU GDPR you have the right to:
 - **Object** — object to processing based on legitimate interest.
 - **Withdraw consent** — for any processing based on consent.
 
-Email **coxondj@gmail.com** to exercise any of these rights. We aim to respond
+Email **darren@coxon.ai** to exercise any of these rights. We aim to respond
 within 30 days.
 
 You also have the right to lodge a complaint with the UK Information
@@ -140,4 +140,4 @@ address.
 Privacy questions, data requests, complaints:
 
   Darren Coxon
-  coxondj@gmail.com
+  darren@coxon.ai

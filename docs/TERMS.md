@@ -20,7 +20,7 @@ managed services are bypassed and your provider's terms apply directly.
 We identify your usage of the managed AI services by a licence key. The licence
 key is yours to keep secret. You are responsible for any usage made with your
 key, including any charges incurred. If you suspect your key has been
-compromised, email **coxondj@gmail.com** so we can revoke and reissue it.
+compromised, email **darren@coxon.ai** so we can revoke and reissue it.
 
 ## 3. Free plan, credits, and billing
 
@@ -139,4 +139,4 @@ of your country of residence.
 Questions about these Terms:
 
   Darren Coxon
-  coxondj@gmail.com
+  darren@coxon.ai

@@ -287,8 +287,8 @@ export default function HomePage() {
           Privacy Policy
         </a>
         . Need help? Email{' '}
-        <a href="mailto:coxondj@gmail.com" className={styles.termsLink}>
-          coxondj@gmail.com
+        <a href="mailto:darren@coxon.ai" className={styles.termsLink}>
+          darren@coxon.ai
         </a>
         .
       </p>
