@@ -48,11 +48,24 @@ async function showKeyPrompt(
   backendUrl: string,
 ): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
-    'Welcome to Storyline! Start with one free book plan, or enter a licence key.',
+    'Welcome to Storyline! Start with one free book plan (250 credits), or enter a licence key. By continuing you accept the Terms and Privacy Policy.',
     { modal: false },
     'Start free plan',
     'Enter Licence Key',
+    'View Terms',
+    'View Privacy',
   )
+
+  if (choice === 'View Terms') {
+    await vscode.env.openExternal(vscode.Uri.parse('https://api.storyline.my/terms'))
+    await showKeyPrompt(context, manager, backendUrl)
+    return
+  }
+  if (choice === 'View Privacy') {
+    await vscode.env.openExternal(vscode.Uri.parse('https://api.storyline.my/privacy'))
+    await showKeyPrompt(context, manager, backendUrl)
+    return
+  }
 
   if (choice === 'Enter Licence Key') {
     await promptForKey(context, manager)

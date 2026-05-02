@@ -9,6 +9,7 @@ import { handleTranscribe } from './transcribe.js'
 import { handleSuccess } from './success.js'
 import { handleResendKey } from './resend-key.js'
 import { handleLogError } from './log-error.js'
+import { handleTerms, handlePrivacy } from './legal.js'
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -33,6 +34,12 @@ export default {
     // GET-only and GET+POST pages
     if (req.method === 'GET' && pathname === '/success') {
       return handleSuccess(req, env)
+    }
+    if (req.method === 'GET' && pathname === '/terms') {
+      return handleTerms()
+    }
+    if (req.method === 'GET' && pathname === '/privacy') {
+      return handlePrivacy()
     }
     if ((req.method === 'GET' || req.method === 'POST') && pathname === '/resend-key') {
       return handleResendKey(req, env)

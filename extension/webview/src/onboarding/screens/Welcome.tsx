@@ -94,6 +94,13 @@ export function Welcome({ onNavigate, onUseFree, onActivateKey, validating, vali
         )}
       </div>
 
+      <p style={{ marginTop: '24px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+        By starting a free plan you accept our{' '}
+        <a href="https://api.storyline.my/terms" style={{ color: 'var(--text-muted)' }}>Terms</a>
+        {' '}and{' '}
+        <a href="https://api.storyline.my/privacy" style={{ color: 'var(--text-muted)' }}>Privacy Policy</a>.
+      </p>
+
     </div>
   )
 }

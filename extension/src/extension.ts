@@ -318,6 +318,14 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
+    vscode.commands.registerCommand('storyline.viewTerms', () => {
+      void vscode.env.openExternal(vscode.Uri.parse('https://api.storyline.my/terms'))
+    }),
+
+    vscode.commands.registerCommand('storyline.viewPrivacy', () => {
+      void vscode.env.openExternal(vscode.Uri.parse('https://api.storyline.my/privacy'))
+    }),
+
     vscode.commands.registerCommand('storyline.resetActivation', async () => {
       const manager = new LicenceManager(context, getBackendUrl())
       await manager.clearLicenceKey()

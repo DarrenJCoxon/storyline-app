@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev":       "wrangler dev",
-    "deploy":    "wrangler deploy",
-    "typecheck": "tsc --noEmit",
-    "test":      "vitest run"
+    "dev": "npm run build:legal && wrangler dev",
+    "deploy": "npm run build:legal && wrangler deploy",
+    "build:legal": "node scripts/build-legal.mjs",
+    "typecheck": "npm run build:legal && tsc --noEmit",
+    "test": "npm run build:legal && vitest run"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241022.0",
+    "marked": "^14.1.4",
     "typescript": "^5.5.0",
     "vitest": "^1.6.0",
     "wrangler": "^3.75.0"

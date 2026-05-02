@@ -19,6 +19,9 @@ extension/storyline-extension-*.vsix
 # Worker bundle (rebuilt by wrangler deploy or local esbuild for dashboard uploads)
 backend/dist/
 
+# Generated from docs/TERMS.md + docs/PRIVACY.md by build:legal
+backend/src/legal-content.ts
+
 # Generated output (root-level only — lib/output/ is source code)
 /output/
 
