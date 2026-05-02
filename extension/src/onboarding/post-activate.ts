@@ -53,14 +53,16 @@ export async function postActivateOpenWorkspace(
 
   const projectDir = folders[0].uri.fsPath
 
-  // 1. Scaffold the project layout (idempotent — only writes missing files).
-  const stateFile = path.join(projectDir, '.storyline', 'state.json')
-  if (!fs.existsSync(stateFile)) {
-    try {
-      scaffoldProject(projectDir, folders[0].name)
-    } catch (err) {
-      console.error('[Storyline] postActivate: scaffold failed', err)
-    }
+  // 1. Scaffold the project layout. Always runs — scaffoldProject is fully
+  //    idempotent (mkdir -p, writeIfMissing, plus a placeholder-state check
+  //    inside) and handles the case where the Tauri installer pre-created
+  //    only `.storyline/state.json` with `{}` to satisfy the extension's
+  //    workspaceContains activation event. Without this, manuscript/,
+  //    docs/, output/ never get created on installer-launched projects.
+  try {
+    scaffoldProject(projectDir, folders[0].name)
+  } catch (err) {
+    console.error('[Storyline] postActivate: scaffold failed', err)
   }
 
   // 2. Wipe stale conversation files so Reset & start over gets a clean

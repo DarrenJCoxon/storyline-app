@@ -33,9 +33,23 @@ export function scaffoldProject(
   ]
   for (const dir of dirs) fs.mkdirSync(dir, { recursive: true })
 
-  // 2. .storyline/state.json — initial state with project metadata
+  // 2. .storyline/state.json — initial state with project metadata.
+  // The Tauri installer pre-creates this file with `{}` so the extension's
+  // `workspaceContains:.storyline/state.json` activation event fires on
+  // first open. Treat that placeholder (and anything missing `_meta`) as
+  // "needs init" so we still write the proper DEFAULT_STATE — but never
+  // overwrite a real state file with project history in it.
   const stateFile = path.join(workspaceRoot, '.storyline', 'state.json')
-  if (!fs.existsSync(stateFile)) {
+  let needsStateInit = !fs.existsSync(stateFile)
+  if (!needsStateInit) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(stateFile, 'utf8'))
+      needsStateInit = !existing || typeof existing !== 'object' || !existing._meta
+    } catch {
+      needsStateInit = true
+    }
+  }
+  if (needsStateInit) {
     const now = new Date().toISOString()
     const state = {
       ...DEFAULT_STATE,
