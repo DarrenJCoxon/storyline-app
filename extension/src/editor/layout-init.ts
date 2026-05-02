@@ -46,6 +46,19 @@ export async function initLayout(context: vscode.ExtensionContext): Promise<void
     const uri = vscode.Uri.file(chapter01)
     await vscode.commands.executeCommand('storyline.openEditor', uri)
   } catch { /* panel not ready yet */ }
+
+  // Clean layout: close auxiliary bar, focus Explorer, ensure no extension
+  // panels steal the sidebar. Runs after a brief beat so VS Code's view
+  // restoration is complete.
+  await new Promise(r => setTimeout(r, 300))
+  await ensureExplorerFocus()
+}
+
+async function ensureExplorerFocus(): Promise<void> {
+  try { await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar') } catch { /* */ }
+  try { await vscode.commands.executeCommand('workbench.action.closePanel') } catch { /* */ }
+  try { await vscode.commands.executeCommand('workbench.view.explorer') } catch { /* */ }
+  try { await vscode.commands.executeCommand('workbench.files.action.focusFilesExplorer') } catch { /* */ }
 }
 
 function readProjectName(root: string): string {
