@@ -1,27 +1,25 @@
 .main {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 24px;
-  width: 100%;
-  max-width: 400px;
+  max-width: 720px;
   margin: 0 auto;
+  padding: 64px 24px 48px;
+  width: 100%;
 }
 
-.header {
+/* ── Hero ───────────────────────────────────────────────── */
+.hero {
   text-align: center;
-  margin-bottom: 32px;
+  padding: 24px 0 48px;
+  border-bottom: 1px solid var(--sep);
+  margin-bottom: 56px;
 }
 
 .wordmark {
   font-family: var(--font-serif);
-  font-size: 32px;
+  font-size: 56px;
   letter-spacing: -0.02em;
   font-weight: 400;
-  margin-bottom: 8px;
   line-height: 1;
+  margin-bottom: 12px;
 }
 
 .wordmarkStory {
@@ -34,17 +32,190 @@
 
 .tagline {
   color: var(--text-muted);
+  font-size: 15px;
+  margin: 0 0 28px;
+}
+
+.heroLede {
+  max-width: 540px;
+  margin: 0 auto 36px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text);
+  opacity: 0.9;
+}
+
+.heroCta {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* ── Section primitives ─────────────────────────────────── */
+.section {
+  padding: 28px 0;
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  margin-bottom: 14px;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.sectionLede {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+  opacity: 0.85;
+  margin-bottom: 20px;
+}
+
+/* ── End-to-end flow ────────────────────────────────────── */
+.flow {
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+
+.flow li {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding: 14px 18px;
+  background: var(--chat-rail-bg);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-card);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  opacity: 0.9;
+}
+
+.flow li strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.flowNum {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  min-width: 28px;
+}
+
+/* ── Feature lists ──────────────────────────────────────── */
+.featureList {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.featureList li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.featureList li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.featureList strong {
+  color: var(--text);
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* ── Differentiators grid ───────────────────────────────── */
+.diffGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.diff {
+  padding: 18px;
+  background: var(--chat-rail-bg);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-card);
+}
+
+.diffTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+  letter-spacing: 0.005em;
+}
+
+.diff p {
   font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  opacity: 0.85;
   margin: 0;
 }
 
+/* ── Bottom CTA ─────────────────────────────────────────── */
+.ctaSection {
+  margin-top: 32px;
+  padding: 48px 24px;
+  background: var(--chat-rail-bg);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+
+.ctaTitle {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  margin-bottom: 12px;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.ctaLede {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 28px;
+}
+
+.ctaBox {
+  max-width: 360px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* ── Footer terms ───────────────────────────────────────── */
 .terms {
-  margin-top: 24px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--sep);
   font-size: 11px;
   color: var(--text-muted);
   text-align: center;
-  line-height: 1.6;
-  width: 100%;
+  line-height: 1.7;
 }
 
 .termsLink {
@@ -55,4 +226,29 @@
 
 .termsLink:hover {
   color: var(--text);
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .main {
+    padding: 40px 18px 32px;
+  }
+  .wordmark {
+    font-size: 44px;
+  }
+  .heroLede {
+    font-size: 15px;
+  }
+  .sectionTitle {
+    font-size: 24px;
+  }
+  .ctaTitle {
+    font-size: 24px;
+  }
+  .diffGrid {
+    grid-template-columns: 1fr;
+  }
+  .ctaSection {
+    padding: 32px 18px;
+  }
 }
