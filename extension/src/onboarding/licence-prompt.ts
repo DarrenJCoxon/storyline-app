@@ -1,8 +1,7 @@
 import * as vscode from 'vscode'
-import * as path from 'path'
-import * as fs from 'fs'
 import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
+import { postActivateOpenWorkspace } from './post-activate.js'
 
 const SNOOZE_KEY = 'storyline.licencePromptSnoozedUntil'
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000 // 3 days
@@ -85,25 +84,7 @@ async function showKeyPrompt(
         void vscode.window.showInformationMessage(
           `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
         )
-        // Open welcome doc FIRST in column 1 so the rendered preview is
-        // visible alongside the chat. Doing it after openPlanning would
-        // open the preview in chat's column and hide it.
-        const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-        if (folder) {
-          const welcomePath = path.join(folder, 'docs', 'welcome.md')
-          if (fs.existsSync(welcomePath)) {
-            try {
-              const welcomeUri = vscode.Uri.file(welcomePath)
-              const doc = await vscode.workspace.openTextDocument(welcomeUri)
-              await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false })
-              await vscode.commands.executeCommand('markdown.showPreview', welcomeUri)
-              await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
-            } catch (err) {
-              console.error('[Storyline] licence-prompt: failed to open welcome doc', err)
-            }
-          }
-        }
-        await vscode.commands.executeCommand('storyline.openPlanning')
+        await postActivateOpenWorkspace()
       } else {
         // Newly-issued key didn't validate — safe to clear, we know the
         // stored key is the one we just wrote.
@@ -148,7 +129,7 @@ async function promptForKey(
     void vscode.window.showInformationMessage(
       `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
     )
-    await vscode.commands.executeCommand('storyline.openPlanning')
+    await postActivateOpenWorkspace()
   } else {
     await manager.clearLicenceKey()
     void vscode.window.showErrorMessage(

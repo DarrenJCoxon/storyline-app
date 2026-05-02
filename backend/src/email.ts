@@ -44,19 +44,24 @@ function licenceEmailHtml(licenceKey: string): string {
           <p style="margin:12px 0 0;font-size:15px;color:#888">Keep this email — it's your key to your credits on any device.</p>
         </td></tr>
 
-        <tr><td style="padding:24px 40px">
-          <p style="margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#666">Licence Key</p>
-          <div style="background:#0f0f0f;border:1px solid #333;border-radius:8px;padding:16px 20px;font-family:'SF Mono','Fira Code',monospace;font-size:20px;letter-spacing:0.05em;color:#a78bfa;text-align:center">
+        <tr><td style="padding:24px 40px 8px">
+          <a href="vscode://darrenjcoxon.storyline-extension/activate?key=${licenceKey}" style="display:block;text-align:center;background:#16a34a;color:#fff;padding:16px 24px;border-radius:10px;font-size:17px;font-weight:600;text-decoration:none">
+            Activate Storyline →
+          </a>
+          <p style="margin:8px 0 0;font-size:12px;color:#888;text-align:center">Click the button above on the device where Storyline is installed. It applies your credits automatically — no copy-paste.</p>
+        </td></tr>
+
+        <tr><td style="padding:24px 40px 8px">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#666">Adding to a second device?</p>
+          <p style="margin:0 0 10px;font-size:13px;color:#888;line-height:1.5">Save the licence key below — paste it into the "Paste key from email" prompt on your other machine.</p>
+          <div style="background:#0f0f0f;border:1px solid #333;border-radius:8px;padding:14px 18px;font-family:'SF Mono','Fira Code',monospace;font-size:14px;letter-spacing:0.05em;color:#a78bfa;text-align:center">
             ${licenceKey}
           </div>
         </td></tr>
 
-        <tr><td style="padding:0 40px 32px">
-          <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.08em">Getting started</p>
-          <p style="margin:0 0 10px;font-size:14px;color:#bbb;line-height:1.6">1. <a href="https://github.com/DarrenJCoxon/storyline-app/releases/latest" style="color:#a78bfa;text-decoration:none">Download the Storyline installer</a> and open it.</p>
-          <p style="margin:0 0 10px;font-size:14px;color:#bbb;line-height:1.6">2. Press <span style="background:#2a2a2a;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px">Cmd+Shift+P</span> and run <span style="background:#2a2a2a;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px">Storyline: Enter Licence Key</span>.</p>
-          <p style="margin:0 0 24px;font-size:14px;color:#bbb;line-height:1.6">3. Paste the key above and hit Enter. Your credits activate immediately.</p>
-          <p style="margin:0;font-size:13px;color:#666;line-height:1.6">Changed device? Visit <a href="https://api.storyline.my/resend-key" style="color:#666">storyline.my</a> and enter this email address to have your key resent.</p>
+        <tr><td style="padding:24px 40px 32px">
+          <p style="margin:0 0 12px;font-size:13px;color:#888;line-height:1.6">Don't have Storyline installed yet? <a href="https://github.com/DarrenJCoxon/storyline-app/releases/latest" style="color:#a78bfa;text-decoration:none">Download the installer</a>, run it, then come back to this email and click <strong>Activate Storyline</strong>.</p>
+          <p style="margin:0;font-size:13px;color:#666;line-height:1.6">Lost this email? Visit <a href="https://api.storyline.my/resend-key" style="color:#666">storyline.my</a> and enter your email address to have your key resent.</p>
         </td></tr>
 
         <tr><td style="background:#111;padding:20px 40px;border-top:1px solid #2a2a2a">

@@ -19,6 +19,7 @@ import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
 import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
+import { offerReactivation } from '../auth/reactivate-prompt.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
 // Free-tier keys are minted server-side per install and all begin with
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
@@ -134,9 +135,10 @@ export class ChatPanel {
         this.post({
           type: 'streamError',
           message: isFree
-            ? `Free plan key ${storedKey.slice(0, 12)}… isn't valid. Run "Storyline: Reset Activation" then click Start free again.`
-            : 'Unable to verify your Storyline licence. Run "Storyline: Enter Licence Key" to re-activate.',
+            ? 'Activation needs a moment — see the notification at the bottom right.'
+            : 'Licence verification failed — see the notification at the bottom right.',
         })
+        void offerReactivation(this.context, getBackendUrl(), { isFree })
         return
       }
     }
@@ -1066,10 +1068,11 @@ export class ChatPanel {
 
         this.post({
           type: 'streamError',
-          message: isFree && key
-            ? `Free plan key ${key.slice(0, 12)}… isn't recognised by the AI service. This usually means the licence record hasn't propagated yet — wait 30 seconds then send again, or run "Storyline: Reset Activation" and click Start free once more.`
-            : 'Licence verification failed. Run "Storyline: Enter Licence Key" to re-activate.',
+          message: isFree
+            ? 'Activation needs a moment — see the notification at the bottom right.'
+            : 'Licence verification failed — see the notification at the bottom right.',
         })
+        void offerReactivation(this.context, getBackendUrl(), { isFree })
       } else {
         this.post({ type: 'streamError', message: msg })
       }

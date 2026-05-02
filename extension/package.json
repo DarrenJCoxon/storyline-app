@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.35",
+  "version": "0.1.37",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -21,7 +21,8 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.storyline/state.json"
+    "workspaceContains:.storyline/state.json",
+    "onUri"
   ],
   "main": "./dist/extension.js",
   "contributes": {

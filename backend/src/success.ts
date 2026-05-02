@@ -123,9 +123,11 @@ function successPage(licenceKey: string, links: DownloadLinks): string {
     h1 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
     .subtitle { color: #888; font-size: 15px; margin-bottom: 32px; }
     .label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 8px; }
-    .key-box { background: #0f0f0f; border: 1px solid #333; border-radius: 8px; padding: 16px 20px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 18px; letter-spacing: 0.05em; color: #a78bfa; display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-    .copy-btn { background: #2a2a2a; border: none; color: #e8e8e8; font-size: 13px; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: background 0.15s; flex-shrink: 0; margin-left: 12px; }
+    .key-box { background: #0f0f0f; border: 1px solid #333; border-radius: 8px; padding: 14px 18px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px; letter-spacing: 0.05em; color: #a78bfa; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .copy-btn { background: #2a2a2a; border: none; color: #e8e8e8; font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: background 0.15s; flex-shrink: 0; margin-left: 12px; }
     .copy-btn:hover { background: #3a3a3a; }
+    .activate-btn { display: block; text-align: center; padding: 16px 24px; border-radius: 10px; font-size: 17px; font-weight: 600; text-decoration: none; margin-bottom: 14px; background: #16a34a; color: white; transition: background 0.15s; }
+    .activate-btn:hover { background: #15803d; }
     .dl-btn { display: block; text-align: center; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 500; text-decoration: none; margin-bottom: 10px; transition: opacity 0.15s; }
     .dl-btn.primary { background: #7c3aed; color: white; }
     .dl-btn.primary:hover { opacity: 0.9; }
@@ -149,36 +151,36 @@ function successPage(licenceKey: string, links: DownloadLinks): string {
       <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
     <h1>You're all set</h1>
-    <p class="subtitle">Your Storyline licence key is below. Keep it safe.</p>
+    <p class="subtitle">One click activates Storyline on this computer.</p>
 
-    <div class="label">Licence Key</div>
+    <a href="vscode://darrenjcoxon.storyline-extension/activate?key=${licenceKey}" class="activate-btn">
+      Activate Storyline →
+    </a>
+    <p style="text-align:center; color:#888; font-size:12px; margin-bottom:24px;">
+      This opens your installed Storyline (VS Code) and applies your credits automatically.
+    </p>
+
+    <hr class="divider">
+
+    <div class="label">Don't have Storyline installed yet?</div>
+    ${downloadButtons(links)}
+    <p style="text-align:center; color:#888; font-size:12px; margin-top:4px; margin-bottom:24px;">
+      Install the app, then come back to this page and click Activate Storyline above.
+    </p>
+
+    <hr class="divider">
+
+    <div class="label">Adding to a second device?</div>
+    <p style="color:#888; font-size:13px; margin-bottom:10px; line-height:1.5;">
+      Save the licence key below — paste it into the "Paste key from email" prompt on your other machine.
+    </p>
     <div class="key-box">
       <span id="key">${licenceKey}</span>
       <button class="copy-btn" onclick="copyKey()">Copy</button>
     </div>
 
-    ${downloadButtons(links)}
-
-    <hr class="divider">
-
-    <div class="steps">
-      <h2>Next steps</h2>
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-text">Download and open the installer above — it sets up VS Code and Storyline automatically.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-text">Press <code>Cmd+Shift+P</code> (Mac) or <code>Ctrl+Shift+P</code> (Windows) and run <code>Storyline: Enter Licence Key</code>.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-text">Paste your key above and hit Enter. Your credits activate immediately.</div>
-      </div>
-    </div>
-
     <div class="note">
-      Save this page or note your key — it won't be shown again. Questions? Email <a href="mailto:coxondj@gmail.com">coxondj@gmail.com</a>.
+      Save this page or note your key — it's also in your purchase confirmation email. Questions? Email <a href="mailto:coxondj@gmail.com">coxondj@gmail.com</a>.
     </div>
   </div>
 

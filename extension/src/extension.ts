@@ -18,6 +18,7 @@ import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { checkLicencePrompt } from './onboarding/licence-prompt.js'
 import { ensureResearchFolder, ensurePlanningFolder } from './onboarding/project-scaffold.js'
+import { postActivateOpenWorkspace } from './onboarding/post-activate.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
 import { LocalStore } from './state/local-store.js'
@@ -116,6 +117,48 @@ export function activate(context: vscode.ExtensionContext): void {
     try { ensureResearchFolder(wsRoot) } catch { /* non-fatal */ }
     try { ensurePlanningFolder(wsRoot) } catch { /* non-fatal */ }
   }
+
+  // Deep-link handler for Stripe → extension auto-activation.
+  //
+  // /success on the marketing site redirects to a vscode://… link that the OS
+  // routes to whichever VS Code instance is running this extension. We pull
+  // the licence key out of the query, validate it, store it, and fire the
+  // standard one-click activation flow (scaffold + welcome doc + chat).
+  // Result: zero copy-paste between the Stripe success page and the working
+  // extension state.
+  context.subscriptions.push(
+    vscode.window.registerUriHandler({
+      handleUri: async (uri: vscode.Uri) => {
+        if (uri.path !== '/activate') return
+        const params = new URLSearchParams(uri.query)
+        const rawKey = params.get('key')?.trim().toUpperCase()
+        if (!rawKey || !rawKey.startsWith('SL-')) {
+          void vscode.window.showErrorMessage(
+            'Storyline activation failed — the link didn\'t contain a valid key. Email coxondj@gmail.com if this persists.',
+          )
+          return
+        }
+        const manager = new LicenceManager(context, getBackendUrl())
+        await manager.setLicenceKey(rawKey)
+        const info = await manager.validate({})
+        if (info.valid) {
+          // Activated key is paid (credits) — clear any stale freePlan flag.
+          if (info.type !== 'free') {
+            await context.globalState.update('storyline.freePlan', undefined)
+          }
+          void vscode.window.showInformationMessage(
+            `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready.`,
+          )
+          await postActivateOpenWorkspace()
+        } else {
+          await manager.clearLicenceKey()
+          void vscode.window.showErrorMessage(
+            'Storyline activation failed — that key isn\'t recognised. Email coxondj@gmail.com.',
+          )
+        }
+      },
+    }),
+  )
 
   const statusBar = new WordCountStatusBar(context)
   const editorPanel = new EditorPanel(context, context.extensionUri, statusBar)
