@@ -76,3 +76,17 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test
+
+  installer-version-guard:
+    name: "guard — installer version matches homepage download links"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Pure node script, no deps — fails the build if installer/src-tauri/
+      # tauri.conf.json's version drifts from the asset filenames hard-coded
+      # in site/app/DownloadCard.tsx. Mismatch silently 404s every download
+      # button on the homepage.
+      - run: node scripts/check-installer-version.mjs
