@@ -35,8 +35,9 @@ async function detectPlatform(): Promise<PlatformKey> {
   if (!/Mac/i.test(ua)) return null
 
   // Apple Silicon detection: try UA-CH first (Chrome/Edge), then fall back
-  // to the historic ua-arch heuristic. Safari blocks this, so we default
-  // unknown Macs to Apple Silicon since 90%+ of Macs sold since 2020 are.
+  // to Apple Silicon as the default — since 2020 the vast majority of Macs
+  // sold are Apple Silicon, and Safari blocks UA-CH so we'd guess wrong
+  // for most Mac visitors otherwise.
   type UAData = {
     getHighEntropyValues?: (h: string[]) => Promise<{ architecture?: string }>
   }
@@ -50,7 +51,6 @@ async function detectPlatform(): Promise<PlatformKey> {
       /* fall through */
     }
   }
-  if (/Intel/i.test(ua)) return 'macAppleSilicon'
   return 'macAppleSilicon'
 }
 
@@ -69,22 +69,23 @@ export default function DownloadCard() {
       {primaryEntry ? (
         <>
           <a href={primaryEntry.url} className={styles.primary}>
-            <span className={styles.primaryLabel}>Download Storyline</span>
-            <span className={styles.primarySub}>for {primaryEntry.label}</span>
+            Download for {primaryEntry.label.split(' (')[0]}
+            <span className={styles.primarySub}>{primaryEntry.label.match(/\(([^)]+)\)/)?.[1] ?? ''}</span>
           </a>
+          <p className={styles.helperLine}>
+            Free to install. Includes a one-book free plan — no card required.
+          </p>
           <button
             type="button"
             className={styles.toggle}
             onClick={() => setShowAll(v => !v)}
             aria-expanded={showAll}
           >
-            {showAll ? 'Hide other versions' : 'Different computer? Choose another version'}
+            {showAll ? 'Hide other versions' : 'Different computer?'}
           </button>
         </>
       ) : (
-        <div className={styles.fallback}>
-          <p className={styles.fallbackText}>Choose your system to download:</p>
-        </div>
+        <p className={styles.helperLine}>Choose your system to download:</p>
       )}
 
       {(showAll || !primaryEntry) && (
@@ -101,8 +102,8 @@ export default function DownloadCard() {
       )}
 
       <p className={styles.helpText}>
-        Not sure which Mac you have? Click the Apple menu → <strong>About This Mac</strong>. If it lists an{' '}
-        <strong>M1, M2, M3 or M4</strong> chip, choose Apple Silicon.
+        Not sure which Mac you have? Click the Apple menu → <strong>About This Mac</strong>. If it
+        lists an <strong>M1, M2, M3 or M4</strong> chip, choose Apple Silicon.
       </p>
     </div>
   )

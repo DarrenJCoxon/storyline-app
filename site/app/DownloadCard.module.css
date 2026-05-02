@@ -1,106 +1,112 @@
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 32px;
-  box-shadow: var(--shadow);
+  width: 100%;
 }
 
+/* Primary download button — mirrors primaryBtn from
+ * extension/webview/src/onboarding/shared.tsx: gold accent background,
+ * dark-on-gold text, 11/16 padding, radius-card, 13px Inter 600.
+ */
 .primary {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: block;
+  width: 100%;
+  padding: 11px 16px;
   background: var(--accent);
-  color: white;
-  padding: 20px 32px;
-  border-radius: 8px;
+  color: #1a1a1a;
+  border: none;
+  border-radius: var(--radius-card);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 8px;
   text-align: center;
-  transition: background 0.15s ease;
-  font-family: system-ui, -apple-system, sans-serif;
+  transition: opacity 0.15s ease, filter 0.15s ease;
 }
 
 .primary:hover {
-  background: var(--accent-hover);
-}
-
-.primaryLabel {
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  filter: brightness(1.06);
 }
 
 .primarySub {
-  font-size: 14px;
-  opacity: 0.85;
-  margin-top: 4px;
+  display: block;
+  margin-top: 2px;
+  font-weight: 500;
+  font-size: 11px;
+  opacity: 0.8;
 }
 
+.helperLine {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  margin: -2px 0 14px;
+}
+
+/* Toggle for "Different computer?" — borderless underlined mini-button
+ * matching the secondary text-link pattern used in Welcome.tsx. */
 .toggle {
   display: block;
-  margin: 16px auto 0;
+  margin: 4px auto 0;
   background: none;
   border: none;
-  color: var(--ink-soft);
-  font-family: inherit;
-  font-size: 14px;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: color 0.15s ease, background 0.15s ease;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 4px 8px;
+  text-decoration: underline;
+  text-decoration-color: var(--sep);
 }
 
 .toggle:hover {
-  color: var(--ink);
-  background: var(--bg);
-}
-
-.fallback {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.fallbackText {
-  color: var(--ink-soft);
-  font-size: 15px;
+  text-decoration-color: var(--text);
 }
 
 .altList {
   list-style: none;
   display: grid;
   gap: 8px;
-  margin-top: 20px;
+  margin-top: 14px;
 }
 
+/* Alternate-platform buttons — secondaryBtn pattern: rail bg, text color,
+ * 1px sep border, radius-card, 13px Inter. */
 .altLink {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  color: var(--ink);
+  width: 100%;
+  padding: 11px 16px;
+  background: var(--chat-rail-bg);
+  color: var(--text);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-card);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .altLink:hover {
   border-color: var(--accent);
-  background: white;
+  background: var(--bubble);
 }
 
 .altArrow {
   color: var(--accent);
+  font-size: 14px;
   font-weight: 600;
-  font-size: 16px;
 }
 
 .helpText {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-  font-size: 14px;
-  color: var(--ink-soft);
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
   text-align: center;
+  line-height: 1.6;
+}
+
+.helpText strong {
+  color: var(--text);
+  font-weight: 600;
 }

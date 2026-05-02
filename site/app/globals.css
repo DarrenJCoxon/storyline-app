@@ -1,12 +1,25 @@
+/* Brand tokens — mirrored from extension/webview/src/planning/tokens.css
+ * so the marketing site reads as the same product the user installs. */
 :root {
-  --bg: #faf8f4;
-  --ink: #1a1a1a;
-  --ink-soft: #555;
-  --accent: #6b4423;
-  --accent-hover: #543518;
-  --card: #ffffff;
-  --border: #e6e0d4;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --chat-bg: #1a1a1a;
+  --chat-rail-bg: #141414;
+  --chat-foot-bg: #111111;
+  --text: #e8e6e1;
+  --text-muted: #787573;
+  --bubble: #252525;
+  --sep: rgba(255, 255, 255, 0.08);
+
+  --accent: #c9a84c;
+  --accent-light-val: #b8922a;
+  --accent-glow: rgba(201, 168, 76, 0.2);
+  --accent-sub: rgba(201, 168, 76, 0.11);
+
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
+  --font-size-body: 13.5px;
+  --line-height: 1.75;
+  --radius-bubble: 6px;
+  --radius-card: 10px;
 }
 
 * {
@@ -17,15 +30,26 @@
 
 html,
 body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: ui-serif, Georgia, 'Times New Roman', serif;
-  font-size: 17px;
-  line-height: 1.55;
+  background: var(--chat-bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height);
   -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sep);
+  border-radius: 2px;
 }

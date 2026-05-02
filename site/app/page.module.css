@@ -1,100 +1,58 @@
 .main {
-  max-width: 720px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  width: 100%;
+  max-width: 400px;
   margin: 0 auto;
-  padding: 80px 24px 48px;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 56px;
+  margin-bottom: 32px;
 }
 
-.title {
-  font-size: 56px;
-  font-weight: 400;
+.wordmark {
+  font-family: var(--font-serif);
+  font-size: 32px;
   letter-spacing: -0.02em;
-  margin-bottom: 16px;
+  font-weight: 400;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.wordmarkStory {
+  color: var(--text);
+}
+
+.wordmarkLine {
+  color: var(--accent);
 }
 
 .tagline {
-  font-size: 19px;
-  color: var(--ink-soft);
-  max-width: 520px;
-  margin: 0 auto;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
 }
 
-.sectionTitle {
-  font-size: 22px;
-  font-weight: 500;
-  margin-bottom: 20px;
-  letter-spacing: -0.01em;
-}
-
-.steps {
-  margin-top: 64px;
-}
-
-.stepList {
-  list-style: none;
-  counter-reset: step;
-  display: grid;
-  gap: 16px;
-}
-
-.stepList li {
-  counter-increment: step;
-  position: relative;
-  padding-left: 44px;
-  color: var(--ink-soft);
-}
-
-.stepList li::before {
-  content: counter(step);
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.stepList strong {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.footer {
-  margin-top: 80px;
+.terms {
+  margin-top: 24px;
+  font-size: 11px;
+  color: var(--text-muted);
   text-align: center;
-  color: var(--ink-soft);
-  font-size: 15px;
+  line-height: 1.6;
+  width: 100%;
 }
 
-.link {
-  color: var(--accent);
-  border-bottom: 1px solid currentColor;
+.termsLink {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--sep);
 }
 
-.link:hover {
-  color: var(--accent-hover);
-}
-
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 20px 32px;
-  }
-  .title {
-    font-size: 44px;
-  }
-  .tagline {
-    font-size: 17px;
-  }
+.termsLink:hover {
+  color: var(--text);
 }
