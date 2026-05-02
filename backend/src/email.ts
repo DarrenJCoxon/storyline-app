@@ -65,7 +65,7 @@ function licenceEmailHtml(licenceKey: string): string {
         </td></tr>
 
         <tr><td style="background:#111;padding:20px 40px;border-top:1px solid #2a2a2a">
-          <p style="margin:0;font-size:13px;color:#555">Questions? Reply to this email or contact <a href="mailto:coxondj@gmail.com" style="color:#555">coxondj@gmail.com</a></p>
+          <p style="margin:0;font-size:13px;color:#555">Questions? Reply to this email or contact <a href="mailto:darren@coxon.ai" style="color:#555">darren@coxon.ai</a></p>
         </td></tr>
 
       </table>

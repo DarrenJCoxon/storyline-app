@@ -179,7 +179,7 @@ function activateInner(context: vscode.ExtensionContext): void {
         const rawKey = params.get('key')?.trim().toUpperCase()
         if (!rawKey || !rawKey.startsWith('SL-')) {
           void vscode.window.showErrorMessage(
-            'Storyline activation failed — the link didn\'t contain a valid key. Email coxondj@gmail.com if this persists.',
+            'Storyline activation failed — the link didn\'t contain a valid key. Email darren@coxon.ai if this persists.',
           )
           return
         }
@@ -198,7 +198,7 @@ function activateInner(context: vscode.ExtensionContext): void {
         } else {
           await manager.clearLicenceKey()
           void vscode.window.showErrorMessage(
-            'Storyline activation failed — that key isn\'t recognised. Email coxondj@gmail.com.',
+            'Storyline activation failed — that key isn\'t recognised. Email darren@coxon.ai.',
           )
         }
       },

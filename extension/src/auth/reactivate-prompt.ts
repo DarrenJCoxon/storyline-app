@@ -64,7 +64,7 @@ async function offerFreeReactivation(context: vscode.ExtensionContext): Promise<
       } else {
         await manager.clearLicenceKey()
         void vscode.window.showErrorMessage(
-          'Couldn\'t reactivate the free plan. The activation server is reachable but the new key didn\'t validate. Email coxondj@gmail.com if this persists.',
+          'Couldn\'t reactivate the free plan. The activation server is reachable but the new key didn\'t validate. Email darren@coxon.ai if this persists.',
         )
       }
     } catch (err) {

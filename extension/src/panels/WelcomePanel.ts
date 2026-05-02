@@ -289,7 +289,7 @@ export class WelcomePanel {
   <div class="footer">
     <a href="#" data-url="https://api.storyline.my/terms">Terms</a> ·
     <a href="#" data-url="https://api.storyline.my/privacy">Privacy</a> ·
-    <a href="mailto:coxondj@gmail.com">Support</a>
+    <a href="mailto:darren@coxon.ai">Support</a>
   </div>
 
   <script nonce="${nonce}">

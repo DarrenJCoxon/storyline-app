@@ -34,7 +34,7 @@ export async function handleSuccess(req: Request, env: Env): Promise<Response> {
 
   const licenceKey = await env.LICENCES.get(`session:${sessionId}`)
   if (!licenceKey) {
-    return html(errorPage('Session not found or expired. Your licence key may have already been shown — check your email or contact support at coxondj@gmail.com.'))
+    return html(errorPage('Session not found or expired. Your licence key may have already been shown — check your email or contact support at darren@coxon.ai.'))
   }
 
   const ua = req.headers.get('User-Agent') ?? ''
@@ -180,7 +180,7 @@ function successPage(licenceKey: string, links: DownloadLinks): string {
     </div>
 
     <div class="note">
-      Save this page or note your key — it's also in your purchase confirmation email. Questions? Email <a href="mailto:coxondj@gmail.com">coxondj@gmail.com</a>.
+      Save this page or note your key — it's also in your purchase confirmation email. Questions? Email <a href="mailto:darren@coxon.ai">darren@coxon.ai</a>.
     </div>
   </div>
 
