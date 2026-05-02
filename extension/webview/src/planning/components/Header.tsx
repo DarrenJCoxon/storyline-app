@@ -20,12 +20,14 @@ const MODES: Array<{ value: ThemeMode; Icon: typeof Sun; title: string }> = [
   { value: 'auto',  Icon: Monitor, title: 'Follow system'  },
 ]
 
-function creditLabel(info: CreditInfo, activeStageIndex: number, stageCount: number): string {
+function creditLabel(info: CreditInfo, _activeStageIndex: number, _stageCount: number): string {
   if (info.type === 'byok') return `BYOK — ${info.providerName ?? 'Custom'}`
+  // Always surface the credit count — free users used to see only "Free
+  // plan — Stage X of Y" and had no visibility into how much of their
+  // 250-credit allowance was left. Keeping the "Free plan" prefix makes
+  // it clear they're on the trial AND shows the running balance.
   if (info.type === 'free') {
-    const stage = activeStageIndex >= 0 ? activeStageIndex + 1 : 1
-    const total = stageCount || 14
-    return `Free plan — Stage ${stage} of ${total}`
+    return `Free plan · ${info.balance.toLocaleString()} credits`
   }
   return `${info.balance.toLocaleString()} credits remaining`
 }
