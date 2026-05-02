@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import DownloadCard from './DownloadCard'
 import styles from './page.module.css'
 
@@ -20,6 +21,21 @@ export default function HomePage() {
 
         <div className={styles.heroCta}>
           <DownloadCard />
+        </div>
+
+        <div className={styles.heroShot} aria-hidden="true">
+          <Image
+            src="/hero.png"
+            alt="Storyline running on desktop — manuscript chapter open in the rich editor on the left, planning chat in the middle, and a live print preview of the typeset chapter on the right."
+            width={3400}
+            height={1844}
+            priority
+            sizes="(max-width: 720px) 100vw, (max-width: 1100px) 90vw, 1080px"
+            className={styles.heroShotImg}
+          />
+          <p className={styles.heroShotCaption}>
+            The full Storyline workspace — manuscript, planning chat and typeset preview, side by side.
+          </p>
         </div>
       </section>
 

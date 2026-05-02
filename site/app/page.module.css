@@ -51,6 +51,38 @@
   text-align: left;
 }
 
+/* ── Hero product shot ──────────────────────────────────── */
+.heroShot {
+  margin: 56px auto 0;
+  max-width: 1080px;
+  width: 100%;
+  position: relative;
+  padding: 8px;
+  background: linear-gradient(180deg, var(--accent-sub) 0%, transparent 60%);
+  border-radius: calc(var(--radius-card) + 4px);
+  /* Soft gold ambient glow tying the shot to the brand accent. */
+  box-shadow:
+    0 0 0 1px var(--sep),
+    0 30px 80px -30px rgba(0, 0, 0, 0.6),
+    0 0 60px -20px var(--accent-glow);
+}
+
+.heroShotImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--sep);
+}
+
+.heroShotCaption {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 14px 0 0;
+  font-style: italic;
+}
+
 /* ── Section primitives ─────────────────────────────────── */
 .section {
   padding: 28px 0;
@@ -294,6 +326,13 @@
   }
   .heroLede {
     font-size: 15px;
+  }
+  .heroShot {
+    margin-top: 36px;
+    padding: 4px;
+  }
+  .heroShotCaption {
+    font-size: 11px;
   }
   .sectionTitle {
     font-size: 24px;
