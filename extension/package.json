@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -82,6 +82,10 @@
       {
         "command": "storyline.topUpCredits",
         "title": "Storyline: Top Up Credits"
+      },
+      {
+        "command": "storyline.checkForUpdate",
+        "title": "Storyline: Check for Updates"
       },
       {
         "command": "storyline.viewPurchases",

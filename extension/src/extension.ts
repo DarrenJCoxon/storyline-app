@@ -393,6 +393,13 @@ function activateInner(context: vscode.ExtensionContext): void {
       OnboardingPanel.show(context, context.extensionUri, { initialScreen: 'buy-credits' })
     }),
 
+    vscode.commands.registerCommand('storyline.checkForUpdate', () => {
+      // Force-check from the command palette. Bypasses the 4h throttle
+      // and any "Later" snooze, and surfaces a toast either way so the
+      // user knows the check actually ran.
+      return checkForUpdate(context, { force: true })
+    }),
+
     vscode.commands.registerCommand('storyline.viewPurchases', () => {
       PurchasesPanel.show(context, context.extensionUri, getBackendUrl())
     }),
