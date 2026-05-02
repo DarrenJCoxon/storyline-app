@@ -81,17 +81,24 @@ export async function postActivateOpenWorkspace(
   //    and the auxiliary bar (right-side panels like Copilot Chat).
   await closeNoise()
 
-  // 5. Make sure the Explorer is visible in column 0 (the file tree).
-  try { await vscode.commands.executeCommand('workbench.view.explorer') } catch { /* non-fatal */ }
-
-  // 6. Open Storyline Welcome in column 1 (main editor area).
+  // 5. Open Storyline Welcome in column 1 (main editor area).
   WelcomePanel.show(context, extensionUri)
 
   // Brief beat so the welcome panel renders before chat steals focus.
   await new Promise(r => setTimeout(r, 250))
 
-  // 7. Open Storyline Chat in column 2.
+  // 6. Open Storyline Chat in column 2.
   await vscode.commands.executeCommand('storyline.openPlanning')
+
+  // 7. Make sure the Explorer is visible in the side bar — and focused.
+  //    This runs LAST because opening webview panels can incidentally swap
+  //    the active side-bar view (e.g. another extension's view comes back
+  //    after a panel is created). focusFilesExplorer is the strongest
+  //    command that both reveals the Explorer AND moves keyboard focus
+  //    to it, overriding whatever was active before.
+  await new Promise(r => setTimeout(r, 200))
+  try { await vscode.commands.executeCommand('workbench.view.explorer') } catch { /* */ }
+  try { await vscode.commands.executeCommand('workbench.files.action.focusFilesExplorer') } catch { /* */ }
 }
 
 /**

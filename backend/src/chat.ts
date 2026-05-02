@@ -30,7 +30,16 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
     return errJson('Service temporarily unavailable', 503)
   }
 
-  if (!record || !record.valid) return errJson('Invalid licence key', 401)
+  if (!record || !record.valid) {
+    // Log key prefix + KV state so we can diagnose propagation races via
+    // `wrangler tail`. Free-tier keys that just got minted but aren't yet
+    // visible from this colo are the most common cause.
+    console.warn(
+      `[/chat] 401: key=${body.licenceKey.slice(0, 12)}… `
+      + `record=${record ? 'present-but-invalid' : 'null'} stage=${body.stageId}`,
+    )
+    return errJson('Invalid licence key', 401)
+  }
   if (record.type === 'byok') return errJson('BYOK licences do not use the managed proxy', 403)
   if (record.creditBalance <= 0) return errJson('Credits exhausted — top up to continue', 402)
 
