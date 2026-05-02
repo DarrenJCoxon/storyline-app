@@ -25,6 +25,14 @@ import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { LocalStore } from './state/local-store.js'
 import { checkForUpdate } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
+import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
+
+// Module-load checkpoint. Runs as soon as the extension host requires the
+// bundle — before activate() is invoked. If the host hangs in transitive
+// requires, this line still executes; if it doesn't, the bundle itself
+// failed to load.
+bootLogInit()
+bootLog('module-load: bundle evaluated')
 
 function getBackendUrl(): string {
   return vscode.workspace.getConfiguration('storyline').get<string>('backendUrl', 'https://api.storyline.my').replace(/\/$/, '')
@@ -94,11 +102,25 @@ function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  bootLog('activate: entry')
+  try {
+    activateInner(context)
+    bootLog('activate: returned cleanly')
+  } catch (err) {
+    bootLogError('activate: synchronous throw', err)
+    throw err
+  }
+}
+
+function activateInner(context: vscode.ExtensionContext): void {
   // Persistent diagnostic log — visible at Output → Storyline. Every
   // [Storyline] log line in the extension flows through here so users
   // and us can read activation + chat lifecycle without dev tools.
   initDiagnosticLog()
+  bootLog('activate: diagnostic log initialised')
   logInfo('[Storyline] activate: extension host starting up')
+  const logFile = bootLogPath()
+  if (logFile) logInfo(`[Storyline] boot log → ${logFile}`)
 
   // Kill any restored Live Chapter Preview webviews on activation. VS Code
   // restores webview tabs across window reloads, but they hold stale HTML
@@ -116,6 +138,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   }
+  bootLog('activate: webview serializer + tab cleanup done')
 
   // BYOK / Ollama paths are disabled in this build. Wipe any stale flags
   // from earlier testing so resolveProvider doesn't get tripped by them
@@ -126,15 +149,18 @@ export function activate(context: vscode.ExtensionContext): void {
   void context.globalState.update('storyline.ollamaEnabled', undefined)
   void context.globalState.update('storyline.ollamaUrl', undefined)
   void secretsDelete(context, 'storyline.byokApiKey')
+  bootLog('activate: stale-flag cleanup dispatched')
 
   // One-shot backfill: projects created before research/ existed don't have
   // the folder, so the AI silently has nothing to read. Auto-create on
   // activation if a Storyline project is detected. No-op if already there.
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  bootLog('activate: workspace root resolved', wsRoot ?? '(none)')
   if (wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json'))) {
-    try { ensureResearchFolder(wsRoot) } catch { /* non-fatal */ }
-    try { ensurePlanningFolder(wsRoot) } catch { /* non-fatal */ }
+    try { ensureResearchFolder(wsRoot) } catch (e) { bootLogError('ensureResearchFolder', e) }
+    try { ensurePlanningFolder(wsRoot) } catch (e) { bootLogError('ensurePlanningFolder', e) }
   }
+  bootLog('activate: research/planning scaffold checked')
 
   // Deep-link handler for Stripe → extension auto-activation.
   //
@@ -177,9 +203,12 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     }),
   )
+  bootLog('activate: URI handler registered')
 
   const statusBar = new WordCountStatusBar(context)
+  bootLog('activate: WordCountStatusBar constructed')
   const editorPanel = new EditorPanel(context, context.extensionUri, statusBar)
+  bootLog('activate: EditorPanel constructed')
   void statusBar.start(context)
 
   const planningStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
@@ -216,6 +245,7 @@ export function activate(context: vscode.ExtensionContext): void {
   notesStatusBar.command = 'storyline.notes'
   notesStatusBar.show()
   context.subscriptions.push(notesStatusBar)
+  bootLog('activate: status bar items registered')
 
   // Auto-reroute manuscript/ markdown files to the rich TipTap editor.
   // Workspace-scoped: only fires when this is a Storyline project (the
@@ -555,21 +585,29 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   )
 
+  bootLog('activate: command registrations complete')
+
   // GitHub auto-sync subsystem
   const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri
   if (workspaceUri) {
+    bootLog('activate: github subsystem starting')
     const githubAuth = new GitHubAuth(context)
     const githubSync = new GitHubSyncService(workspaceUri, githubAuth)
     const githubStatusBar = new GitHubSyncStatusBar(context, githubSync, githubAuth)
     registerGitHubCommands(context, githubAuth, githubSync, githubStatusBar)
     context.subscriptions.push(githubSync, githubStatusBar)
+    bootLog('activate: github subsystem registered')
 
     // Silently offer connect on first open (only if user hasn't dismissed)
-    maybeOfferConnect(context, githubAuth, githubSync).catch(() => { /* non-fatal */ })
+    maybeOfferConnect(context, githubAuth, githubSync).catch(e => bootLogError('maybeOfferConnect', e))
+  } else {
+    bootLog('activate: no workspace, skipping github subsystem')
   }
 
   // First-run check — async, non-blocking
+  bootLog('activate: dispatching shouldShowOnboarding')
   shouldShowOnboarding(context).then(async show => {
+    bootLog('async: shouldShowOnboarding resolved', show ? 'true' : 'false')
     if (show) {
       OnboardingPanel.show(context, context.extensionUri, {
         onScaffolded: () => void initLayout(context),
@@ -577,13 +615,15 @@ export function activate(context: vscode.ExtensionContext): void {
     } else {
       void initLayout(context)
     }
-  })
+  }).catch(e => bootLogError('shouldShowOnboarding', e))
 
   // Update check — once per 24h, non-blocking
-  void checkForUpdate(context)
+  bootLog('activate: dispatching checkForUpdate')
+  Promise.resolve(checkForUpdate(context)).catch(e => bootLogError('checkForUpdate', e))
 
   // Licence prompt — show on startup if no key or snooze expired
-  void checkLicencePrompt(context, getBackendUrl())
+  bootLog('activate: dispatching checkLicencePrompt')
+  Promise.resolve(checkLicencePrompt(context, getBackendUrl())).catch(e => bootLogError('checkLicencePrompt', e))
 }
 
 export function deactivate(): void {}
