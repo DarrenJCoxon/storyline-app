@@ -238,12 +238,19 @@ export class OnboardingPanel {
               }, 600)
             }
           } else {
+            // We DID set a freshly-issued key but it failed to validate —
+            // safe to clear because we know the key we wrote was the new
+            // one, not a pre-existing user key.
             await this.licenceManager.clearLicenceKey()
             this.post({ type: 'validateResult', success: false, error: 'Free plan activation failed — please try again or enter a licence key.' })
           }
         } catch (err) {
+          // DO NOT clear the licence key here. issueFreePlan throws BEFORE
+          // we touch SecretStorage, so any key already stored (a paid key,
+          // a previously-activated free key, etc.) is untouched. Wiping it
+          // here would punish users who clicked Start Free by accident
+          // when rate-limited.
           console.error('[Storyline] useFree: failed', err)
-          await this.licenceManager.clearLicenceKey()
           const raw = err instanceof Error ? err.message : String(err)
           const message = /429/.test(raw)
             ? 'Free plan limit reached for this network. Please try again later or enter a licence key.'

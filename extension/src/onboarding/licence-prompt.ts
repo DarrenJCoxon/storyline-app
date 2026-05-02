@@ -97,14 +97,19 @@ async function showKeyPrompt(
           }
         }
       } else {
+        // Newly-issued key didn't validate — safe to clear, we know the
+        // stored key is the one we just wrote.
         await manager.clearLicenceKey()
         void vscode.window.showErrorMessage(
           `Free plan activation failed: ${info.type}/${info.creditBalance} — please try again or enter a licence key.`,
         )
       }
     } catch (err) {
+      // DO NOT clear the stored key here — issueFreePlan throws before we
+      // touch SecretStorage, so any pre-existing key (paid key, valid free
+      // key from a prior install) is untouched. Wiping it would punish
+      // users who clicked Start Free when rate-limited.
       console.error('[Storyline] licence-prompt: failed', err)
-      await manager.clearLicenceKey()
       const raw = err instanceof Error ? err.message : String(err)
       const message = /429/.test(raw)
         ? 'Free plan limit reached for this network. Please try again later or enter a licence key.'
