@@ -1,5 +1,6 @@
 import type { Env, IllustrateRequest, LicenceRecord } from './types.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
+import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -47,10 +48,15 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
   }
 
   // Optimistic deduction — write decremented balance BEFORE upstream so concurrent
-  // requests can't overspend. Refund if upstream fails.
-  const deducted: LicenceRecord = {
-    ...record,
-    creditBalance: Math.max(0, record.creditBalance - creditCost),
+  // requests can't overspend. Restore if upstream fails. FIFO across batches.
+  let deducted: LicenceRecord
+  try {
+    deducted = consumeCredits(record, creditCost)
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return errJson(`Insufficient credits — ${quality} quality image costs ${creditCost} credits`, 402)
+    }
+    throw e
   }
   await env.LICENCES.put(body.licenceKey, JSON.stringify(deducted))
 

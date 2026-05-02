@@ -1,5 +1,11 @@
 import type { Env, LicenceRecord, LicenceType } from './types.js'
 import { sendLicenceEmail } from './email.js'
+import {
+  appendBatch,
+  applyExternalRefund,
+  buildPurchaseBatch,
+  ensureBatches,
+} from './credit-batches.js'
 
 // Credit allocations per product (mapped by Stripe price/product metadata)
 const PRODUCT_CREDITS: Record<string, number> = {
@@ -31,6 +37,10 @@ export async function handleStripeWebhook(req: Request, env: Env): Promise<Respo
     case 'payment_intent.succeeded':
       await handleTopup(event.data.object, env)
       break
+    case 'refund.updated':
+    case 'refund.created':
+      await handleRefundEvent(event.data.object, env)
+      break
     default:
       // Acknowledge unknown events
       break
@@ -52,12 +62,41 @@ async function handleCheckoutComplete(
 
   const licenceKey = generateLicenceKey()
 
-  const record: LicenceRecord = {
+  // Pull payment details from the session so the refund window has accurate
+  // pricePaidPence + currency. Fall back to a sensible price if Stripe
+  // didn't include them (e.g. zero-amount BYOK setup).
+  const amountTotal = (session.amount_total as number | null | undefined) ?? 0
+  const currency = ((session.currency as string | undefined) ?? 'gbp').toLowerCase()
+  const paymentIntentId = (session.payment_intent as string | undefined) ?? null
+
+  let record: LicenceRecord = {
     type,
     valid: true,
-    creditBalance: type === 'byok' ? 0 : credits,
-    totalPurchased: credits,
+    creditBalance: 0,
+    totalPurchased: 0,
     stripeCustomerId: customerId,
+    batches: [],
+  }
+
+  if (type === 'byok') {
+    // BYOK has no credits; nothing to batch.
+    record.creditBalance = 0
+    record.totalPurchased = 0
+  } else if (paymentIntentId && amountTotal > 0) {
+    const batch = buildPurchaseBatch({
+      paymentIntentId,
+      pricePaidPence: amountTotal,
+      currency,
+      credits,
+      purchasedAt: new Date(),
+    })
+    record = appendBatch(record, batch)
+    await indexPaymentIntent(env, paymentIntentId, licenceKey)
+  } else {
+    // No payment intent (e.g. free upgrade flow) — credit as grandfathered.
+    record.creditBalance = credits
+    record.totalPurchased = credits
+    record = ensureBatches(record)
   }
 
   await env.LICENCES.put(licenceKey, JSON.stringify(record))
@@ -99,13 +138,93 @@ async function handleTopup(
   if (existing.type === 'free') return
 
   const topup = PRODUCT_CREDITS[productKey] ?? 1000
-  const updated: LicenceRecord = {
-    ...existing,
-    creditBalance: existing.creditBalance + topup,
-    totalPurchased: existing.totalPurchased + topup,
+  const paymentIntentId = (paymentIntent.id as string | undefined) ?? null
+  const amountReceived =
+    (paymentIntent.amount_received as number | null | undefined)
+    ?? (paymentIntent.amount as number | null | undefined)
+    ?? 0
+  const currency = ((paymentIntent.currency as string | undefined) ?? 'gbp').toLowerCase()
+
+  if (!paymentIntentId || amountReceived <= 0) {
+    // Fallback: legacy behaviour — bump balance, no batch.
+    const updated: LicenceRecord = {
+      ...existing,
+      creditBalance: existing.creditBalance + topup,
+      totalPurchased: existing.totalPurchased + topup,
+    }
+    await env.LICENCES.put(licenceKey, JSON.stringify(updated))
+    return
   }
 
+  // Idempotency: if a batch already exists for this payment intent, skip.
+  const ensured = ensureBatches(existing)
+  if (ensured.batches?.some(b => b.stripePaymentIntentId === paymentIntentId)) {
+    return
+  }
+
+  const batch = buildPurchaseBatch({
+    paymentIntentId,
+    pricePaidPence: amountReceived,
+    currency,
+    credits: topup,
+    purchasedAt: new Date(),
+  })
+  const updated = appendBatch(ensured, batch)
+
   await env.LICENCES.put(licenceKey, JSON.stringify(updated))
+  await indexPaymentIntent(env, paymentIntentId, licenceKey)
+}
+
+/**
+ * Handle Stripe-reported refunds (dashboard manual refunds, disputes, or our
+ * own /refund-batch call coming back as an event). Listens to `refund.updated`
+ * and `refund.created` — the modern Stripe pattern. `refund.updated` carries
+ * the final status, so we only burn credits when status === 'succeeded' to
+ * avoid burning credits for refunds that ultimately fail (async payment
+ * methods like BACS / SEPA). Burns unconditionally if the user-initiated
+ * `/refund-batch` route has already pre-marked the batch — applyExternalRefund
+ * is a no-op in that case.
+ */
+async function handleRefundEvent(
+  refund: Record<string, unknown>,
+  env: Env,
+): Promise<void> {
+  const paymentIntentId = refund.payment_intent as string | undefined
+  const status = refund.status as string | undefined
+
+  if (!paymentIntentId) return
+  // refund.created fires before status is final; refund.updated carries it.
+  // Only act on succeeded refunds — failed ones reverse on Stripe's side.
+  if (status && status !== 'succeeded') return
+
+  const licenceKey = await env.LICENCES.get(`pi:${paymentIntentId}`)
+  if (!licenceKey) {
+    console.warn(`[stripe-webhook] refund event for unknown PI ${paymentIntentId}`)
+    return
+  }
+
+  const existing = await env.LICENCES.get<LicenceRecord>(licenceKey, 'json')
+  if (!existing) return
+
+  const result = applyExternalRefund(existing, paymentIntentId)
+  if (!result) {
+    // Already refunded (likely the echo of our /refund-batch call) — no-op.
+    return
+  }
+
+  await env.LICENCES.put(licenceKey, JSON.stringify(result.record))
+  console.log(
+    `[stripe-webhook] external refund applied: licence=${licenceKey.slice(0, 12)}… `
+    + `batch=${result.batch.id} credits=${result.batch.creditsTotal}`,
+  )
+}
+
+/**
+ * Index payment_intent → licenceKey so charge.refunded webhooks can find
+ * the right record without scanning. Cheap O(1) KV write.
+ */
+async function indexPaymentIntent(env: Env, paymentIntentId: string, licenceKey: string): Promise<void> {
+  await env.LICENCES.put(`pi:${paymentIntentId}`, licenceKey)
 }
 
 function generateLicenceKey(): string {

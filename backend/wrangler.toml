@@ -16,8 +16,10 @@ IMAGE_MODEL = "openai/gpt-5.4-image-2"
 DEV_MODE    = "false"
 
 # Secrets (set via `wrangler secret put`):
-#   OPENROUTER_API_KEY   — master OpenRouter key, never leaves the Worker
+#   OPENROUTER_API_KEY    — master OpenRouter key, never leaves the Worker
 #   STRIPE_WEBHOOK_SECRET — for webhook signature verification
+#   STRIPE_SECRET_KEY     — restricted/secret key with Refunds: Write scope;
+#                           required by /refund-batch to call POST /v1/refunds
 #   OPENAI_API_KEY        — required for /transcribe (gpt-4o-mini-transcribe)
 
 [env.production.vars]

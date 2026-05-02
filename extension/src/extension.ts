@@ -12,6 +12,7 @@ import { CompilePanel } from './panels/CompilePanel.js'
 import { CoverPanel } from './panels/CoverPanel.js'
 import { IllustrationsPanel } from './panels/IllustrationsPanel.js'
 import { ResearchPanel } from './panels/ResearchPanel.js'
+import { PurchasesPanel } from './panels/PurchasesPanel.js'
 import { openLivePreview } from './preview/live-preview-command.js'
 import { openPreview } from './preview/preview-command.js'
 import { WordCountStatusBar } from './editor/word-count.js'
@@ -390,6 +391,10 @@ function activateInner(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('storyline.topUpCredits', () => {
       OnboardingPanel.show(context, context.extensionUri, { initialScreen: 'buy-credits' })
+    }),
+
+    vscode.commands.registerCommand('storyline.viewPurchases', () => {
+      PurchasesPanel.show(context, context.extensionUri, getBackendUrl())
     }),
 
     vscode.commands.registerCommand('storyline.enterLicenceKey', async () => {

@@ -1,6 +1,7 @@
 import type { Env, ChatRequest, LicenceRecord, OpenRouterUsage, DailyStats } from './types.js'
 import { reasoningEffortForStage, buildReasoningParam } from './reasoning.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
+import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -47,8 +48,17 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
   if (record.type === 'byok') return errJson('BYOK licences do not use the managed proxy', 403)
   if (record.creditBalance <= 0) return errJson('Credits exhausted — top up to continue', 402)
 
-  // Optimistic deduction before upstream call to avoid races; refund on failure.
-  const deducted: LicenceRecord = { ...record, creditBalance: Math.max(0, record.creditBalance - 1) }
+  // Optimistic deduction before upstream call to avoid races; restore on failure.
+  // FIFO across batches — drains the oldest (closest to refund-window expiry) first.
+  let deducted: LicenceRecord
+  try {
+    deducted = consumeCredits(record, 1)
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return errJson('Credits exhausted — top up to continue', 402)
+    }
+    throw e
+  }
   await env.LICENCES.put(body.licenceKey, JSON.stringify(deducted))
 
   const upstreamMessages = body.systemPrompt

@@ -19,6 +19,34 @@ export interface LicenceInfo {
   creditBalance: number
 }
 
+/** Mirror of backend `BatchSummary` — keep field names in sync. */
+export interface BatchSummary {
+  id: string
+  purchasedAt: string
+  pricePaidPence: number
+  currency: string
+  creditsTotal: number
+  creditsRemaining: number
+  refundEligibleUntil: string
+  refundedAt: string | null
+  source: 'free' | 'purchase' | 'grandfathered'
+  refundable: boolean
+  refundablePence: number
+}
+
+export interface ListBatchesResponse {
+  creditBalance: number
+  batches: BatchSummary[]
+}
+
+export interface RefundResponse {
+  refundedPence: number
+  creditsRefunded: number
+  currency: string
+  newBalance: number
+  batches: BatchSummary[]
+}
+
 interface CacheEntry {
   key: string
   info: LicenceInfo
@@ -111,5 +139,56 @@ export class LicenceManager {
     // back. The reactivate UX takes over from here.
     await this.context.globalState.update(CACHE_KEY, undefined)
     return info ?? fallback
+  }
+
+  /** Fetch the user's purchase history with refundability flags. */
+  async listBatches(): Promise<ListBatchesResponse | null> {
+    const key = await this.getLicenceKey()
+    if (!key || key === DEV_LICENCE_KEY) return null
+
+    try {
+      const res = await fetch(`${this.backendUrl}/list-batches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenceKey: key }),
+      })
+      if (!res.ok) return null
+      return await res.json() as ListBatchesResponse
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Request a pro-rata refund for one credit batch. Returns the updated
+   * balance + batch list on success, or an error message on failure.
+   */
+  async requestRefund(batchId: string): Promise<
+    | { ok: true; result: RefundResponse }
+    | { ok: false; error: string }
+  > {
+    const key = await this.getLicenceKey()
+    if (!key) return { ok: false, error: 'No licence key on this install.' }
+
+    let res: Response
+    try {
+      res = await fetch(`${this.backendUrl}/refund-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenceKey: key, batchId }),
+      })
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Network error' }
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string }
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+
+    const result = await res.json() as RefundResponse
+    // Drop the cached LicenceInfo so the next validate() pulls the new balance.
+    await this.clearCache()
+    return { ok: true, result }
   }
 }

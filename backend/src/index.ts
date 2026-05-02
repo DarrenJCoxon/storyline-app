@@ -10,6 +10,8 @@ import { handleSuccess } from './success.js'
 import { handleResendKey } from './resend-key.js'
 import { handleLogError } from './log-error.js'
 import { handleTerms, handlePrivacy } from './legal.js'
+import { handleRefund } from './refund.js'
+import { handleListBatches } from './list-batches.js'
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -67,6 +69,10 @@ export default {
         return handleStripeWebhook(req, env)
       case '/log-error':
         return handleLogError(req, env)
+      case '/list-batches':
+        return handleListBatches(req, env)
+      case '/refund-batch':
+        return handleRefund(req, env)
       case '/dev/seed-licence':
         return handleDevSeed(req, env)
       default:

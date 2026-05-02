@@ -16,6 +16,10 @@ export interface Env {
   LICENCES: KVNamespace
   OPENROUTER_API_KEY: string
   STRIPE_WEBHOOK_SECRET: string
+  /** Stripe restricted/secret key — required for /refund-batch to call
+   *  POST https://api.stripe.com/v1/refunds. Without it the refund endpoint
+   *  returns a 503. */
+  STRIPE_SECRET_KEY?: string
   CHAT_MODEL: string
   IMAGE_MODEL: string
   ADMIN_KEY?: string
@@ -61,12 +65,54 @@ export interface IllustrateRequest {
 
 export type LicenceType = 'free' | 'credits' | 'byok'
 
+/**
+ * One Stripe purchase = one CreditBatch. Each batch carries its own 14-day
+ * UK consumer-rights refund window (Consumer Contracts Regulations 2013).
+ * Credits are consumed FIFO across batches so the oldest (closest to its
+ * window expiry) drains first — that minimises refund liability over time.
+ *
+ * Free-tier and pre-batch (grandfathered) records lazily materialise a
+ * single non-refundable batch on first read so legacy KV records stay
+ * compatible without a migration.
+ */
+export interface CreditBatch {
+  /** `batch_<16hex>` — stable identifier used for refund idempotency. */
+  id: string
+  /** Stripe payment_intent ID. null for free / grandfathered batches that
+   *  have no underlying payment to refund. */
+  stripePaymentIntentId: string | null
+  /** Pence actually paid for THIS batch (Stripe `amount_total` /
+   *  `amount_received`). Used pro-rata for partial refunds. */
+  pricePaidPence: number
+  /** ISO 4217 lowercase, e.g. 'gbp'. */
+  currency: string
+  /** Credits credited at purchase. Never changes. */
+  creditsTotal: number
+  /** Credits not yet spent. Decrements on consume. Burned to 0 on refund. */
+  creditsRemaining: number
+  /** ISO timestamp of the Stripe payment. */
+  purchasedAt: string
+  /** ISO timestamp of `purchasedAt + 14 days` for purchase batches. Set to
+   *  the epoch for free / grandfathered batches so they're never refundable. */
+  refundEligibleUntil: string
+  /** ISO timestamp when the user (or webhook) refunded the batch. null = active. */
+  refundedAt: string | null
+  /** Provenance — purchase batches are user-refundable; the others aren't. */
+  source: 'free' | 'purchase' | 'grandfathered'
+}
+
 export interface LicenceRecord {
   type: LicenceType
   valid: boolean
+  /** Sum of `batch.creditsRemaining` across non-refunded batches. Kept as a
+   *  flat field for back-compat with clients that read it directly; the
+   *  authoritative source is `batches`. Always recomputed on mutation. */
   creditBalance: number
   totalPurchased: number
   stripeCustomerId: string
+  /** Optional for back-compat. Lazy-materialised on first read for legacy
+   *  records via `ensureBatches()` in credit-batches.ts. */
+  batches?: CreditBatch[]
 }
 
 export interface ValidateRequest {

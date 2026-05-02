@@ -28,18 +28,26 @@ compromised, email **coxondj@gmail.com** so we can revoke and reissue it.
 our sole discretion and subject to anti-abuse rate limits. The free plan does
 not include image generation, which always requires paid credits.
 
-3.2. **Credits.** Paid credits are sold through Stripe. Credits are
-non-refundable except where required by law. They have no cash value, are
+3.2. **Credits.** Paid credits are sold through Stripe. Each purchase creates a
+separate batch of credits with its own 14-day refund window (see 3.4). Credits
+are consumed oldest-batch-first. Credits have no cash value, are
 non-transferable, and may expire if your account is inactive for an extended
 period (typically 24 months).
 
 3.3. **Pricing.** We may change prices for new purchases at any time. Existing
 credit balances are honoured at the rate in force when purchased.
 
-3.4. **Refunds for unused credits.** UK consumers retain a 14-day cancellation
-right under the Consumer Contracts Regulations for unused credits. By making a
-purchase you agree that we may begin supply immediately and you waive that right
-for any credits you have already consumed.
+3.4. **Refunds for unused credits.** UK consumers have a 14-day right to cancel
+under the Consumer Contracts (Information, Cancellation and Additional Charges)
+Regulations 2013. At checkout you expressly consent to credits being made
+available immediately and acknowledge that, to the extent credits are supplied
+during the 14-day cancellation period, you lose the right to cancel for the
+credits you have consumed. Within 14 days of any purchase you may request a
+refund of the unused credits from that purchase via the "Recent Purchases"
+panel inside Storyline; we will refund pro-rata against the price you paid for
+that batch (refund = unused credits ÷ credits in batch × price paid). After 14
+days, credits are non-refundable except where required by law. Stripe refunds
+typically arrive on your card within 5–10 business days.
 
 ## 4. Acceptable use
 

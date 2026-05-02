@@ -1,6 +1,7 @@
 import type { Env, CritiqueRequest, LicenceRecord } from './types.js'
 import { reasoningEffortForTier, buildReasoningParam } from './reasoning.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
+import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -442,10 +443,15 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
   }
 
   // Optimistic deduction — write before upstream call to avoid races.
-  // On upstream failure we refund.
-  const deducted: LicenceRecord = {
-    ...record,
-    creditBalance: Math.max(0, record.creditBalance - cost),
+  // On upstream failure we restore the original record. FIFO across batches.
+  let deducted: LicenceRecord
+  try {
+    deducted = consumeCredits(record, cost)
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return errJson('Credits exhausted — top up to continue', 402)
+    }
+    throw e
   }
   await env.LICENCES.put(body.licenceKey, JSON.stringify(deducted))
 
