@@ -1,4 +1,6 @@
 import * as vscode from 'vscode'
+import * as path from 'path'
+import * as fs from 'fs'
 import { scaffoldProject } from '../onboarding/project-scaffold.js'
 import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
@@ -195,7 +197,12 @@ export class OnboardingPanel {
       case 'useFree': {
         // Mint a per-install free key so each user has their own 250-credit
         // pool. The backend creates a unique SL-FREE-XXXX-XXXX-XXXX record;
-        // we then validate it the same way as any other key.
+        // we then validate it the same way as any other key. On success this
+        // is a one-click flow — we scaffold the project (using the workspace
+        // folder name), dispose this panel, and open the planning chat plus
+        // the welcome doc, so the user lands straight in chat with usage
+        // instructions visible. Same end state as the toast notification
+        // path in licence-prompt.ts.
         console.log('[Storyline] useFree: handler entered')
         try {
           console.log('[Storyline] useFree: calling /free-plan/issue at', BACKEND_URL)
@@ -207,6 +214,29 @@ export class OnboardingPanel {
           if (info.valid) {
             await this.context.globalState.update('storyline.freePlan', { active: true })
             this.post({ type: 'validateResult', success: true, creditBalance: info.creditBalance })
+
+            const folders = vscode.workspace.workspaceFolders
+            if (folders?.length) {
+              const projectDir = folders[0].uri.fsPath
+              const stateFile = path.join(projectDir, '.storyline', 'state.json')
+              if (!fs.existsSync(stateFile)) {
+                try {
+                  scaffoldProject(projectDir, folders[0].name)
+                } catch (err) {
+                  console.error('[Storyline] useFree: scaffold failed', err)
+                }
+              }
+              // Brief delay so the React success state can render before the
+              // panel disposes — feels less abrupt than a hard cut.
+              setTimeout(() => {
+                this.panel.dispose()
+                void vscode.commands.executeCommand('storyline.openPlanning')
+                const welcomeUri = vscode.Uri.file(path.join(projectDir, 'docs', 'welcome.md'))
+                if (fs.existsSync(welcomeUri.fsPath)) {
+                  void vscode.commands.executeCommand('markdown.showPreview', welcomeUri)
+                }
+              }, 600)
+            }
           } else {
             await this.licenceManager.clearLicenceKey()
             this.post({ type: 'validateResult', success: false, error: 'Free plan activation failed — please try again or enter a licence key.' })

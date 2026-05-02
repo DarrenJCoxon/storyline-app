@@ -135,30 +135,50 @@ Ready when you are. Delete this placeholder and write your opening.
 
 const WELCOME_DOC = `# Welcome to Storyline
 
-This file is a scratchpad — notes, character sheets, research, reminders to yourself — anything that isn't prose. Your novel's chapters live in \`manuscript/\`; everything supporting the novel can live here in \`docs/\`.
+You're in. Your free plan is active (250 credits) and the **planning chat** has opened on the right. The chat will walk you through your book one stage at a time — start by typing a few words about what you want to write, and the AI will pick up from there.
 
-## The three-column layout
+## How Storyline works
 
-Storyline expects you to work in three columns:
+Storyline plans your book in **14 stages** using the Save the Cat structure (fiction) or the Book DNA framework (non-fiction). Each stage is a short conversation in the chat panel. After every stage, Storyline writes the result to \`planning/\` so you can read, edit, and refer back to it.
 
-- **Left:** the file tree (your project).
-- **Middle:** this document, or whatever supporting material you're consulting right now.
-- **Right:** the chapter you're writing.
+When the plan is done, you switch to **writing**. Your prose lives in \`manuscript/\` — one \`.md\` file per chapter. Type freely; Storyline auto-saves every 1.5 seconds.
 
-To open a file in the right-hand column, right-click it in the file tree and choose **"Storyline: Open to the Side"**, or select the file in the tree and press \`Cmd+Enter\` (Mac) or \`Ctrl+Enter\` (Windows).
+## Project layout
 
-## Starting a planning session
+\`\`\`
+your-project/
+├── manuscript/   ← your prose (one .md per chapter)
+├── planning/     ← AI-generated plan (don't edit by hand)
+├── research/     ← drop reference material; the AI reads it
+├── output/       ← compiled EPUB / PDF
+├── docs/         ← scratchpad — notes you write to yourself
+└── .storyline/   ← internal state (leave alone)
+\`\`\`
 
-Click the **Storyline** item in the bottom-left status bar to open the planning chat. The harness will walk you through Save the Cat (fiction) or Book DNA (non-fiction), one stage at a time.
+## Useful commands
 
-## What to delete, what to keep
+Press \`Cmd+Shift+P\` (Mac) or \`Ctrl+Shift+P\` (Windows) and type:
 
-- Delete the content of this file when you're ready — it's just an onboarding note.
-- Keep \`.storyline/\` untouched (that's your planning state).
-- Keep \`output/\` alone unless you want to clear old compiled EPUBs/PDFs.
-- The \`manuscript/README.md\` can be deleted once you're comfortable with the folder's convention.
+- **Storyline: Open Planning Chat** — re-open the planning chat if you close it
+- **Storyline: New Chapter** — add a new chapter file
+- **Storyline: Compile to EPUB** / **PDF** — produce the finished book in \`output/\`
+- **Storyline: Top Up Credits** — buy more AI credits when the free plan runs out
+- **Storyline: View Terms** / **View Privacy Policy** — read the legal documents
+- **Storyline: Reset Activation** — clear your licence and start over
 
-Happy writing.
+## Free plan limits
+
+- 250 credits cover one full book plan with critique (typically 14 stages × 1 chat each).
+- Image generation always requires paid credits; it's never on the free plan.
+- The free plan is per install. Reinstalling on the same machine will not give you a fresh 250 credits — that's by design.
+
+## Tips
+
+- **Keep the chat open while writing.** Ask it questions about your plan, get critique on prose excerpts you paste in (it never reads your manuscript files unprompted).
+- **Drop research into \`research/\`.** Anything you put there — exam syllabuses, worldbuilding notes, source extracts — is given to the AI as authoritative reference for every planning conversation.
+- **Inline research markers.** While drafting prose, leave \`{{check the dates of the Reformation}}\` in your text. Don't break flow to look things up — the markers are findable later.
+
+You can delete this file once you've read it. Happy writing.
 `
 
 const RESEARCH_README = `# Research

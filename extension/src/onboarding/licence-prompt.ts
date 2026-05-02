@@ -1,4 +1,6 @@
 import * as vscode from 'vscode'
+import * as path from 'path'
+import * as fs from 'fs'
 import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
 
@@ -80,14 +82,20 @@ async function showKeyPrompt(
       if (info.valid) {
         await context.globalState.update(SNOOZE_KEY, undefined)
         await context.globalState.update('storyline.freePlan', { active: true })
-        // One-click forward: open the planning chat (or scaffold first if the
-        // workspace doesn't have a Storyline project yet). storyline.openPlanning
-        // diverts to storyline.startNew automatically when no .storyline/state.json
-        // exists, so this single call handles both fresh and returning users.
         void vscode.window.showInformationMessage(
           `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
         )
         await vscode.commands.executeCommand('storyline.openPlanning')
+        // Show the welcome doc in markdown preview so the user lands with
+        // usage instructions visible alongside the chat. Quiet failure if the
+        // file isn't present (e.g. older project that pre-dates the scaffold).
+        const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        if (folder) {
+          const welcomePath = path.join(folder, 'docs', 'welcome.md')
+          if (fs.existsSync(welcomePath)) {
+            void vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.file(welcomePath))
+          }
+        }
       } else {
         await manager.clearLicenceKey()
         void vscode.window.showErrorMessage(
