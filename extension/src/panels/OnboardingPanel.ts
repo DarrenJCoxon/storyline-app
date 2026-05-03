@@ -132,8 +132,24 @@ export class OnboardingPanel {
     switch (msg.type) {
       case 'openStripe': {
         const pack = msg.pack as string
-        const url = STRIPE_LINKS[pack]
-        if (url) await vscode.env.openExternal(vscode.Uri.parse(url))
+        const baseUrl = STRIPE_LINKS[pack]
+        if (!baseUrl) break
+        // Pass the user's existing licence key (if any) into Stripe as
+        // client_reference_id so the webhook can top up the SAME record
+        // instead of issuing a fresh one. Without this, new credits land
+        // on a brand-new key and the user's free / previously-purchased
+        // balance is stranded on the old key.
+        let url = baseUrl
+        try {
+          const existingKey = await this.licenceManager.getLicenceKey()
+          if (existingKey) {
+            const sep = baseUrl.includes('?') ? '&' : '?'
+            url = `${baseUrl}${sep}client_reference_id=${encodeURIComponent(existingKey)}`
+          }
+        } catch {
+          /* no key yet — first-time buyer, fall through with the bare URL */
+        }
+        await vscode.env.openExternal(vscode.Uri.parse(url))
         break
       }
 

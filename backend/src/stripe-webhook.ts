@@ -60,14 +60,66 @@ async function handleCheckoutComplete(
   const credits = PRODUCT_CREDITS[productKey] ?? 1000
   const type: LicenceType = productKey === 'byok_annual' ? 'byok' : 'credits'
 
-  const licenceKey = generateLicenceKey()
-
   // Pull payment details from the session so the refund window has accurate
   // pricePaidPence + currency. Fall back to a sensible price if Stripe
   // didn't include them (e.g. zero-amount BYOK setup).
   const amountTotal = (session.amount_total as number | null | undefined) ?? 0
   const currency = ((session.currency as string | undefined) ?? 'gbp').toLowerCase()
   const paymentIntentId = (session.payment_intent as string | undefined) ?? null
+
+  // If the checkout was opened from an already-activated extension, the
+  // existing licence key is passed as `client_reference_id`. Top up that
+  // record's batches instead of issuing a brand-new key — otherwise the
+  // user's free or already-purchased credits get stranded on the old key
+  // (the original bug: new credits "overwrote" the free balance because
+  // the user was effectively migrated onto a fresh empty record).
+  const clientRef = (session.client_reference_id as string | undefined) ?? null
+  const existingKey = clientRef && /^SL-[A-Z0-9-]+$/i.test(clientRef) ? clientRef : null
+  const existingRecord = existingKey
+    ? await env.LICENCES.get<LicenceRecord>(existingKey, 'json')
+    : null
+
+  if (
+    existingKey
+    && existingRecord
+    && existingRecord.valid
+    && type !== 'byok'
+    && paymentIntentId
+    && amountTotal > 0
+  ) {
+    // Idempotency: webhook can fire twice (Stripe retry). Skip if this
+    // payment intent already produced a batch on this record.
+    const ensured = ensureBatches(existingRecord)
+    if (!ensured.batches?.some(b => b.stripePaymentIntentId === paymentIntentId)) {
+      const batch = buildPurchaseBatch({
+        paymentIntentId,
+        pricePaidPence: amountTotal,
+        currency,
+        credits,
+        purchasedAt: new Date(),
+      })
+      // A free-tier user upgrading to paid: promote the type so future
+      // payment_intent.succeeded top-ups (which reject type === 'free')
+      // and downstream tier checks treat them as a paying customer. The
+      // 150 free credits are preserved as the grandfathered batch by
+      // ensureBatches above.
+      const promoted = ensured.type === 'free' ? { ...ensured, type } : ensured
+      const updated = appendBatch(promoted, batch)
+      await env.LICENCES.put(existingKey, JSON.stringify(updated))
+      await indexPaymentIntent(env, paymentIntentId, existingKey)
+    }
+
+    // Map session → existing key so the /success page lookup still works.
+    const sessionId = session.id as string | undefined
+    if (sessionId) {
+      await env.LICENCES.put(`session:${sessionId}`, existingKey, { expirationTtl: 172800 })
+    }
+    // No new licence email — the user already has this key.
+    return
+  }
+
+  // First-time buyer (or unrecognised client_reference_id): issue a fresh key.
+  const licenceKey = generateLicenceKey()
 
   let record: LicenceRecord = {
     type,
