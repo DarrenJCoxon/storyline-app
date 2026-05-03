@@ -50,3 +50,5 @@ Thumbs.db
 .claude/
 .swarm/
 .playwright-mcp/
+# Playwright debug screenshots from ad-hoc analysis runs
+/storyline-*.png

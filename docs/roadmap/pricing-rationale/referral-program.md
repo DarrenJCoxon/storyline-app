@@ -39,7 +39,7 @@ Three independent layers. An abuser has to defeat all three.
 
 ### Layer 1: IP rate limit (existing)
 
-[backend/src/free-plan.ts](../../backend/src/free-plan.ts) — 30 free
+[backend/src/free-plan.ts](../../../backend/src/free-plan.ts) — 30 free
 plans per IP per day. Already lives. Generous enough for legitimate
 household NATs / school networks but blocks rapid-fire scripted
 attacks.
@@ -91,7 +91,7 @@ incentivises users who provide it.
 **Backend**:
 - Extend KV schema or add a `MACHINE_IDS` namespace mapping
   `machineId → licenceKey`
-- Modify [backend/src/free-plan.ts](../../backend/src/free-plan.ts)
+- Modify [backend/src/free-plan.ts](../../../backend/src/free-plan.ts)
   `handleFreePlanIssue` to:
   - Read `machineId` from request body
   - If machineId already mapped, return that key (no new mint)
@@ -100,7 +100,7 @@ incentivises users who provide it.
   call after upgrade can backfill
 
 **Extension**:
-- [extension/src/auth/free-plan-issue.ts](../../extension/src/auth/free-plan-issue.ts)
+- [extension/src/auth/free-plan-issue.ts](../../../extension/src/auth/free-plan-issue.ts)
   sends `machineId: vscode.env.machineId` in the POST body
 
 **Ship as**: standalone version bump; safe alongside or before referrals.
@@ -149,7 +149,7 @@ incentivises users who provide it.
 **Implementation locations**:
 - New webview modal component (e.g.
   `extension/webview/src/planning/components/ShareModal.tsx`)
-- Existing credit pill in [extension/webview/src/planning/components/Header.tsx](../../extension/webview/src/planning/components/Header.tsx)
+- Existing credit pill in [extension/webview/src/planning/components/Header.tsx](../../../extension/webview/src/planning/components/Header.tsx)
   — add `onClick={openShareModal}` and a hover state
 - New `referralStats` postMessage from extension to webview, fetched
   from `GET /referral/stats?key=...` on modal open
@@ -175,7 +175,7 @@ incentivises users who provide it.
 
 ### Wave 4: marketing site `/r/<code>` redirect (~½ day)
 
-**Site changes** at [site/](../../site/):
+**Site changes** at [site/](../../../site/):
 - New route `app/r/[code]/page.tsx` that:
   - Stores ref code in localStorage (`storyline-ref-code`)
   - Redirects to `/?ref=<code>` (preserves URL semantics)
@@ -200,7 +200,7 @@ incentivises users who provide it.
     extension instead of the website.
 
 Option (c) is cleanest because it reuses the existing URI-handler
-plumbing in [extension/src/extension.ts:147-178](../../extension/src/extension.ts).
+plumbing in [extension/src/extension.ts:147-178](../../../extension/src/extension.ts).
 
 ---
 

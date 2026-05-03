@@ -34,9 +34,9 @@ model versions.
 ### Credit costs
 
 **Sized for 80% margin against Pack A net revenue ($0.0121/credit).**
-Source of truth: [backend/src/illustrate.ts:CREDITS_BY_QUALITY](../../backend/src/illustrate.ts).
-Mirrored in [extension/src/illustration/image-generator.ts:CREDITS_LOW/MEDIUM/HIGH](../../extension/src/illustration/image-generator.ts)
-and [extension/webview/src/illustrations/App.tsx:CREDITS_BY_QUALITY](../../extension/webview/src/illustrations/App.tsx).
+Source of truth: [backend/src/illustrate.ts:CREDITS_BY_QUALITY](../../../backend/src/illustrate.ts).
+Mirrored in [extension/src/illustration/image-generator.ts:CREDITS_LOW/MEDIUM/HIGH](../../../extension/src/illustration/image-generator.ts)
+and [extension/webview/src/illustrations/App.tsx:CREDITS_BY_QUALITY](../../../extension/webview/src/illustrations/App.tsx).
 
 | Quality | Credits | Pack A revenue | Cost  | Margin |
 |---------|---------|----------------|-------|--------|
@@ -51,7 +51,7 @@ Pack B users land at ~74-75% on these tiers — accepted volume discount.
 A complete book cover fires **two** `/illustrate` calls (front + back), so
 a high-quality cover bills 200 credits ≈ £2 against $0.50 of OpenAI cost.
 Same 80% margin per call, twice the absolute envelope per cover. Documented
-in the JSDoc on [extension/src/illustration/image-generator.ts](../../extension/src/illustration/image-generator.ts)
+in the JSDoc on [extension/src/illustration/image-generator.ts](../../../extension/src/illustration/image-generator.ts)
 quality field.
 
 ### Worker deploy
@@ -66,7 +66,7 @@ through the v0.1.57+ release tag.
 
 ### Cost basis
 
-DeepSeek Flash (CHAT_MODEL in [backend/wrangler.toml:13](../../backend/wrangler.toml)):
+DeepSeek Flash (CHAT_MODEL in [backend/wrangler.toml:13](../../../backend/wrangler.toml)):
 - Input: $0.14 / 1M tokens
 - Output: $0.28 / 1M tokens
 
@@ -102,7 +102,7 @@ If we ever need it, the design:
 - Charge 1 credit baseline (current behaviour)
 - After upstream stream completes, parse usage and bump to 2 credits
   if total tokens > 17,000 (the 80%-margin boundary at $0.0121 revenue)
-- Implement in [backend/src/chat.ts](../../backend/src/chat.ts) inside
+- Implement in [backend/src/chat.ts](../../../backend/src/chat.ts) inside
   `parseAndForwardStream`'s usage-capture handler — ~30 lines
 
 The extension never has to know — the backend just tells it the new
@@ -113,7 +113,7 @@ balance via the existing `creditUpdate` flow.
 ## Critique
 
 Critique cost is variable per-call, gated server-side. Prose tier
-deducts 5 credits ([backend/src/critique.ts](../../backend/src/critique.ts)).
+deducts 5 credits ([backend/src/critique.ts](../../../backend/src/critique.ts)).
 Not yet rebased against the 80% target — the cost basis depends heavily
 on input length (length of the chunk being critiqued) and is harder to
 generalise than chat. **Open: rebase critique credit costs once we
@@ -136,14 +136,14 @@ tools is 3-7%, so the free tier is likely net-positive.
 
 If you change pricing, all four of these files must agree:
 
-1. **Backend (source of truth)**: [backend/src/illustrate.ts:CREDITS_BY_QUALITY](../../backend/src/illustrate.ts)
-2. **Backend chat charge**: [backend/src/chat.ts](../../backend/src/chat.ts)
+1. **Backend (source of truth)**: [backend/src/illustrate.ts:CREDITS_BY_QUALITY](../../../backend/src/illustrate.ts)
+2. **Backend chat charge**: [backend/src/chat.ts](../../../backend/src/chat.ts)
    `consumeCredits(record, 1)` line ~55
-3. **Extension constants (must match #1)**: [extension/src/illustration/image-generator.ts:CREDITS_LOW/MEDIUM/HIGH](../../extension/src/illustration/image-generator.ts)
-4. **Webview dropdown labels**: [extension/webview/src/illustrations/App.tsx](../../extension/webview/src/illustrations/App.tsx)
-5. **Type-doc comments referring to dollar-per-image**: [backend/src/types.ts](../../backend/src/types.ts)
-6. **Free plan size**: [backend/src/free-plan.ts:FREE_PLAN_CREDITS](../../backend/src/free-plan.ts)
-7. **Pack price/credits**: [extension/webview/src/onboarding/screens/BuyCredits.tsx:PACKS](../../extension/webview/src/onboarding/screens/BuyCredits.tsx)
+3. **Extension constants (must match #1)**: [extension/src/illustration/image-generator.ts:CREDITS_LOW/MEDIUM/HIGH](../../../extension/src/illustration/image-generator.ts)
+4. **Webview dropdown labels**: [extension/webview/src/illustrations/App.tsx](../../../extension/webview/src/illustrations/App.tsx)
+5. **Type-doc comments referring to dollar-per-image**: [backend/src/types.ts](../../../backend/src/types.ts)
+6. **Free plan size**: [backend/src/free-plan.ts:FREE_PLAN_CREDITS](../../../backend/src/free-plan.ts)
+7. **Pack price/credits**: [extension/webview/src/onboarding/screens/BuyCredits.tsx:PACKS](../../../extension/webview/src/onboarding/screens/BuyCredits.tsx)
 
 After any change, **redeploy the Worker** (`cd backend && npx wrangler deploy`).
 Extension changes ship through the next git tag.

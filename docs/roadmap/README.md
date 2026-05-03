@@ -16,7 +16,7 @@ building and follow the file:line references inside.
 
 ## Active themes
 
-### [Pricing & margins](./pricing-and-margins.md)
+### [Pricing & margins](./pricing-rationale/pricing-and-margins.md)
 **Status:** ✅ shipped (image), ✅ shipped (chat — accepted average)
 - Image credit costs rebased on 80% gross margin against Pack A net
   revenue (8 / 32 / 100 credits for low / medium / high). Shipped in
@@ -25,7 +25,7 @@ building and follow the file:line references inside.
   typical projects, dipping to ~75% for heavy-research power users.
   Decision: accept the average and monitor, no per-token billing yet.
 
-### [Free tier tuning](./free-tier-tuning.md)
+### [Free tier tuning](./pricing-rationale/free-tier-tuning.md)
 **Status:** ✅ shipped (drop to 150)
 - Free starter dropped from 250 → 150 credits in v0.1.59 to land the
   "finish one full plan, then hit the wall" conversion sweet spot.
@@ -33,7 +33,7 @@ building and follow the file:line references inside.
   apply to fresh `/free-plan/issue` calls.
 - Re-evaluate in 4-6 weeks once we have conversion baseline data.
 
-### [Credit balance UX](./credit-balance-ux.md)
+### [Credit balance UX](./pricing-rationale/credit-balance-ux.md)
 **Status:** 🟡 partially shipped
 - ✅ Free-trial users see live credit balance in the chat header
   ("Free plan · 247 credits") — shipped in v0.1.58.
@@ -43,7 +43,7 @@ building and follow the file:line references inside.
   preview unaffected) — not built.
 - 🔵 Status bar item showing balance always — not built.
 
-### [Referral program](./referral-program.md)
+### [Referral program](./pricing-rationale/referral-program.md)
 **Status:** 🔵 planned (4 waves, ~3 days build)
 - Gamma-style click-credits-to-share modal in extension webview
 - 25 credits to referrer (max 20 referrals = 500 credits / £5 cap)
@@ -75,7 +75,7 @@ building and follow the file:line references inside.
 - ⚪ **Token-aware chat billing.** If late-stage power users with
   research/ folders push average chat margin below 75% over a measured
   period, switch from flat 1 credit/turn to a 1-or-2 model based on
-  total token count. See [pricing-and-margins.md](./pricing-and-margins.md)
+  total token count. See [pricing-and-margins.md](./pricing-rationale/pricing-and-margins.md)
   Option B for the design.
 - ⚪ **Email verification path.** Currently no email collection, machineId
   + IP rate-limit + Turnstile (held in reserve) are the abuse stack. If

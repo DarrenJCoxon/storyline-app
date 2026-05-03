@@ -10,12 +10,12 @@ before tuning further.
 
 **150 credits per new free user.**
 
-Source of truth: [backend/src/free-plan.ts:FREE_PLAN_CREDITS](../../backend/src/free-plan.ts).
+Source of truth: [backend/src/free-plan.ts:FREE_PLAN_CREDITS](../../../backend/src/free-plan.ts).
 
 User-facing copy that mentions the number:
-- [extension/src/onboarding/licence-prompt.ts](../../extension/src/onboarding/licence-prompt.ts) — info modal
-- [extension/src/onboarding/project-scaffold.ts](../../extension/src/onboarding/project-scaffold.ts) `WELCOME_DOC` — first-run welcome
-- [docs/TERMS.md](../TERMS.md) — legal terms (regenerated into
+- [extension/src/onboarding/licence-prompt.ts](../../../extension/src/onboarding/licence-prompt.ts) — info modal
+- [extension/src/onboarding/project-scaffold.ts](../../../extension/src/onboarding/project-scaffold.ts) `WELCOME_DOC` — first-run welcome
+- [docs/TERMS.md](../../TERMS.md) — legal terms (regenerated into
   `backend/src/legal-content.ts` by `backend/scripts/build-legal.mjs`)
 
 Worker needs `cd backend && npx wrangler deploy` for the new ceiling
@@ -90,7 +90,7 @@ Before changing 150 again, we want to see:
    Strong signal for "we're cutting them off too aggressively."
 
 These metrics need backend instrumentation. **Open**: see
-[roadmap/README.md](./README.md) "Marketing site `/download` analytics"
+[roadmap/README.md](../README.md) "Marketing site `/download` analytics"
 open question — same instrumentation gap.
 
 ---
@@ -115,12 +115,12 @@ without measurement is a conversion own-goal.
 ## Related: free plan limits
 
 Beyond the credit cap itself, the free plan is **gated against image
-generation** ([backend/src/illustrate.ts:37-42](../../backend/src/illustrate.ts)):
+generation** ([backend/src/illustrate.ts:37-42](../../../backend/src/illustrate.ts)):
 free users get a 402 if they try to generate covers or illustrations.
 This forces image-generation users into the paid track regardless of
 how light their chat usage was — a separate conversion lever from
 credit ceiling.
 
-Critique uses the same credit pool ([backend/src/critique.ts:441-449](../../backend/src/critique.ts)),
+Critique uses the same credit pool ([backend/src/critique.ts:441-449](../../../backend/src/critique.ts)),
 variable cost. Heavy critique users dent the per-user cost more than
 chat alone, but it draws from the same 150 credits, so the cap holds.
