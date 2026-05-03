@@ -77,6 +77,21 @@ export function scaffoldProject(
   // 5. compile.config.json
   ensureCompileConfig(workspaceRoot)
 
+  // 6. <projectName>.code-workspace — gives the writer a Scrivener-style
+  // double-click-to-open file. macOS / Windows associate .code-workspace
+  // with VS Code by default, so the writer opens their project in one
+  // click from Finder / Explorer. Drag-to-Dock works too.
+  // Slug-cased to avoid spaces in the filename (cleaner on disk).
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'storyline'
+  const workspaceFile = path.join(workspaceRoot, `${slug}.code-workspace`)
+  if (!fs.existsSync(workspaceFile)) {
+    const workspace = {
+      folders: [{ path: '.' }],
+      settings: {},
+    }
+    fs.writeFileSync(workspaceFile, JSON.stringify(workspace, null, 2) + '\n', 'utf8')
+  }
+
   return stateFile
 }
 
@@ -108,6 +123,38 @@ export function ensurePlanningFolder(workspaceRoot: string): void {
     fs.mkdirSync(path.join(workspaceRoot, sub), { recursive: true })
   }
   writeIfMissing(path.join(workspaceRoot, 'planning', 'README.md'), PLANNING_README)
+}
+
+/**
+ * One-shot backfill for projects scaffolded before the .code-workspace
+ * file was generated. Gives existing users the same Scrivener-style
+ * double-click-to-open convenience without needing to recreate their
+ * project. Idempotent — no-op if any .code-workspace file already exists
+ * in the root, so we don't trample a user-customised one.
+ */
+export function ensureWorkspaceFile(workspaceRoot: string): void {
+  let existing: string[]
+  try {
+    existing = fs.readdirSync(workspaceRoot).filter(f => f.endsWith('.code-workspace'))
+  } catch { return }
+  if (existing.length > 0) return
+
+  // Best-effort project name from .storyline/state.json's _meta.projectTitle.
+  // Falls back to the workspace folder's basename.
+  let name = path.basename(workspaceRoot)
+  try {
+    const state = JSON.parse(fs.readFileSync(path.join(workspaceRoot, '.storyline', 'state.json'), 'utf8'))
+    if (state?._meta?.projectTitle && typeof state._meta.projectTitle === 'string') {
+      name = state._meta.projectTitle
+    }
+  } catch { /* fall through to folder name */ }
+
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'storyline'
+  fs.writeFileSync(
+    path.join(workspaceRoot, `${slug}.code-workspace`),
+    JSON.stringify({ folders: [{ path: '.' }], settings: {} }, null, 2) + '\n',
+    'utf8',
+  )
 }
 
 const MANUSCRIPT_README = `# Manuscript
@@ -156,6 +203,10 @@ You're in. Your free plan is active (150 credits) and the **planning chat** has 
 Storyline plans your book in **14 stages** using the Save the Cat structure (fiction) or the Book DNA framework (non-fiction). Each stage is a short conversation in the chat panel. After every stage, Storyline writes the result to \`planning/\` so you can read, edit, and refer back to it.
 
 When the plan is done, you switch to **writing**. Your prose lives in \`manuscript/\` — one \`.md\` file per chapter. Type freely; Storyline auto-saves every 1.5 seconds.
+
+## Coming back to your project
+
+Look in your project folder for the file ending \`.code-workspace\` — that's your project file. **Double-click it from Finder / Explorer** and Storyline opens straight back into the workspace, with the planning chat ready. Drag it to your Dock or pin it to your taskbar for one-click access.
 
 ## Project layout
 

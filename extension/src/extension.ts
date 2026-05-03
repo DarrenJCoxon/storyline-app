@@ -18,7 +18,7 @@ import { openPreview } from './preview/preview-command.js'
 import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { checkLicencePrompt } from './onboarding/licence-prompt.js'
-import { ensureResearchFolder, ensurePlanningFolder } from './onboarding/project-scaffold.js'
+import { ensureResearchFolder, ensurePlanningFolder, ensureWorkspaceFile } from './onboarding/project-scaffold.js'
 import { postActivateOpenWorkspace } from './onboarding/post-activate.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
@@ -160,6 +160,7 @@ function activateInner(context: vscode.ExtensionContext): void {
   if (wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json'))) {
     try { ensureResearchFolder(wsRoot) } catch (e) { bootLogError('ensureResearchFolder', e) }
     try { ensurePlanningFolder(wsRoot) } catch (e) { bootLogError('ensurePlanningFolder', e) }
+    try { ensureWorkspaceFile(wsRoot) } catch (e) { bootLogError('ensureWorkspaceFile', e) }
   }
   bootLog('activate: research/planning scaffold checked')
 

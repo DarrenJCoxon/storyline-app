@@ -47,6 +47,14 @@ export async function initLayout(context: vscode.ExtensionContext): Promise<void
     await vscode.commands.executeCommand('storyline.openEditor', uri)
   } catch { /* panel not ready yet */ }
 
+  // Auto-open the planning chat for returning users so re-entering a
+  // project lands ready-to-write — no need to hunt for the Storyline
+  // status-bar icon. Same end-state as the post-Start-Free flow, but
+  // without the Welcome panel + scaffold steps that path runs.
+  // openPlanning is a no-op if the chat panel is already open, so this
+  // is safe to fire on every activation.
+  try { await vscode.commands.executeCommand('storyline.openPlanning') } catch { /* */ }
+
   // Clean layout: close auxiliary bar, focus Explorer, ensure no extension
   // panels steal the sidebar. Other extensions (Claude Code, GitLens, etc.)
   // activate on onStartupFinished — typically 800-1500ms after our run —
