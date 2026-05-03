@@ -17,9 +17,10 @@ import {
 } from '../conversation/critique-wiring.js'
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
 import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
-import { pushToMemory, retrieveRelevantMemory } from '../state/memory.js'
+import { pushToMemory, retrieveRelevantMemory, retrieveMemoryEntry } from '../state/memory.js'
 import { triggerWikiCompilation, STAGE_TO_ARTICLES, NF_STAGE_TO_ARTICLES } from '../wiki/article-compiler.js'
 import { checkWikiIntegrity, type IntegrityWarning } from '../wiki/integrity-check.js'
+import { compileSeriesArticles, compareProtagonistToSeriesArticle } from '../wiki/series-compiler.js'
 import { LicenceManager } from '../auth/licence.js'
 import { offerReactivation } from '../auth/reactivate-prompt.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
@@ -764,6 +765,63 @@ export class ChatPanel {
       // short prose article in .storyline/wiki/ for injection into future
       // prompts. Async, fire-and-forget, never blocks stage advance.
       triggerWikiCompilation(stageId, finalState, projectDir, getBackendUrl(), () => this.licenceManager.getLicenceKey())
+
+      // Series wiki compilation — when this project is part of a series,
+      // compile series-level articles (arc, world, character end-states)
+      // and store them to .storyline/wiki/series/ + odd-flow for cross-book
+      // retrieval. Fire-and-forget.
+      if (finalState.mode === 'fiction') {
+        void (async () => {
+          await new Promise(r => setTimeout(r, 600))
+          try {
+            compileSeriesArticles(finalState, projectDir)
+          } catch (err) {
+            logWarn('[Storyline] series compilation failed', err)
+          }
+        })()
+      }
+
+      // Cross-book continuity check — when Book 2+ saves its protagonist stage,
+      // compare the new protagonist data against the previous book's end-state
+      // character article stored in odd-flow. Surface drift as findings cards.
+      if (finalState.mode === 'fiction' && stageId === 'protagonist') {
+        void (async () => {
+          await new Promise(r => setTimeout(r, 800))
+          try {
+            const raw = finalState as unknown as Record<string, unknown>
+            const seriesCtx = (raw['premise'] as Record<string, unknown> | undefined)?.['seriesContext'] as Record<string, unknown> | undefined
+            const currentBook = (seriesCtx?.['currentBookNumber'] as number) ?? 1
+            if (currentBook > 1 && seriesCtx?.['seriesTitle']) {
+              const seriesSlug = (seriesCtx['seriesTitle'] as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+              const protagonist = raw['protagonist'] as Record<string, unknown> | undefined
+              const name = protagonist?.['name'] as string | undefined
+              if (name) {
+                const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                const prevKey = `series:${seriesSlug}:book${currentBook - 1}:characters/${slug}`
+                const prevArticle = await retrieveMemoryEntry(prevKey)
+                if (prevArticle) {
+                  const drift = compareProtagonistToSeriesArticle(protagonist, prevArticle, currentBook)
+                  if (drift.length > 0) {
+                    this.post({
+                      type: 'findingsCard',
+                      findings: drift.map(d => ({
+                        id: `series-drift-${d.field}`,
+                        name: 'Series continuity note',
+                        severity: 'warning' as const,
+                        description: d.description,
+                        details: `Book ${currentBook - 1} end-state vs current draft`,
+                        fixProtocol: d.suggestion ? [d.suggestion] : undefined,
+                      })),
+                    })
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            logWarn('[Storyline] cross-book continuity check failed', err)
+          }
+        })()
+      }
 
       // Wiki integrity check — compare the article just compiled against its
       // semantically related articles for contradictions, drift, or gaps.

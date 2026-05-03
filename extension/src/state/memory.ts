@@ -349,6 +349,42 @@ function runOddFlowSearch(
   })
 }
 
+/**
+ * Retrieve a single memory entry by exact key. Returns null if not found.
+ * Used for cross-book series continuity checks (retrieve previous book's
+ * character state from odd-flow).
+ */
+export async function retrieveMemoryEntry(key: string): Promise<string | null> {
+  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!projectDir) return null
+
+  const namespace = projectNamespace(projectDir)
+  const cli = resolveOddFlowCli()
+  if (!cli) return null
+
+  return new Promise((resolve) => {
+    const child = spawn(
+      process.execPath,
+      [cli, 'memory', 'retrieve', '-k', key, '--namespace', namespace],
+      { cwd: projectDir, stdio: ['ignore', 'pipe', 'pipe'], timeout: 15_000 },
+    )
+
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', d => { stdout += d.toString() })
+    child.stderr.on('data', d => { stderr += d.toString() })
+    child.on('error', () => resolve(null))
+    child.on('close', code => {
+      if (code === 0) {
+        const trimmed = stdout.trim()
+        resolve(trimmed || null)
+      } else {
+        resolve(null)
+      }
+    })
+  })
+}
+
 function parseSearchResults(jsonOutput: string): MemoryHit[] {
   try {
     const parsed = JSON.parse(jsonOutput)

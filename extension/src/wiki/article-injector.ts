@@ -151,12 +151,72 @@ export function collectWikiArticles(
     } catch { /* non-fatal — missing article is fine */ }
   }
 
+  // Series articles — inject when this is Book 2+ of a series
+  const seriesBlock = collectSeriesArticles(projectDir, state)
+  if (seriesBlock) parts.push(seriesBlock)
+
   if (parts.length === 0) return ''
 
   return [
     '## Compiled planning context',
     '',
     '*Pre-synthesised from saved planning stages — authoritative reference for established facts.*',
+    '',
+    parts.join('\n\n'),
+  ].join('\n')
+}
+
+/**
+ * Read series-level wiki articles when the current project is Book 2+
+ * of a series. These were compiled by previous books and stored in
+ * .storyline/wiki/series/ (or retrieved from odd-flow on first access).
+ */
+function collectSeriesArticles(projectDir: string, state: ProjectState): string {
+  const raw = state as unknown as Record<string, unknown>
+  const seriesCtx = (raw['premise'] as Record<string, unknown> | undefined)?.['seriesContext'] as Record<string, unknown> | undefined
+  if (!seriesCtx || !seriesCtx['isSeries']) return ''
+
+  const currentBook = (seriesCtx['currentBookNumber'] as number) ?? 1
+  if (currentBook <= 1) return ''
+
+  const seriesDir = path.join(projectDir, '.storyline', 'wiki', 'series')
+  const parts: string[] = []
+
+  // Arc
+  const arcPath = path.join(seriesDir, 'arc.md')
+  if (fs.existsSync(arcPath)) {
+    try {
+      const body = fs.readFileSync(arcPath, 'utf-8').trim()
+      if (body) parts.push(`**Series arc**\n${body}`)
+    } catch { /* ignore */ }
+  }
+
+  // World
+  const worldPath = path.join(seriesDir, 'world.md')
+  if (fs.existsSync(worldPath)) {
+    try {
+      const body = fs.readFileSync(worldPath, 'utf-8').trim()
+      if (body) parts.push(`**Series world**\n${body}`)
+    } catch { /* ignore */ }
+  }
+
+  // Character articles — inject protagonist if available
+  const protagonist = raw['protagonist'] as Record<string, unknown> | undefined
+  if (protagonist?.['name']) {
+    const slug = (protagonist['name'] as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    const charPath = path.join(seriesDir, 'characters', `${slug}.md`)
+    if (fs.existsSync(charPath)) {
+      try {
+        const body = fs.readFileSync(charPath, 'utf-8').trim()
+        if (body) parts.push(`**${protagonist['name']} (from earlier books)**\n${body}`)
+      } catch { /* ignore */ }
+    }
+  }
+
+  if (parts.length === 0) return ''
+  return [
+    '---',
+    '**Series continuity (Book ' + currentBook + ')**',
     '',
     parts.join('\n\n'),
   ].join('\n')
