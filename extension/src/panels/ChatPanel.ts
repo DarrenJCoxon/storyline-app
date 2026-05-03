@@ -8,6 +8,7 @@ import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { TurnHistory } from '../conversation/turn-history.js'
+import { compressTurnsForApi } from '../conversation/turn-compressor.js'
 import {
   shouldSkipCritique,
   interpretCritiqueOk,
@@ -386,7 +387,7 @@ export class ChatPanel {
 
     const memoryBlock = await retrieveRelevantMemory(currentStage.id)
     const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock)
-    const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
+    const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     // Stop button: if the writer cancelled mid-stream, do not run any of the
@@ -419,7 +420,7 @@ export class ChatPanel {
 
     const memoryBlock = await retrieveRelevantMemory(currentStage.id)
     const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock)
-    const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
+    const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
     await this.applyEmittedPatches(full, currentStage.id)
@@ -1052,7 +1053,7 @@ export class ChatPanel {
 
     const memoryBlock = await retrieveRelevantMemory(stageId)
     const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock)
-    const messages = this.turnHistory.allForStage(stageId)
+    const messages = await this.buildMessages(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     if (this.streamCancelled) return true
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
@@ -1138,7 +1139,8 @@ export class ChatPanel {
     const prior = stageId === 'mode'
       ? []
       : this.turnHistory.allDisplay().slice(-PRIOR_CONTEXT_TURNS)
-    const messages: Message[] = [...prior, ...this.turnHistory.allForStage(stageId)]
+    const stageMessages = await this.buildMessages(stageId)
+    const messages: Message[] = [...prior, ...stageMessages]
 
     // No seed — the AI generates the opener fresh from the stage brief in
     // the system prompt. Pre-seeding the canned `opening` caused
@@ -1148,6 +1150,33 @@ export class ChatPanel {
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     // Save the AI's opener to the display log (synthetic kickoff is intentionally excluded).
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
+  }
+
+  /**
+   * Build the message array for an API call, compressing old turns when a
+   * stage exceeds the threshold. Uses the same provider for summarisation
+   * (single DeepSeek model — no model switching needed).
+   */
+  private async buildMessages(stageId: string): Promise<Message[]> {
+    const rawTurns = this.turnHistory.allForStage(stageId)
+    const existingSummary = this.turnHistory.getCompressionSummary(stageId)
+
+    if (!this.provider || rawTurns.length <= 12) {
+      return rawTurns as Message[]
+    }
+
+    const result = await compressTurnsForApi(
+      rawTurns,
+      existingSummary,
+      stageId,
+      this.provider,
+    )
+
+    if (result.summary && result.summary !== existingSummary) {
+      this.turnHistory.setCompressionSummary(stageId, result.summary)
+    }
+
+    return result.turns
   }
 
   private async streamResponse(

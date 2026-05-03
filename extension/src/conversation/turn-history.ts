@@ -29,6 +29,12 @@ export class TurnHistory {
   private displayLog: Turn[] = []
   private displayStorePath: string | null = null
 
+  // Per-stage compression summaries. Key = stageId. When a stage exceeds
+  // the turn threshold, the oldest turns are summarized and stored here.
+  // The full history is preserved for display; the summary is used for
+  // API calls to keep context bounded.
+  private compressionSummaries: Map<string, string> = new Map()
+
   setStorePath(filePath: string): void {
     this.storePath = filePath
     this.load()
@@ -57,6 +63,14 @@ export class TurnHistory {
 
   allForStage(stageId: string): Turn[] {
     return this.getForStage(stageId)
+  }
+
+  getCompressionSummary(stageId: string): string | null {
+    return this.compressionSummaries.get(stageId) ?? null
+  }
+
+  setCompressionSummary(stageId: string, summary: string): void {
+    this.compressionSummaries.set(stageId, summary)
   }
 
   allDisplay(): Turn[] {
