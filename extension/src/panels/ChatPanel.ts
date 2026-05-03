@@ -18,6 +18,7 @@ import {
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
 import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
 import { pushToMemory } from '../state/memory.js'
+import { triggerWikiCompilation } from '../wiki/article-compiler.js'
 import { LicenceManager } from '../auth/licence.js'
 import { offerReactivation } from '../auth/reactivate-prompt.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
@@ -756,6 +757,11 @@ export class ChatPanel {
       if (finalState.mode === 'fiction' && ARC_MATRIX_STAGES.includes(stageId)) {
         defer('generateCharacterArcMatrix', () => generateCharacterArcMatrix(plan, projectDir))
       }
+      // Wiki article compilation — synthesises each completed stage into a
+      // short prose article in .storyline/wiki/ for injection into future
+      // prompts. Async, fire-and-forget, never blocks stage advance.
+      triggerWikiCompilation(stageId, finalState, projectDir, getBackendUrl(), () => this.licenceManager.getLicenceKey())
+
       // NF artefacts — regenerate after relevant stage saves.
       if (finalState.mode === 'nonfiction') {
         if (stageId === 'ac-master' && plan.academic) {

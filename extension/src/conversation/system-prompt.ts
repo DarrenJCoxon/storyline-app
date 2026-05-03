@@ -1,6 +1,7 @@
 import type { ProjectState } from '@storyline/core'
 import { getStageGuide, getNfStageGuide, getPersonaForStage } from '@storyline/core'
 import { getFictionSkill, getNonfictionSkill, getExtensionPath } from './skill-loader.js'
+import { collectWikiArticles } from '../wiki/article-injector.js'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -85,13 +86,18 @@ export function buildSystemPrompt(stageId: string, state: ProjectState): string 
   // reference docs only when the stage demands them.
   const triggerDocs = collectTriggerDocs(stageId, state)
 
+  // Compiled wiki articles — pre-synthesised prose summaries of earlier
+  // planning stages, injected only for the articles relevant to this stage.
+  // Empty string when no articles have been compiled yet (early in planning).
+  const wikiBlock = collectWikiArticles(stageId, state._meta?.projectPath ?? null, state)
+
   const stageContext = `
 ---
 
 ## stageInfo (output of \`stage-info ${stageId}\`)
 
 ${stageInfoBlock}
-
+${wikiBlock ? '\n' + wikiBlock + '\n' : ''}
 ## Current state (output of \`next\`)
 
 ${stateBlock}
