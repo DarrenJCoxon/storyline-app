@@ -60,6 +60,28 @@ export async function pushToMemory(
 }
 
 /**
+ * Store an arbitrary key/value pair to odd-flow memory. Used for wiki articles
+ * and other compiled context that should be retrievable via semantic search.
+ */
+export async function storeMemoryEntry(
+  key: string,
+  value: string,
+  tags?: string[],
+): Promise<{ method: 'odd-flow' | 'skipped'; error?: string }> {
+  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!projectDir) return { method: 'skipped', error: 'no workspace' }
+
+  const namespace = projectNamespace(projectDir)
+
+  try {
+    await runOddFlowStoreRaw(projectDir, namespace, key, value, tags)
+    return { method: 'odd-flow' }
+  } catch (err) {
+    return { method: 'skipped', error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
  * Search memory for a query — used by the writing assistant when the writer
  * asks plan-consistency questions ("did this character already meet X?").
  */
@@ -77,11 +99,110 @@ export async function searchMemory(query: string, limit = 10): Promise<MemoryHit
   }
 }
 
+/**
+ * Retrieve relevant prior decisions from memory for the active planning stage.
+ * Runs stage-specific semantic queries against odd-flow, deduplicates, and
+ * returns a formatted markdown block ready for injection into the system prompt.
+ */
+export async function retrieveRelevantMemory(stageId: string, limit = 3): Promise<string> {
+  const queries = STAGE_QUERIES[stageId]
+  if (!queries?.length) return ''
+
+  // Run all queries in parallel, deduplicate by key, take top N by score
+  const results = await Promise.all(queries.map(q => searchMemory(q, 5)))
+  const flat = results.flat().filter(h => h.value && h.value.trim())
+  const deduped = deduplicateHits(flat)
+  if (!deduped.length) return ''
+
+  const lines = deduped
+    .slice(0, limit)
+    .map(h => `**${h.key}**: ${h.value}`)
+    .join('\n\n')
+
+  return `# Prior decisions (retrieved from memory)\n\n${lines}`
+}
+
 export interface MemoryHit {
   key: string
   value: string
   score?: number
   namespace?: string
+}
+
+// Stage-specific semantic queries. Each stage gets 2–4 queries that target the
+// decisions most likely to affect its work. Retrieval runs against odd-flow
+// which stores compiled wiki articles (dense prose) — not raw JSON patches.
+const STAGE_QUERIES: Readonly<Record<string, string[]>> = {
+  // Fiction
+  beatSheet:     ['protagonist motivation', 'story premise hook', 'antagonist'],
+  bStory:        ['protagonist flaw', 'protagonist need', 'B story character'],
+  subplots:      ['protagonist arc', 'supporting cast roles'],
+  sceneOutline:  ['beat sheet structure', 'protagonist', 'antagonist', 'B story'],
+  plotThreads:   ['scene outline', 'chapter groupings', 'promises and payoffs'],
+  chapterOutline:['scene outline', 'chapter groupings', 'plot thread resolution'],
+  critique:      ['all decisions', 'protagonist', 'beats', 'themes'],
+  masterDoc:     ['all decisions', 'protagonist', 'beats', 'themes', 'scenes'],
+
+  // Non-fiction DNA
+  'dna-promise':    ['reader avatar', 'reader transformation'],
+  'dna-comps':      ['book category', 'big idea', 'author angle'],
+  'dna-voice':      ['comparable titles', 'voice and register'],
+  'dna-consolidate':['reader avatar', 'book category', 'author angle', 'voice'],
+
+  // Pipeline A — Prescriptive
+  'pa-thesis':     ['reader transformation', 'central thesis', 'book promise'],
+  'pa-objections': ['reader transformation', 'central thesis', 'objections'],
+  'pa-framework':  ['central thesis', 'framework model', 'reader transformation'],
+  'pa-principles': ['framework model', 'principles', 'evidence'],
+  'pa-evidence':   ['framework model', 'evidence', 'application'],
+  'pa-application':['framework model', 'evidence', 'application'],
+  'pa-braid':      ['framework model', 'narrative braid', 'evidence'],
+  'pa-chapters':   ['framework model', 'chapter sequence', 'reader journey'],
+  'pa-opener':     ['chapter sequence', 'opener strategy', 'hook'],
+  'pa-critique':   ['reader transformation', 'thesis', 'framework', 'chapters'],
+  'pa-master':     ['reader transformation', 'thesis', 'framework', 'chapters'],
+
+  // Pipeline B — Narrative NF
+  'pb-thesis':   ['reader transformation', 'narrative arc', 'central thesis'],
+  'pb-cast':     ['narrative arc', 'cast of figures', 'reader transformation'],
+  'pb-timeline': ['narrative arc', 'timeline', 'cast of figures'],
+  'pb-fork':     ['narrative arc', 'idea-led vs event-led', 'reader transformation'],
+  'pb-scenes':   ['narrative arc', 'key scenes', 'sourcing'],
+  'pb-sourcing': ['key scenes', 'sourcing strategy', 'evidence'],
+  'pb-theme':    ['narrative arc', 'theme', 'reader transformation'],
+  'pb-chapters': ['narrative arc', 'chapter sequence', 'reader journey'],
+  'pb-critique': ['reader transformation', 'narrative arc', 'scenes', 'chapters'],
+  'pb-master':   ['reader transformation', 'narrative arc', 'scenes', 'chapters'],
+
+  // Pipeline C — How-To
+  'pc-skill':       ['reader transformation', 'skill being taught', 'starting level'],
+  'pc-start-level':['skill being taught', 'starting level', 'end state'],
+  'pc-end-state':  ['skill being taught', 'end state', 'sub-skills'],
+  'pc-decompose':  ['skill being taught', 'sub-skills', 'prerequisites'],
+  'pc-prereqs':    ['skill being taught', 'prerequisites', 'sub-skills'],
+  'pc-lessons':    ['skill being taught', 'lesson plan', 'pedagogy'],
+  'pc-drills':     ['lesson plan', 'drills', 'common mistakes'],
+  'pc-milestones': ['lesson plan', 'milestones', 'assessments'],
+  'pc-examples':   ['lesson plan', 'worked examples', 'common mistakes'],
+  'pc-critique':   ['reader transformation', 'skill', 'lessons', 'drills'],
+  'pc-master':     ['reader transformation', 'skill', 'lessons', 'drills'],
+
+  // Academic
+  'ac-syllabus':  ['reader transformation', 'curriculum level', 'assessment shape'],
+  'ac-chapters':  ['syllabus outcomes', 'chapter plan', 'curriculum coverage'],
+  'ac-critique':  ['syllabus outcomes', 'chapter plan', 'curriculum coverage'],
+  'ac-master':    ['syllabus outcomes', 'chapter plan', 'curriculum coverage'],
+}
+
+function deduplicateHits(hits: MemoryHit[]): MemoryHit[] {
+  const seen = new Set<string>()
+  const out: MemoryHit[] = []
+  for (const h of hits) {
+    if (seen.has(h.key)) continue
+    seen.add(h.key)
+    out.push(h)
+  }
+  return out
 }
 
 function projectNamespace(projectDir: string): string {
@@ -129,6 +250,42 @@ async function runOddFlowStore(
 
   // Defensive retry if the eager init didn't take (rare — but keeps the
   // original /storyline harness's recovery semantics intact).
+  if (DB_NOT_INIT_RX.test(result.stderr)) {
+    await runOddFlow(cwd, [cli, 'memory', 'init'])
+    result = await runOddFlow(cwd, storeArgs)
+    if (result.code === 0) return
+  } else if (FILE_NOT_DB_RX.test(result.stderr)) {
+    await runOddFlow(cwd, [cli, 'memory', 'init', '--force'])
+    result = await runOddFlow(cwd, storeArgs)
+    if (result.code === 0) return
+  }
+  throw new Error(`odd-flow exited ${result.code}: ${result.stderr}`)
+}
+
+async function runOddFlowStoreRaw(
+  cwd: string,
+  namespace: string,
+  key: string,
+  value: string,
+  tags?: string[],
+): Promise<void> {
+  const cli = resolveOddFlowCli()
+  if (!cli) throw new Error('odd-flow CLI not bundled with extension')
+
+  const storeArgs = [cli, 'memory', 'store', '-k', key, '-v', value, '--namespace', namespace]
+  if (tags && tags.length) {
+    storeArgs.push('--tags', tags.join(','))
+  }
+
+  if (!initialisedProjects.has(cwd)) {
+    await runOddFlow(cwd, [cli, 'memory', 'init'])
+    await pruneClaudeMirror(cwd)
+    initialisedProjects.add(cwd)
+  }
+
+  let result = await runOddFlow(cwd, storeArgs)
+  if (result.code === 0) return
+
   if (DB_NOT_INIT_RX.test(result.stderr)) {
     await runOddFlow(cwd, [cli, 'memory', 'init'])
     result = await runOddFlow(cwd, storeArgs)

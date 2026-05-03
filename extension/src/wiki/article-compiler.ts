@@ -336,6 +336,14 @@ async function compileArticle(
 
   const article = `<!-- compiled: ${new Date().toISOString()} sourceHash: ${hash} -->\n${body.trim()}\n`
   fs.writeFileSync(filePath, article, 'utf-8')
+
+  // Also store to odd-flow so semantic retrieval can find it during prompt
+  // assembly (Optimisation 3). Fire-and-forget — never blocks compilation.
+  // Dynamic import keeps the test environment free of the vscode dependency
+  // chain (memory.ts → vscode).
+  void import('../state/memory.js')
+    .then(m => m.storeMemoryEntry(`wiki:${articleType}`, body.trim(), [`stage:${articleType}`, 'wiki']))
+    .catch(() => { /* non-fatal */ })
 }
 
 // ─── Backend call ─────────────────────────────────────────────────────────────

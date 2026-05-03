@@ -17,7 +17,7 @@ import {
 } from '../conversation/critique-wiring.js'
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
 import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
-import { pushToMemory } from '../state/memory.js'
+import { pushToMemory, retrieveRelevantMemory } from '../state/memory.js'
 import { triggerWikiCompilation } from '../wiki/article-compiler.js'
 import { LicenceManager } from '../auth/licence.js'
 import { offerReactivation } from '../auth/reactivate-prompt.js'
@@ -382,7 +382,8 @@ export class ChatPanel {
       if (projectDir) seedSyllabiFolder(projectDir)
     }
 
-    const systemPrompt = buildSystemPrompt(currentStage.id, state)
+    const memoryBlock = await retrieveRelevantMemory(currentStage.id)
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock)
     const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -414,7 +415,8 @@ export class ChatPanel {
     const savePrompt = 'Please emit the save block for this stage now.'
     this.turnHistory.append(currentStage.id, { role: 'user', content: savePrompt })
 
-    const systemPrompt = buildSystemPrompt(currentStage.id, state)
+    const memoryBlock = await retrieveRelevantMemory(currentStage.id)
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock)
     const messages: Message[] = this.turnHistory.allForStage(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -956,7 +958,8 @@ export class ChatPanel {
     const injected = parts.join('\n\n---\n\n')
     this.turnHistory.append(stageId, { role: 'user', content: injected })
 
-    const systemPrompt = buildSystemPrompt(stageId, state)
+    const memoryBlock = await retrieveRelevantMemory(stageId)
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock)
     const messages = this.turnHistory.allForStage(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     if (this.streamCancelled) return true
@@ -1020,7 +1023,8 @@ export class ChatPanel {
       return
     }
 
-    const systemPrompt = buildSystemPrompt(stageId, state)
+    const memoryBlock = await retrieveRelevantMemory(stageId)
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock)
 
     // OpenRouter / OpenAI-compatible APIs reject zero-message requests, so
     // every kickoff carries a synthetic user turn that nudges the harness

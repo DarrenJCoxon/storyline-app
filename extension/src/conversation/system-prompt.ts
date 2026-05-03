@@ -55,7 +55,7 @@ Everything else — depth, conversational pacing, question coverage, gates, crit
 ---
 `
 
-export function buildSystemPrompt(stageId: string, state: ProjectState): string {
+export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBlock?: string): string {
   // Stage 0: mode gate — runs before anything else if mode hasn't been confirmed yet.
   // The mode gate is self-contained — no harness, no CLI startup protocol
   // needed (the original startup-protocol.md is CLI-flavoured and only
@@ -97,7 +97,7 @@ export function buildSystemPrompt(stageId: string, state: ProjectState): string 
 ## stageInfo (output of \`stage-info ${stageId}\`)
 
 ${stageInfoBlock}
-${wikiBlock ? '\n' + wikiBlock + '\n' : ''}
+${wikiBlock ? '\n' + wikiBlock + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ## Current state (output of \`next\`)
 
 ${stateBlock}
