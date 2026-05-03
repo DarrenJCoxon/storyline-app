@@ -2,6 +2,7 @@ import type { ProjectState } from '@storyline/core'
 import { getStageGuide, getNfStageGuide, getPersonaForStage } from '@storyline/core'
 import { getFictionSkill, getNonfictionSkill, getExtensionPath } from './skill-loader.js'
 import { collectWikiArticles } from '../wiki/article-injector.js'
+import { buildPinnedNotesBlock } from '../sidebar/research-pins.js'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -55,7 +56,7 @@ Everything else — depth, conversational pacing, question coverage, gates, crit
 ---
 `
 
-export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBlock?: string): string {
+export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBlock?: string, activeChapterRelPath?: string): string {
   // Stage 0: mode gate — runs before anything else if mode hasn't been confirmed yet.
   // The mode gate is self-contained — no harness, no CLI startup protocol
   // needed (the original startup-protocol.md is CLI-flavoured and only
@@ -84,7 +85,7 @@ export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBl
   // actually needs them. Mirrors the original harness's CLI pattern where
   // /storyline calls `stage-info` (gets the brief) and then opens specific
   // reference docs only when the stage demands them.
-  const triggerDocs = collectTriggerDocs(stageId, state)
+  const triggerDocs = collectTriggerDocs(stageId, state, activeChapterRelPath)
 
   // Compiled wiki articles — pre-synthesised prose summaries of earlier
   // planning stages, injected only for the articles relevant to this stage.
@@ -104,7 +105,46 @@ ${stateBlock}
 ${triggerDocs ? '\n---\n\n' + triggerDocs : ''}
 `
 
-  return [EXTENSION_OVERRIDE, skill, stageContext].filter(Boolean).join('\n\n')
+  const full = [EXTENSION_OVERRIDE, skill, stageContext].filter(Boolean).join('\n\n')
+  return capSystemPrompt(full, triggerDocs, wikiBlock)
+}
+
+// Backend limit is 256 KB for the entire request body (messages + systemPrompt +
+// overhead). Keep the system prompt under this ceiling so there's always room for
+// the message array. When over budget, shed lowest-priority blocks first.
+const SYSTEM_PROMPT_MAX_BYTES = 160_000 // ~40k tokens — leaves ~96 KB for messages
+
+function capSystemPrompt(full: string, triggerDocs: string, wikiBlock: string): string {
+  if (byteLength(full) <= SYSTEM_PROMPT_MAX_BYTES) return full
+
+  // Trim strategy: shed triggerDocs first (research files, pinned notes, beat
+  // guide are helpful but not load-bearing for stage logic), then wiki articles.
+  // The core prompt (skill + stageInfo + state) is always preserved.
+  let trimmed = full
+
+  if (triggerDocs) {
+    trimmed = trimmed.replace('\n---\n\n' + triggerDocs, '')
+    if (byteLength(trimmed) <= SYSTEM_PROMPT_MAX_BYTES) return trimmed
+  }
+
+  if (wikiBlock) {
+    trimmed = trimmed.replace('\n' + wikiBlock + '\n', '')
+  }
+
+  return trimmed
+}
+
+function byteLength(s: string): number {
+  // UTF-8 byte count — same measure the backend uses for its 256 KB guard.
+  let n = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if (c < 0x80) n += 1
+    else if (c < 0x800) n += 2
+    else if (c < 0xd800 || c >= 0xe000) n += 3
+    else { n += 4; i++ }
+  }
+  return n
 }
 
 /**
@@ -113,7 +153,7 @@ ${triggerDocs ? '\n---\n\n' + triggerDocs : ''}
  * writer reaches the beat sheet or scene outline, etc. Anything not in
  * the trigger list stays out of the prompt entirely.
  */
-function collectTriggerDocs(stageId: string, state: ProjectState): string {
+function collectTriggerDocs(stageId: string, state: ProjectState, activeChapterRelPath?: string): string {
   const docs: string[] = []
   if (stageId === 'beatSheet' || stageId === 'sceneOutline') {
     const beatGuide = readSideDoc('skill-content/beat-guide.md')
@@ -128,6 +168,8 @@ function collectTriggerDocs(stageId: string, state: ProjectState): string {
   // non-fiction (source documents, study guides, mark schemes, etc.).
   const researchCtx = collectResearchContext(state._meta?.projectPath ?? null)
   if (researchCtx) docs.push(researchCtx)
+  const pinnedCtx = state._meta?.projectPath ? buildPinnedNotesBlock(state._meta.projectPath, activeChapterRelPath) : ''
+  if (pinnedCtx) docs.push(pinnedCtx)
   return docs.join('\n\n---\n\n')
 }
 

@@ -5,6 +5,8 @@ import * as crypto from 'crypto'
 import { WordCountStatusBar, countWords } from '../editor/word-count.js'
 import { classifyDocumentRole } from '../editor/manuscript-path.js'
 import { getChapterTitle, setChapterTitle, humanizeFilename } from '../editor/chapter-titles.js'
+import { setActiveChapterRelPath } from '../editor/active-chapter.js'
+import { logWarn } from '../diagnostic-log.js'
 
 const AUTOSAVE_IDLE_MS = 1500
 
@@ -27,6 +29,15 @@ export class EditorPanel {
 
   public getActiveRichEditorUri(): vscode.Uri | undefined {
     return this.activeRichEditorUri
+  }
+
+  private syncActiveChapter(): void {
+    const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (this.activeRichEditorUri && wsRoot) {
+      setActiveChapterRelPath(path.relative(wsRoot, this.activeRichEditorUri.fsPath))
+    } else {
+      setActiveChapterRelPath(undefined)
+    }
   }
 
   public async openForUri(uri: vscode.Uri, viewColumn?: vscode.ViewColumn): Promise<void> {
@@ -90,6 +101,7 @@ export class EditorPanel {
 
     if (panel.active) {
       this.activeRichEditorUri = document.uri
+      this.syncActiveChapter()
     }
 
     const scrollKey = `editor-scroll:${panelKey}`
@@ -129,6 +141,31 @@ export class EditorPanel {
     let autoSaveTimer: ReturnType<typeof setTimeout> | undefined
     let saveInFlight = false
     let rerunAfterSave = false
+
+    // Serialize document.replace operations. Multiple flush-save messages can
+    // arrive in the same close event (beforeunload + pagehide + visibilitychange
+    // all fire the flush handler). The async message handler doesn't naturally
+    // serialize: each call captures `document.lineCount` synchronously before
+    // awaiting applyEdit, so concurrent calls compute STALE ranges. When the
+    // document grew between captures, the second replace overwrites only the
+    // first N lines, leaving the tail of the earlier-applied content untouched
+    // — that is the source of "tail of last paragraph duplicated" on close+reload.
+    // The chain ensures each replace runs against the live document state.
+    let editChain: Promise<void> = Promise.resolve()
+    const replaceDocumentContent = (markdown: string): Promise<void> => {
+      const next = editChain.then(async () => {
+        if (markdown === document.getText()) return
+        const edit = new vscode.WorkspaceEdit()
+        edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), markdown)
+        expectedContent = markdown
+        await vscode.workspace.applyEdit(edit)
+      }).catch(err => {
+        // Don't poison the chain if a single edit throws.
+        logWarn('[Storyline] replaceDocumentContent failed:', err)
+      })
+      editChain = next
+      return next
+    }
 
     const changeSubscription = vscode.workspace.onDidChangeTextDocument(e => {
       if (e.document.uri.toString() !== panelKey) return
@@ -189,11 +226,13 @@ export class EditorPanel {
       if (panel.active) {
         this.activeRichEditorUri = document.uri
         this.statusBar.setActiveFileWords(this.context.workspaceState.get<number>(`wc:${panelKey}`) ?? 0)
+        this.syncActiveChapter()
         this._onDidChangeActiveRichEditor.fire()
       } else {
         if (this.activeRichEditorUri?.toString() === panelKey) {
           this.activeRichEditorUri = undefined
           this.statusBar.setActiveFileWords(0)
+          this.syncActiveChapter()
           this._onDidChangeActiveRichEditor.fire()
         }
       }
@@ -207,6 +246,7 @@ export class EditorPanel {
       if (this.activeRichEditorUri?.toString() === panelKey) {
         this.activeRichEditorUri = undefined
         this.statusBar.setActiveFileWords(0)
+        this.syncActiveChapter()
       }
     })
 
@@ -219,28 +259,21 @@ export class EditorPanel {
       }
 
       if (msg.type === 'content-changed' && typeof msg.markdown === 'string') {
-        if (msg.markdown === document.getText()) return
-        const edit = new vscode.WorkspaceEdit()
-        edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), msg.markdown)
-        expectedContent = msg.markdown
-
-        // Update word count
-        const wc = countWords(msg.markdown)
+        const md = msg.markdown
+        // Update word count synchronously off the new markdown.
+        const wc = countWords(md)
         await this.context.workspaceState.update(`wc:${panelKey}`, wc)
         if (panel.active) this.statusBar.setActiveFileWords(wc)
 
-        await vscode.workspace.applyEdit(edit)
+        await replaceDocumentContent(md)
         scheduleAutoSave()
         return
       }
 
       if (msg.type === 'save') {
         if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = undefined }
-        if (typeof msg.markdown === 'string' && msg.markdown !== document.getText()) {
-          const edit = new vscode.WorkspaceEdit()
-          edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), msg.markdown)
-          expectedContent = msg.markdown
-          await vscode.workspace.applyEdit(edit)
+        if (typeof msg.markdown === 'string') {
+          await replaceDocumentContent(msg.markdown)
         }
         void runSave()
         return
@@ -248,12 +281,7 @@ export class EditorPanel {
 
       if (msg.type === 'flush-save' && typeof msg.markdown === 'string') {
         if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = undefined }
-        if (msg.markdown !== document.getText()) {
-          const edit = new vscode.WorkspaceEdit()
-          edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), msg.markdown)
-          expectedContent = msg.markdown
-          await vscode.workspace.applyEdit(edit)
-        }
+        await replaceDocumentContent(msg.markdown)
         void runSave()
         return
       }

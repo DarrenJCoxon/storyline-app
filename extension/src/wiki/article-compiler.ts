@@ -227,6 +227,70 @@ export const NF_STAGE_TO_ARTICLES: Readonly<Record<string, string[]>> = {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
+ * Compile (or recompile) every wiki article whose source data exists in the
+ * given project state. Used to bootstrap the wiki for projects that predate
+ * automatic compilation, or to force-refresh after bulk edits.
+ *
+ * Returns a summary of what was compiled and what was skipped.
+ */
+export async function compileAllWikiArticles(
+  state: ProjectState,
+  projectDir: string,
+  backendUrl: string,
+  getLicenceKey: () => Promise<string | undefined>,
+  onProgress?: (msg: string) => void,
+): Promise<{ compiled: string[]; skipped: string[]; errors: string[] }> {
+  const licenceKey = await getLicenceKey().catch(() => undefined)
+  if (!licenceKey) throw new Error('No licence key')
+
+  const raw = state as unknown as Record<string, unknown>
+  const mode = raw['mode']
+  const isNf = mode === 'nonfiction'
+  const defs = isNf ? NF_ARTICLE_DEFS : ARTICLE_DEFS
+
+  const wikiDir = path.join(projectDir, '.storyline', 'wiki')
+  try { fs.mkdirSync(wikiDir, { recursive: true }) } catch { /* ignore */ }
+
+  const compiled: string[] = []
+  const skipped: string[] = []
+  const errors: string[] = []
+
+  for (const [articleType, def] of Object.entries(defs)) {
+    const sourceData: Record<string, unknown> = {}
+
+    if (def.stateKeys) {
+      for (const k of def.stateKeys) {
+        if (raw[k] != null) sourceData[k] = raw[k]
+      }
+    }
+    if (def.nfStageKeys) {
+      const nfStages = (raw['nfStages'] as Record<string, unknown> | undefined) ?? {}
+      for (const k of def.nfStageKeys) {
+        if (nfStages[k] != null) sourceData[k] = nfStages[k]
+      }
+    }
+
+    if (Object.keys(sourceData).length === 0) {
+      skipped.push(articleType)
+      continue
+    }
+
+    onProgress?.(`Compiling ${def.label}…`)
+    try {
+      await compileArticle(articleType, def, state, wikiDir, backendUrl, licenceKey)
+      compiled.push(articleType)
+      logInfo(`[Storyline] wiki: compiled ${articleType} (bulk rebuild)`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(`${articleType}: ${msg}`)
+      logWarn(`[Storyline] wiki: failed to compile ${articleType}`, err)
+    }
+  }
+
+  return { compiled, skipped, errors }
+}
+
+/**
  * Kick off wiki article compilation after a stage save. Always fire-and-forget —
  * never blocks stage advance or the opening prompt.
  *

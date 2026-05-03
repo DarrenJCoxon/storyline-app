@@ -12,6 +12,7 @@ import { CompilePanel } from './panels/CompilePanel.js'
 import { CoverPanel } from './panels/CoverPanel.js'
 import { IllustrationsPanel } from './panels/IllustrationsPanel.js'
 import { ResearchPanel } from './panels/ResearchPanel.js'
+import { FilesTreeProvider, FileNode } from './sidebar/FilesTreeProvider.js'
 import { PurchasesPanel } from './panels/PurchasesPanel.js'
 import { openLivePreview } from './preview/live-preview-command.js'
 import { openPreview } from './preview/preview-command.js'
@@ -26,7 +27,7 @@ import { issueFreePlan } from './auth/free-plan-issue.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from './credits/credit-display.js'
 import { LocalStore } from './state/local-store.js'
-import { checkForUpdate } from './update/auto-updater.js'
+import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
 
@@ -94,6 +95,47 @@ const RICH_EDITOR_PREFIXES = [
   'research/',   'research\\',
   'docs/',       'docs\\',
 ]
+
+async function pickTargetFolder(node?: FileNode): Promise<string | undefined> {
+  if (node?.kind === 'folder') return node.absPath
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!root) {
+    void vscode.window.showWarningMessage('Storyline: open a project folder first.')
+    return undefined
+  }
+  // No selection — ask which top-level folder.
+  const options: vscode.QuickPickItem[] = ['planning', 'research', 'manuscript', 'output']
+    .filter(name => fs.existsSync(path.join(root, name)))
+    .map(name => ({ label: name }))
+  if (options.length === 0) return root
+  const picked = await vscode.window.showQuickPick(options, { title: 'Create in which folder?' })
+  if (!picked) return undefined
+  return path.join(root, picked.label)
+}
+
+async function createNewFile(targetDir: string): Promise<void> {
+  const name = await vscode.window.showInputBox({
+    title: 'New File',
+    prompt: `Create file in ${path.basename(targetDir)}/`,
+    placeHolder: 'filename.md',
+  })
+  if (!name) return
+  const cleaned = name.trim().replace(/[/\\]/g, '-')
+  if (!cleaned) return
+  const filePath = path.join(targetDir, cleaned)
+  if (fs.existsSync(filePath)) {
+    void vscode.window.showWarningMessage(`File already exists: ${cleaned}`)
+    return
+  }
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, '', 'utf-8')
+    const uri = vscode.Uri.file(filePath)
+    await vscode.commands.executeCommand('vscode.open', uri)
+  } catch (err) {
+    void vscode.window.showErrorMessage(`Could not create file: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
 
 function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
   if (uri.scheme !== 'file') return false
@@ -252,10 +294,17 @@ function activateInner(context: vscode.ExtensionContext): void {
   bootLog('activate: WordCountStatusBar constructed')
   const editorPanel = new EditorPanel(context, context.extensionUri, statusBar)
   bootLog('activate: EditorPanel constructed')
+
+  const filesTreeProvider = new FilesTreeProvider(context)
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider(FilesTreeProvider.viewType, filesTreeProvider),
+  )
+  bootLog('activate: FilesTreeProvider registered')
+
   void statusBar.start(context)
 
   const planningStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-  planningStatusBar.text = '$(comment-discussion) Storyline'
+  planningStatusBar.text = '$(storyline) Storyline'
   planningStatusBar.tooltip = 'Open Storyline Planning Chat'
   planningStatusBar.command = 'storyline.openPlanning'
   planningStatusBar.show()
@@ -413,6 +462,15 @@ function activateInner(context: vscode.ExtensionContext): void {
       ChatPanel.show(context, context.extensionUri, vscode.ViewColumn.Beside)
     }),
 
+    vscode.commands.registerCommand('storyline.openPlanningStage', (stageId: string) => {
+      const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      const hasProject = folder ? fs.existsSync(path.join(folder, '.storyline', 'state.json')) : false
+      if (!hasProject) { void vscode.commands.executeCommand('storyline.startNew'); return }
+      ChatPanel.show(context, context.extensionUri, vscode.ViewColumn.Beside)
+      // Give the panel a moment to render before navigating
+      setTimeout(() => ChatPanel.current()?.navigateToStage(stageId), 300)
+    }),
+
     vscode.commands.registerCommand('storyline.openEditor', async (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri
       if (!target) {
@@ -494,6 +552,41 @@ function activateInner(context: vscode.ExtensionContext): void {
       const outputDir = path.join(folder.uri.fsPath, 'output')
       fs.mkdirSync(outputDir, { recursive: true })
       vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir))
+    }),
+
+    vscode.commands.registerCommand('storyline.files.refresh', () => {
+      filesTreeProvider.refresh()
+    }),
+
+    vscode.commands.registerCommand('storyline.files.newFile', async (node?: FileNode) => {
+      const target = await pickTargetFolder(node)
+      if (!target) return
+      await createNewFile(target)
+    }),
+
+    vscode.commands.registerCommand('storyline.files.newFileHere', async (node?: FileNode) => {
+      if (!node || node.kind !== 'folder') return
+      await createNewFile(node.absPath)
+    }),
+
+    vscode.commands.registerCommand('storyline.files.newFolder', async (node?: FileNode) => {
+      const target = await pickTargetFolder(node)
+      if (!target) return
+      const name = await vscode.window.showInputBox({
+        title: 'New Folder',
+        prompt: `Create folder in ${path.basename(target)}/`,
+        placeHolder: 'folder name',
+      })
+      if (!name) return
+      const cleaned = name.trim().replace(/[/\\]/g, '-')
+      if (!cleaned) return
+      const dir = path.join(target, cleaned)
+      try {
+        fs.mkdirSync(dir, { recursive: false })
+        filesTreeProvider.refresh()
+      } catch (err) {
+        vscode.window.showErrorMessage(`Could not create folder: ${err instanceof Error ? err.message : String(err)}`)
+      }
     }),
 
     vscode.commands.registerCommand('storyline.changeProvider', () => {
@@ -594,6 +687,45 @@ function activateInner(context: vscode.ExtensionContext): void {
             vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.path))
           } finally {
             process.chdir(origCwd)
+          }
+        }
+      )
+    }),
+
+    vscode.commands.registerCommand('storyline.rebuildWiki', async () => {
+      const store = LocalStore.fromWorkspace()
+      if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
+      const state = await store.read()
+      const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (!projectDir) { vscode.window.showWarningMessage('Storyline: no workspace folder.'); return }
+
+      const manager = new LicenceManager(context, getBackendUrl())
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Storyline: rebuilding wiki…', cancellable: false },
+        async (progress) => {
+          const { compileAllWikiArticles } = await import('./wiki/article-compiler.js')
+          const result = await compileAllWikiArticles(
+            state,
+            projectDir,
+            getBackendUrl(),
+            () => manager.getLicenceKey(),
+            (msg) => progress.report({ message: msg }),
+          )
+
+          const parts: string[] = []
+          if (result.compiled.length > 0) parts.push(`Compiled: ${result.compiled.join(', ')}`)
+          if (result.skipped.length > 0) parts.push(`Skipped (no data): ${result.skipped.join(', ')}`)
+          if (result.errors.length > 0) {
+            parts.push(`Errors: ${result.errors.join('; ')}`)
+            logInfo('[Storyline] rebuildWiki errors:', result.errors.join('; '))
+          }
+
+          const summary = parts.join(' | ')
+          if (result.errors.length > 0) {
+            vscode.window.showWarningMessage(`Storyline wiki rebuilt with errors. ${summary}`)
+          } else {
+            vscode.window.showInformationMessage(`Storyline wiki rebuilt. ${summary}`)
           }
         }
       )
@@ -754,6 +886,25 @@ function activateInner(context: vscode.ExtensionContext): void {
   // status bar is hidden until validate succeeds rather than showing
   // an inaccurate value.
   Promise.resolve(refreshAndDisplayCredits(context, getBackendUrl())).catch(e => bootLogError('refreshAndDisplayCredits', e))
+
+  // Force the Storyline sidebar (Files view) to be the visible one whenever
+  // a Storyline project is opened. Other extensions sometimes claim focus
+  // during their own activation; the delayed retry runs after their work
+  // settles. Activation event `workspaceContains:.storyline/state.json`
+  // already gates this to real Storyline projects only.
+  if (wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json'))) {
+    const revealStorylineSidebar = (): void => {
+      void vscode.commands.executeCommand('workbench.view.extension.storyline-sidebar')
+        .then(() => vscode.commands.executeCommand('storyline.files.focus'), () => { /* non-fatal */ })
+    }
+    // Run after the current activation tick so the view container is fully
+    // registered, and again after a short delay to override any later
+    // reveal from another extension activating second.
+    setTimeout(revealStorylineSidebar, 0)
+    setTimeout(revealStorylineSidebar, 800)
+  }
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  disposeUpdateStatusBar()
+}

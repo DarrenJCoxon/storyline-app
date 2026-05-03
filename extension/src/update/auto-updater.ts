@@ -22,6 +22,37 @@ const SNOOZED_VERSION_KEY = 'storyline.snoozedUpdateVersion'
 const SNOOZED_UNTIL_KEY = 'storyline.snoozedUpdateUntil'
 const SNOOZE_MS = 24 * 60 * 60 * 1000
 
+// Singleton status bar item — persists until the update is applied or
+// the extension deactivates. Lives here so checkForUpdate can update
+// it on every call without creating duplicates.
+let _updateStatusBar: vscode.StatusBarItem | undefined
+
+function getUpdateStatusBar(): vscode.StatusBarItem {
+  if (!_updateStatusBar) {
+    _updateStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000)
+    _updateStatusBar.command = 'storyline.checkForUpdate'
+  }
+  return _updateStatusBar
+}
+
+function showUpdateBadge(tag: string): void {
+  const bar = getUpdateStatusBar()
+  bar.text = `$(arrow-circle-up) Storyline ${tag}`
+  bar.tooltip = `Storyline ${tag} is available — click to update`
+  bar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground')
+  bar.show()
+}
+
+function hideUpdateBadge(): void {
+  _updateStatusBar?.hide()
+}
+
+/** Call from extension deactivate() to dispose the status bar item. */
+export function disposeUpdateStatusBar(): void {
+  _updateStatusBar?.dispose()
+  _updateStatusBar = undefined
+}
+
 interface GitHubRelease {
   tag_name: string
   assets: Array<{ name: string; browser_download_url: string }>
@@ -102,7 +133,8 @@ async function tryInstallVsix(vsixPath: string): Promise<boolean> {
   try {
     await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(vsixPath))
     return true
-  } catch {
+  } catch (err) {
+    logInfo(`[Storyline] auto-update: installExtension threw — ${err instanceof Error ? err.message : String(err)}`)
     return false
   }
 }
@@ -160,6 +192,7 @@ export async function checkForUpdate(
 
   if (compareVersions(release.tag_name, installedVersion) <= 0) {
     logInfo('[Storyline] auto-update: already up to date')
+    hideUpdateBadge()
     if (force) {
       void vscode.window.showInformationMessage(
         `Storyline is up to date (${installedVersion}).`,
@@ -175,12 +208,20 @@ export async function checkForUpdate(
     const snoozedTag = context.globalState.get<string>(SNOOZED_VERSION_KEY)
     const snoozedUntil = context.globalState.get<number>(SNOOZED_UNTIL_KEY, 0)
     if (snoozedTag === release.tag_name && Date.now() < snoozedUntil) {
-      logInfo(`[Storyline] auto-update: ${release.tag_name} snoozed by user, skipping prompt`)
+      logInfo(`[Storyline] auto-update: ${release.tag_name} snoozed by user, showing badge only`)
+      // Still show the badge even if snoozed — it's non-intrusive and
+      // lets users install when they're ready without the toast nagging.
+      showUpdateBadge(release.tag_name)
       return
     }
   }
 
   const vsixAsset = release.assets.find(a => a.name.endsWith('.vsix'))
+
+  // Show the persistent status bar badge regardless of whether we have
+  // a VSIX asset — clicking it re-runs the force check which will either
+  // download-and-install or open the releases page.
+  showUpdateBadge(release.tag_name)
 
   if (!vsixAsset) {
     logInfo('[Storyline] auto-update: release has no VSIX asset, falling back to "Open Releases"')
@@ -209,7 +250,7 @@ export async function checkForUpdate(
   }
   if (choice !== 'Update Now') {
     // Notification dismissed without a choice (timed out / closed).
-    // Don't snooze — re-prompt next activation.
+    // Badge stays visible — user can click it when ready.
     return
   }
 
@@ -221,6 +262,7 @@ export async function checkForUpdate(
         await downloadFile(vsixAsset.browser_download_url, tmpPath)
         const installed = await tryInstallVsix(tmpPath)
         if (installed) {
+          hideUpdateBadge()
           logInfo(`[Storyline] auto-update: installed ${release.tag_name}`)
           const reload = await vscode.window.showInformationMessage(
             `Storyline updated to ${release.tag_name}. Reload VS Code to activate.`,

@@ -15,6 +15,7 @@ node_modules/
 *.vsix
 extension/dist/
 extension/storyline-extension-*.vsix
+extension/.icon-font-build/
 
 # Worker bundle (rebuilt by wrangler deploy or local esbuild for dashboard uploads)
 backend/dist/

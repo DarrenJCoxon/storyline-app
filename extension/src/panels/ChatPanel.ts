@@ -7,6 +7,7 @@ import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, de
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
+import { getActiveChapterRelPath } from '../editor/active-chapter.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import { compressTurnsForApi } from '../conversation/turn-compressor.js'
 import {
@@ -394,7 +395,7 @@ export class ChatPanel {
     }
 
     const memoryBlock = await retrieveRelevantMemory(currentStage.id)
-    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock)
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath())
     const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -427,7 +428,7 @@ export class ChatPanel {
     this.turnHistory.append(currentStage.id, { role: 'user', content: savePrompt })
 
     const memoryBlock = await retrieveRelevantMemory(currentStage.id)
-    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock)
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath())
     const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -1043,7 +1044,13 @@ export class ChatPanel {
         continue
       }
       try {
-        const content = fs.readFileSync(absPath, 'utf-8')
+        const raw = fs.readFileSync(absPath, 'utf-8')
+        // Cap per-file injection to 30 KB so chained reads can't blow the
+        // 256 KB backend limit when the file content lands in the messages array.
+        const FILE_READ_MAX_BYTES = 30_720
+        const content = Buffer.byteLength(raw, 'utf8') > FILE_READ_MAX_BYTES
+          ? raw.slice(0, FILE_READ_MAX_BYTES) + '\n\n*(truncated — file too large)*'
+          : raw
         parts.push(`[File: ${relPath}]\n\n${content}`)
         logInfo('[Storyline] file_read injected:', relPath, `(depth=${depth})`)
       } catch (err) {
@@ -1060,7 +1067,7 @@ export class ChatPanel {
     this.turnHistory.append(stageId, { role: 'user', content: injected })
 
     const memoryBlock = await retrieveRelevantMemory(stageId)
-    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock)
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath())
     const messages = await this.buildMessages(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     if (this.streamCancelled) return true
@@ -1125,7 +1132,7 @@ export class ChatPanel {
     }
 
     const memoryBlock = await retrieveRelevantMemory(stageId)
-    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock)
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath())
 
     // OpenRouter / OpenAI-compatible APIs reject zero-message requests, so
     // every kickoff carries a synthetic user turn that nudges the harness
@@ -1369,6 +1376,11 @@ export class ChatPanel {
 
   private post(msg: Record<string, unknown>): void {
     this.panel.webview.postMessage(msg)
+  }
+
+  public navigateToStage(stageId: string): void {
+    this.panel.reveal(undefined, false)
+    this.post({ type: 'navigateToStage', stageId })
   }
 
   /**

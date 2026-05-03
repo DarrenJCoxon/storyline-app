@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.1.74",
+  "version": "0.2.0",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -31,30 +31,15 @@
         {
           "id": "storyline-sidebar",
           "title": "Storyline",
-          "icon": "media/icon.svg"
+          "icon": "media/storyline-white.png"
         }
       ]
     },
     "views": {
       "storyline-sidebar": [
         {
-          "id": "storyline.planning",
-          "name": "Planning",
-          "type": "tree"
-        },
-        {
-          "id": "storyline.research",
-          "name": "Research",
-          "type": "webview"
-        },
-        {
-          "id": "storyline.manuscript",
-          "name": "Manuscript",
-          "type": "webview"
-        },
-        {
-          "id": "storyline.actions",
-          "name": "Project",
+          "id": "storyline.files",
+          "name": "Files",
           "type": "tree"
         }
       ]
@@ -72,8 +57,8 @@
         "command": "storyline.openPlanning",
         "title": "Storyline: Open Planning Chat",
         "icon": {
-          "light": "media/planning-light.svg",
-          "dark": "media/planning-dark.svg"
+          "light": "media/storyline-black.png",
+          "dark": "media/storyline-white.png"
         }
       },
       {
@@ -86,7 +71,8 @@
       },
       {
         "command": "storyline.newChapter",
-        "title": "Storyline: New Chapter"
+        "title": "Storyline: New Chapter",
+        "icon": "$(add)"
       },
       {
         "command": "storyline.compileEpub",
@@ -168,6 +154,10 @@
         "title": "Storyline: Generate Master Document"
       },
       {
+        "command": "storyline.rebuildWiki",
+        "title": "Storyline: Rebuild Planning Wiki"
+      },
+      {
         "command": "storyline.notes",
         "title": "Storyline: View Manuscript Notes"
       },
@@ -214,9 +204,67 @@
       {
         "command": "storyline.github.openFromGitHub",
         "title": "Storyline: Open Project from GitHub…"
+      },
+      {
+        "command": "storyline.files.newFile",
+        "title": "New File",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "storyline.files.newFolder",
+        "title": "New Folder",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "storyline.files.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "storyline.files.newFileHere",
+        "title": "New File in This Folder",
+        "icon": "$(new-file)"
       }
     ],
+    "icons": {
+      "storyline": {
+        "description": "Storyline brand mark",
+        "default": {
+          "fontPath": "media/icon-font/storyline-icons.woff",
+          "fontCharacter": "\\ea01"
+        }
+      }
+    },
     "menus": {
+      "view/title": [
+        {
+          "command": "storyline.files.newFile",
+          "when": "view == storyline.files",
+          "group": "navigation@1"
+        },
+        {
+          "command": "storyline.files.newFolder",
+          "when": "view == storyline.files",
+          "group": "navigation@2"
+        },
+        {
+          "command": "storyline.files.refresh",
+          "when": "view == storyline.files",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "storyline.files.newFileHere",
+          "when": "view == storyline.files && viewItem == storyline.fileRoot",
+          "group": "inline@1"
+        },
+        {
+          "command": "storyline.files.newFileHere",
+          "when": "view == storyline.files && viewItem == storyline.folder",
+          "group": "inline@1"
+        }
+      ],
       "editor/title": [
         {
           "command": "storyline.openPlanning",
