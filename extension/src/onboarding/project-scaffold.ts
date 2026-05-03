@@ -208,6 +208,12 @@ When the plan is done, you switch to **writing**. Your prose lives in \`manuscri
 
 Look in your project folder for the file ending \`.code-workspace\` — that's your project file. **Double-click it from Finder / Explorer** and Storyline opens straight back into the workspace, with the planning chat ready. Drag it to your Dock or pin it to your taskbar for one-click access.
 
+> **If double-clicking opens the wrong editor** (Cursor, Antigravity, Windsurf, etc. instead of VS Code) you need to change the default opener once. This is a one-time fix.
+>
+> **macOS:** right-click the \`.code-workspace\` file in Finder → **Open With** → **Other…** → choose **Visual Studio Code** → tick **Always Open With** → click **Open**. From then on, double-click always opens VS Code.
+>
+> **Windows:** right-click the \`.code-workspace\` file in Explorer → **Open with** → **Choose another app** → pick **Visual Studio Code** → tick **Always use this app to open .code-workspace files** → **OK**.
+
 ## Project layout
 
 \`\`\`
