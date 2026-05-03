@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
 import { postActivateOpenWorkspace } from './post-activate.js'
+import { updateCreditBalance } from '../credits/credit-display.js'
 
 const SNOOZE_KEY = 'storyline.licencePromptSnoozedUntil'
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000 // 3 days
@@ -84,6 +85,7 @@ async function showKeyPrompt(
         void vscode.window.showInformationMessage(
           `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
         )
+        void updateCreditBalance(info.creditBalance, info.type)
         await postActivateOpenWorkspace(context, context.extensionUri)
       } else {
         // Newly-issued key didn't validate — safe to clear, we know the

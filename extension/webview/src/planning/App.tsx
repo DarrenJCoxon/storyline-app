@@ -111,7 +111,9 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         stages: action.stages,
         creditInfo: { balance: action.creditBalance, type: action.licenceType, providerName: action.providerName },
-        creditsExhausted: action.licenceType === 'credits' && action.creditBalance === 0,
+        // Both free and paid users get gated at zero — BYOK doesn't have a
+        // credit pool so the gate doesn't apply.
+        creditsExhausted: action.licenceType !== 'byok' && action.creditBalance === 0,
         error: null,
       }
 
@@ -239,7 +241,15 @@ function reducer(state: AppState, action: Action): AppState {
       }
 
     case 'CREDIT_UPDATE':
-      return { ...state, creditInfo: { ...state.creditInfo, balance: action.balance } }
+      // Recompute creditsExhausted on every balance update so the chat
+      // input self-gates the moment a user crosses to zero, instead of
+      // waiting for the next 402 round-trip. BYOK is excluded — those
+      // users don't draw from a credit pool.
+      return {
+        ...state,
+        creditInfo: { ...state.creditInfo, balance: action.balance },
+        creditsExhausted: state.creditInfo.type !== 'byok' && action.balance === 0,
+      }
 
     case 'REQUEST_USAGE': {
       // Attach usage to the most recent assistant message

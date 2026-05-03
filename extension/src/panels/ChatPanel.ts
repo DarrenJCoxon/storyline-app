@@ -21,6 +21,7 @@ import { pushToMemory } from '../state/memory.js'
 import { LicenceManager } from '../auth/licence.js'
 import { offerReactivation } from '../auth/reactivate-prompt.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
+import { updateCreditBalance } from '../credits/credit-display.js'
 // Free-tier keys are minted server-side per install and all begin with
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
 const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
@@ -408,6 +409,10 @@ export class ChatPanel {
     this.licenceManager.validate({ useCache: false }).then(info => {
       if (typeof info.creditBalance === 'number') {
         this.post({ type: 'creditUpdate', balance: info.creditBalance })
+        // Mirror the new balance to the persistent status-bar item +
+        // low-credit-warning logic. Webview header shows it inline; the
+        // status bar shows it everywhere across the workspace.
+        void updateCreditBalance(info.creditBalance, info.type)
       }
     }).catch(() => { /* ignore */ })
   }
@@ -1115,6 +1120,23 @@ export class ChatPanel {
     if (skip.skip) {
       console.log(`[Storyline] critique: skipped — ${skip.detail}`)
       return
+    }
+
+    // Preflight: skip critique silently if the user has zero credits
+    // (and isn't on BYOK). The chat-input gate already blocks the next
+    // user turn; we don't want a critique to fire 402 in the background
+    // and re-trigger the exhausted-credits modal for what is just an
+    // automatic post-stage analysis.
+    if (providerKind === 'managed') {
+      try {
+        const info = await this.licenceManager.validate({ useCache: true })
+        if (info.valid && info.type !== 'byok' && info.creditBalance === 0) {
+          console.log(`[Storyline] critique: skipped — credits exhausted`)
+          return
+        }
+      } catch {
+        /* validate failure — fall through, backend's 402 handler covers it */
+      }
     }
 
     let response: Response

@@ -25,20 +25,20 @@ function makeReq(ip = '1.2.3.4'): Request {
 }
 
 describe('POST /free-plan/issue', () => {
-  it('mints a unique SL-FREE-* key with 250 credits and writes the record', async () => {
+  it('mints a unique SL-FREE-* key with 150 credits and writes the record', async () => {
     const { env, store } = makeEnv()
     const res = await handleFreePlanIssue(makeReq('10.0.0.1'), env)
     expect(res.status).toBe(200)
     const body = await res.json() as { licenceKey: string; creditBalance: number }
     expect(body.licenceKey).toMatch(/^SL-FREE-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/)
-    expect(body.creditBalance).toBe(250)
+    expect(body.creditBalance).toBe(150)
 
     const stored = JSON.parse(store.get(body.licenceKey)!)
     expect(stored).toMatchObject({
       valid: true,
       type: 'free',
-      creditBalance: 250,
-      totalPurchased: 250,
+      creditBalance: 150,
+      totalPurchased: 150,
     })
   })
 

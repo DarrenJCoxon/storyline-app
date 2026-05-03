@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as vscode from 'vscode'
 import type { LicenceManager } from '../auth/licence.js'
 import { reportError } from '../ai/error-reporter.js'
+import { updateCreditBalance } from '../credits/credit-display.js'
 
 export interface GenerateImageOptions {
   prompt: string
@@ -65,6 +66,31 @@ export const IMAGE_CREDIT_COST = CREDITS_HIGH
 export async function generateImage(opts: GenerateImageOptions): Promise<GeneratedImage> {
   const licenceKey = await opts.licenceManager.getLicenceKey()
   if (!licenceKey) throw new Error('No licence key — sign in first.')
+
+  // Preflight: short-circuit zero-balance non-BYOK callers with a
+  // friendly modal instead of round-tripping just to receive a 402.
+  // Insufficient-but-nonzero balances still attempt and surface the
+  // backend's own error path (preserves the existing free-tier-no-images
+  // 402 message and the granular insufficient-credits 402).
+  try {
+    const info = await opts.licenceManager.validate({ useCache: true })
+    if (info.valid && info.type !== 'byok' && info.creditBalance === 0) {
+      void vscode.window.showWarningMessage(
+        'Your Storyline credits are exhausted. Top up to keep generating images.',
+        'Top Up Credits',
+      ).then(choice => {
+        if (choice === 'Top Up Credits') {
+          void vscode.commands.executeCommand('storyline.topUpCredits')
+        }
+      })
+      throw new Error('Credits exhausted — top up to continue.')
+    }
+  } catch (e) {
+    // If it's our own intentional throw above, propagate.
+    if (e instanceof Error && /Credits exhausted/.test(e.message)) throw e
+    // Otherwise treat validate failures as transient and continue —
+    // backend will return 402 if there's a real credit problem.
+  }
 
   let referenceImageBase64: string | undefined
   if (opts.referenceImagePath && fs.existsSync(opts.referenceImagePath)) {
@@ -196,6 +222,14 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
   if (aspectWarning) {
     console.warn('[Storyline] saved with aspect warning:', absPath)
   }
+
+  // Refresh the credit indicator after a successful generation so the
+  // user sees the deduction without waiting for the next chat turn.
+  // Fire-and-forget — display drift on a transient validate failure is
+  // harmless and self-heals on the next interaction.
+  void opts.licenceManager.validate({}).then(info => {
+    if (info.valid) void updateCreditBalance(info.creditBalance, info.type)
+  }).catch(() => { /* keep last-known status-bar value */ })
 
   return { absolutePath: absPath, dataUrl: imageDataUrl }
 }

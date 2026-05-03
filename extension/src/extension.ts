@@ -23,6 +23,7 @@ import { postActivateOpenWorkspace } from './onboarding/post-activate.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
+import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from './credits/credit-display.js'
 import { LocalStore } from './state/local-store.js'
 import { checkForUpdate } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
@@ -195,6 +196,7 @@ function activateInner(context: vscode.ExtensionContext): void {
           void vscode.window.showInformationMessage(
             `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready.`,
           )
+          void updateCreditBalance(info.creditBalance, info.type)
           await postActivateOpenWorkspace(context, context.extensionUri)
         } else {
           await manager.clearLicenceKey()
@@ -247,6 +249,12 @@ function activateInner(context: vscode.ExtensionContext): void {
   notesStatusBar.command = 'storyline.notes'
   notesStatusBar.show()
   context.subscriptions.push(notesStatusBar)
+
+  // Right-aligned credit indicator at priority 95 (just to the left of
+  // Notes). Initial value is seeded from the activation-time validate()
+  // and refreshed on every chat-turn / image-gen / refund.
+  initCreditDisplay(context)
+
   bootLog('activate: status bar items registered')
 
   // Auto-reroute manuscript/ markdown files to the rich TipTap editor.
@@ -417,6 +425,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       const info = await manager.validate({})
       if (info.valid) {
         vscode.window.showInformationMessage(`Storyline: key activated — ${info.creditBalance} credits`)
+        void updateCreditBalance(info.creditBalance, info.type)
       } else {
         vscode.window.showErrorMessage('Storyline: invalid or expired key.')
       }
@@ -637,6 +646,12 @@ function activateInner(context: vscode.ExtensionContext): void {
   // Licence prompt — show on startup if no key or snooze expired
   bootLog('activate: dispatching checkLicencePrompt')
   Promise.resolve(checkLicencePrompt(context, getBackendUrl())).catch(e => bootLogError('checkLicencePrompt', e))
+
+  // Seed the credit status bar from /validate so users see their balance
+  // without needing to send a chat turn first. Silent on failure — the
+  // status bar is hidden until validate succeeds rather than showing
+  // an inaccurate value.
+  Promise.resolve(refreshAndDisplayCredits(context, getBackendUrl())).catch(e => bootLogError('refreshAndDisplayCredits', e))
 }
 
 export function deactivate(): void {}

@@ -24,7 +24,7 @@ function creditLabel(info: CreditInfo, _activeStageIndex: number, _stageCount: n
   if (info.type === 'byok') return `BYOK — ${info.providerName ?? 'Custom'}`
   // Always surface the credit count — free users used to see only "Free
   // plan — Stage X of Y" and had no visibility into how much of their
-  // 250-credit allowance was left. Keeping the "Free plan" prefix makes
+  // starter allowance was left. Keeping the "Free plan" prefix makes
   // it clear they're on the trial AND shows the running balance.
   if (info.type === 'free') {
     return `Free plan · ${info.balance.toLocaleString()} credits`

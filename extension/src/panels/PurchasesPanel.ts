@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import { LicenceManager, type BatchSummary } from '../auth/licence.js'
+import { updateCreditBalance } from '../credits/credit-display.js'
 
 /**
  * Recent Purchases panel — lists the user's credit batches and lets them
@@ -119,6 +120,11 @@ export class PurchasesPanel {
         creditBalance: result.result.newBalance,
         batches: result.result.batches,
       })
+
+      // Sync the global credit status-bar so the deduction is visible
+      // outside the Recent-Purchases panel too. Refunds only apply to
+      // 'credits'-type licences (free/byok have no purchase batches).
+      void updateCreditBalance(result.result.newBalance, 'credits')
     }
   }
 
