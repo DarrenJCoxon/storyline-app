@@ -10,12 +10,14 @@ export interface CompileMetadata {
 }
 
 export type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
+export type BookType = 'novel' | 'picture-book'
 
 export interface CompileConfig {
   metadata: CompileMetadata
   bookStyle?: string
   theme?: string   // legacy alias for bookStyle; kept for one-release compat
   paragraphStyle?: 'indented' | 'spaced'
+  bookType?: BookType   // 'picture-book' switches layout to one centred text block per page + full-bleed image support
   epub?: { theme?: string }
   pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
   manuscript?: { path?: string; chapterPattern?: string }

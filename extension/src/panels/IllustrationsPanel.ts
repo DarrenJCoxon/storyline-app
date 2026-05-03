@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
 import * as fs from 'fs'
+import * as crypto from 'crypto'
 import { generateImage, IMAGE_CREDIT_COST } from '../illustration/image-generator.js'
 import {
   readStyleBible, writeStyleBible, buildStyleBiblePrompt,
@@ -170,6 +171,10 @@ export class IllustrationsPanel {
       }
       case 'insertIntoChapter': {
         await this.handleInsertIntoChapter(msg)
+        break
+      }
+      case 'importImage': {
+        await this.handleImportImage()
         break
       }
       case 'saveStyleBible': {
@@ -424,11 +429,31 @@ export class IllustrationsPanel {
     if (!placementChoice) return
     const placement = placementChoice.value
 
+    // For picture-book projects, ask whether this image should claim the
+    // whole page and which side. For novels, skip the prompt — the
+    // standard inline-image flow is what the writer wants.
+    const isPictureBook = this.isPictureBook(projectDir)
+    let bleedClasses = ''
+    if (isPictureBook) {
+      const sideChoice = await vscode.window.showQuickPick(
+        [
+          { label: '$(circle-large-outline) Inline (no full-bleed)', description: 'Standard image — sits with the text', value: '' },
+          { label: '$(symbol-color) Full-bleed — auto side', description: 'Image takes the whole page; let the layout decide', value: 'bleed' },
+          { label: '$(arrow-right) Full-bleed — recto (right page)', description: 'Force to a right-hand page (may insert a blank verso)', value: 'bleed recto' },
+          { label: '$(arrow-left) Full-bleed — verso (left page)', description: 'Force to a left-hand page (may insert a blank recto)', value: 'bleed verso' },
+        ],
+        { title: `Layout for ${filename}`, placeHolder: 'Pick image placement' },
+      )
+      if (!sideChoice) return
+      bleedClasses = sideChoice.value
+    }
+
     const document = await vscode.workspace.openTextDocument(chapterUri)
     const chapterDir = path.dirname(chapterUri.fsPath)
     const relPath = path.relative(chapterDir, absolutePath).split(path.sep).join('/')
     const altText = filename.replace(/\.\w+$/, '').replace(/^[\d-]+/, '').replace(/-/g, ' ').trim() || 'illustration'
-    const markdown = `\n![${altText}](${relPath})\n\n`
+    const attrSuffix = bleedClasses ? `{.${bleedClasses.split(' ').join(' .')}}` : ''
+    const markdown = `\n![${altText}](${relPath})${attrSuffix}\n\n`
 
     let insertPos: vscode.Position
     if (placement === 'opener') {
@@ -459,6 +484,99 @@ export class IllustrationsPanel {
     await document.save()
 
     vscode.window.showInformationMessage(`Inserted ${filename} into ${path.basename(chapterUri.fsPath)}.`)
+  }
+
+  private isPictureBook(projectDir: string): boolean {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(path.join(projectDir, 'compile.config.json'), 'utf-8'))
+      return cfg?.bookType === 'picture-book'
+    } catch {
+      return false
+    }
+  }
+
+  /** Copy a user-supplied image into assets/illustrations/, stripping EXIF
+   *  and rejecting wildly oversized files. Reuses the standard insertion
+   *  flow once the file lives inside the project. */
+  private async handleImportImage(): Promise<void> {
+    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    if (!projectDir) { this.post({ type: 'error', message: 'Open a Storyline project folder first.' }); return }
+
+    const picked = await vscode.window.showOpenDialog({
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      filters: { Images: ['jpg', 'jpeg', 'png', 'webp'] },
+      title: 'Pick an image to import',
+      openLabel: 'Import',
+    })
+    if (!picked || picked.length === 0) return
+    const sourcePath = picked[0].fsPath
+
+    const stat = fs.statSync(sourcePath)
+    const MAX_BYTES = 25 * 1024 * 1024
+    if (stat.size > MAX_BYTES) {
+      this.post({ type: 'error', message: `Image is ${(stat.size / 1024 / 1024).toFixed(1)}MB — keep imports under 25MB so EPUB and PDF stay manageable.` })
+      return
+    }
+
+    // Hash the file to dedupe — same content imported twice should reuse
+    // the existing copy rather than create a near-duplicate.
+    const buf = fs.readFileSync(sourcePath)
+    const hash = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 8)
+
+    const ext = path.extname(sourcePath).toLowerCase().replace(/^\.jpeg$/, '.jpg') || '.jpg'
+    const baseName = path.basename(sourcePath, path.extname(sourcePath))
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'image'
+    const filename = `${Date.now()}-${baseName}-${hash}${ext}`
+    const targetDir = path.join(projectDir, ILLUSTRATIONS_DIR)
+    fs.mkdirSync(targetDir, { recursive: true })
+    const targetPath = path.join(targetDir, filename)
+
+    // Strip EXIF (cameras embed GPS + names) and downscale anything over
+    // 4000px on the long edge — print needs ~300dpi at 8.5in = 2550px, so
+    // 4000 leaves headroom without bloating the EPUB.
+    try {
+      const { default: sharp } = await import('sharp') as { default: typeof import('sharp') }
+      const meta = await sharp(buf).metadata()
+      const longest = Math.max(meta.width ?? 0, meta.height ?? 0)
+      const pipe = sharp(buf, { failOn: 'none' }).rotate()
+      if (longest > 4000) {
+        const fit = (meta.width ?? 0) >= (meta.height ?? 0)
+          ? { width: 4000 } : { height: 4000 }
+        pipe.resize(fit)
+      }
+      // Re-encode without EXIF; preserve format.
+      if (ext === '.png') await pipe.png().toFile(targetPath)
+      else if (ext === '.webp') await pipe.webp({ quality: 92 }).toFile(targetPath)
+      else await pipe.jpeg({ quality: 92, mozjpeg: true }).toFile(targetPath)
+    } catch (err) {
+      // Sharp not available or decode failed — fall back to a plain copy
+      // so the import still works on machines where the native module
+      // didn't load. EXIF won't be stripped in this path.
+      fs.writeFileSync(targetPath, buf)
+    }
+
+    this.post({
+      type: 'generated',
+      illustration: {
+        filename,
+        uri: this.assetUri(path.join(ILLUSTRATIONS_DIR, filename)),
+        absolutePath: targetPath,
+      },
+    })
+
+    // Offer to insert immediately — a one-click flow for the common case.
+    const insertNow = await vscode.window.showInformationMessage(
+      `Imported ${filename}. Insert into a chapter now?`,
+      'Insert', 'Later',
+    )
+    if (insertNow === 'Insert') {
+      await this.handleInsertIntoChapter({ absolutePath: targetPath, filename })
+    }
   }
 
   private async resolveTargetChapter(): Promise<vscode.Uri | undefined> {

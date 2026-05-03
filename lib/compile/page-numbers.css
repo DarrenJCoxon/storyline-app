@@ -1,0 +1,136 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Shared print-pdf running headers + page numbers.
+ *
+ * Loaded for ALL book styles in print-pdf format so page numbers always
+ * appear at @bottom-center. Per-style overrides (running header font,
+ * size, colour) come via CSS variables — unset variables fall back to
+ * the active book style's body font, which is correct for every style.
+ *
+ * @page rules at this scope are global; per-style style-print-pdf.css
+ * (if any) layers on top. The string-set rules for book-title and
+ * chapter-title are also shared — every book has those.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Default (any page that doesn't match :left, :right, or named pages
+ * below — handles trims and cases where Paged.js falls back). */
+@page {
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 10pt);
+    color: var(--nw-running-header-color, #555);
+    padding-top: 0.15in;
+  }
+}
+
+/* Left (verso, even page numbers) — book title in @top-left */
+@page :left {
+  @top-left {
+    content: string(book-title);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 9pt);
+    font-style: italic;
+    color: var(--nw-running-header-color, #555);
+    padding-bottom: 0.15in;
+  }
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 10pt);
+    color: var(--nw-running-header-color, #555);
+    padding-top: 0.15in;
+  }
+}
+
+/* Right (recto, odd page numbers) — chapter title in @top-right */
+@page :right {
+  @top-right {
+    content: string(chapter-title);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 9pt);
+    font-style: italic;
+    color: var(--nw-running-header-color, #555);
+    padding-bottom: 0.15in;
+  }
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 10pt);
+    color: var(--nw-running-header-color, #555);
+    padding-top: 0.15in;
+  }
+}
+
+/* Chapter first page: suppress running headers; keep the page number. */
+@page chapter-first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 10pt);
+    color: var(--nw-running-header-color, #555);
+    padding-top: 0.15in;
+  }
+}
+
+/* Blank pages: nothing at all. */
+@page :blank {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center { content: none; }
+}
+
+/* Front matter: running headers off, page number on. */
+@page front-matter-page {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--nw-running-header-font, var(--nw-body-font, Georgia, "Times New Roman", Times, serif));
+    font-size: var(--nw-running-header-size, 10pt);
+    color: var(--nw-running-header-color, #555);
+    padding-top: 0.15in;
+  }
+}
+
+/* String setters for the running headers. */
+.book-title-marker {
+  string-set: book-title content();
+  display: block;
+  height: 0;
+  line-height: 0;
+  font-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+section.chapter > h1 {
+  string-set: chapter-title content();
+}
+
+/* Section placement: front matter on its own named page, chapters
+ * start on a recto. */
+section.front-matter {
+  page: front-matter-page;
+}
+
+section.chapter {
+  break-before: recto;
+}
+
+section.chapter > *:first-child {
+  page: chapter-first;
+}
+
+/* Picture-book mode: chapters don't break-before: recto (they read as
+ * a continuous narrative), and pb-pages / bleed-pages own their own
+ * @page rules already. Suppress page numbers on bleed pages — the
+ * `@page bleed { @bottom-center { content: none } }` rule in
+ * picture-book.css already handles that, but we belt-and-brace here. */
+body.book-picture section.chapter {
+  break-before: auto;
+}
+body.book-picture section.chapter > *:first-child {
+  page: auto;
+}

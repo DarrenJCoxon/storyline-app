@@ -33,9 +33,12 @@ const PRINT_RESET_PATH = resolve(__dir, 'print-reset.css');
 const PRIMITIVES_CSS_PATH = resolve(__dir, 'primitives', '_base.css');
 const FRONT_MATTER_CSS_PATH = resolve(__dir, 'front-matter', 'base.css');
 const ELEMENT_OVERRIDES_CSS_PATH = resolve(__dir, 'element-overrides.css');
+const PICTURE_BOOK_CSS_PATH = resolve(__dir, 'picture-book.css');
+const PAGE_NUMBERS_CSS_PATH = resolve(__dir, 'page-numbers.css');
 const DEFAULT_STYLE_ID = 'classic-serif';
 const DEFAULT_PARAGRAPH_STYLE = 'indented';
 const VALID_PARAGRAPH_STYLES = new Set(['indented', 'block']);
+const VALID_BOOK_TYPES = new Set(['novel', 'picture-book']);
 
 const SUPPORTED_OVERRIDE_KEYS = new Set([
   'bodyFont',
@@ -114,6 +117,24 @@ export async function loadElementOverridesCss() {
   return cachedElementOverridesCss;
 }
 
+let cachedPictureBookCss = null;
+export async function loadPictureBookCss() {
+  if (cachedPictureBookCss !== null) return cachedPictureBookCss;
+  cachedPictureBookCss = (await pathExists(PICTURE_BOOK_CSS_PATH))
+    ? await readFile(PICTURE_BOOK_CSS_PATH, 'utf-8') + '\n\n'
+    : '';
+  return cachedPictureBookCss;
+}
+
+let cachedPageNumbersCss = null;
+export async function loadPageNumbersCss() {
+  if (cachedPageNumbersCss !== null) return cachedPageNumbersCss;
+  cachedPageNumbersCss = (await pathExists(PAGE_NUMBERS_CSS_PATH))
+    ? await readFile(PAGE_NUMBERS_CSS_PATH, 'utf-8') + '\n\n'
+    : '';
+  return cachedPageNumbersCss;
+}
+
 export async function loadOpenerCss(openerId, format) {
   if (!openerId) return '';
   const base = resolve(OPENERS_DIR, openerId, 'opener.css');
@@ -130,7 +151,7 @@ export async function applyBookStyle(context) {
     throw new Error('Book Style phase requires the HTML phase to run first');
   }
 
-  const { styleId, paragraphStyle, themeOverrides, openerId, previewClasses } = await resolveBookStyleConfig(context);
+  const { styleId, paragraphStyle, themeOverrides, openerId, previewClasses, bookType } = await resolveBookStyleConfig(context);
   const style = await loadBookStyle(styleId, context.format);
 
   const { css: overrideCss, warnings: overrideWarnings } = buildOverrideCss(
@@ -144,13 +165,21 @@ export async function applyBookStyle(context) {
   const frontMatterCss     = await loadFrontMatterCss();
   const openerCss          = await loadOpenerCss(openerId, context.format);
   const elementOverridesCss = await loadElementOverridesCss();
+  // Page numbers + running headers — shared across all book styles for
+  // print-pdf only. EPUB readers ignore @page rules, so loading this
+  // for EPUB would just bloat the OPF without effect.
+  const pageNumbersCss     = context.format === 'print-pdf' ? await loadPageNumbersCss() : '';
+  // Picture-book layer goes LAST so its scene-break-as-page-break and
+  // centred paragraph rules win over the standard book-style. Only
+  // emitted when the project opted in.
+  const pictureBookCss     = bookType === 'picture-book' ? await loadPictureBookCss() : '';
 
   // opener CSS sits after book-style so it can layer decorative treatment on
   // top, but before overrides so config variables can still win the cascade.
   // element-overrides.css sits LAST so its body-class !important rules win
   // over book-style and opener defaults — that's how preview body classes
   // (ch-*, sh-*, bq-*, callout-*) take effect in compile output too.
-  const effectiveCss = frontMatterCss + primitivesCss + style.css + openerCss + printResetCss + overrideCss + paragraphStyleOverride(paragraphStyle) + elementOverridesCss;
+  const effectiveCss = frontMatterCss + primitivesCss + style.css + openerCss + printResetCss + pageNumbersCss + overrideCss + paragraphStyleOverride(paragraphStyle) + elementOverridesCss + pictureBookCss;
 
   context.theme = {
     id: style.id,
@@ -160,7 +189,7 @@ export async function applyBookStyle(context) {
     overrideWarnings,
     openerId: openerId || null,
     openerMeta: null,
-    bodyClasses: buildBodyClasses(previewClasses),
+    bodyClasses: buildBodyClasses(previewClasses, bookType),
     frontMatter: context.html.frontMatter.map(item => ({
       ...item,
       html: item.html,
@@ -168,7 +197,12 @@ export async function applyBookStyle(context) {
     })),
     chapters: context.html.chapters.map((chapter, i) => {
       const fm = chapter.frontmatter || {};
-      const needsHeading = !chapter.html.trimStart().startsWith('<h1');
+      // Picture books don't have "Chapter 1" headings — they read as one
+      // continuous narrative across pages. If the writer hasn't typed an
+      // H1 themselves, leave the chapter heading-less. (Novels keep the
+      // existing auto-injection so blank chapter files still get a
+      // visible title page.)
+      const needsHeading = !chapter.html.trimStart().startsWith('<h1') && bookType !== 'picture-book';
       let headingBlock = '';
       if (needsHeading) {
         const subtitleHtml = fm.subtitle
@@ -209,6 +243,7 @@ async function resolveBookStyleConfig(context) {
     themeOverrides: {},
     openerId: '',
     previewClasses: {},
+    bookType: 'novel',
   };
   const configPath = resolve(context.projectPath, 'compile.config.json');
   if (!(await pathExists(configPath))) return defaults;
@@ -226,7 +261,9 @@ async function resolveBookStyleConfig(context) {
     const openerId = typeof config?.chapterOpener === 'string' ? config.chapterOpener.trim() : '';
     const previewClasses = (config?.previewClasses && typeof config.previewClasses === 'object')
       ? config.previewClasses : {};
-    return { styleId, paragraphStyle, themeOverrides, openerId, previewClasses };
+    const rawBookType = typeof config?.bookType === 'string' ? config.bookType.trim() : '';
+    const bookType = VALID_BOOK_TYPES.has(rawBookType) ? rawBookType : 'novel';
+    return { styleId, paragraphStyle, themeOverrides, openerId, previewClasses, bookType };
   } catch {
     return defaults;
   }
@@ -383,7 +420,7 @@ function markChapterOpenerMarkup(html, noDropCap = false) {
 /** Convert preview-class config tokens (e.g. chapterHeading: "display-heavy")
  *  into the body-class strings element-overrides.css expects (e.g.
  *  "ch-display-heavy"). */
-function buildBodyClasses(previewClasses) {
+function buildBodyClasses(previewClasses, bookType) {
   const classes = [];
   const map = {
     chapterHeading: 'ch-',
@@ -395,5 +432,6 @@ function buildBodyClasses(previewClasses) {
     const v = previewClasses?.[key];
     if (typeof v === 'string' && v && v !== 'default') classes.push(prefix + v);
   }
+  if (bookType === 'picture-book') classes.push('book-picture');
   return classes.join(' ');
 }

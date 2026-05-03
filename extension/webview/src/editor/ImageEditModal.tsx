@@ -1,19 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
+type Side = '' | 'recto' | 'verso'
+
 interface Props {
   src: string
   initialWidth: number | null
   initialHeight: number | null
-  onCommit: (next: { width: number | null; height: number | null }) => void
+  initialBleed?: boolean
+  initialSide?: Side
+  isPictureBook?: boolean
+  onCommit: (next: { width: number | null; height: number | null; bleed: boolean; side: Side }) => void
   onCancel: () => void
 }
 
-export function ImageEditModal({ src, initialWidth, initialHeight, onCommit, onCancel }: Props): JSX.Element {
+export function ImageEditModal({
+  src, initialWidth, initialHeight,
+  initialBleed = false, initialSide = '', isPictureBook = false,
+  onCommit, onCancel,
+}: Props): JSX.Element {
   const [naturalW, setNaturalW] = useState<number | null>(null)
   const [naturalH, setNaturalH] = useState<number | null>(null)
   const [width, setWidth] = useState<number | null>(initialWidth)
   const [height, setHeight] = useState<number | null>(initialHeight)
   const [lock, setLock] = useState(true)
+  const [bleed, setBleed] = useState<boolean>(initialBleed)
+  const [side, setSide] = useState<Side>(initialSide)
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const widthRef = useRef<HTMLInputElement | null>(null)
 
@@ -78,7 +89,7 @@ export function ImageEditModal({ src, initialWidth, initialHeight, onCommit, onC
   }
 
   const commit = (): void => {
-    onCommit({ width, height })
+    onCommit({ width, height, bleed, side })
   }
 
   return (
@@ -135,6 +146,50 @@ export function ImageEditModal({ src, initialWidth, initialHeight, onCommit, onC
               <button type="button" onClick={() => setPercent(100)} disabled={!naturalW}>100%</button>
               <button type="button" className="image-edit-reset" onClick={reset}>Reset</button>
             </div>
+
+            {isPictureBook && (
+              <div className="image-edit-pb">
+                <div className="image-edit-pb-title">Picture-book layout</div>
+                <label className="image-edit-lock">
+                  <input
+                    type="checkbox"
+                    checked={bleed}
+                    onChange={e => {
+                      const v = e.target.checked
+                      setBleed(v)
+                      if (!v) setSide('')
+                    }}
+                  />
+                  <span>Full-bleed (image fills the page)</span>
+                </label>
+                <div className="image-edit-pb-side" role="radiogroup" aria-label="Page side">
+                  {([
+                    ['', 'Auto'],
+                    ['recto', 'Recto (right)'],
+                    ['verso', 'Verso (left)'],
+                  ] as Array<[Side, string]>).map(([value, label]) => (
+                    <label key={value || 'auto'} className={`image-edit-pb-radio${!bleed ? ' is-disabled' : ''}`}>
+                      <input
+                        type="radio"
+                        name="pb-side"
+                        value={value}
+                        checked={side === value}
+                        disabled={!bleed}
+                        onChange={() => setSide(value)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="image-edit-pb-hint">
+                  {bleed
+                    ? side === 'recto' ? 'Image will be forced to a right-hand page.'
+                    : side === 'verso' ? 'Image will be forced to a left-hand page.'
+                    : 'Image will fill whichever page it falls on.'
+                    : 'Inline — image flows with the surrounding text.'}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

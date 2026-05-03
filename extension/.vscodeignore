@@ -32,6 +32,10 @@ node_modules/**
 # injected into the Puppeteer page for PDF pagination. Without this
 # the print-PDF compile fails with ENOENT on paged.polyfill.min.js.
 !node_modules/pagedjs/**
+# markdown-it-attrs — imported by lib/compile/markdown-to-html.js to
+# parse picture-book `{.bleed .recto}` class syntax. Without it,
+# compile throws "Cannot find package 'markdown-it-attrs'".
+!node_modules/markdown-it-attrs/**
 
 # Tooling and configs
 tsconfig.json

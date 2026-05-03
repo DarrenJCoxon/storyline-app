@@ -1,0 +1,168 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Picture-book layout layer
+ *
+ * Activated when compile.config.json has `bookType: "picture-book"`.
+ *
+ * Structure (set up by lib/compile/markdown-to-html.js's
+ * splitIntoPictureBookPages):
+ *
+ *   <section class="chapter">                ← from print-pdf.js
+ *     <section class="pb-page">              ← one chunk between *** breaks
+ *       <p>The bear was big.</p>
+ *     </section>
+ *     <div class="bleed-page recto">         ← from liftBleedImages
+ *       <img class="bleed recto" .../>
+ *     </div>
+ *     <section class="pb-page">
+ *       <p>And kind.</p>
+ *     </section>
+ *   </section>
+ *
+ * Each `.pb-page` carries `break-after: page` so Paged.js puts every
+ * scene-break-separated chunk on its own printed page. Each
+ * `.bleed-page` already has `break-before/after: page` plus the
+ * zero-margin `@page bleed`.
+ *
+ * EPUB output (reflowable) ignores @page rules — the fallback at the
+ * bottom of this file makes pb-pages flow as normal blocks and bleed
+ * images fit-to-width without forcing pagination.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Named pages ───────────────────────────────────────────────────── */
+
+@page bleed {
+  margin: 0;
+  /* No running headers, no folio — full art surface. */
+  @top-left      { content: none; }
+  @top-center    { content: none; }
+  @top-right     { content: none; }
+  @bottom-left   { content: none; }
+  @bottom-center { content: none; }
+  @bottom-right  { content: none; }
+}
+
+/* ── Full-bleed image pages ───────────────────────────────────────── */
+
+.bleed-page {
+  page: bleed;
+  break-before: page;
+  break-after: page;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bleed-page.recto { break-before: recto; }
+.bleed-page.verso { break-before: verso; }
+
+.bleed-page img,
+img.bleed,
+img.full-bleed {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  object-fit: cover;
+}
+
+/* ── Picture-book text pages ──────────────────────────────────────── */
+
+/* Each chunk between *** breaks is wrapped in <section class="pb-page">.
+ * `break-after: page` puts each chunk on its own page; `break-inside:
+ * avoid` keeps the chunk from splitting mid-page when it does fit. The
+ * top padding pushes the text down toward the optical centre — we
+ * can't reliably use `100vh` for vertical centring inside Paged.js
+ * (vh refers to the rendering viewport, not the page content area),
+ * so we fake it with padding that works at any trim. */
+.book-picture .pb-page {
+  break-after: page;
+  break-inside: avoid;
+  text-align: center;
+  font-size: 1.2em;
+  line-height: 1.55;
+  max-width: 28em;
+  margin: 0 auto;
+  padding: 30vh 1.5em 0;
+  /* Drop caps and chapter-opener decoration don't apply on picture
+   * book text pages — every page is a fresh thought. */
+  text-indent: 0;
+}
+
+.book-picture .pb-page > p,
+.book-picture .pb-page > blockquote {
+  text-indent: 0;
+  margin: 0 0 1em 0;
+}
+
+.book-picture .pb-page > p:last-child,
+.book-picture .pb-page > blockquote:last-child {
+  margin-bottom: 0;
+}
+
+/* Chapter title page (only present if the writer typed an explicit
+ * H1 — auto-injection is suppressed for picture books). When present,
+ * give it its own page too. */
+.book-picture .chapter > h1 {
+  break-after: page;
+  text-align: center;
+  padding: 35vh 1em 0;
+  font-size: 2em;
+  font-weight: 600;
+}
+
+/* Suppress decoration that doesn't fit picture-book layouts: drop caps,
+ * opener rules, scene-break ornaments (we no longer emit scene breaks
+ * — they were turned into page breaks). */
+.book-picture .chapter-open-drop,
+.book-picture .chapter-number,
+.book-picture hr.scene-break {
+  display: none;
+}
+
+.book-picture .pb-page p.first,
+.book-picture .pb-page p.first-paragraph {
+  text-indent: 0;
+}
+.book-picture .pb-page p.first::first-letter,
+.book-picture .pb-page p.first-paragraph::first-letter {
+  /* Override any drop-cap rule from the active book style. */
+  font-size: inherit;
+  float: none;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Fallback for reflowable EPUB and on-screen preview ──────────── */
+
+@media not print {
+  .book-picture .pb-page {
+    break-after: auto;
+    break-inside: auto;
+    padding: 1.5em 1em;
+    margin: 1em auto;
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.25);
+    font-size: 1.05em;
+  }
+  .book-picture .pb-page:last-child {
+    border-bottom: none;
+  }
+  .book-picture .chapter > h1 {
+    break-after: auto;
+    padding: 0;
+    margin: 1em 0;
+  }
+  .bleed-page {
+    break-before: auto;
+    break-after: auto;
+    height: auto;
+  }
+  .bleed-page img,
+  img.bleed,
+  img.full-bleed {
+    height: auto;
+    object-fit: contain;
+  }
+}

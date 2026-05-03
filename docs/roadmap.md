@@ -64,6 +64,11 @@ _Last updated: 2026-04-28_
 **Prove-it gate:** A real novel plan produces a useful handoff into drafting, surfaces at least one meaningful promise/payoff or character-arc issue before drafting, and later catches at least one concrete plan-vs-draft divergence in a real chapter. Existing fiction chapter cards, master document, manuscript seeding, compile, preview, and compare flows remain intact.
 **Status:** Proposed — the strategic fiction counterpart to NF-11. M10 can ship first as the narrow critique proof; M11 is the wider fiction operating-system frame. Detail: [roadmap/milestone-11-fiction-book-brain.md](roadmap/milestone-11-fiction-book-brain.md)
 
+### Milestone 13 — Storyline sidebar: a writer's home in the activity bar (proposed)
+**Outcome:** A bespoke Storyline activity-bar container with four views in writer-day order — Planning (Save the Cat stages with status), Research (categorised notes with one-tick pin-to-chat), Manuscript (chapters with live word counts, drag-to-reorder, single-click open), Project (compile / cover / backup / settings). Replaces the unwinnable retry-loop fight to keep VS Code's Explorer focused; gives writers a permanent themed home no other extension can clobber.
+**Prove-it gate:** (1) No more sidebar fight — switching between Storyline and Claude Code preserves state both ways. (2) A real chapter is opened from the Manuscript view, not the Explorer or Cmd+P. (3) A pinned research note demonstrably changes a planning chat response; unpinning reverts. (4) The Project view replaces the command palette for at least one compile/backup/cover action.
+**Status:** Proposed. Smallest shippable slice: stories 13.1 + 13.2 (container + Manuscript view + delete the retry chain). Detail: [roadmap/milestone-13-storyline-sidebar.md](roadmap/milestone-13-storyline-sidebar.md)
+
 ## Meta-rules for milestones
 
 1. **One milestone at a time for build work.** If you feel pulled to start the next one before the current's build stories are complete, that's a signal the current milestone's scope is weak, not that it's done. **Exception:** when a milestone's prove-it gate requires user-validation (planning a real novel, writing a real chapter), build work on the next milestone can proceed in parallel — the gate closes independently whenever the writer does that work.

@@ -19,11 +19,13 @@ interface CompileMetadata {
 }
 
 type PrintTrim = '6x9' | '7x10' | '8x10' | '8.5x8.5'
+type BookType = 'novel' | 'picture-book'
 
 interface CompileConfig {
   metadata: CompileMetadata
   bookStyle?: string
   theme?: string   // legacy alias
+  bookType?: BookType
   epub?: { theme?: string }
   pdf?: { pageSize?: 'A5' | 'US Letter'; trim?: PrintTrim }
   nonfiction?: { citationStyle?: 'chicago' | 'apa' | 'mla'; generateExtras?: boolean }
@@ -118,6 +120,7 @@ type Action =
   | { type: 'setAuthor'; author: string }
   | { type: 'setCover'; coverPath: string; coverThumbUri: string | null }
   | { type: 'setBookStyle'; bookStyle: string }
+  | { type: 'setBookType'; bookType: BookType }
   | { type: 'setCitationStyle'; style: 'chicago' | 'apa' | 'mla' }
   | { type: 'setGenerateExtras'; enabled: boolean }
   | { type: 'compileStart'; format: Format }
@@ -167,6 +170,8 @@ function reduce(state: State, action: Action): State {
       }
     case 'setBookStyle':
       return { ...state, config: { ...state.config, bookStyle: action.bookStyle } }
+    case 'setBookType':
+      return { ...state, config: { ...state.config, bookType: action.bookType } }
     case 'setCitationStyle':
       return { ...state, config: { ...state.config, nonfiction: { ...state.config.nonfiction, citationStyle: action.style } } }
     case 'setGenerateExtras':
@@ -315,6 +320,26 @@ function CompileForm({ state, dispatch }: { state: State; dispatch: React.Dispat
           </select>
         </div>
       )}
+
+      {/* Book type — switches the compile to a children's-picture-book layout
+          (one centred text block per page, full-bleed image support). */}
+      <div className="section">
+        <div className="section-label">Book type</div>
+        <select
+          className="theme-select"
+          value={config.bookType ?? 'novel'}
+          onChange={e => dispatch({ type: 'setBookType', bookType: e.target.value as BookType })}
+        >
+          <option value="novel">Novel / standard prose</option>
+          <option value="picture-book">Picture book (children's) — one text block per page, full-bleed image support</option>
+        </select>
+        {config.bookType === 'picture-book' && (
+          <p className="chapter-list-empty" style={{ marginTop: 6 }}>
+            Each scene break (<code>***</code>) becomes a page break. Mark images full-bleed via the Illustrations panel
+            (or by typing <code>{'{.bleed}'}</code>, <code>{'{.bleed .recto}'}</code>, or <code>{'{.bleed .verso}'}</code> after the image markdown).
+          </p>
+        )}
+      </div>
 
       <div className="divider" />
 

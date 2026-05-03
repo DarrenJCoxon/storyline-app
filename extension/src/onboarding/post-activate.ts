@@ -5,7 +5,6 @@ import { scaffoldProject } from './project-scaffold.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
 import { logError } from '../diagnostic-log.js'
 import { WelcomePanel } from '../panels/WelcomePanel.js'
-import { scheduleExplorerFocusRetries } from '../editor/layout-init.js'
 
 /**
  * Tabs/labels we recognise as VS Code's default welcome / get-started UI
@@ -94,15 +93,8 @@ export async function postActivateOpenWorkspace(
   // 6. Open Storyline Chat in column 2.
   await vscode.commands.executeCommand('storyline.openPlanning')
 
-  // 7. Make sure the Explorer is visible in the side bar — and focused.
-  //    Runs as a spaced-retry chain (50/500/1500/3500/6000ms) because
-  //    extensions that activate on `onStartupFinished` (Claude Code,
-  //    GitLens, etc.) typically register their own sidebar view at
-  //    800-1500ms and would win a single attempt here. Fire-and-forget;
-  //    don't await — we want this CTA path to return so VS Code can
-  //    finish layout, while the retries pull the Explorer back as
-  //    competing extensions settle.
-  void scheduleExplorerFocusRetries()
+  // 7. Reveal Storyline's own sidebar container once.
+  try { await vscode.commands.executeCommand('workbench.view.extension.storyline-sidebar') } catch { /* */ }
 }
 
 /**

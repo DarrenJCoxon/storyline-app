@@ -47,6 +47,22 @@ p, blockquote p {
   text-align-last: left;
 }
 
+/* Scene-break ornament: with body { text-align: justify } the
+ * <hr class="scene-break">::before content ("* * *") gets stretched
+ * across the full measure on print because it inherits justify and
+ * letter-spacing pushes each glyph to its own column. Force centre
+ * + auto-width so the ornament reads as a tight centred mark. */
+hr.scene-break {
+  text-align: center;
+  text-align-last: center;
+}
+hr.scene-break::before {
+  display: inline-block;
+  width: auto;
+  text-align: center;
+  text-align-last: center;
+}
+
 /* ── Widow / orphan control ─────────────────────────────────────────── */
 /* Headings must stay with the content that follows them — never
  * marooned at the bottom of a page above their own body. break-after:

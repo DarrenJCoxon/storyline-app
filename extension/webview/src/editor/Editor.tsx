@@ -25,6 +25,7 @@ import { Image as ImageIcon, AlignVerticalJustifyCenter, Type } from 'lucide-rea
 type SaveStatus = 'saved' | 'pending' | 'saving' | 'failed'
 type Font = 'serif' | 'sans'
 type ProjectMode = 'fiction' | 'nonfiction'
+type BookType = 'novel' | 'picture-book'
 
 type MarkdownStorage = { getMarkdown: () => string }
 function getMarkdown(editor: { storage: { markdown?: MarkdownStorage } } | null | undefined): string {
@@ -78,7 +79,8 @@ export function Editor(): JSX.Element | null {
   const [role, setRole]                 = useState<'manuscript' | 'supporting' | null>(null)
   const [font, setFont]                 = useState<Font>('serif')
   const [projectMode, setProjectMode]   = useState<ProjectMode>('fiction')
-  const [imageEdit, setImageEdit]       = useState<{ src: string; pos: number; width: number | null; height: number | null } | null>(null)
+  const [bookType, setBookType]         = useState<BookType>('novel')
+  const [imageEdit, setImageEdit]       = useState<{ src: string; pos: number; width: number | null; height: number | null; imgClass: string } | null>(null)
   const [chapterTitle, setChapterTitle]         = useState<string | null>(null)
   const [chapterTitleDefault, setChapterTitleDefault] = useState<string>('')
 
@@ -130,15 +132,46 @@ export function Editor(): JSX.Element | null {
     editorProps: {
       handleDoubleClickOn: (_view, pos, node) => {
         if (node.type?.name !== 'image') return false
-        const attrs = node.attrs as { src?: string; width?: number | null; height?: number | null }
+        const attrs = node.attrs as { src?: string; width?: number | null; height?: number | null; imgClass?: string }
         if (!attrs.src) return false
         setImageEdit({
           src: attrs.src,
           pos,
           width: attrs.width ?? null,
           height: attrs.height ?? null,
+          imgClass: attrs.imgClass ?? '',
         })
         return true
+      },
+      // Drag-and-drop or paste images directly into the editor. The
+      // webview can't write to disk, so we send the bytes to the host
+      // (EditorPanel) which copies them into assets/illustrations/ and
+      // returns a chapter-relative path for the markdown reference.
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false
+        const files = (event as DragEvent).dataTransfer?.files
+        if (!files || files.length === 0) return false
+        const file = Array.from(files).find(f => f.type.startsWith('image/'))
+        if (!file) return false
+        event.preventDefault()
+        const coords = view.posAtCoords({ left: (event as DragEvent).clientX, top: (event as DragEvent).clientY })
+        importImageFile(file, coords?.pos)
+        return true
+      },
+      handlePaste: (_view, event) => {
+        const items = (event as ClipboardEvent).clipboardData?.items
+        if (!items) return false
+        for (const item of Array.from(items)) {
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const file = item.getAsFile()
+            if (file) {
+              event.preventDefault()
+              importImageFile(file)
+              return true
+            }
+          }
+        }
+        return false
       },
     },
     content: '',
@@ -167,6 +200,88 @@ export function Editor(): JSX.Element | null {
       })
     },
   })
+
+  // Pending image imports: each request gets an id so when the host
+  // replies we know which placeholder image node to swap to the saved
+  // src. Map id → insert position (or null = at cursor).
+  const pendingImportsRef = useRef<Map<string, number | null>>(new Map())
+
+  const importImageFile = useMemo(() => (file: File, insertAtPos?: number) => {
+    const id = `imp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    pendingImportsRef.current.set(id, typeof insertAtPos === 'number' ? insertAtPos : null)
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result ?? '')
+      const commaIdx = result.indexOf(',')
+      const dataBase64 = commaIdx >= 0 ? result.slice(commaIdx + 1) : ''
+      const ext = (() => {
+        const m = /^data:image\/(\w+);/.exec(result)
+        if (!m) return '.png'
+        const t = m[1].toLowerCase()
+        return t === 'jpeg' ? '.jpg' : `.${t}`
+      })()
+      const suggestedName = file.name.replace(/\.[^.]+$/, '')
+
+      // Insert a placeholder using the data URL so the writer sees the
+      // image immediately. We swap to the on-disk src once the host
+      // replies.
+      if (editor) {
+        const at = pendingImportsRef.current.get(id)
+        const chain = editor.chain().focus()
+        if (typeof at === 'number') chain.setTextSelection(at)
+        chain.setImage({ src: result, alt: suggestedName }).run()
+      }
+
+      vscode.postMessage({
+        type: 'importImageFromEditor',
+        requestId: id,
+        dataBase64,
+        ext,
+        suggestedName,
+      })
+    }
+    reader.readAsDataURL(file)
+  }, [editor])
+
+  // Listen for the host's reply and swap the placeholder data: src to
+  // the saved on-disk path.
+  useEffect(() => {
+    if (!editor) return
+    const onMsg = (event: MessageEvent) => {
+      const msg = event.data as Record<string, unknown>
+      if (msg.type !== 'imageImported' || typeof msg.requestId !== 'string') return
+      pendingImportsRef.current.delete(msg.requestId)
+      const newSrc = String(msg.src ?? '')
+      if (!newSrc) return
+
+      // Find any image node whose src is a data URL with the expected
+      // filename and replace the src. Walking the doc is cheap; there
+      // are at most a few placeholder images at any moment.
+      let found: { pos: number; attrs: Record<string, unknown> } | null = null
+      editor.state.doc.descendants((node, pos) => {
+        if (found) return false
+        if (node.type.name === 'image') {
+          const src = (node.attrs as { src?: string }).src ?? ''
+          if (src.startsWith('data:image/')) {
+            found = { pos, attrs: node.attrs as Record<string, unknown> }
+            return false
+          }
+        }
+        return true
+      })
+      if (found !== null) {
+        const f = found as { pos: number; attrs: Record<string, unknown> }
+        const tr = editor.state.tr.setNodeMarkup(f.pos, undefined, {
+          ...f.attrs,
+          src: newSrc,
+        })
+        editor.view.dispatch(tr)
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [editor])
 
   const saveNow = useMemo(() => () => {
     if (!editor) return
@@ -212,6 +327,7 @@ export function Editor(): JSX.Element | null {
         if (typeof msg.fileName === 'string') setFileName(msg.fileName)
         if (msg.font === 'serif' || msg.font === 'sans') setFont(msg.font)
         if (msg.projectMode === 'nonfiction') setProjectMode('nonfiction')
+        if (msg.bookType === 'picture-book' || msg.bookType === 'novel') setBookType(msg.bookType)
         setChapterTitle(typeof msg.chapterTitle === 'string' ? msg.chapterTitle : null)
         if (typeof msg.chapterTitleDefault === 'string') setChapterTitleDefault(msg.chapterTitleDefault)
         if (!hasUnflushedEdits) {
@@ -405,8 +521,15 @@ export function Editor(): JSX.Element | null {
           src={imageEdit.src}
           initialWidth={imageEdit.width}
           initialHeight={imageEdit.height}
+          initialBleed={/\b(?:bleed|full-bleed)\b/.test(imageEdit.imgClass)}
+          initialSide={
+            /\brecto\b/.test(imageEdit.imgClass) ? 'recto'
+            : /\bverso\b/.test(imageEdit.imgClass) ? 'verso'
+            : ''
+          }
+          isPictureBook={bookType === 'picture-book'}
           onCancel={() => setImageEdit(null)}
-          onCommit={({ width, height }) => {
+          onCommit={({ width, height, bleed, side }) => {
             // Find the image node by src — the original pos may have shifted
             // since the modal opened. setNodeMarkup needs the current pos.
             let imagePos: number | null = null
@@ -421,10 +544,16 @@ export function Editor(): JSX.Element | null {
             if (imagePos !== null) {
               const node = editor.state.doc.nodeAt(imagePos)
               if (node) {
+                // Re-derive imgClass from the modal's bleed + side controls.
+                // Empty string clears the picture-book classes.
+                const classes: string[] = []
+                if (bleed) classes.push('bleed')
+                if (bleed && side) classes.push(side)
                 const tr = editor.state.tr.setNodeMarkup(imagePos, undefined, {
                   ...node.attrs,
                   width,
                   height,
+                  imgClass: classes.join(' '),
                 })
                 editor.view.dispatch(tr)
               }

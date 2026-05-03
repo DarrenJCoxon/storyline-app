@@ -3,6 +3,9 @@ import { promises as fs } from 'fs';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import MarkdownIt from 'markdown-it';
+// markdown-it-attrs has no @types package — declare locally so tsc is happy.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const markdownItAttrs = require('markdown-it-attrs') as (md: MarkdownIt, opts?: Record<string, unknown>) => void;
 import type { EditorPanel } from '../panels/EditorPanel.js';
 type StorylineEditorProvider = EditorPanel;
 
@@ -31,7 +34,64 @@ function createRenderer(): MarkdownIt {
     xhtmlOut: true,
   });
   md.renderer.rules.hr = () => '<hr class="scene-break" />\n';
+  // Match the compile pipeline: allow `{.bleed .recto}` etc. on
+  // markdown images so picture-book authors see the same layout in
+  // preview as they will in the compiled book.
+  md.use(markdownItAttrs, {
+    allowedAttributes: ['class'],
+    leftDelimiter: '{',
+    rightDelimiter: '}',
+  });
   return md;
+}
+
+// Picture-book transforms — duplicated from lib/compile/markdown-to-html.js
+// so the preview can show the same layout as compile without paying the
+// dynamic-import cost on every render. Keep the two in sync.
+function liftBleedImagesPreview(html: string): string {
+  let out = html.replace(
+    /<p\b[^>]*>\s*(<img\b[^>]*\bclass="[^"]*\bbleed\b[^"]*"[^>]*\/?>)\s*<\/p>/g,
+    (_full, img: string) => wrapBleedPreview(img),
+  );
+  out = out.replace(
+    /(<img\b[^>]*\bclass="[^"]*\bbleed\b[^"]*"[^>]*\/?>)/g,
+    (_full, img: string, offset: number, src: string) => {
+      const before = src.slice(Math.max(0, offset - 80), offset);
+      if (/bleed-page[^>]*>\s*$/.test(before)) return img;
+      return wrapBleedPreview(img);
+    },
+  );
+  return out;
+}
+function wrapBleedPreview(imgTag: string): string {
+  const cls = (imgTag.match(/\bclass="([^"]*)"/) || [, ''])[1];
+  const sides: string[] = [];
+  if (/\brecto\b/.test(cls)) sides.push('recto');
+  if (/\bverso\b/.test(cls)) sides.push('verso');
+  return `<div class="${['bleed-page', ...sides].join(' ')}">${imgTag}</div>`;
+}
+function splitIntoPbPagesPreview(html: string): string {
+  const tokens: Array<{ kind: 'text' | 'break' | 'bleed'; html?: string }> = [];
+  let cursor = 0;
+  const re = /<hr\s+class="scene-break[^"]*"\s*\/>|<div\s+class="bleed-page[^"]*">[\s\S]*?<\/div>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (m.index > cursor) tokens.push({ kind: 'text', html: html.slice(cursor, m.index) });
+    if (m[0].startsWith('<hr')) tokens.push({ kind: 'break' });
+    else tokens.push({ kind: 'bleed', html: m[0] });
+    cursor = m.index + m[0].length;
+  }
+  if (cursor < html.length) tokens.push({ kind: 'text', html: html.slice(cursor) });
+  const out: string[] = [];
+  let buf = '';
+  const flush = () => { if (buf.trim()) out.push(`<section class="pb-page">\n${buf.trim()}\n</section>`); buf = ''; };
+  for (const t of tokens) {
+    if (t.kind === 'text') buf += t.html ?? '';
+    else if (t.kind === 'break') flush();
+    else if (t.kind === 'bleed') { flush(); out.push(t.html ?? ''); }
+  }
+  flush();
+  return out.join('\n');
 }
 
 let _activePreviewPanel: vscode.WebviewPanel | undefined;
@@ -127,6 +187,19 @@ export async function openLivePreview(
     );
   };
 
+  // bookType + trim live in compile.config.json — re-read on every
+  // update so toggling them in the Compile panel takes effect without
+  // restarting the preview. Cheap (single small file read, debounced).
+  const readPbConfig = (): { isPictureBook: boolean; trim: string } => {
+    try {
+      const cfg = JSON.parse(readFileSync(path.join(folder.uri.fsPath, 'compile.config.json'), 'utf-8'));
+      return {
+        isPictureBook: cfg?.bookType === 'picture-book',
+        trim: typeof cfg?.pdf?.trim === 'string' ? cfg.pdf.trim : '6x9',
+      };
+    } catch { return { isPictureBook: false, trim: '6x9' }; }
+  };
+
   const updatePreview = () => {
     const doc = resolveActiveDoc();
     if (!doc) {
@@ -134,20 +207,37 @@ export async function openLivePreview(
       return;
     }
     const markdown = doc.getText();
+    const { isPictureBook: isPB, trim: pbTrim } = readPbConfig();
     const SOFT_BREAK = '<hr class="scene-break scene-break--soft" />\n';
-    const chunks = markdown.split(/\n[\s\n]*\n[\s\n]*\n/).filter(c => c.trim().length > 0);
-    let chunkHtml = chunks.length > 1
-      ? chunks.map(c => md.render(c)).join(SOFT_BREAK)
-      : md.render(markdown);
-    chunkHtml = chunkHtml.replace(/<p>\s*<\/p>\s*/g, SOFT_BREAK);
-    if (!chunkHtml.trimStart().startsWith('<h1') && sourceUri) {
+    let chunkHtml: string;
+    if (isPB) {
+      // Picture-book mode: render the whole markdown in one pass so
+      // markdown-it-attrs sees `{.bleed .recto}` markers, then run the
+      // same lift-and-segment transforms the compile pipeline uses.
+      // Skip the chunk-by-chunk pre-split: scene breaks ARE the page
+      // breaks and we want them treated as such, not as soft-break
+      // ornaments.
+      chunkHtml = splitIntoPbPagesPreview(liftBleedImagesPreview(md.render(markdown)));
+    } else {
+      const chunks = markdown.split(/\n[\s\n]*\n[\s\n]*\n/).filter(c => c.trim().length > 0);
+      chunkHtml = chunks.length > 1
+        ? chunks.map(c => md.render(c)).join(SOFT_BREAK)
+        : md.render(markdown);
+      chunkHtml = chunkHtml.replace(/<p>\s*<\/p>\s*/g, SOFT_BREAK);
+    }
+    // Auto-inject chapter heading only for novels — picture books read
+    // as one continuous narrative; "Chapter 1" headings don't belong.
+    if (!isPB && !chunkHtml.trimStart().startsWith('<h1') && sourceUri) {
       const heading = deriveChapterHeading(sourceUri, folder.uri.fsPath);
       if (heading) {
         const chNumHtml = heading.number ? `<div class="chapter-number">${heading.number}</div>\n` : '';
         chunkHtml = `<div class="chapter-open-drop"></div>\n${chNumHtml}<h1>${heading.title}</h1>\n` + chunkHtml;
       }
     }
-    const withFirst = chunkHtml.replace('<p>', '<p class="first">');
+    // .first applies a drop cap in some book styles — picture books
+    // suppress drop caps via picture-book.css, but skip the marker
+    // anyway so the cascade doesn't have to fight it.
+    const withFirst = isPB ? chunkHtml : chunkHtml.replace('<p>', '<p class="first">');
     const chapterDir = path.dirname(doc.uri.fsPath);
     const withImages = withFirst.replace(/<img\s+([^>]*?)src="([^"]+)"([^>]*?)>/g, (full, pre, src, post) => {
       if (/^(https?:|data:|vscode-webview:)/.test(src)) return full;
@@ -159,6 +249,8 @@ export async function openLivePreview(
       type: 'update',
       html: withImages,
       fileName: vscode.workspace.asRelativePath(doc.uri),
+      bookType: isPB ? 'picture-book' : 'novel',
+      trim: pbTrim,
     });
   };
 
@@ -553,18 +645,22 @@ async function loadAllStylesCss(
     loadFrontMatterCss: () => Promise<string>;
     loadElementOverridesCss?: () => Promise<string>;
   };
-  const bs = await import(path.join(libBase, 'book-style.js')) as BookStyleModule;
+  type BookStyleModuleExt = BookStyleModule & {
+    loadPictureBookCss?: () => Promise<string>;
+  };
+  const bs = await import(path.join(libBase, 'book-style.js')) as BookStyleModuleExt;
 
-  const [primCss, fmCss, overridesCss] = await Promise.all([
+  const [primCss, fmCss, overridesCss, pbCss] = await Promise.all([
     bs.loadPrimitivesCss(),
     bs.loadFrontMatterCss(),
     bs.loadElementOverridesCss ? bs.loadElementOverridesCss() : Promise.resolve(''),
+    bs.loadPictureBookCss ? bs.loadPictureBookCss() : Promise.resolve(''),
   ]);
   // element-overrides.css ships LAST so its body-class !important rules
-  // win over the active book-style — exact same source file the compile
-  // pipeline loads, so preview and compile render identically when the
-  // same previewClasses are active on <body> / <section>.
-  const sharedBaseCss = fmCss + '\n\n' + primCss + '\n\n' + overridesCss;
+  // win over the active book-style. picture-book.css is gated by the
+  // `.book-picture` body class, so it's safe to ship to all previews —
+  // novels never trigger its rules.
+  const sharedBaseCss = fmCss + '\n\n' + primCss + '\n\n' + overridesCss + '\n\n' + pbCss;
 
   const themesCss = new Map<string, { baseCss: string; printCss: string }>();
   const openersCss = new Map<string, { baseCss: string; printCss: string }>();
@@ -1030,6 +1126,58 @@ function buildWebviewHtml(
       flex-shrink: 0;
     }
 
+    /* Spread-view toggle button — visible only on the print pane.
+     * Sits in the top-right corner of the layout area. */
+    .spread-toggle-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      z-index: 18;
+      display: none;
+      gap: 6px;
+      align-items: center;
+    }
+    .spread-toggle-btn:hover { background: rgba(0,0,0,0.75); }
+    /* Toggle is print-only — show only when print pane is active. */
+    body[data-active-device="print"] .spread-toggle-btn { display: inline-flex; }
+
+    /* Spread mode: two device-surfaces side by side. The left "verso"
+     * may be empty for page 1 (which sits alone on the recto).  */
+    .pane-print.spread-mode .device-pages {
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .pane-print.spread-mode .device-pages .device-surface {
+      display: block;
+    }
+    .pane-print.spread-mode .device-pages .device-surface.spread-hidden {
+      display: none;
+    }
+    /* Empty placeholder for the verso when page 1 sits alone on recto. */
+    .pane-print.spread-mode .device-pages::before {
+      content: '';
+      display: none;
+      width: var(--print-page-w);
+      height: var(--print-page-h);
+      background: rgba(255,255,255,0.04);
+      border: 1px dashed rgba(255,255,255,0.12);
+      flex-shrink: 0;
+    }
+    .pane-print.spread-mode[data-spread-lonely-recto="1"] .device-pages::before {
+      display: block;
+    }
+
     .pane-stage {
       display: flex;
       flex-direction: column;
@@ -1110,20 +1258,83 @@ function buildWebviewHtml(
       margin-top: 0 !important;
     }
 
-    /* ── Print 6×9 pane ──────────────────────────────────────────── */
+    /* ── Print pane ──────────────────────────────────────────────── */
     /* Vellum-style: white page floating on a dark neutral surround.
-     * Generous side padding so the page isn't clamped to the panel edge. */
+     * Page dimensions are driven by --print-page-w / --print-page-h
+     * CSS variables so picture-book trims (8×10 portrait, 8.5×8.5
+     * square) render with the correct shape. Defaults to 6×9. */
+    :root {
+      --print-page-w: 576px;   /* 6in × 96dpi  */
+      --print-page-h: 864px;   /* 9in × 96dpi  */
+      --print-page-padding: 72px;
+    }
+    body.book-picture[data-trim="8x10"] {
+      --print-page-w: 768px;   /* 8in  × 96dpi */
+      --print-page-h: 960px;   /* 10in × 96dpi */
+      --print-page-padding: 48px;
+    }
+    body.book-picture[data-trim="8.5x8.5"] {
+      --print-page-w: 816px;   /* 8.5in × 96dpi — square */
+      --print-page-h: 816px;
+      --print-page-padding: 48px;
+    }
     .pane-print .pane-stage { background: #1e1e1e; padding: 56px 80px; }
     .pane-print .pane-stage-wrap { border-radius: 4px; }
     .pane-print .device-surface {
-      width: 576px;        /* 6 inch  × 96dpi */
-      height: 864px;       /* 9 inch  × 96dpi — exact 6:9 paperback */
-      padding: 72px;
+      width: var(--print-page-w);
+      height: var(--print-page-h);
+      padding: var(--print-page-padding);
       background: #ffffff;
       color: #111;
       font-size: 11pt;
     }
     .pane-print .device-surface .page-number { bottom: 36px; font-size: 10pt; color: #555; }
+    /* Picture-book: bleed pages claim the full surface, no padding. */
+    body.book-picture .pane-print .device-surface.pb-bleed {
+      padding: 0;
+    }
+    body.book-picture .pane-print .device-surface.pb-bleed img.bleed,
+    body.book-picture .pane-print .device-surface.pb-bleed img.full-bleed,
+    body.book-picture .pane-print .device-surface.pb-bleed .bleed-page,
+    body.book-picture .pane-print .device-surface.pb-bleed .bleed-page img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    /* Picture-book text pages: vertical centre, larger type, no folio. */
+    body.book-picture .pane-print .device-surface.pb-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      font-size: 14pt;
+      line-height: 1.5;
+    }
+    body.book-picture .pane-print .device-surface.pb-text > p {
+      max-width: 24em;
+      margin: 0 0 1em 0;
+      text-indent: 0;
+    }
+    body.book-picture .pane-print .device-surface.pb-text > p:last-child { margin: 0; }
+    /* Side label for bleed pages so the writer can see at a glance
+     * which side each illustration falls on. */
+    body.book-picture .pane-print .device-surface.pb-bleed::before {
+      content: attr(data-side);
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 3px;
+      z-index: 5;
+      pointer-events: none;
+    }
 
     /* ── iPad Apple Books pane ───────────────────────────────────── */
     /* Dark iPad bezel surrounds the white page. iPad portrait is 4:3 (768×1024). */
@@ -1579,6 +1790,11 @@ function buildWebviewHtml(
     <button class="page-turn-btn" id="btn-prev-page" disabled>&#8249;</button>
     <button class="page-turn-btn" id="btn-next-page" disabled>&#8250;</button>
 
+    <!-- Spread-view toggle (print only) -->
+    <button class="spread-toggle-btn" id="btn-spread-toggle" title="Show pages as facing-page spreads">
+      <span id="spread-toggle-label">Spread</span>
+    </button>
+
     <!-- Print 6×9 -->
     <div class="preview-pane pane-print active-pane" id="pane-print">
       <div class="pane-stage-wrap">
@@ -1695,27 +1911,75 @@ function buildWebviewHtml(
       if (btnNext) btnNext.disabled = idx >= total - 1;
     }
 
+    let spreadMode = false;
+
     function showCurrentPage(device) {
       const pagesEl = document.getElementById('pages-' + device);
       if (!pagesEl) return;
       const idx = pageIndices[device];
-      Array.from(pagesEl.children).forEach((s, i) => {
-        s.classList.toggle('active-page', i === idx);
-      });
+      const printPane = document.getElementById('pane-print');
+      if (device === 'print' && spreadMode) {
+        // Spread layout: page index 0 (book page 1) sits ALONE on the
+        // recto with an empty verso to its left. Otherwise the spread
+        // is [verso, recto] = [evenIdx-1, evenIdx] when idx is odd, or
+        // [idx-1, idx] when idx is even (and > 0).
+        let leftIdx, rightIdx;
+        if (idx === 0) { leftIdx = -1; rightIdx = 0; }
+        else if (idx % 2 === 1) { leftIdx = idx; rightIdx = idx + 1; }
+        else { leftIdx = idx - 1; rightIdx = idx; }
+        Array.from(pagesEl.children).forEach((s, i) => {
+          const visible = i === leftIdx || i === rightIdx;
+          s.classList.toggle('spread-hidden', !visible);
+          // active-page is unused in spread mode but kept consistent.
+          s.classList.toggle('active-page', i === idx);
+        });
+        if (printPane) printPane.dataset.spreadLonelyRecto = idx === 0 ? '1' : '0';
+      } else {
+        Array.from(pagesEl.children).forEach((s, i) => {
+          s.classList.toggle('active-page', i === idx);
+          s.classList.remove('spread-hidden');
+        });
+        if (printPane) printPane.dataset.spreadLonelyRecto = '0';
+      }
       if (device === currentDevice) updatePageNav();
     }
 
     function goToPage(idx) {
       const pagesEl = document.getElementById('pages-' + currentDevice);
       const total = pagesEl ? pagesEl.children.length : 0;
+      // In spread mode on the print pane, snap navigation to spread
+      // boundaries so prev/next moves whole spreads, not single pages.
+      if (currentDevice === 'print' && spreadMode) {
+        const cur = pageIndices.print;
+        if (idx > cur) {
+          // forward: from page 0 → 1; from any other → next-spread-left (odd)
+          idx = cur === 0 ? 1 : cur + 2;
+        } else if (idx < cur) {
+          // backward: into prev spread's verso (the left page)
+          idx = cur <= 1 ? 0 : (cur % 2 === 0 ? cur - 3 : cur - 2);
+        }
+      }
       pageIndices[currentDevice] = Math.max(0, Math.min(idx, total - 1));
       showCurrentPage(currentDevice);
       scalePanes();
     }
 
+    function setSpreadMode(on) {
+      spreadMode = !!on;
+      const printPane = document.getElementById('pane-print');
+      if (printPane) printPane.classList.toggle('spread-mode', spreadMode);
+      const lbl = document.getElementById('spread-toggle-label');
+      if (lbl) lbl.textContent = spreadMode ? 'Single' : 'Spread';
+      showCurrentPage(currentDevice);
+      scheduleScale();
+    }
+    const btnSpread = document.getElementById('btn-spread-toggle');
+    if (btnSpread) btnSpread.addEventListener('click', () => { setSpreadMode(!spreadMode); persist(); });
+
     const DEVICE_LABELS = { print: 'Print 6×9', ipad: 'iPad', kindle: 'Kindle' };
     function switchDevice(device) {
       currentDevice = device;
+      document.body.dataset.activeDevice = device;
       document.querySelectorAll('.preview-pane').forEach(p => {
         p.classList.toggle('active-pane', p.id === 'pane-' + device);
       });
@@ -1770,6 +2034,60 @@ function buildWebviewHtml(
         const p = newPage();
         p.innerHTML = '<div class="empty-state"><p><em>No content yet.</em></p></div>';
         pagesEl.appendChild(p);
+        return;
+      }
+
+      // Picture-book mode: each top-level <section class="pb-page"> or
+      // <div class="bleed-page"> already maps 1:1 to a printed page in
+      // the compiled book. Render them the same way in the preview —
+      // one source block per device-surface — so the writer sees the
+      // exact pagination they'll get on press. Skip the scroll-height
+      // spill that we use for novels.
+      const isPictureBook = document.body.classList.contains('book-picture');
+      if (isPictureBook && pagesEl.id === 'pages-print') {
+        let first = true;
+        for (const child of children) {
+          const isPb = child.nodeType === 1 && (
+            (child.classList && (child.classList.contains('pb-page') || child.classList.contains('bleed-page')))
+          );
+          if (!isPb) continue;  // skip stray nodes (whitespace text, etc.)
+          const page = newPage();
+          if (first) { page.classList.add('active-page'); first = false; }
+          if (child.classList.contains('bleed-page')) {
+            page.classList.add('pb-bleed');
+            // Surface the recto/verso side as a label badge.
+            const side = child.classList.contains('recto')
+              ? 'Recto'
+              : child.classList.contains('verso')
+              ? 'Verso'
+              : 'Bleed';
+            page.setAttribute('data-side', side);
+            // The bleed-page wrapper itself becomes the surface content.
+            page.appendChild(child);
+          } else {
+            page.classList.add('pb-text');
+            // Move the inner children of pb-page into the surface so
+            // the centring + max-width rules apply directly to <p>.
+            while (child.firstChild) page.appendChild(child.firstChild);
+          }
+          pagesEl.appendChild(page);
+        }
+        if (!pagesEl.children.length) {
+          const p = newPage();
+          p.innerHTML = '<div class="empty-state"><p><em>No content yet.</em></p></div>';
+          pagesEl.appendChild(p);
+        }
+        // Page numbers on text pages only (bleed pages stay clean).
+        const pages = pagesEl.children;
+        for (let i = 0; i < pages.length; i++) {
+          const surface = pages[i];
+          if (surface.classList.contains('pb-bleed')) continue;
+          if (surface.querySelector('.empty-state')) continue;
+          const num = document.createElement('div');
+          num.className = 'page-number';
+          num.textContent = String(i + 1);
+          surface.appendChild(num);
+        }
         return;
       }
 
@@ -1852,7 +2170,25 @@ function buildWebviewHtml(
       kindle: { natW: 540 + 28,  natPageH: 720,  natPadH: 216 }, // 14×2; 96 top + 120 bottom (Kindle chin)
     };
 
+    // For picture-book mode the print pane page size is driven by CSS
+    // variables (--print-page-w / --print-page-h) that change with the
+    // configured trim. Recompute the print PANE_DIMS from those vars so
+    // scaling fits the actual square / 8×10 page rather than 6×9.
+    function refreshPrintPaneDims() {
+      const root = document.documentElement;
+      const cs = getComputedStyle(root);
+      const w = parseFloat(cs.getPropertyValue('--print-page-w')) || 576;
+      const h = parseFloat(cs.getPropertyValue('--print-page-h')) || 864;
+      // Spread mode shows two pages side by side: double the natural
+      // width (plus a small gap) so scaling fits both surfaces.
+      const widthMul = spreadMode ? 2 : 1;
+      const gap = spreadMode ? 4 : 0;
+      PANE_DIMS.print.natW = Math.round(w * widthMul + gap + 160);
+      PANE_DIMS.print.natPageH = Math.round(h);
+    }
+
     function scalePanes() {
+      refreshPrintPaneDims();
       const layout = document.querySelector('.preview-layout');
       if (!layout) return;
       // clientWidth INCLUDES the layout's CSS padding, so subtract it to
@@ -2235,6 +2571,9 @@ function buildWebviewHtml(
       if (msg && msg.type === 'update') {
         sourceBuffer.innerHTML = msg.html || '';
         filenameEl.textContent = msg.fileName || '—';
+        document.body.classList.toggle('book-picture', msg.bookType === 'picture-book');
+        if (msg.trim) document.body.setAttribute('data-trim', msg.trim);
+        else document.body.removeAttribute('data-trim');
         repaginateAll();
         return;
       }

@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer, useState } from 'react'
-import { Trash2, ExternalLink, RotateCcw, FileImage, Plus } from 'lucide-react'
+import { Trash2, ExternalLink, RotateCcw, FileImage, Plus, Upload } from 'lucide-react'
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void }
 const vscode = acquireVsCodeApi()
@@ -279,9 +279,14 @@ export function App(): JSX.Element {
       <div className="illustrations-panel">
       <div className="il-header">
         <h1>Illustrations</h1>
-        <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
-          <Plus size={14} strokeWidth={2.25} /> {showForm ? 'Hide' : 'New'}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn-ghost" onClick={() => vscode.postMessage({ type: 'importImage' })} title="Import an existing image from your computer">
+            <Upload size={14} strokeWidth={2.25} /> Import
+          </button>
+          <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
+            <Plus size={14} strokeWidth={2.25} /> {showForm ? 'Hide' : 'New'}
+          </button>
+        </div>
       </div>
 
       <StyleBibleEditor

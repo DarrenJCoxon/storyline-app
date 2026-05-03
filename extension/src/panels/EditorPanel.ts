@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
 import * as fs from 'fs'
+import * as crypto from 'crypto'
 import { WordCountStatusBar, countWords } from '../editor/word-count.js'
 import { classifyDocumentRole } from '../editor/manuscript-path.js'
 import { getChapterTitle, setChapterTitle, humanizeFilename } from '../editor/chapter-titles.js'
@@ -77,6 +78,7 @@ export class EditorPanel {
 
     const font = this.context.globalState.get<'serif' | 'sans'>('storyline.editorFont', 'serif')
     const projectMode = this.readProjectMode()
+    const bookType = this.readBookType()
 
     // Set the webview's base URL to the chapter's directory so relative
     // image paths in markdown (e.g. ../assets/foo.png) resolve correctly.
@@ -109,6 +111,7 @@ export class EditorPanel {
         restoreScrollY: initialLoadSent ? null : savedScrollY,
         font,
         projectMode,
+        bookType,
         chapterTitle,
         chapterTitleDefault,
       })
@@ -285,6 +288,61 @@ export class EditorPanel {
         setChapterTitle(wsRootFsPath, relPath, msg.title)
         return
       }
+
+      if (msg.type === 'importImageFromEditor' && typeof msg.dataBase64 === 'string') {
+        // Webview can't write to disk, so we accept the image bytes here,
+        // strip EXIF, save into assets/illustrations/, and reply with the
+        // chapter-relative markdown reference for the editor to insert.
+        const projectDir = wsRootFsPath
+        if (!projectDir) return
+        try {
+          const ext = (typeof msg.ext === 'string' ? msg.ext.toLowerCase() : '.png').replace(/^\.jpeg$/, '.jpg')
+          const safeExt = /^\.(jpg|png|webp)$/.test(ext) ? ext : '.png'
+          const buf = Buffer.from(msg.dataBase64 as string, 'base64')
+          const hash = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 8)
+          const baseName = (typeof msg.suggestedName === 'string' ? msg.suggestedName : 'pasted')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'pasted'
+          const filename = `${Date.now()}-${baseName}-${hash}${safeExt}`
+          const targetDir = path.join(projectDir, 'assets', 'illustrations')
+          fs.mkdirSync(targetDir, { recursive: true })
+          const targetPath = path.join(targetDir, filename)
+
+          // Strip EXIF + downscale, falling back to a raw write if sharp
+          // isn't available on this platform.
+          try {
+            const { default: sharp } = await import('sharp') as { default: typeof import('sharp') }
+            const meta = await sharp(buf).metadata()
+            const longest = Math.max(meta.width ?? 0, meta.height ?? 0)
+            const pipe = sharp(buf, { failOn: 'none' }).rotate()
+            if (longest > 4000) {
+              const fit = (meta.width ?? 0) >= (meta.height ?? 0) ? { width: 4000 } : { height: 4000 }
+              pipe.resize(fit)
+            }
+            if (safeExt === '.png') await pipe.png().toFile(targetPath)
+            else if (safeExt === '.webp') await pipe.webp({ quality: 92 }).toFile(targetPath)
+            else await pipe.jpeg({ quality: 92, mozjpeg: true }).toFile(targetPath)
+          } catch {
+            fs.writeFileSync(targetPath, buf)
+          }
+
+          const chapterDir = path.dirname(document.uri.fsPath)
+          const relImg = path.relative(chapterDir, targetPath).split(path.sep).join('/')
+          panel.webview.postMessage({
+            type: 'imageImported',
+            requestId: msg.requestId,
+            src: relImg,
+            absolutePath: targetPath,
+            filename,
+          })
+        } catch (err) {
+          panel.webview.postMessage({
+            type: 'imageImportFailed',
+            requestId: msg.requestId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
+        return
+      }
     })
   }
 
@@ -297,6 +355,18 @@ export class EditorPanel {
       return state?.mode === 'nonfiction' ? 'nonfiction' : 'fiction'
     } catch {
       return 'fiction'
+    }
+  }
+
+  private readBookType(): 'novel' | 'picture-book' {
+    const folders = vscode.workspace.workspaceFolders
+    if (!folders?.length) return 'novel'
+    try {
+      const cfgPath = path.join(folders[0].uri.fsPath, 'compile.config.json')
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'))
+      return cfg?.bookType === 'picture-book' ? 'picture-book' : 'novel'
+    } catch {
+      return 'novel'
     }
   }
 
