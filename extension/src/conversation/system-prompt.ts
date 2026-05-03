@@ -77,7 +77,7 @@ export function buildSystemPrompt(stageId: string, state: ProjectState): string 
   // currentState. The skill above already tells the AI how to use this.
   const stageInfoBlock = buildStageInfoBlock(stageId, state)
 
-  const stateBlock = '```json\n' + JSON.stringify(stripStateForPrompt(state), null, 2) + '\n```'
+  const stateBlock = '```json\n' + JSON.stringify(stateForStage(stageId, state), null, 2) + '\n```'
 
   // Trigger-based reference docs — only side-loaded when the active stage
   // actually needs them. Mirrors the original harness's CLI pattern where
@@ -289,14 +289,82 @@ function hasPersonaBeenIntroduced(currentStageId: string, state: ProjectState): 
     .some(([id]) => getPersonaForStage(id)?.name === current.name)
 }
 
-function stripStateForPrompt(state: ProjectState): Record<string, unknown> {
-  const { _meta, ...rest } = state as unknown as Record<string, unknown>
-  return rest
+// ─── Stage-scoped state injection ────────────────────────────────────────────
+//
+// Instead of dumping the entire project state on every turn (1,000–5,000 tokens
+// of raw JSON including null fields for incomplete stages), we inject only the
+// fields the active stage actually needs, then strip null/empty values.
+//
+// Always included regardless of stage: mode, pipeline, subMode, bookType,
+// stages (completion tracking) — the skill needs these everywhere.
+//
+// Fiction stages: a relevance map controls which top-level keys are included.
+// NF stages:      all bookDna + nfStages (after null stripping) — DNA context
+//                 is load-bearing for every pipeline stage.
+
+const ALWAYS_INCLUDE: ReadonlyArray<string> = [
+  'mode', 'pipeline', 'subMode', 'bookType', 'stages',
+]
+
+const FICTION_STAGE_FIELDS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  genre:          ['genre'],
+  premise:        ['genre', 'premise'],
+  protagonist:    ['genre', 'premise', 'protagonist'],
+  characters:     ['genre', 'premise', 'protagonist', 'characters'],
+  relationships:  ['protagonist', 'characters'],
+  logline:        ['genre', 'premise', 'protagonist', 'characters', 'logline'],
+  beatSheet:      ['genre', 'premise', 'protagonist', 'characters', 'logline', 'beatSheet'],
+  bStory:         ['protagonist', 'characters', 'beatSheet', 'bStory'],
+  subplots:       ['protagonist', 'beatSheet', 'bStory', 'subplots'],
+  sceneOutline:   ['premise', 'protagonist', 'beatSheet', 'bStory', 'subplots', 'sceneOutline'],
+  plotThreads:    ['characters', 'beatSheet', 'sceneOutline', 'plotThreads'],
+  chapterOutline: ['beatSheet', 'sceneOutline', 'plotThreads', 'chapterOutline'],
+  critique:       ['genre', 'premise', 'protagonist', 'characters', 'logline', 'beatSheet', 'bStory', 'subplots', 'sceneOutline'],
+  masterDoc:      ['genre', 'premise', 'protagonist', 'characters', 'logline', 'beatSheet', 'bStory', 'subplots', 'sceneOutline', 'plotThreads', 'chapterOutline'],
 }
 
-function listCompleted(state: ProjectState): string {
-  const completed = Object.entries(state.stages ?? {})
-    .filter(([, v]) => v?.completed)
-    .map(([k]) => k)
-  return completed.length ? completed.join(', ') : 'none yet'
+// NF stage prefixes — dna-, pa-, pb-, pc-, ac- and the unprefixed academic DNA stages
+function isNfStage(stageId: string): boolean {
+  return /^(dna-|pa-|pb-|pc-|ac-)/.test(stageId)
+}
+
+function stateForStage(stageId: string, state: ProjectState): Record<string, unknown> {
+  const raw = state as unknown as Record<string, unknown>
+  const result: Record<string, unknown> = {}
+
+  for (const key of ALWAYS_INCLUDE) {
+    if (raw[key] != null) result[key] = raw[key]
+  }
+
+  const isNf = raw['mode'] === 'nonfiction' || isNfStage(stageId)
+  const extraKeys: ReadonlyArray<string> = isNf
+    ? ['bookDna', 'nfStages']
+    : (FICTION_STAGE_FIELDS[stageId] ?? (Object.keys(raw) as string[]))
+
+  for (const key of extraKeys) {
+    if (raw[key] != null) result[key] = raw[key]
+  }
+
+  return compactJson(result) as Record<string, unknown>
+}
+
+// Strip null, undefined, empty string, and empty arrays/objects so the JSON
+// the AI sees contains only data that was actually entered by the writer.
+// Keeps false and 0 — those are meaningful values.
+function compactJson(value: unknown): unknown {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'string') return value.trim() === '' ? undefined : value
+  if (Array.isArray(value)) {
+    const items = value.map(compactJson).filter(v => v !== undefined)
+    return items.length === 0 ? undefined : items
+  }
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      const cv = compactJson(v)
+      if (cv !== undefined) out[k] = cv
+    }
+    return Object.keys(out).length === 0 ? undefined : out
+  }
+  return value
 }
