@@ -478,6 +478,11 @@ export function App() {
   }, [send])
 
   const handleStop = useCallback(() => {
+    // Immediately clear the streaming state locally so the input box
+    // unlocks and the stop button becomes a send button right away.
+    // The extension host will also send streamEnd when the loop breaks,
+    // but that arrives later; this local dispatch removes the latency.
+    dispatch({ type: 'STREAM_END' })
     send({ type: 'stop' })
   }, [send])
 
