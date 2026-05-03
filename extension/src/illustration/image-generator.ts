@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as vscode from 'vscode'
 import type { LicenceManager } from '../auth/licence.js'
 import { reportError } from '../ai/error-reporter.js'
+import { logInfo, logWarn, logError } from '../diagnostic-log.js'
 import { updateCreditBalance } from '../credits/credit-display.js'
 
 export interface GenerateImageOptions {
@@ -104,7 +105,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
     }
   }
 
-  console.log('[Storyline] generateImage →', opts.backendUrl, '/illustrate', {
+  logInfo('[Storyline] generateImage →', opts.backendUrl, '/illustrate', {
     promptLen: opts.prompt?.length ?? 0,
     width: opts.width ?? COVER_W,
     height: opts.height ?? COVER_H,
@@ -132,18 +133,18 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
     })
   } catch (netErr) {
     const msg = netErr instanceof Error ? netErr.message : String(netErr)
-    console.error('[Storyline] /illustrate network error:', netErr)
+    logError('[Storyline] /illustrate network error:', netErr)
     reportError({ endpoint: 'illustrate', statusCode: 0, message: `network: ${msg}`, licenceKey })
-    throw new Error(`Cannot reach backend at ${opts.backendUrl}. Is wrangler dev running?`)
+    throw new Error(`Cannot reach Storyline servers. Check your internet connection and try again.`)
   }
 
-  console.log('[Storyline] /illustrate response:', res.status, res.statusText)
+  logInfo('[Storyline] /illustrate response:', res.status, res.statusText)
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     let err: { error?: string }
     try { err = JSON.parse(text) } catch { err = { error: text || `HTTP ${res.status}` } }
-    console.error('[Storyline] /illustrate failed:', res.status, err)
+    logError('[Storyline] /illustrate failed:', res.status, err)
     reportError({ endpoint: 'illustrate', statusCode: res.status, message: err.error || text || `HTTP ${res.status}`, licenceKey })
 
     // Free-tier-no-images is a known 402 path — show a Top Up Credits action
@@ -204,14 +205,14 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
         .jpeg({ quality: 95 })
         .toBuffer()
       finalBuffer = Buffer.from(resized)
-      console.log(`[Storyline] sharp resized ${srcW}×${srcH} → ${targetW}×${targetH} (aspect match)`)
+      logInfo(`[Storyline] sharp resized ${srcW}×${srcH} → ${targetW}×${targetH} (aspect match)`)
     } else {
       // Aspect mismatch: do NOT crop (would chop the cover content off).
       // Save the raw model output as-is so the user can see it, plus
       // surface a warning so they know to regenerate.
       finalBuffer = rawBuffer
       aspectWarning = `Model returned ${srcW}×${srcH} (${srcRatio.toFixed(2)} ratio) but you requested ${targetW}×${targetH} (${targetRatio.toFixed(2)} ratio). Saved as-is — regenerate to try again.`
-      console.warn(`[Storyline] aspect mismatch: ${aspectWarning}`)
+      logWarn(`[Storyline] aspect mismatch: ${aspectWarning}`)
     }
   } catch (sharpErr) {
     const msg = sharpErr instanceof Error ? sharpErr.message : String(sharpErr)
@@ -220,7 +221,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
 
   fs.writeFileSync(absPath, finalBuffer)
   if (aspectWarning) {
-    console.warn('[Storyline] saved with aspect warning:', absPath)
+    logWarn('[Storyline] saved with aspect warning:', absPath)
   }
 
   // Refresh the credit indicator after a successful generation so the

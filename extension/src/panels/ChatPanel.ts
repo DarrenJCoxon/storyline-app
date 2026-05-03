@@ -26,7 +26,7 @@ import { updateCreditBalance } from '../credits/credit-display.js'
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
 const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
 import { ManagedProvider } from '../ai/managed-provider.js'
-import { logInfo, logError } from '../diagnostic-log.js'
+import { logInfo, logWarn, logError } from '../diagnostic-log.js'
 import type { AIProvider, Message } from '../ai/provider.js'
 import { getQualityMode } from '../ai/quality-config.js'
 
@@ -109,7 +109,7 @@ export class ChatPanel {
       await this._handleWebviewReady()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Storyline] handleWebviewReady threw:', err)
+      logError('[Storyline] handleWebviewReady threw:', err)
       this.post({ type: 'streamError', message: `Startup error: ${msg}` })
     }
   }
@@ -158,8 +158,8 @@ export class ChatPanel {
       }
     }
 
-    if (!this.store) { this.post({ type: 'error', message: 'DEBUG: store is null — no workspace folder open' }); return }
-    if (!this.provider) { this.post({ type: 'error', message: 'DEBUG: provider is null — licence validation failed' }); return }
+    if (!this.store) { this.post({ type: 'error', message: 'No workspace folder is open. Open your project folder and try again.' }); return }
+    if (!this.provider) { this.post({ type: 'error', message: 'Licence validation failed. Try running Storyline: Activate Licence from the command palette.' }); return }
 
     const licenceInfo = await this.licenceManager.validate({ useCache: true })
     const state = await this.store.read()
@@ -186,10 +186,10 @@ export class ChatPanel {
       providerName: this.getProviderName(licenceInfo),
     })
 
-    console.log('[Storyline] ready: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
+    logInfo('[Storyline] ready: stage =', currentStage?.id, 'mode =', state.mode, 'provider =', this.provider?.id)
 
     if (!currentStage) {
-      this.post({ type: 'error', message: `DEBUG: no active stage (mode=${state.mode ?? 'unset'})` })
+      this.post({ type: 'error', message: `No active stage found. Try restarting the Storyline panel.` })
       return
     }
 
@@ -215,7 +215,7 @@ export class ChatPanel {
           await this.handleUserMessage(msg.text as string)
         } catch (err) {
           const m = err instanceof Error ? err.message : String(err)
-          console.error('[Storyline] handleUserMessage threw:', err)
+          logError('[Storyline] handleUserMessage threw:', err)
           this.post({ type: 'streamError', message: m })
         }
         break
@@ -356,7 +356,7 @@ export class ChatPanel {
       const artefacts = discoverPlanningArtefacts(state, plan, projectDir)
       this.post({ type: 'planningComplete', artefacts })
     } catch (err) {
-      console.warn('[Storyline] postPlanningCompleteCard failed', err)
+      logWarn('[Storyline] postPlanningCompleteCard failed', err)
       this.post({ type: 'streamError', message: 'All planning stages are complete — time to start writing the book.' })
     }
   }
@@ -656,7 +656,7 @@ export class ChatPanel {
           pipeline: 'academic',
           ...(bookType ? { bookType } : {}),
         } as Partial<ProjectState>
-        console.log('[Storyline] dna-category: academic — setting pipeline → academic, bookType →', bookType)
+        logInfo('[Storyline] dna-category: academic — setting pipeline → academic, bookType →', bookType)
       }
     }
 
@@ -669,7 +669,7 @@ export class ChatPanel {
       const confirmed = stageData?.confirmedPipeline as string | undefined
       if (confirmed === 'A' || confirmed === 'B' || confirmed === 'C' || confirmed === 'academic') {
         normalizedPatch = { ...normalizedPatch, pipeline: confirmed } as Partial<ProjectState>
-        console.log('[Storyline] dna-consolidate: setting pipeline →', confirmed)
+        logInfo('[Storyline] dna-consolidate: setting pipeline →', confirmed)
       }
     }
 
@@ -683,7 +683,7 @@ export class ChatPanel {
     if (stageId !== 'mode') {
       const gate = gateStageSave(stageId, newState)
       if (!gate.complete) {
-        console.warn('[Storyline] Save gated — incomplete fields for', stageId, ':', gate.missing)
+        logWarn('[Storyline] Save gated — incomplete fields for', stageId, ':', gate.missing)
         this.post({ type: 'saveGated', stageId, missing: gate.missing })
         // Stage not yet complete — stay on the same stage. But keep docs and
         // memory in sync with state.json so all three stores remain consistent
@@ -692,10 +692,10 @@ export class ChatPanel {
         const pd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
         if (pd) {
           writeStageDoc(stageId, newState, pd)
-            .catch(err => console.warn('[Storyline] writeStageDoc (partial) failed', err))
+            .catch(err => logWarn('[Storyline] writeStageDoc (partial) failed', err))
         }
         pushToMemory(stageId, normalizedPatch as Record<string, unknown>)
-          .then(r => console.log(`[Storyline] memory (partial): ${stageId} → ${r.method}`))
+          .then(r => logInfo(`[Storyline] memory (partial): ${stageId} → ${r.method}`))
           .catch(() => { /* non-fatal */ })
         return
       }
@@ -709,12 +709,12 @@ export class ChatPanel {
     // Await the memory push so we can surface the result to the webview.
     // pushToMemory itself never throws — it returns { method, error? }.
     pushToMemory(stageId, normalizedPatch).then(result => {
-      console.log(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
+      logInfo(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
       this.post({ type: 'memoryStored', stageId, method: result.method, error: result.error })
-    }).catch(err => console.warn('[Storyline] pushToMemory threw', err))
+    }).catch(err => logWarn('[Storyline] pushToMemory threw', err))
 
     const stageName = stageOrderFor(finalState).find(s => s.id === stageId)?.name ?? stageId
-    console.log(`[Storyline] stage SAVED: ${stageId} (${stageName}) — state.json updated`)
+    logInfo(`[Storyline] stage SAVED: ${stageId} (${stageName}) — state.json updated`)
     this.post({
       type: 'stageComplete',
       stageId,
@@ -735,11 +735,11 @@ export class ChatPanel {
       const plan = getWritingPlan(finalState)
       const defer = (label: string, fn: () => unknown): void => {
         void Promise.resolve().then(() => {
-          try { fn() } catch (err) { console.warn(`[Storyline] ${label} failed`, err) }
+          try { fn() } catch (err) { logWarn(`[Storyline] ${label} failed`, err) }
         })
       }
 
-      writeAllChapterCards(finalState, projectDir).catch(err => console.warn('[Storyline] writeAllChapterCards failed', err))
+      writeAllChapterCards(finalState, projectDir).catch(err => logWarn('[Storyline] writeAllChapterCards failed', err))
       defer('seedManuscriptFromPlan', () => seedManuscriptFromPlan(plan, projectDir))
 
       // Regenerate promise/payoff ledger after any chapter-outline or plot-thread save.
@@ -796,7 +796,7 @@ export class ChatPanel {
         })) })
       }
     } catch (err) {
-      console.warn('[Storyline] runStoryTraps failed', err)
+      logWarn('[Storyline] runStoryTraps failed', err)
     }
 
     // 2. Promise/payoff gaps (fiction only, after chapter-outline or plot-threads)
@@ -820,7 +820,7 @@ export class ChatPanel {
         }
       }
     } catch (err) {
-      console.warn('[Storyline] findFictionPromiseGaps failed', err)
+      logWarn('[Storyline] findFictionPromiseGaps failed', err)
     }
 
     // 3. Series detector (fiction only, after premise)
@@ -832,7 +832,7 @@ export class ChatPanel {
         }
       }
     } catch (err) {
-      console.warn('[Storyline] detectSeriesPotential failed', err)
+      logWarn('[Storyline] detectSeriesPotential failed', err)
     }
 
     // 3. Downstream impacts warning
@@ -842,14 +842,14 @@ export class ChatPanel {
         this.post({ type: 'downstreamImpacts', stageId, impacts })
       }
     } catch (err) {
-      console.warn('[Storyline] getDownstreamImpacts failed', err)
+      logWarn('[Storyline] getDownstreamImpacts failed', err)
     }
 
     // 4. Write stage doc
     if (projectDir) {
       writeStageDoc(stageId, finalState, projectDir)
-        .then(filePath => console.log(`[Storyline] stage doc: ${stageId} → ${filePath ?? '(no renderer)'}`))
-        .catch(err => console.warn('[Storyline] writeStageDoc failed', err))
+        .then(filePath => logInfo(`[Storyline] stage doc: ${stageId} → ${filePath ?? '(no renderer)'}`))
+        .catch(err => logWarn('[Storyline] writeStageDoc failed', err))
     }
 
     // 5. Model-backed critique (fire-and-forget — never blocks stage advance).
@@ -857,7 +857,7 @@ export class ChatPanel {
     // schema nags + auto-generated master-docs). Everything else fires the
     // backend critique endpoint at the tier the backend picks.
     void this.runCritique(stageId, finalState).catch(err => {
-      console.warn('[Storyline] runCritique threw', err)
+      logWarn('[Storyline] runCritique threw', err)
     })
 
     // ── Stage advance — MUST run, regardless of side-effect errors above.
@@ -865,12 +865,12 @@ export class ChatPanel {
     try {
       nextStage = deriveCurrentStage(finalState)
     } catch (err) {
-      console.error('[Storyline] deriveCurrentStage failed after save — aborting advance', err)
+      logError('[Storyline] deriveCurrentStage failed after save — aborting advance', err)
       this.post({ type: 'streamError', message: 'Could not determine next stage. Please reload the planning panel.' })
       return
     }
 
-    console.log('[Storyline] advance:', stageId, '→', nextStage?.id ?? '(none)')
+    logInfo('[Storyline] advance:', stageId, '→', nextStage?.id ?? '(none)')
 
     if (nextStage) {
       this.post({
@@ -913,7 +913,7 @@ export class ChatPanel {
     depth = 0,
   ): Promise<boolean> {
     if (depth >= ChatPanel.MAX_READ_DEPTH) {
-      console.warn('[Storyline] file_read: max depth reached, stopping')
+      logWarn('[Storyline] file_read: max depth reached, stopping')
       return false
     }
 
@@ -925,21 +925,21 @@ export class ChatPanel {
     const parts: string[] = []
     for (const relPath of requests) {
       if (path.isAbsolute(relPath) || relPath.split('/').includes('..')) {
-        console.warn('[Storyline] file_read rejected (unsafe path):', relPath)
+        logWarn('[Storyline] file_read rejected (unsafe path):', relPath)
         continue
       }
       const absPath = path.join(projectDir, relPath)
       if (!absPath.startsWith(projectDir + path.sep) && absPath !== projectDir) {
-        console.warn('[Storyline] file_read rejected (outside project):', relPath)
+        logWarn('[Storyline] file_read rejected (outside project):', relPath)
         continue
       }
       try {
         const content = fs.readFileSync(absPath, 'utf-8')
         parts.push(`[File: ${relPath}]\n\n${content}`)
-        console.log('[Storyline] file_read injected:', relPath, `(depth=${depth})`)
+        logInfo('[Storyline] file_read injected:', relPath, `(depth=${depth})`)
       } catch (err) {
         parts.push(`[File: ${relPath}]\n\n(File not found or unreadable)`)
-        console.warn('[Storyline] file_read failed:', relPath, err)
+        logWarn('[Storyline] file_read failed:', relPath, err)
       }
     }
 
@@ -974,12 +974,12 @@ export class ChatPanel {
     const writes = extractFileWrites(aiText)
     for (const { path: relPath, content } of writes) {
       if (path.isAbsolute(relPath) || relPath.split('/').includes('..')) {
-        console.warn('[Storyline] file_write rejected (unsafe path):', relPath)
+        logWarn('[Storyline] file_write rejected (unsafe path):', relPath)
         continue
       }
       const absPath = path.join(projectDir, relPath)
       if (!absPath.startsWith(projectDir + path.sep) && absPath !== projectDir) {
-        console.warn('[Storyline] file_write rejected (outside project):', relPath)
+        logWarn('[Storyline] file_write rejected (outside project):', relPath)
         continue
       }
 
@@ -988,11 +988,11 @@ export class ChatPanel {
       // bypass it. Planning docs (docs/, output/) are unrestricted.
       const decision = guardFileWrite(relPath, absPath, content)
       if (!decision.allowed) {
-        console.warn('[Storyline] file_write guarded:', relPath, '—', decision.reason)
+        logWarn('[Storyline] file_write guarded:', relPath, '—', decision.reason)
         this.post({ type: 'fileWriteBlocked', path: relPath, reason: decision.reason })
         const approved = await confirmWrite(relPath, decision.stats)
         if (!approved) {
-          console.log('[Storyline] file_write blocked by writer:', relPath)
+          logInfo('[Storyline] file_write blocked by writer:', relPath)
           continue
         }
       }
@@ -1000,17 +1000,17 @@ export class ChatPanel {
       try {
         await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
         await fs.promises.writeFile(absPath, content, 'utf-8')
-        console.log('[Storyline] file written:', relPath)
+        logInfo('[Storyline] file written:', relPath)
         this.post({ type: 'fileWritten', path: relPath })
       } catch (err) {
-        console.warn('[Storyline] file_write failed:', relPath, err)
+        logWarn('[Storyline] file_write failed:', relPath, err)
       }
     }
   }
 
   private async fireOpeningPrompt(stageId: string, state: ProjectState): Promise<void> {
     if (!this.provider) {
-      this.post({ type: 'error', message: `DEBUG: fireOpeningPrompt — provider null at stage ${stageId}` })
+      this.post({ type: 'error', message: `Storyline isn't connected yet. Try running Storyline: Activate Licence from the command palette.` })
       return
     }
 
@@ -1088,7 +1088,7 @@ export class ChatPanel {
         await this.licenceManager.clearCache()
         const key = await this.licenceManager.getLicenceKey()
         const isFree = isFreeKey(key)
-        console.error('[Storyline] /chat returned 401 for stored key prefix =', key?.slice(0, 12) ?? '(none)')
+        logError('[Storyline] /chat returned 401 for stored key prefix =', key?.slice(0, 12) ?? '(none)')
 
         // KV is eventually consistent across Cloudflare colos. A freshly
         // minted free-tier key occasionally takes a few seconds to be
@@ -1098,7 +1098,7 @@ export class ChatPanel {
         if (isFree && key) {
           await new Promise(r => setTimeout(r, 2500))
           const recheck = await this.licenceManager.validate({ useCache: false })
-          console.log('[Storyline] /chat 401 recheck validate =', recheck)
+          logInfo('[Storyline] /chat 401 recheck validate =', recheck)
           if (recheck.valid) {
             this.post({ type: 'streamError', message: 'One moment — syncing your free plan…' })
             // Caller is already inside fireOpeningPrompt; surfacing this
@@ -1157,7 +1157,7 @@ export class ChatPanel {
       hasLicenceKey: !!licenceKey,
     })
     if (skip.skip) {
-      console.log(`[Storyline] critique: skipped — ${skip.detail}`)
+      logInfo(`[Storyline] critique: skipped — ${skip.detail}`)
       return
     }
 
@@ -1170,7 +1170,7 @@ export class ChatPanel {
       try {
         const info = await this.licenceManager.validate({ useCache: true })
         if (info.valid && info.type !== 'byok' && info.creditBalance === 0) {
-          console.log(`[Storyline] critique: skipped — credits exhausted`)
+          logInfo(`[Storyline] critique: skipped — credits exhausted`)
           return
         }
       } catch {
@@ -1192,7 +1192,7 @@ export class ChatPanel {
       })
     } catch (err) {
       const action = interpretCritiqueNetworkError(err)
-      console.warn(`[Storyline] critique: network error for ${stageId}`, err)
+      logWarn(`[Storyline] critique: network error for ${stageId}`, err)
       if (action.action === 'stream-error') {
         this.post({ type: 'streamError', message: action.message })
       }
@@ -1201,7 +1201,7 @@ export class ChatPanel {
 
     if (!response.ok) {
       const bodyText = await response.text().catch(() => '')
-      console.warn(`[Storyline] critique: backend ${response.status} for ${stageId}${bodyText ? ' — ' + bodyText : ''}`)
+      logWarn(`[Storyline] critique: backend ${response.status} for ${stageId}${bodyText ? ' — ' + bodyText : ''}`)
       const action = interpretCritiqueHttpError({ status: response.status, bodyText })
       if (action.action === 'stream-error') {
         this.post({ type: 'streamError', message: action.message })
@@ -1214,10 +1214,10 @@ export class ChatPanel {
     const data = await response.json() as { findings?: string; tier?: string }
     const action = interpretCritiqueOk(data)
     if (action.action === 'card') {
-      console.log(`[Storyline] critique: ${stageId} → ${action.tier} (${action.findings.length} chars)`)
+      logInfo(`[Storyline] critique: ${stageId} → ${action.tier} (${action.findings.length} chars)`)
       this.post({ type: 'critiqueCard', findings: action.findings, tier: action.tier, stageId })
     } else {
-      console.log(`[Storyline] critique: ${stageId} returned no findings`)
+      logInfo(`[Storyline] critique: ${stageId} returned no findings`)
     }
   }
 
@@ -1261,22 +1261,22 @@ export class ChatPanel {
       // Regenerate the stage doc unconditionally — cheap file write, ensures
       // the doc always reflects the current state.json.
       writeStageDoc(stageId, state, projectDir)
-        .catch(err => console.warn('[Storyline] repair writeStageDoc failed:', stageId, err))
+        .catch(err => logWarn('[Storyline] repair writeStageDoc failed:', stageId, err))
 
       // Backfill memory only for stages not already logged.
       if (!memorisedIds.has(stageId)) {
         const stageData = (state as unknown as Record<string, unknown>)[stageId]
         if (stageData && typeof stageData === 'object') {
           await pushToMemory(stageId, stageData as Record<string, unknown>)
-            .then(r => console.log(`[Storyline] repair memory: ${stageId} → ${r.method}`))
-            .catch(err => console.warn('[Storyline] repair pushToMemory failed:', stageId, err))
+            .then(r => logInfo(`[Storyline] repair memory: ${stageId} → ${r.method}`))
+            .catch(err => logWarn('[Storyline] repair pushToMemory failed:', stageId, err))
           backfilled++
         }
       }
     }
 
     if (backfilled > 0) {
-      console.log(`[Storyline] repairStateSync: backfilled memory for ${backfilled} stage(s)`)
+      logInfo(`[Storyline] repairStateSync: backfilled memory for ${backfilled} stage(s)`)
     }
   }
 

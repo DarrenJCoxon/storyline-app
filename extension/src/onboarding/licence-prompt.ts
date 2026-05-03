@@ -3,6 +3,7 @@ import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
 import { postActivateOpenWorkspace } from './post-activate.js'
 import { updateCreditBalance } from '../credits/credit-display.js'
+import { logInfo, logError } from '../diagnostic-log.js'
 
 const SNOOZE_KEY = 'storyline.licencePromptSnoozedUntil'
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000 // 3 days
@@ -72,13 +73,13 @@ async function showKeyPrompt(
   if (choice === 'Enter Licence Key') {
     await promptForKey(context, manager)
   } else if (choice === 'Start free plan') {
-    console.log('[Storyline] licence-prompt: Start free plan chosen — calling /free-plan/issue at', backendUrl)
+    logInfo('[Storyline] licence-prompt: Start free plan chosen — calling /free-plan/issue at', backendUrl)
     try {
       const issued = await issueFreePlan(backendUrl)
-      console.log('[Storyline] licence-prompt: issued', issued.licenceKey, 'credits=', issued.creditBalance)
+      logInfo('[Storyline] licence-prompt: issued', issued.licenceKey, 'credits=', issued.creditBalance)
       await manager.setLicenceKey(issued.licenceKey)
       const info = await manager.validate({})
-      console.log('[Storyline] licence-prompt: validate result', info)
+      logInfo('[Storyline] licence-prompt: validate result', info)
       if (info.valid) {
         await context.globalState.update(SNOOZE_KEY, undefined)
         await context.globalState.update('storyline.freePlan', { active: true })
@@ -105,7 +106,7 @@ async function showKeyPrompt(
       // touch SecretStorage, so any pre-existing key (paid key, valid free
       // key from a prior install) is untouched. Wiping it would punish
       // users who clicked Start Free when rate-limited.
-      console.error('[Storyline] licence-prompt: failed', err)
+      logError('[Storyline] licence-prompt: failed', err)
       const raw = err instanceof Error ? err.message : String(err)
       const message = /429/.test(raw)
         ? 'Free plan limit reached for this network. Please try again later or enter a licence key.'

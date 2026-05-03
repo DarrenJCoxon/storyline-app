@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { scaffoldProject } from './project-scaffold.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
+import { logError } from '../diagnostic-log.js'
 import { WelcomePanel } from '../panels/WelcomePanel.js'
 import { scheduleExplorerFocusRetries } from '../editor/layout-init.js'
 
@@ -63,7 +64,7 @@ export async function postActivateOpenWorkspace(
   try {
     scaffoldProject(projectDir, folders[0].name)
   } catch (err) {
-    console.error('[Storyline] postActivate: scaffold failed', err)
+    logError('[Storyline] postActivate: scaffold failed', err)
   }
 
   // 2. Wipe stale conversation files so Reset & start over gets a clean
