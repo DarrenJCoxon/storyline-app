@@ -9,10 +9,26 @@ import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 // blunted conversion pressure.
 const FREE_PLAN_CREDITS = 150
 
+interface IssueRequestBody {
+  /** Stable per-VS-Code-install identifier (vscode.env.machineId).
+   *  When present, the same machineId always receives the same key on
+   *  repeat calls — prevents reinstall-to-farm-credits abuse without
+   *  requiring email verification. Optional for back-compat with
+   *  pre-machineId extension versions. */
+  machineId?: string
+}
+
 /**
  * Mint a per-install free-tier licence. Each first-run user gets their own
  * unique SL-FREE-XXXX-XXXX-XXXX key with its own credit pool (FREE_PLAN_CREDITS
  * above), so usage by one user can't deplete another's free plan.
+ *
+ * Anti-abuse stack (defence in depth — an attacker has to defeat all):
+ *   1. IP rate limit: 30 issuances per IP per day (existing).
+ *   2. machineId mapping: same machineId always returns the same key
+ *      — uninstall + reinstall doesn't farm a fresh 150 credits.
+ *   3. Held in reserve: Cloudflare Turnstile if scripted abuse becomes
+ *      measurable despite layers 1+2.
  */
 export async function handleFreePlanIssue(req: Request, env: Env): Promise<Response> {
   // Rate limit per IP — 30 free plans per IP per day. Reset & start over
@@ -22,6 +38,38 @@ export async function handleFreePlanIssue(req: Request, env: Env): Promise<Respo
   // scripted abuse from a single IP.
   const rl = await checkRateLimit(req, env, { prefix: 'rl:free-issue', max: 30, windowSecs: 86400 })
   if (rl.limited) return rateLimitedResponse(rl.retryAfter)
+
+  // Optional body — pre-machineId extension versions POST with no body,
+  // so JSON parse failures fall through to the legacy mint path rather
+  // than 400ing.
+  let body: IssueRequestBody = {}
+  try {
+    const raw = await req.text()
+    if (raw) body = JSON.parse(raw) as IssueRequestBody
+  } catch {
+    /* legacy clients — fall through with empty body */
+  }
+
+  const machineId = sanitiseMachineId(body.machineId)
+
+  // machineId guard: if this device has already received a key, return it.
+  // The user gets back into their existing balance instead of a fresh 150.
+  if (machineId) {
+    const existingKey = await env.LICENCES.get(`mid:${machineId}`)
+    if (existingKey) {
+      const existingRecord = await env.LICENCES.get<LicenceRecord>(existingKey, 'json')
+      if (existingRecord && existingRecord.valid) {
+        return json({
+          licenceKey: existingKey,
+          creditBalance: existingRecord.creditBalance,
+          reused: true,
+        })
+      }
+      // Mapping exists but record is gone or invalid — fall through to
+      // mint fresh and overwrite the mapping. Rare (manual KV cleanup,
+      // licence revocation), but safe.
+    }
+  }
 
   const licenceKey = generateFreeKey()
   const record: LicenceRecord = {
@@ -34,12 +82,27 @@ export async function handleFreePlanIssue(req: Request, env: Env): Promise<Respo
 
   try {
     await env.LICENCES.put(licenceKey, JSON.stringify(record))
+    if (machineId) {
+      await env.LICENCES.put(`mid:${machineId}`, licenceKey)
+    }
   } catch (e) {
     console.error('[/free-plan/issue] KV write failed:', e)
     return json({ error: 'Could not provision free plan — please try again.' }, 503)
   }
 
-  return json({ licenceKey, creditBalance: FREE_PLAN_CREDITS })
+  return json({ licenceKey, creditBalance: FREE_PLAN_CREDITS, reused: false })
+}
+
+/** Strip whitespace and clamp to 128 chars to bound KV-key length. Reject
+ *  anything that doesn't look like a hex/base32-ish identifier so we don't
+ *  store arbitrary user-supplied strings under our `mid:` namespace. */
+function sanitiseMachineId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  if (trimmed.length > 128) return null
+  if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) return null
+  return trimmed
 }
 
 function generateFreeKey(): string {

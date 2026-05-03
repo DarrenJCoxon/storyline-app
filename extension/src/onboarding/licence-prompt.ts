@@ -82,9 +82,14 @@ async function showKeyPrompt(
       if (info.valid) {
         await context.globalState.update(SNOOZE_KEY, undefined)
         await context.globalState.update('storyline.freePlan', { active: true })
-        void vscode.window.showInformationMessage(
-          `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`,
-        )
+        // Distinguish first-time activation from re-issue (reinstall picked
+        // up an existing machineId-mapped key). Reused keys keep whatever
+        // balance the user had already burned through — pretending they're
+        // fresh would mislead.
+        const message = issued.reused
+          ? `Welcome back — your free plan has ${info.creditBalance.toLocaleString()} credits remaining. Opening your planning chat…`
+          : `Free plan activated — ${info.creditBalance.toLocaleString()} credits ready. Opening your planning chat…`
+        void vscode.window.showInformationMessage(message)
         void updateCreditBalance(info.creditBalance, info.type)
         await postActivateOpenWorkspace(context, context.extensionUri)
       } else {
