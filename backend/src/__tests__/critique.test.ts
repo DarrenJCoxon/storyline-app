@@ -210,7 +210,7 @@ describe('POST /critique', () => {
     )
 
     const putCalls = (env.LICENCES.put as ReturnType<typeof vi.fn>).mock.calls
-    const deductCall = putCalls[0]
+    const deductCall = putCalls.find(([key]) => key === 'SL-GOOD')!
     const stored = JSON.parse(deductCall[1] as string) as { creditBalance: number }
     expect(stored.creditBalance).toBe(9) // 10 - 1
   })
@@ -225,7 +225,7 @@ describe('POST /critique', () => {
     )
 
     const putCalls = (env.LICENCES.put as ReturnType<typeof vi.fn>).mock.calls
-    const stored = JSON.parse(putCalls[0][1] as string) as { creditBalance: number }
+    const stored = JSON.parse(putCalls.find(([key]) => key === 'SL-GOOD')![1] as string) as { creditBalance: number }
     expect(stored.creditBalance).toBe(7) // 10 - 3
   })
 
@@ -239,7 +239,7 @@ describe('POST /critique', () => {
     )
 
     const putCalls = (env.LICENCES.put as ReturnType<typeof vi.fn>).mock.calls
-    const stored = JSON.parse(putCalls[0][1] as string) as { creditBalance: number }
+    const stored = JSON.parse(putCalls.find(([key]) => key === 'SL-GOOD')![1] as string) as { creditBalance: number }
     expect(stored.creditBalance).toBe(12) // 20 - 8
   })
 
@@ -253,7 +253,7 @@ describe('POST /critique', () => {
     )
 
     const putCalls = (env.LICENCES.put as ReturnType<typeof vi.fn>).mock.calls
-    const stored = JSON.parse(putCalls[0][1] as string) as { creditBalance: number }
+    const stored = JSON.parse(putCalls.find(([key]) => key === 'SL-GOOD')![1] as string) as { creditBalance: number }
     expect(stored.creditBalance).toBe(5) // 10 - 5
   })
 
@@ -272,12 +272,13 @@ describe('POST /critique', () => {
     const body = await res.json() as { error: string }
     expect(body.error).toContain('Upstream error 503')
 
-    // Two puts: first the deduction, second the refund
+    // Two licence puts: deduction then refund (rate-limit counter puts are interleaved but filtered out)
     const putCalls = (env.LICENCES.put as ReturnType<typeof vi.fn>).mock.calls
-    expect(putCalls.length).toBe(2)
+    const licencePuts = putCalls.filter(([key]) => key === 'SL-GOOD')
+    expect(licencePuts.length).toBe(2)
 
     // Refund restores original balance (10)
-    const refundStored = JSON.parse(putCalls[1][1] as string) as { creditBalance: number }
+    const refundStored = JSON.parse(licencePuts[1][1] as string) as { creditBalance: number }
     expect(refundStored.creditBalance).toBe(10)
   })
 

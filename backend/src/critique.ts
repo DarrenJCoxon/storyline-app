@@ -2,6 +2,7 @@ import type { Env, CritiqueRequest, LicenceRecord } from './types.js'
 import { reasoningEffortForTier, buildReasoningParam } from './reasoning.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
 import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
+import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -409,6 +410,9 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
     return new Response(null, { headers: CORS })
   }
 
+  const cl = req.headers.get('Content-Length')
+  if (cl && parseInt(cl, 10) > 524_288) return errJson('Request body too large (max 512 KB)', 413)
+
   let body: CritiqueRequest
   try {
     body = await req.json()
@@ -419,6 +423,14 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
   if (!body.licenceKey || !body.stageId || !body.state) {
     return errJson('licenceKey, stageId, and state are required', 400)
   }
+
+  // Per-key rate limit: 20 req/min (critique calls are expensive Opus calls;
+  // a legitimate session rarely fires more than 1-2 per stage).
+  const [rlKey, rlIp] = await Promise.all([
+    checkRateLimit(req, env, { prefix: 'rl:critique:key', max: 20, windowSecs: 60, id: body.licenceKey }),
+    checkRateLimit(req, env, { prefix: 'rl:critique:ip', max: 100, windowSecs: 60 }),
+  ])
+  if (rlKey.limited || rlIp.limited) return rateLimitedResponse(Math.max(rlKey.retryAfter, rlIp.retryAfter))
 
   // Validate licence
   let record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
@@ -463,7 +475,7 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
     ...(body.brief ? { brief: body.brief } : {}),
   })
 
-  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const upstream = await fetchWithRetry(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -480,7 +492,7 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
       stream: false,
       reasoning: buildReasoningParam(reasoningEffortForTier(tier)),
     }),
-  })
+  }))
 
   if (!upstream.ok) {
     // Refund — upstream failed before consuming tokens
@@ -519,6 +531,23 @@ export async function handleCritique(req: Request, env: Env): Promise<Response> 
       headers: { ...CORS, 'Content-Type': 'application/json' },
     },
   )
+}
+
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 500
+
+async function fetchWithRetry(factory: () => Promise<Response>): Promise<Response> {
+  let res!: Response
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    res = await factory()
+    if (res.status !== 429) return res
+    if (attempt < MAX_RETRIES) {
+      console.warn(`[/critique] 429 on attempt ${attempt}/${MAX_RETRIES} — retrying in ${RETRY_DELAY_MS}ms`)
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
+    }
+  }
+  console.warn(`[/critique] rate limited after ${MAX_RETRIES} retries`)
+  return res
 }
 
 function errJson(message: string, status: number): Response {

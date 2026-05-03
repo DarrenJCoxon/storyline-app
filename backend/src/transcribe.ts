@@ -1,6 +1,7 @@
 import type { Env, LicenceRecord } from './types.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
 import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
+import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,10 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
     return errJson('Transcription not configured on this server', 503)
   }
 
+  // 25 MB allows ~18 min of audio at 192 kbps (whisper-1 max is 25 MB)
+  const cl = req.headers.get('Content-Length')
+  if (cl && parseInt(cl, 10) > 26_214_400) return errJson('Request body too large (max 25 MB)', 413)
+
   let body: TranscribeBody
   try {
     body = await req.json()
@@ -29,6 +34,14 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
   if (!body.licenceKey || !body.audioBase64 || !body.mimeType) {
     return errJson('licenceKey, audioBase64, and mimeType are required', 400)
   }
+
+  // Per-key rate limit: 30 req/min. Transcription is a manual dictation flow;
+  // a real session rarely fires more than a few clips per minute.
+  const [rlKey, rlIp] = await Promise.all([
+    checkRateLimit(req, env, { prefix: 'rl:transcribe:key', max: 30, windowSecs: 60, id: body.licenceKey }),
+    checkRateLimit(req, env, { prefix: 'rl:transcribe:ip', max: 100, windowSecs: 60 }),
+  ])
+  if (rlKey.limited || rlIp.limited) return rateLimitedResponse(Math.max(rlKey.retryAfter, rlIp.retryAfter))
 
   let record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
   if (!record) record = getDevLicenceRecord(body.licenceKey, req.url, env)
@@ -73,11 +86,11 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
     oaiForm.append('prompt', body.projectContext)
   }
 
-  const oaiRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const oaiRes = await fetchWithRetry(() => fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
     body: oaiForm,
-  })
+  }))
 
   if (!oaiRes.ok) {
     // Refund credit on upstream failure
@@ -91,6 +104,23 @@ export async function handleTranscribe(req: Request, env: Env): Promise<Response
   return new Response(JSON.stringify({ text }), {
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
+}
+
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 500
+
+async function fetchWithRetry(factory: () => Promise<Response>): Promise<Response> {
+  let res!: Response
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    res = await factory()
+    if (res.status !== 429) return res
+    if (attempt < MAX_RETRIES) {
+      console.warn(`[/transcribe] 429 on attempt ${attempt}/${MAX_RETRIES} — retrying in ${RETRY_DELAY_MS}ms`)
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
+    }
+  }
+  console.warn(`[/transcribe] rate limited after ${MAX_RETRIES} retries`)
+  return res
 }
 
 function errJson(message: string, status: number): Response {

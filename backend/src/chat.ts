@@ -2,6 +2,7 @@ import type { Env, ChatRequest, LicenceRecord, OpenRouterUsage, DailyStats } fro
 import { reasoningEffortForStage, buildReasoningParam } from './reasoning.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
 import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
+import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,9 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
     return new Response(null, { headers: CORS })
   }
 
+  const cl = req.headers.get('Content-Length')
+  if (cl && parseInt(cl, 10) > 262_144) return errJson('Request body too large (max 256 KB)', 413)
+
   let body: ChatRequest
   try {
     body = await req.json()
@@ -23,6 +27,15 @@ export async function handleChat(req: Request, env: Env): Promise<Response> {
   if (!body.licenceKey || !body.messages || !body.stageId) {
     return errJson('licenceKey, messages, and stageId are required', 400)
   }
+
+  // Per-key rate limit: 60 req/min guards against a leaked or scripted key
+  // burning its full credit pool before the balance drains.
+  // Secondary IP limit: 200 req/min blocks single-host scripted attacks.
+  const [rlKey, rlIp] = await Promise.all([
+    checkRateLimit(req, env, { prefix: 'rl:chat:key', max: 60, windowSecs: 60, id: body.licenceKey }),
+    checkRateLimit(req, env, { prefix: 'rl:chat:ip', max: 200, windowSecs: 60 }),
+  ])
+  if (rlKey.limited || rlIp.limited) return rateLimitedResponse(Math.max(rlKey.retryAfter, rlIp.retryAfter))
 
   let record: LicenceRecord | null
   try {

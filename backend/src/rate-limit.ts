@@ -7,6 +7,9 @@ interface RateLimitOptions {
   max: number
   /** Window size in seconds */
   windowSecs: number
+  /** Explicit identifier to rate-limit by. Defaults to CF-Connecting-IP.
+   *  Pass a licence key to enforce per-key limits independently of IP. */
+  id?: string
 }
 
 interface RateLimitResult {
@@ -19,9 +22,9 @@ export async function checkRateLimit(
   env: Env,
   opts: RateLimitOptions,
 ): Promise<RateLimitResult> {
-  const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown'
+  const id = opts.id ?? (req.headers.get('CF-Connecting-IP') ?? 'unknown')
   const window = Math.floor(Date.now() / 1000 / opts.windowSecs)
-  const key = `${opts.prefix}:${ip}:${window}`
+  const key = `${opts.prefix}:${id}:${window}`
 
   const raw = await env.LICENCES.get(key)
   const count = raw ? parseInt(raw, 10) : 0

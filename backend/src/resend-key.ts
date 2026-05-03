@@ -131,6 +131,10 @@ function resendFormHtml(siteKey?: string, error?: string): string {
 </html>`
 }
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;')
+}
+
 function resendSuccessHtml(email: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -151,7 +155,7 @@ function resendSuccessHtml(email: string): string {
   <div class="card">
     <div class="check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
     <h1>Check your inbox</h1>
-    <p>If <strong style="color:#e8e8e8">${email}</strong> has a Storyline licence, the key is on its way. Check your spam folder if it doesn't arrive within a minute.</p>
+    <p>If <strong style="color:#e8e8e8">${escHtml(email)}</strong> has a Storyline licence, the key is on its way. Check your spam folder if it doesn't arrive within a minute.</p>
   </div>
 </body>
 </html>`

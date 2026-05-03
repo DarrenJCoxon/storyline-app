@@ -1,6 +1,7 @@
 import type { Env, IllustrateRequest, LicenceRecord } from './types.js'
 import { getDevLicenceRecord } from './dev-bypass.js'
 import { consumeCredits, InsufficientCreditsError } from './credit-batches.js'
+import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -27,6 +28,10 @@ const CREDITS_BY_QUALITY: Record<'low' | 'medium' | 'high', number> = {
 const IMAGE_CREDIT_COST = 100 // default for backward compat (cover)
 
 export async function handleIllustrate(req: Request, env: Env): Promise<Response> {
+  // 8 MB covers a multi-image reference payload (several base64 JPEGs)
+  const cl = req.headers.get('Content-Length')
+  if (cl && parseInt(cl, 10) > 8_388_608) return errJson('Request body too large (max 8 MB)', 413)
+
   let body: IllustrateRequest
   try {
     body = await req.json()
@@ -37,6 +42,14 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
   if (!body.licenceKey || !body.prompt) {
     return errJson('licenceKey and prompt are required', 400)
   }
+
+  // Per-key rate limit: 10 req/min. Image generation is slow and costly;
+  // a real session generates at most 2-4 images before pausing to review.
+  const [rlKey, rlIp] = await Promise.all([
+    checkRateLimit(req, env, { prefix: 'rl:illustrate:key', max: 10, windowSecs: 60, id: body.licenceKey }),
+    checkRateLimit(req, env, { prefix: 'rl:illustrate:ip', max: 40, windowSecs: 60 }),
+  ])
+  if (rlKey.limited || rlIp.limited) return rateLimitedResponse(Math.max(rlKey.retryAfter, rlIp.retryAfter))
 
   let record = await env.LICENCES.get<LicenceRecord>(body.licenceKey, 'json')
   if (!record) record = getDevLicenceRecord(body.licenceKey, req.url, env)
@@ -113,13 +126,13 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
         const bytes = base64ToBytes(ref.base64)
         form.append('image[]', new Blob([bytes], { type: 'image/jpeg' }), `ref-${i}-${ref.label ?? 'image'}.jpg`)
       })
-      upstream = await fetch('https://api.openai.com/v1/images/edits', {
+      upstream = await fetchWithRetry(() => fetch('https://api.openai.com/v1/images/edits', {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
         body: form,
-      })
+      }))
     } else {
-      upstream = await fetch('https://api.openai.com/v1/images/generations', {
+      upstream = await fetchWithRetry(() => fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +146,7 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
           n: 1,
           output_format: 'jpeg',
         }),
-      })
+      }))
     }
   } else {
     // ── Path B: OpenRouter fallback ─────────────────────────────────
@@ -179,7 +192,7 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
     if (body.size) upstreamBody.size = body.size
     if (body.aspectRatio) upstreamBody.aspect_ratio = body.aspectRatio
 
-    upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    upstream = await fetchWithRetry(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -188,7 +201,7 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
         'X-Title': 'Storyline',
       },
       body: JSON.stringify(upstreamBody),
-    })
+    }))
   }
 
   if (!upstream.ok) {
@@ -248,6 +261,23 @@ export async function handleIllustrate(req: Request, env: Env): Promise<Response
   return new Response(JSON.stringify({ imageDataUrl: imageUrl }), {
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
+}
+
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 500
+
+async function fetchWithRetry(factory: () => Promise<Response>): Promise<Response> {
+  let res!: Response
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    res = await factory()
+    if (res.status !== 429) return res
+    if (attempt < MAX_RETRIES) {
+      console.warn(`[/illustrate] 429 on attempt ${attempt}/${MAX_RETRIES} — retrying in ${RETRY_DELAY_MS}ms`)
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
+    }
+  }
+  console.warn(`[/illustrate] rate limited after ${MAX_RETRIES} retries`)
+  return res
 }
 
 function errJson(message: string, status: number): Response {
