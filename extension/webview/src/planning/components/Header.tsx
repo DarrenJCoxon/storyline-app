@@ -11,6 +11,10 @@ interface Props {
   onThemeChange: (mode: ThemeMode) => void
   onShowHistory: () => void
   onNewChat: () => void
+  /** Click-handler for the credit pill — opens the share-referral modal.
+   *  Optional: BYOK users have no balance to share against, so the pill
+   *  stays inert for them. */
+  onShareReferral?: () => void
   isStreaming: boolean
 }
 
@@ -46,7 +50,7 @@ const iconBtnStyle: React.CSSProperties = {
   lineHeight: 0,
 }
 
-export function Header({ creditInfo, activeStageIndex, stageCount, themeMode, onThemeChange, onShowHistory, onNewChat, isStreaming }: Props) {
+export function Header({ creditInfo, activeStageIndex, stageCount, themeMode, onThemeChange, onShowHistory, onNewChat, onShareReferral, isStreaming }: Props) {
   return (
     <header style={{
       display: 'flex',
@@ -64,17 +68,41 @@ export function Header({ creditInfo, activeStageIndex, stageCount, themeMode, on
       </span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{
-          fontSize: '11px',
-          color: 'var(--text-muted)',
-          background: 'var(--accent-sub)',
-          border: '1px solid rgba(201,168,76,0.18)',
-          borderRadius: '20px',
-          padding: '2px 8px',
-          fontVariantNumeric: 'tabular-nums',
-        }}>
-          {creditLabel(creditInfo, activeStageIndex, stageCount)}
-        </span>
+        {onShareReferral && creditInfo.type !== 'byok' ? (
+          <button
+            type="button"
+            onClick={onShareReferral}
+            title="Share Storyline — earn credits when friends join"
+            style={{
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              background: 'var(--accent-sub)',
+              border: '1px solid rgba(201,168,76,0.18)',
+              borderRadius: '20px',
+              padding: '2px 10px',
+              fontVariantNumeric: 'tabular-nums',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'background 150ms, border-color 150ms',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.45)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.18)' }}
+          >
+            {creditLabel(creditInfo, activeStageIndex, stageCount)}
+          </button>
+        ) : (
+          <span style={{
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            background: 'var(--accent-sub)',
+            border: '1px solid rgba(201,168,76,0.18)',
+            borderRadius: '20px',
+            padding: '2px 8px',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {creditLabel(creditInfo, activeStageIndex, stageCount)}
+          </span>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
           <button

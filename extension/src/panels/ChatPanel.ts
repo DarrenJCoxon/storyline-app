@@ -238,6 +238,23 @@ export class ChatPanel {
       case 'topUpCredits':
         await vscode.commands.executeCommand('storyline.topUpCredits')
         break
+      case 'getReferralStats':
+        void this.handleGetReferralStats()
+        break
+      case 'openExternal': {
+        const url = msg.url as string | undefined
+        if (url && /^https?:|^mailto:/.test(url)) {
+          void vscode.env.openExternal(vscode.Uri.parse(url))
+        }
+        break
+      }
+      case 'clipboardWrite': {
+        const text = msg.text as string | undefined
+        if (text) {
+          await vscode.env.clipboard.writeText(text)
+        }
+        break
+      }
       case 'openProjectFile': {
         // FIC-A.6: open an artefact path (relative to project root) from
         // the planning-complete card.
@@ -415,6 +432,28 @@ export class ChatPanel {
         void updateCreditBalance(info.creditBalance, info.type)
       }
     }).catch(() => { /* ignore */ })
+  }
+
+  /** Fetch /referral/stats and post it back to the share modal. Silent
+   *  on network failure — the modal stays in its loading state, which
+   *  is acceptable for a non-essential UI surface. */
+  private async handleGetReferralStats(): Promise<void> {
+    const key = await this.licenceManager.getLicenceKey()
+    if (!key) return
+    try {
+      const res = await fetch(`${getBackendUrl()}/referral/stats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenceKey: key }),
+      })
+      if (!res.ok) return
+      const stats = await res.json() as {
+        code: string; referralCount: number; creditsEarned: number; capRemaining: number
+      }
+      this.post({ type: 'referralStats', ...stats })
+    } catch {
+      /* leave modal in loading state */
+    }
   }
 
   private listAudioInputDevices(): string[] {

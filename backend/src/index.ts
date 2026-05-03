@@ -12,6 +12,7 @@ import { handleLogError } from './log-error.js'
 import { handleTerms, handlePrivacy } from './legal.js'
 import { handleRefund } from './refund.js'
 import { handleListBatches } from './list-batches.js'
+import { handleReferralStats } from './referral-stats.js'
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -45,6 +46,9 @@ export default {
     }
     if ((req.method === 'GET' || req.method === 'POST') && pathname === '/resend-key') {
       return handleResendKey(req, env)
+    }
+    if ((req.method === 'GET' || req.method === 'POST') && pathname === '/referral/stats') {
+      return handleReferralStats(req, env)
     }
 
     if (req.method !== 'POST') {

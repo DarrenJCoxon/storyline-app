@@ -22,6 +22,7 @@ import { ensureResearchFolder, ensurePlanningFolder, ensureWorkspaceFile } from 
 import { postActivateOpenWorkspace } from './onboarding/post-activate.js'
 import { initLayout } from './editor/layout-init.js'
 import { LicenceManager } from './auth/licence.js'
+import { issueFreePlan } from './auth/free-plan-issue.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from './credits/credit-display.js'
 import { LocalStore } from './state/local-store.js'
@@ -179,31 +180,69 @@ function activateInner(context: vscode.ExtensionContext): void {
         if (uri.path !== '/activate') return
         const params = new URLSearchParams(uri.query)
         const rawKey = params.get('key')?.trim().toUpperCase()
-        if (!rawKey || !rawKey.startsWith('SL-')) {
-          void vscode.window.showErrorMessage(
-            'Storyline activation failed — the link didn\'t contain a valid key. Email darren@coxon.ai if this persists.',
-          )
+        const rawRef = params.get('ref')?.trim().toUpperCase()
+
+        // ── Path A: licence-key activation (paid Stripe success flow) ──
+        if (rawKey && rawKey.startsWith('SL-')) {
+          const manager = new LicenceManager(context, getBackendUrl())
+          await manager.setLicenceKey(rawKey)
+          const info = await manager.validate({})
+          if (info.valid) {
+            if (info.type !== 'free') {
+              await context.globalState.update('storyline.freePlan', undefined)
+            }
+            void vscode.window.showInformationMessage(
+              `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready.`,
+            )
+            void updateCreditBalance(info.creditBalance, info.type)
+            await postActivateOpenWorkspace(context, context.extensionUri)
+          } else {
+            await manager.clearLicenceKey()
+            void vscode.window.showErrorMessage(
+              'Storyline activation failed — that key isn\'t recognised. Email darren@coxon.ai.',
+            )
+          }
           return
         }
-        const manager = new LicenceManager(context, getBackendUrl())
-        await manager.setLicenceKey(rawKey)
-        const info = await manager.validate({})
-        if (info.valid) {
-          // Activated key is paid (credits) — clear any stale freePlan flag.
-          if (info.type !== 'free') {
-            await context.globalState.update('storyline.freePlan', undefined)
+
+        // ── Path B: ref-only — claim referral bonus on a fresh install ──
+        // Triggered from the "Already installed? Claim your bonus" link
+        // on storyline.my for users who arrived via /r/<code>. Only fires
+        // a fresh free-plan-issue if there's no licence key already
+        // (otherwise the existing licence wins; we never overwrite).
+        if (rawRef && /^[0-9A-HJKMNP-TV-Z]{8}$/.test(rawRef)) {
+          const manager = new LicenceManager(context, getBackendUrl())
+          const existing = await manager.getLicenceKey()
+          if (existing) {
+            void vscode.window.showInformationMessage(
+              'Storyline is already activated on this device — referral bonuses only apply to fresh installs.',
+            )
+            return
           }
-          void vscode.window.showInformationMessage(
-            `Storyline activated — ${info.creditBalance.toLocaleString()} credits ready.`,
-          )
-          void updateCreditBalance(info.creditBalance, info.type)
-          await postActivateOpenWorkspace(context, context.extensionUri)
-        } else {
-          await manager.clearLicenceKey()
-          void vscode.window.showErrorMessage(
-            'Storyline activation failed — that key isn\'t recognised. Email darren@coxon.ai.',
-          )
+          try {
+            const issued = await issueFreePlan(getBackendUrl(), rawRef)
+            await manager.setLicenceKey(issued.licenceKey)
+            const info = await manager.validate({})
+            if (info.valid) {
+              await context.globalState.update('storyline.freePlan', { active: true })
+              void vscode.window.showInformationMessage(
+                `Welcome to Storyline — ${info.creditBalance.toLocaleString()} credits ready (includes your referral bonus).`,
+              )
+              void updateCreditBalance(info.creditBalance, info.type)
+              await postActivateOpenWorkspace(context, context.extensionUri)
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            void vscode.window.showErrorMessage(
+              `Storyline: couldn't claim referral bonus — ${msg}. You can still start the free plan from the command palette.`,
+            )
+          }
+          return
         }
+
+        void vscode.window.showErrorMessage(
+          'Storyline activation failed — the link didn\'t contain a valid key or referral code. Email darren@coxon.ai if this persists.',
+        )
       },
     }),
   )

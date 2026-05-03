@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import DownloadCard from './DownloadCard'
+import InvitedBanner from './InvitedBanner'
 import styles from './page.module.css'
 
 export default function HomePage() {
@@ -20,6 +21,7 @@ export default function HomePage() {
         </p>
 
         <div className={styles.heroCta}>
+          <InvitedBanner />
           <DownloadCard />
         </div>
 

@@ -1,5 +1,12 @@
 import type { Env, LicenceRecord } from './types.js'
 import { checkRateLimit, rateLimitedResponse } from './rate-limit.js'
+import {
+  ensureCodeIndex,
+  isValidReferralCode,
+  lookupReferrerByCode,
+  REFERRAL_BONUS_NEW_USER,
+  tryAwardReferral,
+} from './referral.js'
 
 // 150 is the "finish one complete book plan, then hit the wall" sweet spot.
 // A typical 14-stage plan runs ~70-140 chat turns at 1 credit each, so 150
@@ -16,6 +23,10 @@ interface IssueRequestBody {
    *  requiring email verification. Optional for back-compat with
    *  pre-machineId extension versions. */
   machineId?: string
+  /** Referral code (e.g. "R7NBPK4Q"). When present and valid, new user
+   *  gets +50 credits; referrer gets +25 (capped). Accepted both in body
+   *  and as ?ref= query param for URL-share use cases. */
+  ref?: string
 }
 
 /**
@@ -52,8 +63,16 @@ export async function handleFreePlanIssue(req: Request, env: Env): Promise<Respo
 
   const machineId = sanitiseMachineId(body.machineId)
 
+  // Accept ref code from body OR ?ref= query param. URL form is what the
+  // marketing site forwards through `/r/<code>` redirects.
+  const url = new URL(req.url)
+  const rawRef = body.ref ?? url.searchParams.get('ref') ?? undefined
+  const refCode = isValidReferralCode(rawRef) ? rawRef.toUpperCase() : null
+
   // machineId guard: if this device has already received a key, return it.
   // The user gets back into their existing balance instead of a fresh 150.
+  // Note: re-issued keys never trigger referral awards — the referral
+  // is one-shot per device, gated by the same machineId index.
   if (machineId) {
     const existingKey = await env.LICENCES.get(`mid:${machineId}`)
     if (existingKey) {
@@ -71,12 +90,22 @@ export async function handleFreePlanIssue(req: Request, env: Env): Promise<Respo
     }
   }
 
+  // Resolve referrer up-front so we know whether to mint with bonus.
+  // Referrer-side credit award + ledger update happens after the new
+  // record is written so KV-write failures don't double-charge.
+  let referrerKey: string | null = null
+  if (refCode) {
+    referrerKey = await lookupReferrerByCode(env, refCode)
+  }
+  const newUserBonus = referrerKey ? REFERRAL_BONUS_NEW_USER : 0
+  const startingCredits = FREE_PLAN_CREDITS + newUserBonus
+
   const licenceKey = generateFreeKey()
   const record: LicenceRecord = {
     valid: true,
     type: 'free',
-    creditBalance: FREE_PLAN_CREDITS,
-    totalPurchased: FREE_PLAN_CREDITS,
+    creditBalance: startingCredits,
+    totalPurchased: startingCredits,
     stripeCustomerId: 'free-tier',
   }
 
@@ -85,12 +114,32 @@ export async function handleFreePlanIssue(req: Request, env: Env): Promise<Respo
     if (machineId) {
       await env.LICENCES.put(`mid:${machineId}`, licenceKey)
     }
+    // Index this user's own code so they can immediately share their
+    // link via the in-app modal without a separate write step.
+    await ensureCodeIndex(env, licenceKey)
   } catch (e) {
     console.error('[/free-plan/issue] KV write failed:', e)
     return json({ error: 'Could not provision free plan — please try again.' }, 503)
   }
 
-  return json({ licenceKey, creditBalance: FREE_PLAN_CREDITS, reused: false })
+  // Apply the referrer-side award. If this fails (cap, dup, self-ref) the
+  // new user keeps their bonus — the cost-of-failure is at most £0.50 of
+  // credits we shouldn't have minted, which is acceptable vs. the UX cost
+  // of denying the bonus to a legitimate referred user.
+  let refOutcome: string | undefined
+  if (referrerKey && machineId) {
+    const outcome = await tryAwardReferral({ env, referrerKey, newUserMachineId: machineId })
+    refOutcome = outcome.kind
+    console.log(`[/free-plan/issue] referral outcome: ${outcome.kind} ref=${refCode} new=${licenceKey.slice(0, 12)}…`)
+  }
+
+  return json({
+    licenceKey,
+    creditBalance: startingCredits,
+    reused: false,
+    bonusAwarded: newUserBonus,
+    refOutcome,
+  })
 }
 
 /** Strip whitespace and clamp to 128 chars to bound KV-key length. Reject

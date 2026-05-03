@@ -5,6 +5,7 @@ import { Header } from './components/Header.js'
 import { StageRail } from './components/StageRail.js'
 import { ChatThread } from './components/ChatThread.js'
 import { InputBox } from './components/InputBox.js'
+import { ShareReferralModal, type ReferralStats } from './components/ShareReferralModal.js'
 import { useVSCode } from './hooks/useVSCode.js'
 import { useTheme } from './hooks/useTheme.js'
 import './tokens.css'
@@ -413,6 +414,8 @@ export function App() {
   const { mode, setMode } = useTheme(send)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [sessions, setSessions] = useState<SessionMeta[]>([])
+  const [shareOpen, setShareOpen] = useState(false)
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null)
 
   // Tell the extension host we're ready to receive messages.
   useEffect(() => {
@@ -456,6 +459,12 @@ export function App() {
       on<{ promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number | null }>('requestUsage', m =>
         dispatch({ type: 'REQUEST_USAGE', promptTokens: m.promptTokens, completionTokens: m.completionTokens, totalTokens: m.totalTokens, costUsd: m.costUsd }),
       ),
+      on<ReferralStats>('referralStats', m => setReferralStats({
+        code: m.code,
+        referralCount: m.referralCount,
+        creditsEarned: m.creditsEarned,
+        capRemaining: m.capRemaining,
+      })),
     ]
     return () => offs.forEach(off => off())
   }, [on])
@@ -506,8 +515,17 @@ export function App() {
         onThemeChange={setMode}
         onNewChat={handleNewChat}
         onShowHistory={handleShowHistory}
+        onShareReferral={() => { setReferralStats(null); setShareOpen(true) }}
         isStreaming={!!state.streamingId}
       />
+
+      {shareOpen && (
+        <ShareReferralModal
+          send={send}
+          stats={referralStats}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       <StageRail
         stages={state.stages}
