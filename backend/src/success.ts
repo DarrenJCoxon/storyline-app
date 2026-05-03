@@ -2,17 +2,24 @@ import type { Env } from './types.js'
 
 const GITHUB_REPO = 'DarrenJCoxon/storyline-app'
 const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`
+const RELEASE_CACHE_KEY = 'gh:release:latest'
+const RELEASE_CACHE_TTL = 600 // 10 minutes
 
 interface GithubAsset { name: string; browser_download_url: string }
 interface GithubRelease { tag_name: string; assets: GithubAsset[] }
 
-async function getLatestRelease(): Promise<GithubRelease | null> {
+async function getLatestRelease(env: Env): Promise<GithubRelease | null> {
+  const cached = await env.LICENCES.get<GithubRelease>(RELEASE_CACHE_KEY, 'json')
+  if (cached) return cached
+
   try {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: { 'User-Agent': 'storyline-backend' },
     })
     if (!res.ok) return null
-    return await res.json() as GithubRelease
+    const release = await res.json() as GithubRelease
+    await env.LICENCES.put(RELEASE_CACHE_KEY, JSON.stringify(release), { expirationTtl: RELEASE_CACHE_TTL })
+    return release
   } catch {
     return null
   }
@@ -39,7 +46,7 @@ export async function handleSuccess(req: Request, env: Env): Promise<Response> {
 
   const ua = req.headers.get('User-Agent') ?? ''
   const os = detectOS(ua)
-  const release = await getLatestRelease()
+  const release = await getLatestRelease(env)
 
   const downloadLinks = buildDownloadLinks(os, release)
 

@@ -113,6 +113,9 @@ export async function handleFreePlanIssue(req: Request, env: Env): Promise<Respo
     await env.LICENCES.put(licenceKey, JSON.stringify(record))
     if (machineId) {
       await env.LICENCES.put(`mid:${machineId}`, licenceKey)
+      // Reverse index: lets referral.ts resolve machineId for a key in O(1)
+      // instead of paginating the entire mid: keyspace.
+      await env.LICENCES.put(`key:${licenceKey}:mid`, machineId)
     }
     // Index this user's own code so they can immediately share their
     // link via the in-app modal without a separate write step.

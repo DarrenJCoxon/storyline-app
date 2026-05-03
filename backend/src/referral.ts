@@ -178,39 +178,15 @@ export async function tryAwardReferral(args: {
 }
 
 /**
- * Reverse-lookup the machineId for a licence key by scanning the small
- * mid: index. Cloudflare KV doesn't support reverse indexes, but this
- * lookup only fires on referral attempts (rare) and machineId space is
- * bounded per user. For now we accept the O(n) cost — if it becomes a
- * hotspot, store a `key:<licenceKey>:mid` reverse index alongside the
- * existing `mid:<machineId>:key` mapping.
- *
- * Currently approximated by checking the stored mapping under the
- * `mid:<machineId>` keyspace via list. KV `list` is paginated so we
- * cap iterations and return null on no-match (defensive — false
- * negative on self-referral check just means a self-referrer can claim
- * the bonus once, which is bounded by their own cap and machineId
- * dedup elsewhere).
+ * O(1) machineId reverse-lookup via the `key:<licenceKey>:mid` index
+ * written by /free-plan/issue alongside the forward `mid:<machineId>`
+ * mapping. Keys minted before the reverse index was added return null,
+ * which is a safe false-negative: worst case a self-referrer earns the
+ * bonus once (bounded by their cap + machineId dedup on the new-user
+ * side).
  */
 async function findMachineIdForLicenceKey(env: Env, licenceKey: string): Promise<string | null> {
-  // Workers KV `list` returns { keys: [{ name, expiration? }], list_complete,
-  // cursor }. We iterate pages of `mid:` keys; in production this list stays
-  // small (one entry per active free user that's been in the machineId era).
-  let cursor: string | undefined = undefined
-  for (let page = 0; page < 5; page++) {
-    const result: KVNamespaceListResult<unknown> = await env.LICENCES.list({
-      prefix: 'mid:',
-      cursor,
-      limit: 1000,
-    })
-    for (const k of result.keys) {
-      const value = await env.LICENCES.get(k.name)
-      if (value === licenceKey) return k.name.replace(/^mid:/, '')
-    }
-    if (result.list_complete) break
-    cursor = result.cursor
-  }
-  return null
+  return env.LICENCES.get(`key:${licenceKey}:mid`)
 }
 
 export interface ReferralStats {

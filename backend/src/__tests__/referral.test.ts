@@ -201,8 +201,9 @@ describe('tryAwardReferral', () => {
   it('returns self-referral when the referrer machineId == new user machineId', async () => {
     const machineId = 'machine-self'
     const { env, store } = makeEnv({ [referrerKey]: freeRec(150) })
-    // Seed the mid: index so findMachineIdForLicenceKey resolves it.
+    // Seed both forward and reverse indexes so findMachineIdForLicenceKey resolves it.
     store.set(`mid:${machineId}`, referrerKey)
+    store.set(`key:${referrerKey}:mid`, machineId)
 
     const r = await tryAwardReferral({
       env,
