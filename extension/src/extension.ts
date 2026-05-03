@@ -326,14 +326,77 @@ function activateInner(context: vscode.ExtensionContext): void {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('storyline.startNew', () => {
-      // Always-available entry point — works in any workspace including
-      // empty folders that have no .storyline/state.json yet. Opens the
-      // onboarding wizard which scaffolds the project layout, then runs
-      // initLayout so the rich editor + chat panel come up.
-      OnboardingPanel.show(context, context.extensionUri, {
-        onScaffolded: () => void initLayout(context),
+    vscode.commands.registerCommand('storyline.startNew', async () => {
+      // Always-available entry point. Two paths:
+      //
+      //   (a) A folder is already open. Hand off to OnboardingPanel which
+      //       scaffolds inside that folder and runs initLayout.
+      //
+      //   (b) No folder is open — the common "I just opened VS Code and
+      //       want to start a new book" case. Prompt for name + parent
+      //       location, create the folder, scaffold it, and reopen VS
+      //       Code at that folder. The extension reactivates in the new
+      //       window via workspaceContains:.storyline/state.json. No
+      //       drag-folder-into-VS-Code step required.
+      const folders = vscode.workspace.workspaceFolders
+      if (folders?.length) {
+        OnboardingPanel.show(context, context.extensionUri, {
+          onScaffolded: () => void initLayout(context),
+        })
+        return
+      }
+
+      const name = await vscode.window.showInputBox({
+        title: 'Storyline — New Project',
+        prompt: 'What\'s the working title of your book?',
+        placeHolder: 'My Novel',
+        ignoreFocusOut: true,
+        validateInput: v => v.trim() ? null : 'Title can\'t be empty',
       })
+      if (!name?.trim()) return
+
+      // Default the parent location to ~/Documents/Storyline/ — same
+      // place the Tauri installer drops "My First Project". Most users
+      // accept; power users can pick anywhere.
+      const homeDir = process.env.HOME || process.env.USERPROFILE || ''
+      const defaultParent = vscode.Uri.file(path.join(homeDir, 'Documents', 'Storyline'))
+      try { fs.mkdirSync(defaultParent.fsPath, { recursive: true }) } catch { /* non-fatal */ }
+
+      const parentChoice = await vscode.window.showOpenDialog({
+        title: 'Where should this project live?',
+        canSelectFolders: true,
+        canSelectFiles: false,
+        canSelectMany: false,
+        defaultUri: defaultParent,
+        openLabel: 'Save here',
+      })
+      if (!parentChoice?.length) return
+
+      const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'storyline-project'
+      const projectDir = path.join(parentChoice[0].fsPath, slug)
+      if (fs.existsSync(projectDir)) {
+        const overwrite = await vscode.window.showWarningMessage(
+          `A folder named "${slug}" already exists at that location. Open it instead?`,
+          'Open Existing', 'Cancel',
+        )
+        if (overwrite !== 'Open Existing') return
+      } else {
+        try {
+          fs.mkdirSync(projectDir, { recursive: true })
+          // Scaffold synchronously so the new window opens populated.
+          const { scaffoldProject } = await import('./onboarding/project-scaffold.js')
+          scaffoldProject(projectDir, name.trim())
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          void vscode.window.showErrorMessage(`Couldn't create project: ${msg}`)
+          return
+        }
+      }
+
+      // Open the new folder. forceNewWindow=false reuses the current
+      // window when it has no folder loaded (the common case here),
+      // avoiding a jarring extra window pop.
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(projectDir), false)
     }),
 
     vscode.commands.registerCommand('storyline.openPlanning', () => {
