@@ -309,13 +309,21 @@ export class ChatPanel {
   private async handleNewChat(): Promise<void> {
     const sessionsDir = this.getSessionsDir()
     if (sessionsDir) this.turnHistory.archiveCurrentSession(sessionsDir)
+
+    // Snapshot the cross-stage display tail BEFORE clearing it. fireOpeningPrompt
+    // is designed to prepend this tail so the AI inherits narrative context from
+    // the previous chat (e.g. the writer's actual book topic). Without the
+    // snapshot, allDisplay() returns [] inside fireOpeningPrompt and the model
+    // hallucinates against a generic stage brief.
+    const carryOver: Message[] = this.turnHistory.allDisplay().slice(-4) as Message[]
+
     this.turnHistory.clearAll()
     this.turnHistory.clearDisplay()
     this.post({ type: 'clearMessages' })
     if (!this.store) return
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
-    if (currentStage) await this.fireOpeningPrompt(currentStage.id, state)
+    if (currentStage) await this.fireOpeningPrompt(currentStage.id, state, carryOver)
   }
 
   private handleListSessions(): void {
@@ -1110,7 +1118,7 @@ export class ChatPanel {
     }
   }
 
-  private async fireOpeningPrompt(stageId: string, state: ProjectState): Promise<void> {
+  private async fireOpeningPrompt(stageId: string, state: ProjectState, carryOver?: Message[]): Promise<void> {
     if (!this.provider) {
       this.post({ type: 'error', message: `Storyline isn't connected yet. Try running Storyline: Activate Licence from the command palette.` })
       return
@@ -1135,10 +1143,17 @@ export class ChatPanel {
     // during mode-detection, then being asked for the subject again at
     // the start of dna-category. We cap the tail at PRIOR_CONTEXT_TURNS
     // so token cost stays bounded.
+    //
+    // `carryOver` is supplied by handleNewChat — a snapshot taken before
+    // the displayLog was cleared, so a fresh chat still hands the AI the
+    // recent narrative thread. For non-new-chat callers (handleBeginPlanning,
+    // stage transitions) we fall back to the live displayLog tail.
     const PRIOR_CONTEXT_TURNS = 4
     const prior = stageId === 'mode'
       ? []
-      : this.turnHistory.allDisplay().slice(-PRIOR_CONTEXT_TURNS)
+      : (carryOver && carryOver.length > 0
+          ? carryOver.slice(-PRIOR_CONTEXT_TURNS)
+          : this.turnHistory.allDisplay().slice(-PRIOR_CONTEXT_TURNS))
     const stageMessages = await this.buildMessages(stageId)
     const messages: Message[] = [...prior, ...stageMessages]
 
