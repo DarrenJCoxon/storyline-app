@@ -18,7 +18,8 @@ import {
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
 import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
 import { pushToMemory, retrieveRelevantMemory } from '../state/memory.js'
-import { triggerWikiCompilation } from '../wiki/article-compiler.js'
+import { triggerWikiCompilation, STAGE_TO_ARTICLES, NF_STAGE_TO_ARTICLES } from '../wiki/article-compiler.js'
+import { checkWikiIntegrity, type IntegrityWarning } from '../wiki/integrity-check.js'
 import { LicenceManager } from '../auth/licence.js'
 import { offerReactivation } from '../auth/reactivate-prompt.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
@@ -763,6 +764,39 @@ export class ChatPanel {
       // short prose article in .storyline/wiki/ for injection into future
       // prompts. Async, fire-and-forget, never blocks stage advance.
       triggerWikiCompilation(stageId, finalState, projectDir, getBackendUrl(), () => this.licenceManager.getLicenceKey())
+
+      // Wiki integrity check — compare the article just compiled against its
+      // semantically related articles for contradictions, drift, or gaps.
+      // Fire-and-forget; runs ~500ms after compilation so the file is written.
+      const isNf = finalState.mode === 'nonfiction'
+      const compiledArticles = isNf
+        ? NF_STAGE_TO_ARTICLES[stageId]
+        : STAGE_TO_ARTICLES[stageId]
+      if (compiledArticles?.length) {
+        void (async () => {
+          await new Promise(r => setTimeout(r, 500))
+          const licenceKey = await this.licenceManager.getLicenceKey().catch(() => undefined)
+          if (!licenceKey) return
+          for (const article of compiledArticles) {
+            try {
+              const warnings = await checkWikiIntegrity(article, projectDir, getBackendUrl(), licenceKey)
+              if (warnings.length > 0) {
+                this.post({
+                  type: 'findingsCard',
+                  findings: warnings.map(w => ({
+                    id: `integrity-${article}-${w.kind}`,
+                    name: 'Consistency note',
+                    severity: w.kind === 'contradiction' ? 'error' : w.kind === 'drift' ? 'warning' : 'suggestion' as const,
+                    description: w.description,
+                    details: `Related article: ${w.relatedArticle}`,
+                    fixProtocol: w.suggestion ? [w.suggestion] : undefined,
+                  })),
+                })
+              }
+            } catch { /* non-fatal */ }
+          }
+        })()
+      }
 
       // NF artefacts — regenerate after relevant stage saves.
       if (finalState.mode === 'nonfiction') {

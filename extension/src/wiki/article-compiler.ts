@@ -58,8 +58,8 @@ const ARTICLE_DEFS: Readonly<Record<string, ArticleDef>> = {
   },
 }
 
-// Which articles to (re)compile after each fiction stage save
-const STAGE_TO_ARTICLES: Readonly<Record<string, string[]>> = {
+/** Maps each fiction stage to the wiki article(s) it (re)compiles. */
+export const STAGE_TO_ARTICLES: Readonly<Record<string, string[]>> = {
   genre:          ['world'],
   premise:        ['world', 'logline'],
   protagonist:    ['protagonist'],
@@ -168,8 +168,8 @@ const NF_ARTICLE_DEFS: Readonly<Record<string, ArticleDef>> = {
   },
 }
 
-// Which articles to (re)compile after each NF stage save
-const NF_STAGE_TO_ARTICLES: Readonly<Record<string, string[]>> = {
+/** Maps each NF stage to the wiki article(s) it (re)compiles. */
+export const NF_STAGE_TO_ARTICLES: Readonly<Record<string, string[]>> = {
   // DNA stages
   'dna-category':      ['nf-idea'],
   'dna-reader':        ['nf-reader'],
