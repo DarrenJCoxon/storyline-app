@@ -3,10 +3,37 @@
 
 use tauri::{Emitter, Manager};
 
+fn home_dir() -> std::path::PathBuf {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        std::env::var("HOME").map(std::path::PathBuf::from).unwrap_or_default()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var("USERPROFILE").map(std::path::PathBuf::from).unwrap_or_default()
+    }
+}
+
+fn vscode_app_dir() -> std::path::PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        home_dir().join("Applications").join("Visual Studio Code.app")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        std::path::PathBuf::from(format!(r"{local}\Programs\Microsoft VS Code"))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        home_dir().join(".local").join("share").join("vscode")
+    }
+}
+
 fn vscode_present() -> bool {
     #[cfg(target_os = "macos")]
     {
-        std::path::Path::new("/Applications/Visual Studio Code.app").exists() || which_code()
+        vscode_app_dir().exists() || std::path::Path::new("/Applications/Visual Studio Code.app").exists() || which_code()
     }
     #[cfg(target_os = "windows")]
     {
@@ -14,10 +41,11 @@ fn vscode_present() -> bool {
         let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
         std::path::Path::new(&format!(r"{local}\Programs\Microsoft VS Code\Code.exe")).exists()
             || std::path::Path::new(&format!(r"{program_files}\Microsoft VS Code\Code.exe")).exists()
+            || which_code()
     }
     #[cfg(target_os = "linux")]
     {
-        which_code()
+        vscode_app_dir().join("bin").join("code").exists() || which_code()
     }
 }
 
@@ -39,7 +67,11 @@ fn which_code() -> bool {
         .unwrap_or(false)
 }
 
-/// Download and install VS Code to /Applications on macOS using curl + unzip.
+fn tmp_path(name: impl AsRef<std::path::Path>) -> std::path::PathBuf {
+    std::env::temp_dir().join(name)
+}
+
+/// Download and install VS Code to ~/Applications on macOS using curl + unzip.
 /// Emits "vscode-download-progress" events (0–100) so the UI can show real progress.
 #[cfg(target_os = "macos")]
 fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
@@ -48,18 +80,20 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
         "https://code.visualstudio.com/sha/download?build=stable&os=darwin-{}",
         arch
     );
-    let tmp_zip = format!("/tmp/vscode-installer-{}.zip", arch);
-    let tmp_dir = "/tmp/vscode-installer-extracted";
+    let tmp_zip = tmp_path(format!("vscode-installer-{}.zip", arch));
+    let tmp_dir = tmp_path("vscode-installer-extracted");
+    let tmp_zip_str = tmp_zip.to_string_lossy().to_string();
+    let tmp_dir_str = tmp_dir.to_string_lossy().to_string();
 
     // Clean up any previous partial download
     let _ = std::fs::remove_file(&tmp_zip);
-    let _ = std::fs::remove_dir_all(tmp_dir);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
 
     let _ = app.emit("vscode-download-progress", 5u8);
 
     // Download (~100 MB) — curl follows redirects and shows no output
     let status = std::process::Command::new("curl")
-        .args(["-L", "--silent", "--show-error", "-o", &tmp_zip, &url])
+        .args(["-L", "--silent", "--show-error", "-o", &tmp_zip_str, &url])
         .status()
         .map_err(|e| format!("curl not available: {e}"))?;
     if !status.success() {
@@ -69,10 +103,10 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
     let _ = app.emit("vscode-download-progress", 70u8);
 
     // Extract the zip
-    std::fs::create_dir_all(tmp_dir)
+    std::fs::create_dir_all(&tmp_dir)
         .map_err(|e| format!("Could not create temp dir: {e}"))?;
     let status = std::process::Command::new("unzip")
-        .args(["-q", "-o", &tmp_zip, "-d", tmp_dir])
+        .args(["-q", "-o", &tmp_zip_str, "-d", &tmp_dir_str])
         .status()
         .map_err(|e| format!("unzip failed: {e}"))?;
     if !status.success() {
@@ -81,21 +115,175 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
 
     let _ = app.emit("vscode-download-progress", 88u8);
 
-    // Move .app to /Applications (overwrites any existing install)
-    let src = format!("{}/Visual Studio Code.app", tmp_dir);
-    let dst = "/Applications/Visual Studio Code.app";
-    if std::path::Path::new(dst).exists() {
-        std::fs::remove_dir_all(dst)
+    // Move .app to ~/Applications (overwrites any existing install)
+    let src = tmp_dir.join("Visual Studio Code.app");
+    let dst = vscode_app_dir();
+    let dst_str = dst.to_string_lossy().to_string();
+    if dst.exists() {
+        std::fs::remove_dir_all(&dst)
             .map_err(|e| format!("Could not remove existing VS Code: {e}"))?;
     }
+    std::fs::create_dir_all(dst.parent().unwrap())
+        .map_err(|e| format!("Could not create ~/Applications: {e}"))?;
     std::process::Command::new("mv")
-        .args([&src, dst])
+        .args([&src.to_string_lossy().to_string(), &dst_str])
         .status()
         .map_err(|e| format!("Could not move VS Code to Applications: {e}"))?;
 
     // Clean up
     let _ = std::fs::remove_file(&tmp_zip);
-    let _ = std::fs::remove_dir_all(tmp_dir);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+
+    let _ = app.emit("vscode-download-progress", 100u8);
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn download_vscode_windows(app: &tauri::AppHandle) -> Result<(), String> {
+    let url = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-archive";
+    let tmp_zip = tmp_path("vscode-installer.zip");
+    let tmp_dir = tmp_path("vscode-installer-extracted");
+    let tmp_zip_str = tmp_zip.to_string_lossy().to_string();
+    let tmp_dir_str = tmp_dir.to_string_lossy().to_string();
+
+    let _ = std::fs::remove_file(&tmp_zip);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+
+    let _ = app.emit("vscode-download-progress", 5u8);
+
+    // Download with PowerShell
+    let ps_cmd = format!(
+        "Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing",
+        url,
+        tmp_zip_str.replace('\\', "/")
+    );
+    let status = std::process::Command::new("powershell.exe")
+        .args(["-Command", &ps_cmd])
+        .status()
+        .map_err(|e| format!("PowerShell not available: {e}"))?;
+    if !status.success() {
+        return Err("VS Code download failed — check your internet connection".to_string());
+    }
+
+    let _ = app.emit("vscode-download-progress", 70u8);
+
+    // Extract with PowerShell
+    std::fs::create_dir_all(&tmp_dir)
+        .map_err(|e| format!("Could not create temp dir: {e}"))?;
+    let ps_expand = format!(
+        "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+        tmp_zip_str.replace('\\', "/"),
+        tmp_dir_str.replace('\\', "/")
+    );
+    let status = std::process::Command::new("powershell.exe")
+        .args(["-Command", &ps_expand])
+        .status()
+        .map_err(|e| format!("Archive extraction failed: {e}"))?;
+    if !status.success() {
+        return Err("VS Code archive extraction failed".to_string());
+    }
+
+    let _ = app.emit("vscode-download-progress", 88u8);
+
+    let dst = vscode_app_dir();
+    if dst.exists() {
+        std::fs::remove_dir_all(&dst)
+            .map_err(|e| format!("Could not remove existing VS Code: {e}"))?;
+    }
+    std::fs::create_dir_all(&dst)
+        .map_err(|e| format!("Could not create install dir: {e}"))?;
+
+    // The zip extracts to a single folder; find it
+    let extracted: std::path::PathBuf = std::fs::read_dir(&tmp_dir)
+        .map_err(|e| format!("Could not read extracted dir: {e}"))?
+        .filter_map(|e| e.ok())
+        .find(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+        .map(|e| e.path())
+        .ok_or_else(|| "Could not find extracted VS Code folder".to_string())?;
+
+    // Move contents into dst
+    for entry in std::fs::read_dir(extracted)
+        .map_err(|e| format!("Could not read VS Code dir: {e}"))?
+    {
+        let entry = entry.map_err(|e| format!("Dir entry error: {e}"))?;
+        let dst_path = dst.join(entry.file_name());
+        if dst_path.exists() {
+            let _ = std::fs::remove_dir_all(&dst_path);
+            let _ = std::fs::remove_file(&dst_path);
+        }
+        std::fs::rename(entry.path(), dst_path)
+            .map_err(|e| format!("Could not move extracted file: {e}"))?;
+    }
+
+    let _ = std::fs::remove_file(&tmp_zip);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+
+    let _ = app.emit("vscode-download-progress", 100u8);
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn download_vscode_linux(app: &tauri::AppHandle) -> Result<(), String> {
+    let arch = if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" };
+    let url = format!(
+        "https://code.visualstudio.com/sha/download?build=stable&os=linux-{}",
+        arch
+    );
+    let tmp_tar = tmp_path(format!("vscode-installer-{}.tar.gz", arch));
+    let tmp_dir = tmp_path("vscode-installer-extracted");
+    let tmp_tar_str = tmp_tar.to_string_lossy().to_string();
+    let tmp_dir_str = tmp_dir.to_string_lossy().to_string();
+
+    let _ = std::fs::remove_file(&tmp_tar);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+
+    let _ = app.emit("vscode-download-progress", 5u8);
+
+    let status = std::process::Command::new("curl")
+        .args(["-L", "--silent", "--show-error", "-o", &tmp_tar_str, &url])
+        .status()
+        .map_err(|e| format!("curl not available: {e}"))?;
+    if !status.success() {
+        return Err("VS Code download failed — check your internet connection".to_string());
+    }
+
+    let _ = app.emit("vscode-download-progress", 70u8);
+
+    std::fs::create_dir_all(&tmp_dir)
+        .map_err(|e| format!("Could not create temp dir: {e}"))?;
+    let status = std::process::Command::new("tar")
+        .args(["-xzf", &tmp_tar_str, "-C", &tmp_dir_str, "--strip-components=1"])
+        .status()
+        .map_err(|e| format!("tar not available: {e}"))?;
+    if !status.success() {
+        return Err("VS Code archive extraction failed".to_string());
+    }
+
+    let _ = app.emit("vscode-download-progress", 88u8);
+
+    let dst = vscode_app_dir();
+    if dst.exists() {
+        std::fs::remove_dir_all(&dst)
+            .map_err(|e| format!("Could not remove existing VS Code: {e}"))?;
+    }
+    std::fs::create_dir_all(&dst)
+        .map_err(|e| format!("Could not create install dir: {e}"))?;
+
+    for entry in std::fs::read_dir(&tmp_dir)
+        .map_err(|e| format!("Could not read extracted dir: {e}"))?
+    {
+        let entry = entry.map_err(|e| format!("Dir entry error: {e}"))?;
+        let dst_path = dst.join(entry.file_name());
+        if dst_path.exists() {
+            let _ = std::fs::remove_dir_all(&dst_path);
+            let _ = std::fs::remove_file(&dst_path);
+        }
+        std::fs::rename(entry.path(), dst_path)
+            .map_err(|e| format!("Could not move extracted file: {e}"))?;
+    }
+
+    let _ = std::fs::remove_file(&tmp_tar);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
 
     let _ = app.emit("vscode-download-progress", 100u8);
     Ok(())
@@ -125,32 +313,42 @@ fn ensure_workspace() -> Result<std::path::PathBuf, String> {
     Ok(project)
 }
 
-/// Path to the bundled `code` CLI shipped inside the VS Code .app on macOS.
+/// Path to the `code` CLI — prefers user-local install, falls back to system.
 fn vscode_cli() -> std::path::PathBuf {
     #[cfg(target_os = "macos")]
-    { std::path::PathBuf::from("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code") }
+    {
+        let user = vscode_app_dir().join("Contents").join("Resources").join("app").join("bin").join("code");
+        let system = std::path::PathBuf::from("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code");
+        if user.exists() { user } else { system }
+    }
     #[cfg(target_os = "windows")]
     {
         let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
         let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
         let user_cli = format!(r"{local}\Programs\Microsoft VS Code\bin\code.cmd");
         let system_cli = format!(r"{program_files}\Microsoft VS Code\bin\code.cmd");
-        if std::path::Path::new(&user_cli).exists() {
-            std::path::PathBuf::from(user_cli)
-        } else {
-            std::path::PathBuf::from(system_cli)
-        }
+        let downloaded = vscode_app_dir().join("bin").join("code.cmd");
+        if downloaded.exists() { downloaded }
+        else if std::path::Path::new(&user_cli).exists() { std::path::PathBuf::from(user_cli) }
+        else { std::path::PathBuf::from(system_cli) }
     }
     #[cfg(target_os = "linux")]
-    { std::path::PathBuf::from("code") }
+    {
+        let downloaded = vscode_app_dir().join("bin").join("code");
+        if downloaded.exists() { downloaded } else { std::path::PathBuf::from("code") }
+    }
 }
 
 #[tauri::command]
 fn launch_vscode(app: tauri::AppHandle) -> Result<(), String> {
     // Download VS Code if not present (handles the fresh-install path)
-    #[cfg(target_os = "macos")]
     if !vscode_present() {
-        download_vscode_macos(&app)?;
+        #[cfg(target_os = "macos")]
+        { download_vscode_macos(&app)?; }
+        #[cfg(target_os = "windows")]
+        { download_vscode_windows(&app)?; }
+        #[cfg(target_os = "linux")]
+        { download_vscode_linux(&app)?; }
     }
 
     let project = ensure_workspace()?;
