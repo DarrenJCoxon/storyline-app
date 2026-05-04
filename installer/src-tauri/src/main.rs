@@ -91,26 +91,39 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
 
     let _ = app.emit("vscode-download-progress", 5u8);
 
-    // Download (~100 MB) — curl follows redirects and shows no output
-    let status = std::process::Command::new("curl")
-        .args(["-L", "--silent", "--show-error", "-o", &tmp_zip_str, &url])
-        .status()
+    // Download (~100 MB). -f makes curl exit non-zero on HTTP errors so a
+    // captive-portal or 5xx response doesn't write an HTML error page that
+    // ditto would then fail to extract with a confusing message.
+    let output = std::process::Command::new("curl")
+        .args(["-L", "-f", "--silent", "--show-error", "-o", &tmp_zip_str, &url])
+        .output()
         .map_err(|e| format!("curl not available: {e}"))?;
-    if !status.success() {
-        return Err("VS Code download failed — check your internet connection".to_string());
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "VS Code download failed — check your internet connection: {}",
+            stderr.trim()
+        ));
     }
 
     let _ = app.emit("vscode-download-progress", 70u8);
 
-    // Extract the zip
+    // Extract using ditto — Apple's tool that handles signed .app bundles
+    // correctly. /usr/bin/unzip is the legacy Info-ZIP build and fails on
+    // VS Code's notarised zip (symlinks inside .app bundle break extraction).
     std::fs::create_dir_all(&tmp_dir)
         .map_err(|e| format!("Could not create temp dir: {e}"))?;
-    let status = std::process::Command::new("unzip")
-        .args(["-q", "-o", &tmp_zip_str, "-d", &tmp_dir_str])
-        .status()
-        .map_err(|e| format!("unzip failed: {e}"))?;
-    if !status.success() {
-        return Err("VS Code archive extraction failed".to_string());
+    let output = std::process::Command::new("/usr/bin/ditto")
+        .args(["-x", "-k", &tmp_zip_str, &tmp_dir_str])
+        .output()
+        .map_err(|e| format!("ditto not available: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "VS Code archive extraction failed (exit {}): {}",
+            output.status,
+            stderr.trim()
+        ));
     }
 
     let _ = app.emit("vscode-download-progress", 88u8);
