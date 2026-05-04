@@ -4,19 +4,34 @@ import * as fs from 'fs'
 
 const ROOT_FOLDERS = ['planning', 'research', 'manuscript', 'output'] as const
 
+// Virtual folders that appear inside `output/` as if they lived there but
+// actually map to the real generated-image folders under `assets/`. Keeps
+// the on-disk layout untouched while giving the writer a single "all the
+// outputs" tree.
+const OUTPUT_VIRTUAL_CHILDREN: ReadonlyArray<{ label: string; relPath: string }> = [
+  { label: 'Cover Art',     relPath: path.join('assets', 'covers') },
+  { label: 'Illustrations', relPath: path.join('assets', 'illustrations') },
+]
+
 export class FileNode extends vscode.TreeItem {
   constructor(
     public readonly absPath: string,
     public readonly kind: 'folder' | 'file',
     public readonly isRoot: boolean,
+    displayLabel?: string,
   ) {
-    const name = path.basename(absPath)
-    const label = isRoot ? name : name
+    const name = displayLabel ?? path.basename(absPath)
     super(
-      label,
+      name,
       kind === 'folder' ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
     )
     this.resourceUri = vscode.Uri.file(absPath)
+    // When a display label is set we still want a folder/file glyph, but the
+    // resourceUri-derived label would override our custom one. Keep label
+    // explicit and use iconPath instead.
+    if (displayLabel) {
+      this.iconPath = vscode.ThemeIcon.Folder
+    }
     this.contextValue = isRoot ? 'storyline.fileRoot' : kind === 'folder' ? 'storyline.folder' : 'storyline.file'
     if (kind === 'file') {
       this.command = {
@@ -62,17 +77,9 @@ export class FilesTreeProvider implements vscode.TreeDataProvider<FileNode> {
 
     if (element.kind !== 'folder') return []
 
-    let entries: fs.Dirent[]
-    try {
-      entries = fs.readdirSync(element.absPath, { withFileTypes: true })
-    } catch {
-      return []
-    }
-
-    return entries
+    const entries = readDirSafe(element.absPath)
       .filter(e => !e.name.startsWith('.'))
       .sort((a, b) => {
-        // Folders first, then files; alphabetical within each group
         if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1
         return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
       })
@@ -81,11 +88,30 @@ export class FilesTreeProvider implements vscode.TreeDataProvider<FileNode> {
         e.isDirectory() ? 'folder' : 'file',
         false,
       ))
+
+    // Inject virtual Cover Art / Illustrations folders at the top of `output/`.
+    // Skip any virtual whose backing folder doesn't exist or is empty.
+    if (element.isRoot && path.basename(element.absPath) === 'output') {
+      const virtuals: FileNode[] = []
+      for (const v of OUTPUT_VIRTUAL_CHILDREN) {
+        const abs = path.join(root, v.relPath)
+        if (!safeExists(abs)) continue
+        if (readDirSafe(abs).filter(e => !e.name.startsWith('.')).length === 0) continue
+        virtuals.push(new FileNode(abs, 'folder', false, v.label))
+      }
+      return [...virtuals, ...entries]
+    }
+
+    return entries
   }
 
   public refresh(): void {
     this._onDidChangeTreeData.fire()
   }
+}
+
+function readDirSafe(p: string): fs.Dirent[] {
+  try { return fs.readdirSync(p, { withFileTypes: true }) } catch { return [] }
 }
 
 function safeExists(p: string): boolean {
