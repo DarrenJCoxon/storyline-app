@@ -75,9 +75,12 @@ fn tmp_path(name: impl AsRef<std::path::Path>) -> std::path::PathBuf {
 /// Emits "vscode-download-progress" events (0–100) so the UI can show real progress.
 #[cfg(target_os = "macos")]
 fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
+    // VS Code's canonical update channel — same URL the editor uses for
+    // self-updates, always serves the latest stable build, follows redirects
+    // to the actual zip on Microsoft's CDN.
     let arch = if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" };
     let url = format!(
-        "https://code.visualstudio.com/sha/download?build=stable&os=darwin-{}",
+        "https://update.code.visualstudio.com/latest/darwin-{}/stable",
         arch
     );
     let tmp_zip = tmp_path(format!("vscode-installer-{}.zip", arch));
@@ -153,7 +156,7 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn download_vscode_windows(app: &tauri::AppHandle) -> Result<(), String> {
-    let url = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-archive";
+    let url = "https://update.code.visualstudio.com/latest/win32-x64-archive/stable";
     let tmp_zip = tmp_path("vscode-installer.zip");
     let tmp_dir = tmp_path("vscode-installer-extracted");
     let tmp_zip_str = tmp_zip.to_string_lossy().to_string();
@@ -239,7 +242,7 @@ fn download_vscode_windows(app: &tauri::AppHandle) -> Result<(), String> {
 fn download_vscode_linux(app: &tauri::AppHandle) -> Result<(), String> {
     let arch = if cfg!(target_arch = "aarch64") { "arm64" } else { "x64" };
     let url = format!(
-        "https://code.visualstudio.com/sha/download?build=stable&os=linux-{}",
+        "https://update.code.visualstudio.com/latest/linux-{}/stable",
         arch
     );
     let tmp_tar = tmp_path(format!("vscode-installer-{}.tar.gz", arch));
