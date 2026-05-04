@@ -339,21 +339,28 @@ fn vscode_cli() -> std::path::PathBuf {
     }
 }
 
+/// Download VS Code (if missing) and install the bundled Storyline extension.
+/// Emits "vscode-download-progress" (0–100) during download and
+/// "install-phase" with one of: "download", "extension", "done".
 #[tauri::command]
-fn launch_vscode(app: tauri::AppHandle) -> Result<(), String> {
-    // Download VS Code if not present (handles the fresh-install path)
+fn install_storyline(app: tauri::AppHandle) -> Result<(), String> {
     if !vscode_present() {
+        let _ = app.emit("install-phase", "download");
         #[cfg(target_os = "macos")]
         { download_vscode_macos(&app)?; }
         #[cfg(target_os = "windows")]
         { download_vscode_windows(&app)?; }
         #[cfg(target_os = "linux")]
         { download_vscode_linux(&app)?; }
+    } else {
+        let _ = app.emit("vscode-download-progress", 100u8);
     }
 
-    let project = ensure_workspace()?;
-    let project_str = project.to_string_lossy().to_string();
+    // Workspace folder
+    ensure_workspace()?;
 
+    // Install bundled extension
+    let _ = app.emit("install-phase", "extension");
     let vsix_path = app
         .path()
         .resolve("storyline.vsix", tauri::path::BaseDirectory::Resource)
@@ -368,6 +375,22 @@ fn launch_vscode(app: tauri::AppHandle) -> Result<(), String> {
         return Err(format!("Extension install failed: code exited with {install_status}"));
     }
 
+    let _ = app.emit("install-phase", "done");
+    Ok(())
+}
+
+#[tauri::command]
+fn launch_vscode(app: tauri::AppHandle) -> Result<(), String> {
+    // Defensive: if the user somehow reached Done without VS Code present
+    // (e.g. install_storyline was skipped), run the full install now.
+    if !vscode_present() {
+        install_storyline(app.clone())?;
+    }
+
+    let project = ensure_workspace()?;
+    let project_str = project.to_string_lossy().to_string();
+
+    let cli = vscode_cli();
     std::process::Command::new(&cli)
         .args(["-n", &project_str])
         .spawn()
@@ -386,7 +409,7 @@ fn launch_vscode(app: tauri::AppHandle) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![check_vscode, launch_vscode])
+        .invoke_handler(tauri::generate_handler![check_vscode, install_storyline, launch_vscode])
         .run(tauri::generate_context!())
         .expect("error while running Storyline installer");
 }
