@@ -4,6 +4,7 @@ interface ProgressProps {
   steps: InstallStep[];
   message: string;
   percent: number;
+  subtext?: string;
 }
 
 const ICON: Record<InstallStep['status'], string> = {
@@ -13,7 +14,7 @@ const ICON: Record<InstallStep['status'], string> = {
   skipped: '–',
 };
 
-export default function Progress({ steps, message, percent }: ProgressProps) {
+export default function Progress({ steps, message, percent, subtext }: ProgressProps) {
   return (
     <div className="progress-screen">
       <p className="progress-heading">Setting up Storyline…</p>
@@ -31,6 +32,7 @@ export default function Progress({ steps, message, percent }: ProgressProps) {
         <div className="progress-fill" style={{ width: `${percent}%` }} />
       </div>
       <p className="progress-message">{message}</p>
+      {subtext && <p className="progress-subtext">{subtext}</p>}
     </div>
   );
 }

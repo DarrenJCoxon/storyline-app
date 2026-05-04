@@ -197,6 +197,7 @@ html, body {
   height: 3px;
   margin-bottom: 12px;
   overflow: hidden;
+  position: relative;
 }
 
 .progress-fill {
@@ -204,12 +205,42 @@ html, body {
   background: var(--accent);
   border-radius: 4px;
   transition: width 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer keeps the bar feeling alive between real progress ticks during
+   slow downloads. Without it a 3-second pause looks like a freeze. */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
 }
 
 .progress-message {
   font-size: 12px;
   color: var(--text-muted);
   min-height: 18px;
+}
+
+.progress-subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin: 6px 0 0;
+  line-height: 1.5;
 }
 
 /* --- Done --- */

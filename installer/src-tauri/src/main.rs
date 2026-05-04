@@ -1,7 +1,35 @@
 // Prevents extra console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 use tauri::{Emitter, Manager};
+
+// Approx download size for VS Code (Mac arm64/x64 ~115 MB, Win x64 ~120 MB,
+// Linux ~115 MB). Used as the denominator for progress polling — actual
+// bytes are read from the file on disk while curl/PowerShell writes to it.
+const VSCODE_ESTIMATED_BYTES: u64 = 130 * 1024 * 1024;
+
+/// Spawn a background thread that polls the size of `path` while `done` is
+/// false and emits "vscode-download-progress" (1–95) based on bytes/total.
+/// Returns a JoinHandle the caller should join after setting `done = true`.
+fn spawn_download_progress_poller(
+    app: tauri::AppHandle,
+    path: std::path::PathBuf,
+    done: Arc<AtomicBool>,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        while !done.load(Ordering::SeqCst) {
+            if let Ok(meta) = std::fs::metadata(&path) {
+                let pct = ((meta.len() as f64 / VSCODE_ESTIMATED_BYTES as f64) * 95.0)
+                    .clamp(1.0, 95.0) as u8;
+                let _ = app.emit("vscode-download-progress", pct);
+            }
+            std::thread::sleep(Duration::from_millis(300));
+        }
+    })
+}
 
 fn home_dir() -> std::path::PathBuf {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -92,15 +120,24 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
     let _ = std::fs::remove_file(&tmp_zip);
     let _ = std::fs::remove_dir_all(&tmp_dir);
 
-    let _ = app.emit("vscode-download-progress", 5u8);
+    let _ = app.emit("vscode-download-progress", 1u8);
 
-    // Download (~100 MB). -f makes curl exit non-zero on HTTP errors so a
-    // captive-portal or 5xx response doesn't write an HTML error page that
-    // ditto would then fail to extract with a confusing message.
-    let output = std::process::Command::new("curl")
+    // Background poller emits real progress based on bytes written to the
+    // temp file while curl runs. Without this the UI sits at 5% silently
+    // for 30–60s and looks frozen.
+    let done = Arc::new(AtomicBool::new(false));
+    let poller = spawn_download_progress_poller(app.clone(), tmp_zip.clone(), Arc::clone(&done));
+
+    // Download (~115 MB). -f fails on HTTP errors so we don't end up with
+    // an HTML error page that ditto then can't extract.
+    let curl_result = std::process::Command::new("curl")
         .args(["-L", "-f", "--silent", "--show-error", "-o", &tmp_zip_str, &url])
-        .output()
-        .map_err(|e| format!("curl not available: {e}"))?;
+        .output();
+
+    done.store(true, Ordering::SeqCst);
+    let _ = poller.join();
+
+    let output = curl_result.map_err(|e| format!("curl not available: {e}"))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!(
@@ -109,7 +146,7 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
         ));
     }
 
-    let _ = app.emit("vscode-download-progress", 70u8);
+    let _ = app.emit("vscode-download-progress", 96u8);
 
     // Extract using ditto — Apple's tool that handles signed .app bundles
     // correctly. /usr/bin/unzip is the legacy Info-ZIP build and fails on
@@ -129,7 +166,7 @@ fn download_vscode_macos(app: &tauri::AppHandle) -> Result<(), String> {
         ));
     }
 
-    let _ = app.emit("vscode-download-progress", 88u8);
+    let _ = app.emit("vscode-download-progress", 99u8);
 
     // Move .app to ~/Applications (overwrites any existing install)
     let src = tmp_dir.join("Visual Studio Code.app");
@@ -165,7 +202,10 @@ fn download_vscode_windows(app: &tauri::AppHandle) -> Result<(), String> {
     let _ = std::fs::remove_file(&tmp_zip);
     let _ = std::fs::remove_dir_all(&tmp_dir);
 
-    let _ = app.emit("vscode-download-progress", 5u8);
+    let _ = app.emit("vscode-download-progress", 1u8);
+
+    let done = Arc::new(AtomicBool::new(false));
+    let poller = spawn_download_progress_poller(app.clone(), tmp_zip.clone(), Arc::clone(&done));
 
     // Download with PowerShell
     let ps_cmd = format!(
@@ -173,15 +213,19 @@ fn download_vscode_windows(app: &tauri::AppHandle) -> Result<(), String> {
         url,
         tmp_zip_str.replace('\\', "/")
     );
-    let status = std::process::Command::new("powershell.exe")
+    let status_result = std::process::Command::new("powershell.exe")
         .args(["-Command", &ps_cmd])
-        .status()
-        .map_err(|e| format!("PowerShell not available: {e}"))?;
+        .status();
+
+    done.store(true, Ordering::SeqCst);
+    let _ = poller.join();
+
+    let status = status_result.map_err(|e| format!("PowerShell not available: {e}"))?;
     if !status.success() {
         return Err("VS Code download failed — check your internet connection".to_string());
     }
 
-    let _ = app.emit("vscode-download-progress", 70u8);
+    let _ = app.emit("vscode-download-progress", 96u8);
 
     // Extract with PowerShell
     std::fs::create_dir_all(&tmp_dir)
@@ -253,17 +297,24 @@ fn download_vscode_linux(app: &tauri::AppHandle) -> Result<(), String> {
     let _ = std::fs::remove_file(&tmp_tar);
     let _ = std::fs::remove_dir_all(&tmp_dir);
 
-    let _ = app.emit("vscode-download-progress", 5u8);
+    let _ = app.emit("vscode-download-progress", 1u8);
 
-    let status = std::process::Command::new("curl")
-        .args(["-L", "--silent", "--show-error", "-o", &tmp_tar_str, &url])
-        .status()
-        .map_err(|e| format!("curl not available: {e}"))?;
+    let done = Arc::new(AtomicBool::new(false));
+    let poller = spawn_download_progress_poller(app.clone(), tmp_tar.clone(), Arc::clone(&done));
+
+    let status_result = std::process::Command::new("curl")
+        .args(["-L", "-f", "--silent", "--show-error", "-o", &tmp_tar_str, &url])
+        .status();
+
+    done.store(true, Ordering::SeqCst);
+    let _ = poller.join();
+
+    let status = status_result.map_err(|e| format!("curl not available: {e}"))?;
     if !status.success() {
         return Err("VS Code download failed — check your internet connection".to_string());
     }
 
-    let _ = app.emit("vscode-download-progress", 70u8);
+    let _ = app.emit("vscode-download-progress", 96u8);
 
     std::fs::create_dir_all(&tmp_dir)
         .map_err(|e| format!("Could not create temp dir: {e}"))?;

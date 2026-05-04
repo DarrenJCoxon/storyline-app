@@ -23,12 +23,19 @@ function buildSteps(needsVsCode: boolean): InstallStep[] {
   return steps;
 }
 
+function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s elapsed`;
+  return `${Math.floor(s / 60)}m ${s % 60}s elapsed`;
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [vsCodeDetected, setVsCodeDetected] = useState<boolean | null>(null);
   const [steps, setSteps] = useState<InstallStep[]>([]);
   const [percent, setPercent] = useState(0);
   const [message, setMessage] = useState('Setting things up…');
+  const [subtext, setSubtext] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,10 +54,13 @@ export default function App() {
     setSteps(initial);
     setPercent(0);
     setMessage(needsVsCode ? 'Preparing to download Visual Studio Code…' : 'Installing Storyline extension…');
+    setSubtext(needsVsCode ? 'About 115 MB. Typically 30 seconds to 2 minutes — please keep the installer open.' : undefined);
     setScreen('progress');
 
     let unlistenProgress: UnlistenFn | null = null;
     let unlistenPhase: UnlistenFn | null = null;
+    let downloadStart = 0;
+    let elapsedTimer: ReturnType<typeof setInterval> | null = null;
 
     try {
       unlistenProgress = await listen<number>('vscode-download-progress', e => {
@@ -69,16 +79,26 @@ export default function App() {
         if (phase === 'download') {
           setStep('download', 'active');
           setMessage('Downloading Visual Studio Code…');
+          // Start an elapsed-time ticker so users always see *something*
+          // changing in the UI even if the download briefly stalls. The
+          // shimmer animation handles the bar; this handles the text.
+          downloadStart = Date.now();
+          elapsedTimer = setInterval(() => {
+            setSubtext(`About 115 MB · ${formatElapsed(Date.now() - downloadStart)}`);
+          }, 1000);
         } else if (phase === 'extension') {
           setStep('download', 'done');
           setStep('extension', 'active');
           setPercent(needsVsCode ? 80 : 50);
           setMessage('Installing Storyline extension…');
+          setSubtext(undefined);
+          if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
         } else if (phase === 'done') {
           setStep('extension', 'done');
           setStep('ready', 'done');
           setPercent(100);
           setMessage('All set.');
+          setSubtext(undefined);
         }
       });
 
@@ -90,6 +110,7 @@ export default function App() {
     } finally {
       if (unlistenProgress) unlistenProgress();
       if (unlistenPhase) unlistenPhase();
+      if (elapsedTimer) clearInterval(elapsedTimer);
     }
   };
 
@@ -98,7 +119,7 @@ export default function App() {
   }
 
   if (screen === 'progress') {
-    return <Progress steps={steps} message={message} percent={percent} />;
+    return <Progress steps={steps} message={message} percent={percent} subtext={subtext} />;
   }
 
   if (screen === 'done') {
