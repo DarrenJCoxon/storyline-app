@@ -4,25 +4,25 @@ import { useEffect, useState } from 'react'
 import styles from './DownloadCard.module.css'
 
 // GitHub's `releases/latest/download/<asset-name>` URLs always redirect to the
-// newest tagged release's matching asset. Asset names below match the Tauri
-// bundler's output for Storyline Installer 0.2.2 — if the installer's own
-// version (in installer/src-tauri/tauri.conf.json) ever bumps, these
-// filenames change and the page stops resolving.
+// newest tagged release's matching asset. Asset names below must match the
+// Tauri bundler's output exactly — keep INSTALLER_VERSION in sync with
+// installer/src-tauri/tauri.conf.json on every release.
 const REPO = 'DarrenJCoxon/storyline-app'
 const BASE = `https://github.com/${REPO}/releases/latest/download`
+const INSTALLER_VERSION = '0.2.3'
 
 const downloads = {
   macAppleSilicon: {
     label: 'Mac (Apple Silicon — M1, M2, M3, M4)',
-    url: `${BASE}/Storyline.Installer_0.2.2_aarch64.dmg`,
+    url: `${BASE}/Storyline.Installer_${INSTALLER_VERSION}_aarch64.dmg`,
   },
   macIntel: {
     label: 'Mac (Intel — older Macs)',
-    url: `${BASE}/Storyline.Installer_0.2.2_x64.dmg`,
+    url: `${BASE}/Storyline.Installer_${INSTALLER_VERSION}_x64.dmg`,
   },
   windows: {
     label: 'Windows 10 or 11',
-    url: `${BASE}/Storyline.Installer_0.2.2_x64-setup.exe`,
+    url: `${BASE}/Storyline.Installer_${INSTALLER_VERSION}_x64-setup.exe`,
   },
 } as const
 
