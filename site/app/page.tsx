@@ -1,9 +1,11 @@
 import Image from 'next/image'
 import DownloadCard from './DownloadCard'
 import InvitedBanner from './InvitedBanner'
+import { getDownloads } from './getDownloads'
 import styles from './page.module.css'
 
-export default function HomePage() {
+export default async function HomePage() {
+  const downloads = await getDownloads()
   return (
     <main className={styles.main}>
       {/* ── Hero ─────────────────────────────────────────────── */}
@@ -22,7 +24,7 @@ export default function HomePage() {
 
         <div className={styles.heroCta}>
           <InvitedBanner />
-          <DownloadCard />
+          <DownloadCard downloads={downloads} />
         </div>
 
         <div className={styles.heroShot} aria-hidden="true">
@@ -275,7 +277,7 @@ export default function HomePage() {
           Free download, free first plan. No subscription.
         </p>
         <div className={styles.ctaBox}>
-          <DownloadCard />
+          <DownloadCard downloads={downloads} />
         </div>
       </section>
 
