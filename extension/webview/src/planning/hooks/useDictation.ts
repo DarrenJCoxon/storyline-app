@@ -154,12 +154,19 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
       setDictState('recording')
     } catch (err) {
       teardownStream()
-      const msg = err instanceof Error ? err.message : String(err)
-      // Common case: NotAllowedError when user denied mic permission.
-      const friendly = /NotAllowedError|Permission denied/i.test(msg)
-        ? 'Microphone permission denied. Allow access in VS Code → Settings.'
-        : `Recorder error: ${msg}`
-      showError(friendly)
+      const name = err instanceof Error ? err.name : ''
+      const msg  = err instanceof Error ? err.message : String(err)
+      // NotAllowedError: user (or OS) denied mic access. Ask the extension
+      // host to show a toast with an "Open Settings" button that deep-links
+      // straight to the OS pane — much clearer than asking the user to find
+      // it themselves.
+      if (name === 'NotAllowedError' || /Permission denied/i.test(msg)) {
+        send({ type: 'micPermissionDenied' })
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        showError('No microphone found. Plug one in and try again.')
+      } else {
+        showError(`Recorder error: ${msg}`)
+      }
       setDictState('idle')
       toggleLockedRef.current = false
     }

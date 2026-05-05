@@ -300,6 +300,30 @@ export class ChatPanel {
       case 'getMicDevice':
         this.post({ type: 'micDeviceChanged', device: this.context.globalState.get<string>('storyline.micDevice') ?? null })
         break
+      case 'micPermissionDenied': {
+        // Deep-link straight to the OS pane that controls mic access for
+        // the host app (VS Code/Cursor/etc — the OS sees that, not us).
+        // After flipping the toggle the user must restart VS Code for the
+        // permission grant to apply, so the toast says so.
+        const platform = process.platform
+        const settingsUrl =
+          platform === 'darwin' ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+          : platform === 'win32' ? 'ms-settings:privacy-microphone'
+          : 'about:blank'
+        const action = platform === 'linux' ? undefined : 'Open System Settings'
+        const message = platform === 'darwin'
+          ? 'Microphone access is blocked. Open System Settings → Privacy & Security → Microphone, enable Visual Studio Code, then restart VS Code.'
+          : platform === 'win32'
+          ? 'Microphone access is blocked. Open Windows Settings → Privacy & security → Microphone, enable apps, then restart VS Code.'
+          : 'Microphone access is blocked. Enable mic access for VS Code in your system settings, then restart VS Code.'
+        const picked = action
+          ? await vscode.window.showErrorMessage(message, action)
+          : (vscode.window.showErrorMessage(message), undefined)
+        if (picked === action && action) {
+          await vscode.env.openExternal(vscode.Uri.parse(settingsUrl))
+        }
+        break
+      }
       case 'stop':
         this.streamCancelled = true
         break
