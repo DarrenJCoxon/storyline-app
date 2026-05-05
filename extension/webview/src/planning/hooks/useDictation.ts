@@ -9,6 +9,38 @@ interface UseDictationOptions {
   onInsert: (newValue: string, cursorAfter: number) => void
 }
 
+// Pick a MediaRecorder mime type the browser actually supports. Whisper
+// accepts webm/opus, mp4/m4a, ogg, wav directly — webm/opus is universally
+// available in Chromium-based webviews and produces the smallest payload.
+function pickMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return 'audio/webm'
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4',
+  ]
+  for (const t of candidates) {
+    if (MediaRecorder.isTypeSupported(t)) return t
+  }
+  return 'audio/webm'
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const result = reader.result
+      if (typeof result !== 'string') return reject(new Error('FileReader: unexpected result'))
+      // strip the "data:audio/webm;base64," prefix
+      const comma = result.indexOf(',')
+      resolve(comma >= 0 ? result.slice(comma + 1) : result)
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader error'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOptions) {
   const [dictState, setDictState] = useState<DictationState>('idle')
   const [dictError, setDictError] = useState<string | null>(null)
@@ -21,16 +53,25 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
   const toggleLockedRef = useRef(false)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Browser-side recording state
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const chunksRef = useRef<BlobPart[]>([])
+  const cancelledRef = useRef(false)
+  const mimeTypeRef = useRef<string>('audio/webm')
+
   useEffect(() => { dictStateRef.current = dictState }, [dictState])
 
   useEffect(() => {
     return () => {
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+      // Defensive cleanup if the component unmounts mid-recording.
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        try { recorderRef.current.stop() } catch { /* ignore */ }
+      }
+      streamRef.current?.getTracks().forEach(t => t.stop())
     }
   }, [])
-
-  // Request current device on mount
-  useEffect(() => { send({ type: 'getMicDevice' }) }, [send])
 
   const showError = useCallback((msg: string) => {
     setDictError(msg)
@@ -38,22 +79,115 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
     errorTimerRef.current = setTimeout(() => setDictError(null), 6000)
   }, [])
 
-  const startRecording = useCallback(() => {
+  const teardownStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [])
+
+  const startRecording = useCallback(async () => {
     if (dictStateRef.current !== 'idle') return
     setDictError(null)
-    send({ type: 'startRecording' })
-  }, [send])
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      showError('Microphone API not available in this VS Code build.')
+      toggleLockedRef.current = false
+      return
+    }
+
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: {
+          // Browser-level enhancements — better STT accuracy than raw mic.
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          ...(micDevice ? { deviceId: { exact: micDevice } } : {}),
+        },
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      streamRef.current = stream
+
+      const mimeType = pickMimeType()
+      mimeTypeRef.current = mimeType
+      const recorder = new MediaRecorder(stream, { mimeType })
+      recorderRef.current = recorder
+      chunksRef.current = []
+      cancelledRef.current = false
+
+      recorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = async () => {
+        const wasCancelled = cancelledRef.current
+        const chunks = chunksRef.current
+        const mt = mimeTypeRef.current
+        teardownStream()
+
+        if (wasCancelled) {
+          setDictState('idle')
+          toggleLockedRef.current = false
+          return
+        }
+
+        if (chunks.length === 0) {
+          showError('No audio captured — try holding longer.')
+          setDictState('idle')
+          toggleLockedRef.current = false
+          return
+        }
+
+        try {
+          const blob = new Blob(chunks, { type: mt })
+          const audioBase64 = await blobToBase64(blob)
+          send({ type: 'transcribeAudio', audioBase64, mimeType: mt })
+        } catch (err) {
+          showError(err instanceof Error ? err.message : String(err))
+          setDictState('idle')
+          toggleLockedRef.current = false
+        }
+      }
+
+      recorder.start()
+      setDictState('recording')
+    } catch (err) {
+      teardownStream()
+      const msg = err instanceof Error ? err.message : String(err)
+      // Common case: NotAllowedError when user denied mic permission.
+      const friendly = /NotAllowedError|Permission denied/i.test(msg)
+        ? 'Microphone permission denied. Allow access in VS Code → Settings.'
+        : `Recorder error: ${msg}`
+      showError(friendly)
+      setDictState('idle')
+      toggleLockedRef.current = false
+    }
+  }, [micDevice, send, showError, teardownStream])
 
   const stopAndTranscribe = useCallback(() => {
     if (dictStateRef.current !== 'recording') return
+    cancelledRef.current = false
     setDictState('transcribing')
-    send({ type: 'stopRecording' })
-  }, [send])
+    const r = recorderRef.current
+    if (r && r.state !== 'inactive') {
+      try { r.stop() } catch { /* recorder.onstop will fire */ }
+    } else {
+      teardownStream()
+      setDictState('idle')
+    }
+  }, [teardownStream])
 
   const cancelRecording = useCallback(() => {
     const state = dictStateRef.current
     if (state === 'idle') return
-    send({ type: 'cancelRecording' })
+    cancelledRef.current = true
+    const r = recorderRef.current
+    if (r && r.state !== 'inactive') {
+      try { r.stop() } catch { /* ignore */ }
+    } else {
+      teardownStream()
+    }
     toggleLockedRef.current = false
     altHeldRef.current = false
     if (altHoldTimerRef.current) {
@@ -61,25 +195,38 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
       altHoldTimerRef.current = null
     }
     setDictState('idle')
-  }, [send])
+  }, [teardownStream])
 
-  const selectMic = useCallback(() => {
-    send({ type: 'selectMic' })
-  }, [send])
+  const selectMic = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      showError('Device enumeration not available.')
+      return
+    }
+    // Trigger a permission prompt first if needed; otherwise enumerateDevices
+    // returns empty labels.
+    try {
+      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      tempStream.getTracks().forEach(t => t.stop())
+    } catch { /* user may have denied — enumerateDevices will still return ids */ }
+
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const audioInputs = devices.filter(d => d.kind === 'audioinput')
+    if (audioInputs.length === 0) {
+      showError('No microphones found.')
+      return
+    }
+    // Send the list to the extension host, which presents a QuickPick and
+    // tells us which deviceId was chosen via the existing micDeviceChanged
+    // event. (We could implement a webview-side picker but the extension
+    // host gives us a native VS Code picker for free.)
+    send({
+      type: 'pickMicFromList',
+      devices: audioInputs.map(d => ({ deviceId: d.deviceId, label: d.label || 'Unnamed device' })),
+    })
+  }, [send, showError])
 
   // Messages from extension host
   useEffect(() => {
-    const offStarted = on<Record<string, never>>('recordingStarted', () => {
-      setDictState('recording')
-      setDictError(null)
-    })
-
-    const offFailed = on<{ message: string }>('recordingFailed', ({ message }) => {
-      showError(message)
-      setDictState('idle')
-      toggleLockedRef.current = false
-    })
-
     const offResult = on<{ text: string }>('transcribeResult', ({ text }) => {
       const el = textareaRef.current
       const cursorPos = el?.selectionStart ?? getValue().length
@@ -105,7 +252,7 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
       setMicDevice(device)
     })
 
-    return () => { offStarted(); offFailed(); offResult(); offError(); offDevice() }
+    return () => { offResult(); offError(); offDevice() }
   }, [on, textareaRef, getValue, onInsert, showError])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -118,7 +265,7 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
         if (state === 'recording') stopAndTranscribe()
       } else if (state === 'idle') {
         toggleLockedRef.current = true
-        startRecording()
+        void startRecording()
       }
       return
     }
@@ -134,7 +281,7 @@ export function useDictation({ textareaRef, getValue, onInsert }: UseDictationOp
       if (!altHeldRef.current) {
         altHeldRef.current = true
         altHoldTimerRef.current = setTimeout(() => {
-          if (altHeldRef.current) startRecording()
+          if (altHeldRef.current) void startRecording()
         }, 150)
       }
     }
