@@ -36,6 +36,24 @@ node_modules/**
 # parse picture-book `{.bleed .recto}` class syntax. Without it,
 # compile throws "Cannot find package 'markdown-it-attrs'".
 !node_modules/markdown-it-attrs/**
+# Runtime deps for extension/lib/ (dynamic-imported by compile-runner
+# and live-preview). esbuild can't see through dynamic import() so
+# these MUST ship as real node_modules packages — without them the
+# live preview button and the compile pipeline fail at runtime with
+# ERR_MODULE_NOT_FOUND on a fresh install. Synced from
+# extension/package.json runtime deps + their direct transitives.
+!node_modules/fs-extra/**
+!node_modules/graceful-fs/**
+!node_modules/jsonfile/**
+!node_modules/universalify/**
+!node_modules/chalk/**
+!node_modules/markdown-it/**
+!node_modules/argparse/**
+!node_modules/entities/**
+!node_modules/linkify-it/**
+!node_modules/mdurl/**
+!node_modules/punycode.js/**
+!node_modules/uc.micro/**
 
 # Tooling and configs
 tsconfig.json
