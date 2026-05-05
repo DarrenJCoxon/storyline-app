@@ -448,6 +448,15 @@ function activateInner(context: vscode.ExtensionContext): void {
       await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(projectDir), false)
     }),
 
+    vscode.commands.registerCommand('storyline.openWelcome', () => {
+      // The welcome panel auto-shows once after activation but had no way
+      // back. Register it so users can re-open from the command palette
+      // when they want to revisit the getting-started steps.
+      void import('./panels/WelcomePanel.js').then(({ WelcomePanel }) => {
+        WelcomePanel.show(context, context.extensionUri)
+      })
+    }),
+
     vscode.commands.registerCommand('storyline.openPlanning', () => {
       // If no Storyline project exists in this workspace yet, divert to the
       // onboarding flow so the user has a coherent way in. Without this the

@@ -226,7 +226,7 @@ export class WelcomePanel {
       Storyline walks you through your novel or non-fiction book one stage at a time, with an AI planning partner. Your prose lives locally on your computer — the AI never sees your draft. When the plan's ready, you switch to writing.
     </p>
     <p style="margin-top:14px;color:var(--muted);font-size:13.5px">
-      <strong style="color:var(--accent);">250 free credits</strong> cover one full book plan with critique. Image generation needs paid credits, never the free plan.
+      <strong style="color:var(--accent);">150 free credits</strong> cover one full book plan with critique. Image generation needs paid credits, never the free plan.
     </p>
   </div>
 
