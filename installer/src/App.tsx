@@ -59,18 +59,38 @@ export default function App() {
 
     let unlistenProgress: UnlistenFn | null = null;
     let unlistenPhase: UnlistenFn | null = null;
-    let downloadStart = 0;
-    let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+    let downloadTimer: ReturnType<typeof setInterval> | null = null;
+
+    // Simulated download progress driven entirely by the frontend. The Rust
+    // side emits coarse milestones (5/70/88/100); the JS interpolates
+    // smoothly between them so the bar is always moving. Asymptotes at 65%
+    // of the download phase so it never reaches 100% before extraction.
+    const startDownloadAnimation = () => {
+      const start = Date.now();
+      const ESTIMATED_MS = 60_000;
+      downloadTimer = setInterval(() => {
+        const elapsed = Date.now() - start;
+        const fakeDl = Math.min(95, (elapsed / ESTIMATED_MS) * 100);
+        setPercent(Math.round(fakeDl * 0.7));
+        setMessage(`Downloading Visual Studio Code… ${Math.round(fakeDl)}%`);
+        setSubtext(`About 115 MB · ${formatElapsed(elapsed)}`);
+      }, 500);
+    };
+    const stopDownloadAnimation = () => {
+      if (downloadTimer) { clearInterval(downloadTimer); downloadTimer = null; }
+    };
 
     try {
       unlistenProgress = await listen<number>('vscode-download-progress', e => {
-        // Map 0–100 of the download to 0–70 of overall progress when VS Code is downloading.
+        // Rust milestones — only used to nudge the bar at extraction/install
+        // boundaries. The smooth animation owns 0–65 of overall progress
+        // during the download phase.
         const dl = Math.max(0, Math.min(100, Number(e.payload) || 0));
-        if (needsVsCode) {
+        if (needsVsCode && dl >= 70) {
+          stopDownloadAnimation();
           setPercent(Math.round(dl * 0.7));
-          setMessage(dl < 100
-            ? `Downloading Visual Studio Code… ${dl}%`
-            : 'Visual Studio Code downloaded.');
+          setMessage(dl < 100 ? 'Visual Studio Code downloaded — extracting…' : 'Visual Studio Code installed.');
+          setSubtext(undefined);
         }
       });
 
@@ -79,21 +99,16 @@ export default function App() {
         if (phase === 'download') {
           setStep('download', 'active');
           setMessage('Downloading Visual Studio Code…');
-          // Start an elapsed-time ticker so users always see *something*
-          // changing in the UI even if the download briefly stalls. The
-          // shimmer animation handles the bar; this handles the text.
-          downloadStart = Date.now();
-          elapsedTimer = setInterval(() => {
-            setSubtext(`About 115 MB · ${formatElapsed(Date.now() - downloadStart)}`);
-          }, 1000);
+          startDownloadAnimation();
         } else if (phase === 'extension') {
+          stopDownloadAnimation();
           setStep('download', 'done');
           setStep('extension', 'active');
           setPercent(needsVsCode ? 80 : 50);
           setMessage('Installing Storyline extension…');
           setSubtext(undefined);
-          if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
         } else if (phase === 'done') {
+          stopDownloadAnimation();
           setStep('extension', 'done');
           setStep('ready', 'done');
           setPercent(100);
@@ -110,7 +125,7 @@ export default function App() {
     } finally {
       if (unlistenProgress) unlistenProgress();
       if (unlistenPhase) unlistenPhase();
-      if (elapsedTimer) clearInterval(elapsedTimer);
+      stopDownloadAnimation();
     }
   };
 

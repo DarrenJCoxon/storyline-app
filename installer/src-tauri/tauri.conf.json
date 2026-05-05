@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Storyline Installer",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "identifier": "app.storyline.installer",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -40,7 +40,12 @@
     "macOS": {
       "signingIdentity": null,
       "hardenedRuntime": true,
-      "entitlements": "entitlements.mac.plist"
+      "entitlements": "entitlements.mac.plist",
+      "dmg": {
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 }
+      }
     }
   }
 }
