@@ -23,8 +23,27 @@ jobs:
           cache: npm
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
+      # Workspace dep @storyline/core lives at ../packages/core via a
+      # file: link. npm ci installs it as a symlink in extension/node_modules,
+      # but vsce package follows symlinks only for files, not for whole dirs —
+      # the symlink ends up in the VSIX as a broken link. Replace it with a
+      # real directory copy before packaging.
+      - name: Materialise @storyline/core into extension/node_modules
+        working-directory: extension
+        run: |
+          if [ -L node_modules/@storyline/core ]; then
+            rm node_modules/@storyline/core
+            mkdir -p node_modules/@storyline
+            cp -R ../packages/core node_modules/@storyline/core
+          fi
       - run: npm run build:dist
-      - run: npx vsce package --no-dependencies -o storyline.vsix
+      # vsce package WITHOUT --no-dependencies so it includes node_modules.
+      # .vscodeignore excludes node_modules/** by default and whitelists the
+      # specific packages lib/ dynamic-imports at runtime (fs-extra, chalk,
+      # markdown-it, sharp, @img/*, etc). Previous --no-dependencies skipped
+      # node_modules entirely, breaking the live preview on fresh installs
+      # with ERR_MODULE_NOT_FOUND on fs-extra.
+      - run: npx vsce package -o storyline.vsix
       - uses: actions/upload-artifact@v4
         with:
           name: storyline-vsix
