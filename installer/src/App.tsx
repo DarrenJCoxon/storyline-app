@@ -75,14 +75,15 @@ export default function App() {
     }, 500);
   };
 
+  // Resolver for the in-progress install — set by startInstall, called
+  // from the install-phase: done / install-error event handlers below.
+  const installResolveRef = useRef<((ok: boolean, err?: string) => void) | null>(null);
+
   // Register Rust event listeners ONCE on mount, before any user interaction.
-  // Previously these were registered inside startInstall() which created a
-  // race between the install command emitting "install-phase: download" and
-  // the listen() registration completing — and made the UI freeze visibly
-  // during the listen() round-trip on first launch.
   useEffect(() => {
     let unlistenProgress: UnlistenFn | null = null;
     let unlistenPhase: UnlistenFn | null = null;
+    let unlistenError: UnlistenFn | null = null;
 
     const setup = async () => {
       unlistenProgress = await listen<number>('vscode-download-progress', e => {
@@ -114,6 +115,18 @@ export default function App() {
           setPercent(100);
           setMessage('All set.');
           setSubtext(undefined);
+          if (installResolveRef.current) {
+            installResolveRef.current(true);
+            installResolveRef.current = null;
+          }
+        }
+      });
+
+      unlistenError = await listen<string>('install-error', e => {
+        stopDownloadAnimation();
+        if (installResolveRef.current) {
+          installResolveRef.current(false, String(e.payload));
+          installResolveRef.current = null;
         }
       });
     };
@@ -122,6 +135,7 @@ export default function App() {
     return () => {
       if (unlistenProgress) unlistenProgress();
       if (unlistenPhase) unlistenPhase();
+      if (unlistenError) unlistenError();
       stopDownloadAnimation();
     };
   }, []);
@@ -148,11 +162,25 @@ export default function App() {
     }
 
     try {
-      await invoke('install_storyline');
-      setScreen('done');
-    } catch (e) {
-      setError(String(e));
-      setScreen('error');
+      // The Rust command returns immediately and runs the install on a
+      // background thread. We resolve when "install-phase: done" arrives
+      // (or "install-error" if it fails). This keeps the WebView main
+      // thread fully responsive throughout the long curl + ditto work,
+      // so macOS never shows the beachball.
+      const ok = await new Promise<boolean>((resolve) => {
+        installResolveRef.current = (success, err) => {
+          if (!success && err) setError(err);
+          resolve(success);
+        };
+        void invoke('install_storyline').catch(e => {
+          if (installResolveRef.current) {
+            setError(String(e));
+            installResolveRef.current(false);
+            installResolveRef.current = null;
+          }
+        });
+      });
+      setScreen(ok ? 'done' : 'error');
     } finally {
       stopDownloadAnimation();
     }

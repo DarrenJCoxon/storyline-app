@@ -357,27 +357,22 @@ fn vscode_cli() -> std::path::PathBuf {
     }
 }
 
-/// Download VS Code (if missing) and install the bundled Storyline extension.
-/// Emits "vscode-download-progress" (0–100) during download and
-/// "install-phase" with one of: "download", "extension", "done".
-#[tauri::command]
-fn install_storyline(app: tauri::AppHandle) -> Result<(), String> {
+/// Run the actual install work. Sync, called from a background thread.
+fn install_storyline_sync(app: &tauri::AppHandle) -> Result<(), String> {
     if !vscode_present() {
         let _ = app.emit("install-phase", "download");
         #[cfg(target_os = "macos")]
-        { download_vscode_macos(&app)?; }
+        { download_vscode_macos(app)?; }
         #[cfg(target_os = "windows")]
-        { download_vscode_windows(&app)?; }
+        { download_vscode_windows(app)?; }
         #[cfg(target_os = "linux")]
-        { download_vscode_linux(&app)?; }
+        { download_vscode_linux(app)?; }
     } else {
         let _ = app.emit("vscode-download-progress", 100u8);
     }
 
-    // Workspace folder
     ensure_workspace()?;
 
-    // Install bundled extension
     let _ = app.emit("install-phase", "extension");
     let vsix_path = app
         .path()
@@ -394,6 +389,26 @@ fn install_storyline(app: tauri::AppHandle) -> Result<(), String> {
     }
 
     let _ = app.emit("install-phase", "done");
+    Ok(())
+}
+
+/// Tauri command: kick off install in a background thread and return
+/// immediately so the WebView main thread is never blocked. Even with
+/// Tauri's async runtime, sync subprocess work (curl, ditto) on the
+/// command thread can stall the WebKit main thread enough for macOS to
+/// show the beachball cursor and make the installer "look crashed".
+/// Detaching the work eliminates that.
+///
+/// The frontend tracks progress via the existing event stream:
+/// - "install-phase" → "download" / "extension" / "done"
+/// - "install-error" → error string (new — replaces command rejection)
+#[tauri::command]
+fn install_storyline(app: tauri::AppHandle) -> Result<(), String> {
+    std::thread::spawn(move || {
+        if let Err(e) = install_storyline_sync(&app) {
+            let _ = app.emit("install-error", e);
+        }
+    });
     Ok(())
 }
 
