@@ -538,12 +538,24 @@ function activateInner(context: vscode.ExtensionContext): void {
       ResearchPanel.show(context, context.extensionUri, editorPanel)
     }),
 
-    vscode.commands.registerCommand('storyline.openLivePreview', () => {
-      void openLivePreview(context, editorPanel)
+    vscode.commands.registerCommand('storyline.openLivePreview', async () => {
+      try {
+        await openLivePreview(context, editorPanel)
+      } catch (e) {
+        const msg = e instanceof Error ? `${e.message}${e.stack ? '\n' + e.stack.split('\n').slice(0, 3).join('\n') : ''}` : String(e)
+        console.error('[storyline.openLivePreview] failed:', e)
+        void vscode.window.showErrorMessage(`Live Preview failed: ${msg}`)
+      }
     }),
 
-    vscode.commands.registerCommand('storyline.openPreview', () => {
-      void openPreview()
+    vscode.commands.registerCommand('storyline.openPreview', async () => {
+      try {
+        await openPreview()
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('[storyline.openPreview] failed:', e)
+        void vscode.window.showErrorMessage(`Print Preview failed: ${msg}`)
+      }
     }),
 
     vscode.commands.registerCommand('storyline.openOutputFolder', () => {
