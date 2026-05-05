@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import Welcome from './screens/Welcome';
@@ -38,6 +38,11 @@ export default function App() {
   const [subtext, setSubtext] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
+  // Refs for the download animation timer and "are we still downloading"
+  // flag — used by event handlers registered at mount time.
+  const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const downloadingRef   = useRef(false);
+
   useEffect(() => {
     invoke<boolean>('check_vscode')
       .then(setVsCodeDetected)
@@ -48,45 +53,41 @@ export default function App() {
     setSteps(prev => prev.map(s => (s.id === id ? { ...s, status } : s)));
   };
 
-  const startInstall = async () => {
-    const needsVsCode = vsCodeDetected === false;
-    const initial = buildSteps(needsVsCode);
-    setSteps(initial);
-    setPercent(0);
-    setMessage(needsVsCode ? 'Preparing to download Visual Studio Code…' : 'Installing Storyline extension…');
-    setSubtext(needsVsCode ? 'About 115 MB. Typically 30 seconds to 2 minutes — please keep the installer open.' : undefined);
-    setScreen('progress');
+  const stopDownloadAnimation = () => {
+    if (downloadTimerRef.current) {
+      clearInterval(downloadTimerRef.current);
+      downloadTimerRef.current = null;
+    }
+    downloadingRef.current = false;
+  };
 
+  const startDownloadAnimation = () => {
+    if (downloadTimerRef.current) return; // Already running
+    downloadingRef.current = true;
+    const start = Date.now();
+    const ESTIMATED_MS = 60_000;
+    downloadTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const fakeDl = Math.min(95, (elapsed / ESTIMATED_MS) * 100);
+      setPercent(Math.round(fakeDl * 0.7));
+      setMessage(`Downloading Visual Studio Code… ${Math.round(fakeDl)}%`);
+      setSubtext(`About 115 MB · ${formatElapsed(elapsed)}`);
+    }, 500);
+  };
+
+  // Register Rust event listeners ONCE on mount, before any user interaction.
+  // Previously these were registered inside startInstall() which created a
+  // race between the install command emitting "install-phase: download" and
+  // the listen() registration completing — and made the UI freeze visibly
+  // during the listen() round-trip on first launch.
+  useEffect(() => {
     let unlistenProgress: UnlistenFn | null = null;
     let unlistenPhase: UnlistenFn | null = null;
-    let downloadTimer: ReturnType<typeof setInterval> | null = null;
 
-    // Simulated download progress driven entirely by the frontend. The Rust
-    // side emits coarse milestones (5/70/88/100); the JS interpolates
-    // smoothly between them so the bar is always moving. Asymptotes at 65%
-    // of the download phase so it never reaches 100% before extraction.
-    const startDownloadAnimation = () => {
-      const start = Date.now();
-      const ESTIMATED_MS = 60_000;
-      downloadTimer = setInterval(() => {
-        const elapsed = Date.now() - start;
-        const fakeDl = Math.min(95, (elapsed / ESTIMATED_MS) * 100);
-        setPercent(Math.round(fakeDl * 0.7));
-        setMessage(`Downloading Visual Studio Code… ${Math.round(fakeDl)}%`);
-        setSubtext(`About 115 MB · ${formatElapsed(elapsed)}`);
-      }, 500);
-    };
-    const stopDownloadAnimation = () => {
-      if (downloadTimer) { clearInterval(downloadTimer); downloadTimer = null; }
-    };
-
-    try {
+    const setup = async () => {
       unlistenProgress = await listen<number>('vscode-download-progress', e => {
-        // Rust milestones — only used to nudge the bar at extraction/install
-        // boundaries. The smooth animation owns 0–65 of overall progress
-        // during the download phase.
         const dl = Math.max(0, Math.min(100, Number(e.payload) || 0));
-        if (needsVsCode && dl >= 70) {
+        if (downloadingRef.current && dl >= 70) {
           stopDownloadAnimation();
           setPercent(Math.round(dl * 0.7));
           setMessage(dl < 100 ? 'Visual Studio Code downloaded — extracting…' : 'Visual Studio Code installed.');
@@ -98,13 +99,12 @@ export default function App() {
         const phase = String(e.payload);
         if (phase === 'download') {
           setStep('download', 'active');
-          setMessage('Downloading Visual Studio Code…');
-          startDownloadAnimation();
+          if (!downloadingRef.current) startDownloadAnimation();
         } else if (phase === 'extension') {
           stopDownloadAnimation();
           setStep('download', 'done');
           setStep('extension', 'active');
-          setPercent(needsVsCode ? 80 : 50);
+          setPercent(prev => Math.max(prev, 75));
           setMessage('Installing Storyline extension…');
           setSubtext(undefined);
         } else if (phase === 'done') {
@@ -116,15 +116,44 @@ export default function App() {
           setSubtext(undefined);
         }
       });
+    };
 
+    void setup();
+    return () => {
+      if (unlistenProgress) unlistenProgress();
+      if (unlistenPhase) unlistenPhase();
+      stopDownloadAnimation();
+    };
+  }, []);
+
+  const startInstall = async () => {
+    const needsVsCode = vsCodeDetected === false;
+    const initial = buildSteps(needsVsCode);
+    setSteps(initial);
+    setPercent(0);
+
+    // Show progress UI and start the animation immediately so there's no
+    // visible gap between click and bar movement, even if the Rust command
+    // takes a moment to spin up.
+    if (needsVsCode) {
+      setStep('download', 'active');
+      setMessage('Downloading Visual Studio Code…');
+      setSubtext('About 115 MB · 0s elapsed');
+      setScreen('progress');
+      startDownloadAnimation();
+    } else {
+      setMessage('Installing Storyline extension…');
+      setSubtext(undefined);
+      setScreen('progress');
+    }
+
+    try {
       await invoke('install_storyline');
       setScreen('done');
     } catch (e) {
       setError(String(e));
       setScreen('error');
     } finally {
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenPhase) unlistenPhase();
       stopDownloadAnimation();
     }
   };
