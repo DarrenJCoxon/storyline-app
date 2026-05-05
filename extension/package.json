@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -359,7 +359,6 @@
   },
   "dependencies": {
     "@noble/ed25519": "^3.1.0",
-    "@storyline/core": "file:../packages/core",
     "chalk": "^5.6.2",
     "fs-extra": "^11.3.4",
     "isomorphic-git": "^1.37.5",
@@ -376,6 +375,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "@storyline/core": "file:../packages/core",
     "@tiptap/core": "^2.5.0",
     "@tiptap/extension-horizontal-rule": "^2.5.0",
     "@tiptap/extension-image": "^2.27.2",
