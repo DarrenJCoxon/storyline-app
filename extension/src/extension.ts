@@ -201,7 +201,12 @@ function activateInner(context: vscode.ExtensionContext): void {
   // activation if a Storyline project is detected. No-op if already there.
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   bootLog('activate: workspace root resolved', wsRoot ?? '(none)')
-  if (wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json'))) {
+  const hasProject = !!(wsRoot && fs.existsSync(path.join(wsRoot, '.storyline', 'state.json')))
+  // Drive the `when: storyline.hasProject` clause on the activity-bar view.
+  // When false the view container is hidden, so VS Code stops eagerly
+  // activating us in workspaces that have nothing to do with Storyline.
+  void vscode.commands.executeCommand('setContext', 'storyline.hasProject', hasProject)
+  if (hasProject && wsRoot) {
     try { ensureResearchFolder(wsRoot) } catch (e) { bootLogError('ensureResearchFolder', e) }
     try { ensurePlanningFolder(wsRoot) } catch (e) { bootLogError('ensurePlanningFolder', e) }
     try { ensureWorkspaceFile(wsRoot) } catch (e) { bootLogError('ensureWorkspaceFile', e) }
@@ -390,7 +395,13 @@ function activateInner(context: vscode.ExtensionContext): void {
       const folders = vscode.workspace.workspaceFolders
       if (folders?.length) {
         OnboardingPanel.show(context, context.extensionUri, {
-          onScaffolded: () => void initLayout(context),
+          onScaffolded: () => {
+            void initLayout(context)
+            // Activity-bar view is gated on storyline.hasProject — flip it
+            // on now that a project exists in this workspace, so the
+            // sidebar appears without requiring a window reload.
+            void vscode.commands.executeCommand('setContext', 'storyline.hasProject', true)
+          },
         })
         return
       }
