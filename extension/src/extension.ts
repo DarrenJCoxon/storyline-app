@@ -28,7 +28,7 @@ import { issueFreePlan } from './auth/free-plan-issue.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from './credits/credit-display.js'
 import { LocalStore } from './state/local-store.js'
-import { registerStageMdWatcher, resetStageDoc, backfillAllStageDocs } from './state/stage-md-watcher.js'
+import { registerStageMdWatcher, resetStageDoc, backfillAllStageDocs, autoRefreshStaleStageDocs } from './state/stage-md-watcher.js'
 import { saveAsVersion, listVersions } from './manuscript/versions.js'
 import { registerResearchPrewarm } from './research/prewarm.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
@@ -996,6 +996,12 @@ function activateInner(context: vscode.ExtensionContext): void {
     // user (once per session) that they'll be overwritten. Provides
     // storyline.resetStageDoc to regenerate a stage doc from state.
     registerStageMdWatcher(context)
+
+    // Silent auto-refresh: any stage MD older than state.json gets
+    // re-rendered from current state. Catches the case where state was
+    // updated outside the AI save path (CLI commands, migrations, manual
+    // edits to state.json) and the MD went stale.
+    void autoRefreshStaleStageDocs()
 
     // CB-20: parse PDF/DOCX/EPUB drops into research/ into plain-text
     // cache files so the synchronous system-prompt builder can include

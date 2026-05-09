@@ -22,6 +22,7 @@
 // (tables, nested lists) make it brittle. Tracked as CB-11b.
 
 import * as vscode from 'vscode'
+import * as fs from 'fs'
 import * as path from 'path'
 import { writeStageDoc, stageOrderFor } from '@storyline/core'
 import { LocalStore } from './local-store.js'
@@ -206,5 +207,67 @@ export async function backfillAllStageDocs(): Promise<void> {
     void vscode.window.showWarningMessage(summary)
   } else {
     void vscode.window.showInformationMessage(summary)
+  }
+}
+
+/**
+ * Silently refresh any stage MDs that are older than state.json. Fires
+ * once on activation. This is the auto-fix for the long-standing class
+ * of bug where state.json gets updated (CLI command, migration, partial
+ * save with later top-up) without writeStageDoc re-firing — the MDs go
+ * stale and the user sees heading-only stubs that don't match the data.
+ *
+ * Idempotent: stages with no captured data, and stages whose MD is
+ * already at-or-after state.json's updatedAt, are skipped. No toast on
+ * success — failures only.
+ */
+export async function autoRefreshStaleStageDocs(): Promise<void> {
+  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!folder) return
+  const store = LocalStore.fromWorkspace()
+  if (!store) return
+
+  let state: Awaited<ReturnType<typeof store.read>>
+  try {
+    state = await store.read()
+  } catch {
+    return
+  }
+
+  const stateUpdatedAt = state._meta?.updatedAt
+  if (!stateUpdatedAt) return
+  const stateTime = Date.parse(stateUpdatedAt)
+  if (!Number.isFinite(stateTime)) return
+
+  const stagesDir = path.join(folder, 'planning', 'stages')
+  if (!fs.existsSync(stagesDir)) return
+
+  const order = stageOrderFor(state)
+  let refreshed = 0
+  for (const stage of order) {
+    const mdPath = path.join(stagesDir, `${stage.id}.md`)
+    let mdMtime = 0
+    try {
+      mdMtime = fs.statSync(mdPath).mtimeMs
+    } catch {
+      // File missing — let writeStageDoc decide whether to create it
+      // (it returns null when there's no captured data, so empty stages
+      // stay empty).
+    }
+    if (mdMtime >= stateTime) continue
+
+    try {
+      const written = await writeStageDoc(stage.id, state, folder)
+      if (written) {
+        markStageDocSelfWrite(written)
+        refreshed++
+      }
+    } catch (err) {
+      logWarn(`[Storyline] autoRefreshStaleStageDocs: writeStageDoc failed for ${stage.id}`, err)
+    }
+  }
+
+  if (refreshed > 0) {
+    logInfo(`[Storyline] autoRefreshStaleStageDocs: refreshed ${refreshed} stale stage doc(s)`)
   }
 }

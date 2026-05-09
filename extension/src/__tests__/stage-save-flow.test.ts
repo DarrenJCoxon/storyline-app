@@ -196,20 +196,22 @@ describe('stage save → state.json + planning/stages/<id>.md', () => {
   })
 
   it('writeStageDoc uses the generic fallback for stages without a bespoke renderer', async () => {
-    // `pa-objections` has no entry in nfRenderers but the writer's data
+    // `pa-application` has no entry in nfRenderers but the writer's data
     // should still appear in the MD so they have a record of what they
     // captured. Generic fallback walks state[stageId] (or nfStages[stageId])
-    // and emits its keys as bold-label entries.
+    // and emits its keys as bold-label entries. (Originally this test
+    // probed pa-objections, but pa-objections gained a bespoke renderer
+    // in extension-v0.2.34 — the fallback contract is unchanged.)
     const state = {
       mode: 'nonfiction',
       nfStages: {
-        'pa-objections': {
-          topObjection: 'But I do not have time to journal',
-          rebuttal: 'Five minutes a day, evidence-based',
+        'pa-application': {
+          implementationSequence: 'But I do not have time to journal',
+          quickWin: 'Five minutes a day, evidence-based',
         },
       },
     } as unknown as ProjectState
-    const result = await writeStageDoc('pa-objections', state, projectDir)
+    const result = await writeStageDoc('pa-application', state, projectDir)
     expect(result).not.toBeNull()
     const md = fs.readFileSync(result!, 'utf-8')
     expect(md).toContain('But I do not have time to journal')

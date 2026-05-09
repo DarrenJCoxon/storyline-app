@@ -185,4 +185,91 @@ describe('NF stage renderer ↔ guide drift (CB-04b)', () => {
 
     expect(drift).toHaveLength(0)
   })
+
+  // Object-array renderer test. The flat-scalar drift test above
+  // skips array questions because their item schema doesn't match the
+  // sentinel pattern. This catches the separate failure mode where an
+  // array-of-objects question silently renders as
+  // `- [object Object]` because the renderer used a primitive-only
+  // formatter (the original nfList) on a structured item array.
+  it('array-of-object questions render every item field — no [object Object] leaks', async () => {
+    interface ArrayProbe {
+      stageId: string
+      key: string
+      itemSchema: Record<string, unknown>
+    }
+    function arrayProbes(label: string, guides: Record<string, GuideShape>): ArrayProbe[] {
+      const probes: ArrayProbe[] = []
+      const harvest = (stageId: string, qs: GuideQuestion[] | undefined): void => {
+        for (const q of qs ?? []) {
+          if (!q.key) continue
+          const schema = (q as unknown as { itemSchema?: Record<string, unknown> }).itemSchema
+          if ((q.type === 'array' || schema) && schema && typeof schema === 'object') {
+            probes.push({ stageId: `${label}/${stageId}`, key: q.key, itemSchema: schema })
+          }
+        }
+      }
+      for (const stageId of Object.keys(guides)) {
+        const guide = guides[stageId]
+        harvest(stageId, guide.questions)
+        for (const s of guide.sections ?? []) harvest(stageId, s.questions)
+      }
+      return probes
+    }
+
+    const probes = [
+      ...arrayProbes('dna', NF_DNA_GUIDES as unknown as Record<string, GuideShape>),
+      ...arrayProbes('pa',  PIPELINE_A_GUIDES as unknown as Record<string, GuideShape>),
+      ...arrayProbes('pb',  PIPELINE_B_GUIDES as unknown as Record<string, GuideShape>),
+      ...arrayProbes('pc',  PIPELINE_C_GUIDES as unknown as Record<string, GuideShape>),
+      ...arrayProbes('ac',  ACADEMIC_GUIDES as unknown as Record<string, GuideShape>),
+    ]
+
+    const failures: string[] = []
+    for (const probe of probes) {
+      const [, stageId] = probe.stageId.split('/')
+      const projectDir = makeTmpProject()
+      // Build a single sentinel item with one stub value per item-schema key.
+      const item: Record<string, string> = {}
+      for (const k of Object.keys(probe.itemSchema)) {
+        item[k] = `__ITEM_${stageId}_${probe.key}_${k}__`
+      }
+      const stageState: Record<string, unknown> = { [probe.key]: [item] }
+      const state = {
+        mode: 'nonfiction',
+        [stageId]: stageState,
+        nfStages: { [stageId]: stageState },
+      } as unknown as ProjectState
+
+      const filePath = await writeStageDoc(stageId, state, projectDir)
+      if (!filePath) continue  // No renderer for this stage — covered by other test.
+
+      const md = fs.readFileSync(filePath, 'utf-8')
+      // The deal-breaker: literal "[object Object]" anywhere in output
+      // means a renderer leaked through with naive string interpolation.
+      if (md.includes('[object Object]')) {
+        failures.push(`${probe.stageId}.${probe.key}: rendered as [object Object]`)
+        continue
+      }
+      // Coverage check: every itemSchema key with a stub value must
+      // appear somewhere in the rendered MD. If a renderer ignores some
+      // fields, surface that as a soft drift report (don't fail —
+      // optional fields are legitimate). We only fail when ALL fields
+      // are missing, which means the array wasn't rendered at all.
+      const missingFields = Object.keys(probe.itemSchema).filter(
+        k => !md.includes(`__ITEM_${stageId}_${probe.key}_${k}__`),
+      )
+      if (missingFields.length === Object.keys(probe.itemSchema).length) {
+        failures.push(`${probe.stageId}.${probe.key}: array entirely unrendered (no item fields appeared)`)
+      }
+    }
+
+    if (failures.length > 0) {
+      throw new Error(
+        `Array-of-object renderer failures (${failures.length}):\n  ${failures.join('\n  ')}\n\n` +
+        `Fix: in packages/core/src/output/stage-doc.ts, render each item as a sub-block with **Label:** lines, not as a bullet via toString().`,
+      )
+    }
+    expect(failures).toEqual([])
+  })
 })
