@@ -23,6 +23,21 @@ jobs:
           cache: npm
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
+      # @storyline/core is a file: dep — npm symlinks it into extension/node_modules
+      # but doesn't install its own deps (fs-extra, @types/fs-extra). Without
+      # this, packages/core/dist/*.js fails at require('fs-extra') when bundled.
+      # Mirrors the fix in release-extension.yml + ci.yml.
+      - name: Install @storyline/core deps
+        working-directory: packages/core
+        run: npm ci
+      # packages/runtime imports puppeteer + @lesjoursfr/html-to-epub which
+      # are declared at the repo root (used by packages/runtime/compile/*).
+      # esbuild walks up from packages/runtime/compile/ and finds them in
+      # root/node_modules locally — but CI starts with an empty root/node_modules,
+      # so `npm run build:dist` errors with "Could not resolve 'puppeteer'".
+      - name: Install root deps for runtime package resolution
+        working-directory: .
+        run: npm ci --ignore-scripts
       - run: npm run build:dist
       # vsce package WITHOUT --no-dependencies so it includes node_modules.
       # .vscodeignore excludes node_modules/** by default and whitelists the
