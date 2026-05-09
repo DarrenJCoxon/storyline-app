@@ -334,7 +334,7 @@ function activateInner(context: vscode.ExtensionContext): void {
   // five status bar entries.
   if (hasProject) {
     const planningStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-    planningStatusBar.text = '$(storyline) Storyline'
+    planningStatusBar.text = '$(storyline-mark) Storyline'
     planningStatusBar.tooltip = 'Open Storyline Planning Chat'
     planningStatusBar.command = 'storyline.openPlanning'
     planningStatusBar.show()
