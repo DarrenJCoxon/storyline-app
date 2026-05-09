@@ -40,6 +40,13 @@ jobs:
           cache-dependency-path: extension/package-lock.json
 
       - run: npm ci
+      # @storyline/core is a file: dep — npm symlinks it into extension/node_modules
+      # but doesn't install its own deps (fs-extra, @types/fs-extra). Without
+      # this, packages/core/dist/*.js fails at require('fs-extra') as soon as
+      # the test runner imports anything from @storyline/core.
+      - name: Install workspace package deps
+        working-directory: packages/core
+        run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run build:dist
