@@ -369,6 +369,46 @@ function nfList(items: unknown): string {
   return items.map(i => `- ${i}\n`).join('') + '\n'
 }
 
+// Render a primitive-only array as bullets, OR an object array as numbered
+// sub-blocks where each item's keys become **Label:** lines. Used by stages
+// whose array fields hold structured items (comps, principles, objections,
+// evidence-by-principle). Replaces a previous code path that called nfList()
+// on object arrays and produced literal '- [object Object]' lines.
+function nfStructuredList(items: unknown): string {
+  if (!Array.isArray(items) || items.length === 0) return ''
+  const allPrimitive = items.every(
+    i => i == null || ['string', 'number', 'boolean'].includes(typeof i),
+  )
+  if (allPrimitive) {
+    return items.filter(i => i != null && i !== '').map(i => `- ${i}\n`).join('') + '\n'
+  }
+  let md = ''
+  items.forEach((item, i) => {
+    if (item == null || typeof item !== 'object') {
+      md += `**${i + 1}.** ${item ?? ''}\n\n`
+      return
+    }
+    md += `**${i + 1}.**\n\n`
+    for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+      if (v == null || v === '') continue
+      if (Array.isArray(v)) {
+        md += `- **${humanLabel(k)}:**\n`
+        md += nfStructuredList(v).split('\n').map(l => l ? `    ${l}` : l).join('\n')
+      } else if (typeof v === 'object') {
+        md += `- **${humanLabel(k)}:**\n`
+        for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) {
+          if (v2 == null || v2 === '') continue
+          md += `    - **${humanLabel(k2)}:** ${v2}\n`
+        }
+      } else {
+        md += `- **${humanLabel(k)}:** ${v}\n`
+      }
+    }
+    md += '\n'
+  })
+  return md
+}
+
 // IMPORTANT — these renderers must read the same `key`s the LLM emits
 // (defined as `questions[].key` in packages/core/src/ai/stage-guides-nf-*.ts).
 // Drift produces empty markdown bodies even when state is fully populated.
@@ -384,6 +424,7 @@ const nfRenderers: Record<string, (state: ProjectState) => string> = {
     md += nfLine('Amazon sub-category', s.amazonSubcategory)
     md += nfLine('Shelf description', s.shelfDescription)
     md += nfLine('Competitor title', s.competitorTitle)
+    md += nfLine('Pipeline', s.pipeline)
     return md
   },
   'dna-reader'(state) {
@@ -432,9 +473,20 @@ const nfRenderers: Record<string, (state: ProjectState) => string> = {
   'dna-comps'(state) {
     const s = nfStage(state, 'dna-comps')
     let md = heading('Comps Deep Dive')
-    if (Array.isArray(s.comps)) {
+    const comps = Array.isArray(s.comps) ? (s.comps as Array<Record<string, unknown>>) : []
+    if (comps.length) {
       md += heading('Comparable Titles', 3)
-      md += nfList(s.comps)
+      comps.forEach((c, i) => {
+        const title = (c.title as string) || `Comp ${i + 1}`
+        const author = c.author ? ` — ${c.author}` : ''
+        md += `**${i + 1}. ${title}${author}**\n\n`
+        if (c.year) md += `- **Year:** ${c.year}\n`
+        if (c.whatItDoes) md += `- **What it does:** ${c.whatItDoes}\n`
+        if (c.whatTheyGotRight) md += `- **What they got right:** ${c.whatTheyGotRight}\n`
+        if (c.yourGap) md += `- **Your gap:** ${c.yourGap}\n`
+        else if (c.gap) md += `- **Gap:** ${c.gap}\n`
+        md += '\n'
+      })
     }
     md += nfLine('Market gap', s.marketGap)
     return md
@@ -446,6 +498,7 @@ const nfRenderers: Record<string, (state: ProjectState) => string> = {
     md += nfLine('Tone descriptors', s.toneDescriptors)
     md += nfLine('Voice example (closest)', s.voiceExample)
     md += nfLine('Voice not-this', s.voiceNotThis)
+    md += nfLine('Unresolved', s.unresolved)
     return md
   },
   'dna-evidence'(state) {
@@ -503,8 +556,93 @@ const nfRenderers: Record<string, (state: ProjectState) => string> = {
     md += nfLine('Framework logic', s.frameworkLogic)
     md += nfLine('Sub-mode (argument-led / braid)', s.subMode)
     md += nfLine('Cover accent', s.coverAccent)
-    if (Array.isArray(s.steps)) { md += heading('Steps / Phases', 3); md += nfList(s.steps) }
-    if (Array.isArray(s.principles)) { md += heading('Principles', 3); md += nfList(s.principles) }
+    const steps = Array.isArray(s.steps) ? (s.steps as Array<unknown>) : []
+    if (steps.length) {
+      md += heading('Steps / Phases', 3)
+      const allPrimitive = steps.every(
+        i => i == null || ['string', 'number', 'boolean'].includes(typeof i),
+      )
+      if (allPrimitive) md += nfList(steps)
+      else md += nfStructuredList(steps)
+    }
+    const principles = Array.isArray(s.principles) ? (s.principles as Array<Record<string, unknown>>) : []
+    if (principles.length) {
+      md += heading('Principles', 3)
+      principles.forEach((p, i) => {
+        const num = p.number ?? i + 1
+        const name = (p.name as string) ?? (typeof p === 'string' ? p : `Principle ${num}`)
+        const def = (p.definition as string) ?? (p.claim as string) ?? ''
+        md += def ? `**${num}. ${name}** — ${def}\n\n` : `**${num}. ${name}**\n\n`
+      })
+    }
+    return md
+  },
+  'pa-objections'(state) {
+    const s = nfStage(state, 'pa-objections')
+    let md = heading('Reader Objections')
+    const objs = Array.isArray(s.objections) ? (s.objections as Array<Record<string, unknown>>) : []
+    objs.forEach((o, i) => {
+      const obj = (o.objection as string) ?? (typeof o === 'string' ? o : `Objection ${i + 1}`)
+      md += heading(`${i + 1}. ${obj}`, 3)
+      if (o.source) md += nfLine('Source', o.source)
+      if (o.response) md += nfLine('Response', o.response)
+      if (o.chapterOrPrinciple !== undefined && o.chapterOrPrinciple !== null && o.chapterOrPrinciple !== '') {
+        md += nfLine('Where addressed', o.chapterOrPrinciple)
+      }
+    })
+    md += nfLine('Unanswered objection', s.unansweredObjection)
+    return md
+  },
+  'pa-principles'(state) {
+    const s = nfStage(state, 'pa-principles')
+    let md = heading('Principles / Laws')
+    const ps = Array.isArray(s.principleDetails)
+      ? (s.principleDetails as Array<Record<string, unknown>>)
+      : Array.isArray(s.principles)
+        ? (s.principles as Array<Record<string, unknown>>)
+        : []
+    ps.forEach((p, i) => {
+      const num = p.number ?? i + 1
+      const name = (p.name as string) ?? (p.principle as string) ?? `Principle ${num}`
+      md += heading(`${num}. ${name}`, 3)
+      md += nfLine('Definition', p.deepDefinition ?? p.definition ?? p.claim)
+      md += nfLine('Mechanism', p.mechanism)
+      md += nfLine('Behaviour change', p.behaviourChange)
+      md += nfLine('Common mistake', p.commonMistake)
+    })
+    md += nfLine('Principle interplay', s.principleInterplay)
+    return md
+  },
+  'pa-evidence'(state) {
+    const s = nfStage(state, 'pa-evidence')
+    let md = heading('Evidence Map')
+    const byPrinciple = Array.isArray(s.evidenceByPrinciple)
+      ? (s.evidenceByPrinciple as Array<Record<string, unknown>>)
+      : []
+    byPrinciple.forEach(p => {
+      const num = p.principleNumber ?? '?'
+      const label = (p.principleLabel as string) ?? ''
+      md += heading(`Principle ${num}${label ? ` — ${label}` : ''}`, 3)
+      const items = Array.isArray(p.evidenceItems) ? (p.evidenceItems as Array<unknown>) : []
+      items.forEach(item => {
+        if (typeof item === 'string') {
+          md += `- ${item}\n`
+          return
+        }
+        if (item == null || typeof item !== 'object') return
+        const it = item as Record<string, unknown>
+        const type = it.type ? `_${it.type}_` : ''
+        const source = (it.source as string) ?? ''
+        const supports = (it.supportsTheClaim as string) ?? ''
+        const strength = it.strength ? ` (${it.strength})` : ''
+        const head = [type, source].filter(Boolean).join(' — ')
+        md += `- ${head}${strength}${supports ? `: ${supports}` : ''}\n`
+      })
+      if (items.length) md += '\n'
+    })
+    md += nfLine('Primary research planned', s.primaryResearchPlanned)
+    md += nfLine('Strongest evidence', s.strongestEvidence)
+    md += nfLine('Thinnest evidence', s.thinnestEvidence)
     return md
   },
   'pa-chapters'(state) {

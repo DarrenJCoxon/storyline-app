@@ -44,9 +44,18 @@ jobs:
       # but doesn't install its own deps (fs-extra, @types/fs-extra). Without
       # this, packages/core/dist/*.js fails at require('fs-extra') as soon as
       # the test runner imports anything from @storyline/core.
-      - name: Install workspace package deps
+      - name: Install @storyline/core deps
         working-directory: packages/core
         run: npm ci
+      # packages/runtime imports puppeteer + @lesjoursfr/html-to-epub which are
+      # declared at the repo root (heavy native/native-ish modules used by the
+      # compile pipeline). esbuild walks up from packages/runtime/compile/ and
+      # finds them in root/node_modules locally — but CI starts with an empty
+      # root/node_modules, so `npm run build:dist` errors with "Could not
+      # resolve 'puppeteer'". Install root deps to populate root/node_modules.
+      - name: Install root deps for runtime package resolution
+        working-directory: .
+        run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test
       - run: npm run build:dist
