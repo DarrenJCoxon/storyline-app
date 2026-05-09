@@ -195,7 +195,7 @@ Auto-update fires ~500ms after activation on every workspace open. First-action 
 ---
 
 ### CB-07 · Decouple installer + extension versioning
-**Status:** TODO  ·  **Effort:** M (4–6 hrs)  ·  **Risk:** medium
+**Status:** DONE (v0.2.24 + extension-v* scheme)  ·  **Effort:** M (4–6 hrs)  ·  **Risk:** medium
 
 Today, every typo fix in the extension triggers a full DMG+MSI rebuild and forces users to redownload ~110MB. The installer should fetch the latest VSIX dynamically instead of bundling a specific version.
 
@@ -213,10 +213,12 @@ Today, every typo fix in the extension triggers a full DMG+MSI rebuild and force
 
 **Depends on:** none, but coordinate with CB-08 (release workflow split).
 
+**Outcome (v0.2.24):** Installer (`installer/src-tauri/src/main.rs`) now has a `download_latest_vsix()` function that walks `/repos/.../releases?per_page=20` via the GitHub API and downloads the first release with a `storyline.vsix` asset. `install_storyline_sync()` prefers this over the bundled VSIX; falls back to the Tauri-resource bundled VSIX on any failure (offline install, GitHub down, rate-limited). The bundled VSIX is now an offline safety net rather than the canonical version — installer DMGs stay valid across many extension releases.
+
 ---
 
 ### CB-08 · Split CI release workflows
-**Status:** TODO  ·  **Effort:** S (2 hrs)  ·  **Risk:** low
+**Status:** DONE (v0.2.24)  ·  **Effort:** S (2 hrs)  ·  **Risk:** low
 
 Currently every `v*` tag rebuilds everything. After CB-07 there should be:
 - `v*` (e.g. `v0.3.0`) — full installer + extension release
@@ -228,6 +230,8 @@ Currently every `v*` tag rebuilds everything. After CB-07 there should be:
 - Extension-only release in <2min (no Rust compile, no notarisation, no Windows build)
 
 **Depends on:** CB-07.
+
+**Outcome (v0.2.24):** New `.github/workflows/release-extension.yml` triggers on `extension-v*` tags. Builds and publishes a VSIX-only release with `prerelease: true` so it doesn't override the homepage's "latest" pointer (which serves the DMG). Installer's CB-07 download walk picks up the VSIX from prereleases too. Auto-updater in `extension/src/update/auto-updater.ts` updated to walk `/releases?per_page=20` (instead of `/releases/latest`) and find the first release with a `storyline.vsix` asset, so existing users get extension-only releases via auto-update without re-running the installer. `compareVersions` extended to strip both `v` and `extension-v` prefixes.
 
 ---
 

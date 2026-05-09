@@ -58,9 +58,16 @@ interface GitHubRelease {
   assets: Array<{ name: string; browser_download_url: string }>
 }
 
+// Strip every recognised tag-scheme prefix so comparison just sees the
+// dotted version. Supports both the full-release `v0.2.23` scheme and
+// the extension-only `extension-v0.3.0` scheme introduced with CB-08.
+function normaliseVersion(s: string): string {
+  return s.replace(/^extension-v/, '').replace(/^v/, '')
+}
+
 function compareVersions(a: string, b: string): number {
-  const pa = a.replace(/^v/, '').split('.').map(Number)
-  const pb = b.replace(/^v/, '').split('.').map(Number)
+  const pa = normaliseVersion(a).split('.').map(Number)
+  const pb = normaliseVersion(b).split('.').map(Number)
   for (let i = 0; i < 3; i++) {
     if ((pa[i] ?? 0) > (pb[i] ?? 0)) return 1
     if ((pa[i] ?? 0) < (pb[i] ?? 0)) return -1
@@ -104,16 +111,31 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
 async function getLatestRelease(): Promise<GitHubRelease | null> {
   try {
-    const json = await httpsGetString(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
-    const release = JSON.parse(json) as GitHubRelease
-    if (!release.tag_name) {
-      logInfo('[Storyline] auto-update: GitHub response had no tag_name (rate limited?)')
+    // CB-07/CB-08: walk the full releases list (includes prereleases) so
+    // we pick up extension-only releases tagged `extension-v*`, which are
+    // marked prerelease:true so they don't override the homepage's DMG
+    // pointer at /releases/latest. Without this walk, users with the
+    // extension already installed would never see VSIX-only releases via
+    // auto-update — they'd have to manually re-run the installer.
+    //
+    // We pick the FIRST release in the list (sorted by published_at desc
+    // by GitHub) that has a storyline.vsix asset. That's the most recent
+    // VSIX we should be offering, regardless of tag scheme.
+    const json = await httpsGetString(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=20`)
+    const releases = JSON.parse(json) as GitHubRelease[]
+    if (!Array.isArray(releases)) {
+      logInfo('[Storyline] auto-update: releases response wasn\'t an array (rate limited?)')
       return null
     }
-    return release
+    for (const r of releases) {
+      const hasVsix = (r.assets ?? []).some(a => a.name === 'storyline.vsix')
+      if (hasVsix && r.tag_name) return r
+    }
+    logInfo('[Storyline] auto-update: no release in the latest 20 has a storyline.vsix asset')
+    return null
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    logInfo(`[Storyline] auto-update: failed to fetch latest release — ${msg}`)
+    logInfo(`[Storyline] auto-update: failed to fetch releases — ${msg}`)
     return null
   }
 }

@@ -357,6 +357,91 @@ fn vscode_cli() -> std::path::PathBuf {
     }
 }
 
+/// Download the latest storyline.vsix from GitHub Releases.
+///
+/// CB-07: the installer no longer bundles a specific extension version.
+/// It walks the GitHub releases list (including prereleases — extension-
+/// only releases are tagged `extension-v*` and marked prerelease:true so
+/// they don't override the homepage's "latest" DMG pointer) and downloads
+/// the first release that has a storyline.vsix asset.
+///
+/// On any failure, the caller falls back to the bundled VSIX shipped as
+/// a Tauri resource — so a fresh installer DMG always works offline,
+/// it just won't get the most recent extension fixes.
+///
+/// Returns the temp path of the downloaded VSIX on success.
+fn download_latest_vsix(_app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let api_url = "https://api.github.com/repos/DarrenJCoxon/storyline-app/releases?per_page=20";
+    let json_path = tmp_path("storyline-releases.json");
+    let json_path_str = json_path.to_string_lossy().to_string();
+
+    // Fetch the releases list. -A is required — the GitHub API rejects
+    // requests without a User-Agent header. -L follows redirects, -f
+    // makes HTTP errors fail loudly instead of writing the error body.
+    let output = std::process::Command::new("curl")
+        .args([
+            "-L", "-f", "--silent", "--show-error",
+            "-A", "storyline-installer",
+            "-H", "Accept: application/vnd.github+json",
+            "-o", &json_path_str,
+            api_url,
+        ])
+        .output()
+        .map_err(|e| format!("curl not available: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("could not query GitHub releases: {}", stderr.trim()));
+    }
+
+    let body = std::fs::read_to_string(&json_path)
+        .map_err(|e| format!("could not read releases response: {e}"))?;
+    let _ = std::fs::remove_file(&json_path);
+
+    // Parse the response and find the first storyline.vsix asset URL.
+    // Using serde_json since it's already pulled in transitively.
+    let releases: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| format!("releases response wasn't JSON: {e}"))?;
+    let releases_arr = releases.as_array()
+        .ok_or_else(|| "releases response wasn't an array".to_string())?;
+
+    let mut vsix_url: Option<String> = None;
+    for release in releases_arr {
+        if let Some(assets) = release.get("assets").and_then(|a| a.as_array()) {
+            for asset in assets {
+                let name = asset.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                if name == "storyline.vsix" {
+                    if let Some(url) = asset.get("browser_download_url").and_then(|u| u.as_str()) {
+                        vsix_url = Some(url.to_string());
+                        break;
+                    }
+                }
+            }
+        }
+        if vsix_url.is_some() { break; }
+    }
+    let url = vsix_url.ok_or_else(|| "no release has a storyline.vsix asset".to_string())?;
+
+    // Download the VSIX itself.
+    let dst = tmp_path("storyline.vsix");
+    let dst_str = dst.to_string_lossy().to_string();
+    let _ = std::fs::remove_file(&dst);
+
+    let output = std::process::Command::new("curl")
+        .args([
+            "-L", "-f", "--silent", "--show-error",
+            "-A", "storyline-installer",
+            "-o", &dst_str,
+            &url,
+        ])
+        .output()
+        .map_err(|e| format!("curl not available: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("VSIX download failed: {}", stderr.trim()));
+    }
+    Ok(dst)
+}
+
 /// Run the actual install work. Sync, called from a background thread.
 fn install_storyline_sync(app: &tauri::AppHandle) -> Result<(), String> {
     if !vscode_present() {
@@ -374,10 +459,19 @@ fn install_storyline_sync(app: &tauri::AppHandle) -> Result<(), String> {
     ensure_workspace()?;
 
     let _ = app.emit("install-phase", "extension");
-    let vsix_path = app
-        .path()
-        .resolve("storyline.vsix", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("Could not resolve bundled VSIX: {e}"))?;
+
+    // CB-07: prefer the latest VSIX from GitHub Releases. Falls back to
+    // the bundled fallback shipped in Tauri resources if the network
+    // fetch fails (offline install, GitHub down, rate-limited).
+    let vsix_path = match download_latest_vsix(app) {
+        Ok(p) => p,
+        Err(err) => {
+            eprintln!("[storyline-installer] vsix download failed, using bundled fallback: {err}");
+            app.path()
+                .resolve("storyline.vsix", tauri::path::BaseDirectory::Resource)
+                .map_err(|e| format!("Could not resolve bundled VSIX fallback (and download failed: {err}): {e}"))?
+        }
+    };
 
     let cli = vscode_cli();
     let install_status = std::process::Command::new(&cli)
