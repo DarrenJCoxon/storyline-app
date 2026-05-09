@@ -1,6 +1,7 @@
 import type { Env } from './types.js'
 import { handleValidate } from './validate.js'
 import { handleFreePlanIssue } from './free-plan.js'
+import { handleFreePlanReset } from './free-plan-reset.js'
 import { handleChat, handleAdminStats } from './chat.js'
 import { handleCritique } from './critique.js'
 import { handleIllustrate } from './illustrate.js'
@@ -60,6 +61,10 @@ export default {
         return handleValidate(req, env)
       case '/free-plan/issue':
         return handleFreePlanIssue(req, env)
+      case '/free-plan/reset':
+        // CB-15: dev-only — admin auth, wipes the machineId guard so
+        // a fresh /free-plan/issue mints a clean 150-credit key.
+        return handleFreePlanReset(req, env)
       case '/chat':
         return handleChat(req, env)
       case '/critique':

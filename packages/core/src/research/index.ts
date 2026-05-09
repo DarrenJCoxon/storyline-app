@@ -183,6 +183,11 @@ export function buildResearchMemoryEntries(items, state) {
 export async function syncResearchToMemory(projectDir, state) {
   const items = await listItems(projectDir);
   const entries = buildResearchMemoryEntries(items, state);
-  const result = await appendMemoryLog(entries);
+  // CB-02: pass projectDir through so memory.jsonl lands inside the
+  // project's .storyline/ directory. Without this, appendMemoryLog
+  // fell back to process.cwd() — fine for CLI usage, but in the VS
+  // Code extension host that's wherever VS Code was launched from
+  // (typically /, never the user's project).
+  const result = await appendMemoryLog(entries, projectDir);
   return result;
 }

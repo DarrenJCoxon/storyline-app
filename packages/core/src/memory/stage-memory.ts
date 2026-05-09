@@ -315,9 +315,15 @@ export function buildMemoryEntries(stageId, state) {
 // sync layer can track which entries have been pushed to odd-flow MCP.
 // Returns { logPath, entriesWithIds } — the entries now carry stable IDs
 // that callers (save command) can include in stdout for the skill to use.
-export async function appendMemoryLog(entries) {
+//
+// CB-02: projectDir is now explicit. Defaulting to process.cwd() is fine
+// for the CLI (bin/storyline.js, which IS launched from the project) but
+// dangerous in the VS Code extension host where cwd is wherever VS Code
+// itself was launched from. Callers in the extension host (research
+// sync, NF stage saves) MUST pass projectDir.
+export async function appendMemoryLog(entries, projectDir = process.cwd()) {
   if (!entries.length) return { logPath: null, entriesWithIds: [] };
-  const logDir = resolve(process.cwd(), '.storyline');
+  const logDir = resolve(projectDir, '.storyline');
   await ensureDir(logDir);
   const logPath = resolve(logDir, 'memory.jsonl');
   const ts = new Date().toISOString();
