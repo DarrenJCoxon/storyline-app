@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.2.28",
+  "version": "0.2.29",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -175,6 +175,18 @@
       {
         "command": "storyline.snapshotDraft",
         "title": "Storyline: Snapshot Draft"
+      },
+      {
+        "command": "storyline.saveAsVersion",
+        "title": "Storyline: Save as Version…"
+      },
+      {
+        "command": "storyline.listVersions",
+        "title": "Storyline: Versions…"
+      },
+      {
+        "command": "storyline.resetStageDoc",
+        "title": "Storyline: Reset Stage Doc"
       },
       {
         "command": "storyline.compareToPlan",

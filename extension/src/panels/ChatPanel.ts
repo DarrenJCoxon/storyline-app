@@ -18,6 +18,7 @@ import {
 } from '../conversation/critique-wiring.js'
 import { discoverPlanningArtefacts } from '../conversation/planning-complete.js'
 import { LocalStore, extractJsonBlock, extractFileWrites, extractFileReadRequests } from '../state/local-store.js'
+import { markStageDocSelfWrite } from '../state/stage-md-watcher.js'
 import { pushToMemory, retrieveRelevantMemory, retrieveMemoryEntry } from '../state/memory.js'
 import { triggerWikiCompilation, STAGE_TO_ARTICLES, NF_STAGE_TO_ARTICLES } from '../wiki/article-compiler.js'
 import { checkWikiIntegrity, type IntegrityWarning } from '../wiki/integrity-check.js'
@@ -606,6 +607,7 @@ export class ChatPanel {
         const pd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
         if (pd) {
           writeStageDoc(stageId, newState, pd)
+            .then(p => { if (p) markStageDocSelfWrite(p) })
             .catch(err => logWarn('[Storyline] writeStageDoc (partial) failed', err))
         }
         pushToMemory(stageId, normalizedPatch as Record<string, unknown>)
@@ -857,7 +859,10 @@ export class ChatPanel {
     // 4. Write stage doc
     if (projectDir) {
       writeStageDoc(stageId, finalState, projectDir)
-        .then(filePath => logInfo(`[Storyline] stage doc: ${stageId} → ${filePath ?? '(no renderer)'}`))
+        .then(filePath => {
+          if (filePath) markStageDocSelfWrite(filePath)
+          logInfo(`[Storyline] stage doc: ${stageId} → ${filePath ?? '(no renderer)'}`)
+        })
         .catch(err => logWarn('[Storyline] writeStageDoc failed', err))
     }
 
@@ -1326,6 +1331,7 @@ export class ChatPanel {
       // Regenerate the stage doc unconditionally — cheap file write, ensures
       // the doc always reflects the current state.json.
       writeStageDoc(stageId, state, projectDir)
+        .then(p => { if (p) markStageDocSelfWrite(p) })
         .catch(err => logWarn('[Storyline] repair writeStageDoc failed:', stageId, err))
 
       // Backfill memory only for stages not already logged.

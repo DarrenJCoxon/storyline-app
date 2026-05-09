@@ -28,6 +28,8 @@ import { issueFreePlan } from './auth/free-plan-issue.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from './credits/credit-display.js'
 import { LocalStore } from './state/local-store.js'
+import { registerStageMdWatcher, resetStageDoc } from './state/stage-md-watcher.js'
+import { saveAsVersion, listVersions } from './manuscript/versions.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
@@ -600,6 +602,22 @@ function activateInner(context: vscode.ExtensionContext): void {
       vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir))
     }),
 
+    // CB-11: regenerate planning/stages/<id>.md from state.json. Used
+    // both as a command palette entry ("Storyline: Reset Stage Doc")
+    // and from the toast that fires when the watcher detects a manual
+    // edit. Optional first argument is the stageId (passed by the
+    // watcher); when called from the palette it prompts for one.
+    safeCommand('storyline.resetStageDoc', (stageId?: string) => resetStageDoc(stageId)),
+
+    // CB-13: writer-language manuscript versioning. saveAsVersion
+    // snapshots the current state under a writer-named tag (e.g.
+    // "First draft", "Alt ending"). listVersions shows them in a
+    // quick-pick and switches between them. Implementation rides on
+    // isomorphic-git but the words "branch" and "commit" are hidden
+    // from the UI — writers see "version" and "switch to this version".
+    safeCommand('storyline.saveAsVersion', () => saveAsVersion()),
+    safeCommand('storyline.listVersions', () => listVersions()),
+
     safeCommand('storyline.files.refresh', () => {
       filesTreeProvider.refresh()
     }),
@@ -964,6 +982,11 @@ function activateInner(context: vscode.ExtensionContext): void {
     // reveal from another extension activating second.
     setTimeout(revealStorylineSidebar, 0)
     setTimeout(revealStorylineSidebar, 800)
+
+    // CB-11: detect manual edits to planning/stages/*.md and warn the
+    // user (once per session) that they'll be overwritten. Provides
+    // storyline.resetStageDoc to regenerate a stage doc from state.
+    registerStageMdWatcher(context)
   }
 }
 
