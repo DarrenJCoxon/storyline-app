@@ -27,7 +27,14 @@ import * as vscode from 'vscode'
 import { reportException } from './ai/error-reporter.js'
 import { logError } from './diagnostic-log.js'
 
-export type CommandHandler = (...args: unknown[]) => unknown | Promise<unknown>
+// VS Code passes typed arguments to commands (e.g. a `vscode.Uri` to
+// editor-context commands, a tree-node to view-item commands). Each
+// command handler in extension.ts has its own narrow signature. Using
+// `any[]` here lets `safeCommand(...)` accept all of them without
+// per-call generics. The handler itself stays type-safe — TypeScript
+// checks the handler's declared parameter types at the call site.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type CommandHandler = (...args: any[]) => any
 
 export function safeCommand(commandId: string, handler: CommandHandler): vscode.Disposable {
   return vscode.commands.registerCommand(commandId, async (...args) => {

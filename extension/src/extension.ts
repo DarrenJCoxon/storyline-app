@@ -478,7 +478,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       })
     }),
 
-    vscode.commands.registerCommand('storyline.openPlanning', () => {
+    safeCommand('storyline.openPlanning', () => {
       // If no Storyline project exists in this workspace yet, divert to the
       // onboarding flow so the user has a coherent way in. Without this the
       // chat panel would just sit there showing "Open a Storyline project
@@ -492,7 +492,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       ChatPanel.show(context, context.extensionUri, vscode.ViewColumn.Beside)
     }),
 
-    vscode.commands.registerCommand('storyline.openPlanningStage', (stageId: string) => {
+    safeCommand('storyline.openPlanningStage', (stageId: string) => {
       const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       const hasProject = folder ? fs.existsSync(path.join(folder, '.storyline', 'state.json')) : false
       if (!hasProject) { void vscode.commands.executeCommand('storyline.startNew'); return }
@@ -501,7 +501,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       setTimeout(() => ChatPanel.current()?.navigateToStage(stageId), 300)
     }),
 
-    vscode.commands.registerCommand('storyline.openEditor', async (uri?: vscode.Uri) => {
+    safeCommand('storyline.openEditor', async (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri
       if (!target) {
         vscode.window.showWarningMessage('Storyline: no file to open — activate a markdown file first.')
@@ -510,7 +510,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       await editorPanel.openForUri(target, vscode.ViewColumn.One)
     }),
 
-    vscode.commands.registerCommand('storyline.openToSide', async (uri?: vscode.Uri) => {
+    safeCommand('storyline.openToSide', async (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri
       if (!target) {
         vscode.window.showWarningMessage('Storyline: no file to open — activate a markdown file first.')
@@ -519,7 +519,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       await editorPanel.openForUri(target, vscode.ViewColumn.Beside)
     }),
 
-    vscode.commands.registerCommand('storyline.newChapter', async () => {
+    safeCommand('storyline.newChapter', async () => {
       const folders = vscode.workspace.workspaceFolders
       if (!folders?.length) {
         vscode.window.showWarningMessage('Storyline: open a project folder first.')
@@ -548,23 +548,23 @@ function activateInner(context: vscode.ExtensionContext): void {
       await editorPanel.openForUri(vscode.Uri.file(filePath), vscode.ViewColumn.One)
     }),
 
-    vscode.commands.registerCommand('storyline.compileEpub', () => {
+    safeCommand('storyline.compileEpub', () => {
       CompilePanel.show(context, context.extensionUri, 'epub')
     }),
 
-    vscode.commands.registerCommand('storyline.compilePdf', () => {
+    safeCommand('storyline.compilePdf', () => {
       CompilePanel.show(context, context.extensionUri, 'print-pdf')
     }),
 
-    vscode.commands.registerCommand('storyline.generateCover', () => {
+    safeCommand('storyline.generateCover', () => {
       CoverPanel.show(context, context.extensionUri)
     }),
 
-    vscode.commands.registerCommand('storyline.illustrations', () => {
+    safeCommand('storyline.illustrations', () => {
       IllustrationsPanel.show(context, context.extensionUri, editorPanel)
     }),
 
-    vscode.commands.registerCommand('storyline.research', () => {
+    safeCommand('storyline.research', () => {
       ResearchPanel.show(context, context.extensionUri, editorPanel)
     }),
 
@@ -575,7 +575,7 @@ function activateInner(context: vscode.ExtensionContext): void {
     safeCommand('storyline.openLivePreview', () => openLivePreview(context, editorPanel)),
     safeCommand('storyline.openPreview', () => openPreview()),
 
-    vscode.commands.registerCommand('storyline.openOutputFolder', () => {
+    safeCommand('storyline.openOutputFolder', () => {
       const folder = vscode.workspace.workspaceFolders?.[0]
       if (!folder) return
       const outputDir = path.join(folder.uri.fsPath, 'output')
@@ -583,22 +583,22 @@ function activateInner(context: vscode.ExtensionContext): void {
       vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir))
     }),
 
-    vscode.commands.registerCommand('storyline.files.refresh', () => {
+    safeCommand('storyline.files.refresh', () => {
       filesTreeProvider.refresh()
     }),
 
-    vscode.commands.registerCommand('storyline.files.newFile', async (node?: FileNode) => {
+    safeCommand('storyline.files.newFile', async (node?: FileNode) => {
       const target = await pickTargetFolder(node)
       if (!target) return
       await createNewFile(target)
     }),
 
-    vscode.commands.registerCommand('storyline.files.newFileHere', async (node?: FileNode) => {
+    safeCommand('storyline.files.newFileHere', async (node?: FileNode) => {
       if (!node || node.kind !== 'folder') return
       await createNewFile(node.absPath)
     }),
 
-    vscode.commands.registerCommand('storyline.files.newFolder', async (node?: FileNode) => {
+    safeCommand('storyline.files.newFolder', async (node?: FileNode) => {
       const target = await pickTargetFolder(node)
       if (!target) return
       const name = await vscode.window.showInputBox({
@@ -618,26 +618,26 @@ function activateInner(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('storyline.changeProvider', () => {
+    safeCommand('storyline.changeProvider', () => {
       OnboardingPanel.show(context, context.extensionUri, { initialScreen: 'byok' })
     }),
 
-    vscode.commands.registerCommand('storyline.topUpCredits', () => {
+    safeCommand('storyline.topUpCredits', () => {
       OnboardingPanel.show(context, context.extensionUri, { initialScreen: 'buy-credits' })
     }),
 
-    vscode.commands.registerCommand('storyline.checkForUpdate', () => {
+    safeCommand('storyline.checkForUpdate', () => {
       // Force-check from the command palette. Bypasses the 4h throttle
       // and any "Later" snooze, and surfaces a toast either way so the
       // user knows the check actually ran.
       return checkForUpdate(context, { force: true })
     }),
 
-    vscode.commands.registerCommand('storyline.viewPurchases', () => {
+    safeCommand('storyline.viewPurchases', () => {
       PurchasesPanel.show(context, context.extensionUri, getBackendUrl())
     }),
 
-    vscode.commands.registerCommand('storyline.enterLicenceKey', async () => {
+    safeCommand('storyline.enterLicenceKey', async () => {
       const key = await vscode.window.showInputBox({
         title: 'Storyline — Enter Licence Key',
         placeHolder: 'SL-XXXX-XXXX-XXXX-XXXX',
@@ -655,19 +655,19 @@ function activateInner(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('storyline.showLog', () => {
+    safeCommand('storyline.showLog', () => {
       showLog(false)
     }),
 
-    vscode.commands.registerCommand('storyline.viewTerms', () => {
+    safeCommand('storyline.viewTerms', () => {
       void vscode.env.openExternal(vscode.Uri.parse('https://api.storyline.my/terms'))
     }),
 
-    vscode.commands.registerCommand('storyline.viewPrivacy', () => {
+    safeCommand('storyline.viewPrivacy', () => {
       void vscode.env.openExternal(vscode.Uri.parse('https://api.storyline.my/privacy'))
     }),
 
-    vscode.commands.registerCommand('storyline.resetActivation', async () => {
+    safeCommand('storyline.resetActivation', async () => {
       const manager = new LicenceManager(context, getBackendUrl())
       await manager.clearLicenceKey()
       await manager.clearCache()
@@ -679,7 +679,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage('Storyline: activation cleared. Run "Storyline: Start a New Story" to start over.')
     }),
 
-    vscode.commands.registerCommand('storyline.doctor', async () => {
+    safeCommand('storyline.doctor', async () => {
       const store = LocalStore.fromWorkspace()
       if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
       const state = await store.read()
@@ -695,7 +695,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       panel.webview.html = doctorHtml(report, formatDoctorReport(report))
     }),
 
-    vscode.commands.registerCommand('storyline.generateMasterDoc', async () => {
+    safeCommand('storyline.generateMasterDoc', async () => {
       const store = LocalStore.fromWorkspace()
       if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
       const state = await store.read()
@@ -719,7 +719,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       )
     }),
 
-    vscode.commands.registerCommand('storyline.rebuildWiki', async () => {
+    safeCommand('storyline.rebuildWiki', async () => {
       const store = LocalStore.fromWorkspace()
       if (!store) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
       const state = await store.read()
@@ -758,7 +758,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       )
     }),
 
-    vscode.commands.registerCommand('storyline.notes', async () => {
+    safeCommand('storyline.notes', async () => {
       const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       if (!projectDir) { vscode.window.showWarningMessage('Storyline: open a project folder first.'); return }
 
@@ -772,7 +772,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       panel.webview.html = notesHtml(notes.length, report)
     }),
 
-    vscode.commands.registerCommand('storyline.snapshotDraft', async () => {
+    safeCommand('storyline.snapshotDraft', async () => {
       const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       if (!projectDir) return
 
@@ -790,7 +790,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       )
     }),
 
-    vscode.commands.registerCommand('storyline.compareToPlan', async () => {
+    safeCommand('storyline.compareToPlan', async () => {
       const store = LocalStore.fromWorkspace()
       if (!store) return
       const state = await store.read()
@@ -811,7 +811,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       )
     }),
 
-    vscode.commands.registerCommand('storyline.editBookInfo', async () => {
+    safeCommand('storyline.editBookInfo', async () => {
       const store = LocalStore.fromWorkspace()
       if (!store) return
       const state = await store.read()
@@ -844,7 +844,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage(`Book info saved: "${title}" by ${author}`)
     }),
 
-    vscode.commands.registerCommand('storyline.backupNow', async () => {
+    safeCommand('storyline.backupNow', async () => {
       const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       if (!projectDir) return
 
@@ -900,9 +900,16 @@ function activateInner(context: vscode.ExtensionContext): void {
     }
   }).catch(e => bootLogError('shouldShowOnboarding', e))
 
-  // Update check — once per 24h, non-blocking
-  bootLog('activate: dispatching checkForUpdate')
-  Promise.resolve(checkForUpdate(context)).catch(e => bootLogError('checkForUpdate', e))
+  // Update check — once per 24h, non-blocking, deferred 30s after
+  // activation so the user's first interaction (open chapter, click chat,
+  // run a stage save) isn't competing with a background network call.
+  // CB-06 from docs/backlog/codebase-improvements.md.
+  bootLog('activate: scheduling deferred checkForUpdate (30s)')
+  const updateTimer = setTimeout(() => {
+    bootLog('activate: dispatching deferred checkForUpdate')
+    Promise.resolve(checkForUpdate(context)).catch(e => bootLogError('checkForUpdate', e))
+  }, 30_000)
+  context.subscriptions.push({ dispose: () => clearTimeout(updateTimer) })
 
   // Licence prompt — show on startup if no key or snooze expired
   bootLog('activate: dispatching checkLicencePrompt')

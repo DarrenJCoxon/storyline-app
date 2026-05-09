@@ -129,7 +129,7 @@ Cover at least 3 fiction stages (`genre`, `protagonist`, `beatSheet`) and 2 NF s
 ---
 
 ### CB-04b · Audit NF renderer field-name drift from stage guides
-**Status:** TODO  ·  **Effort:** M (3–4 hrs)  ·  **Risk:** low
+**Status:** DONE (v0.2.23)  ·  **Effort:** M (3–4 hrs)  ·  **Risk:** low
 
 CB-04 found one case (`dna-promise`) where the renderer in `packages/core/src/output/stage-doc.ts` was reading state keys that didn't match the questions defined in `packages/core/src/ai/stage-guides-nf-dna.ts`. The renderer outputs nothing for missing keys, so the markdown body looks half-empty even though the LLM provided every field.
 
@@ -179,7 +179,7 @@ Don't reach for Sentry yet — your Worker can store errors in KV with a TTL, du
 ---
 
 ### CB-06 · Defer auto-update check 30s after activation
-**Status:** TODO  ·  **Effort:** XS (30 min)  ·  **Risk:** very low
+**Status:** DONE (v0.2.23)  ·  **Effort:** XS (30 min)  ·  **Risk:** very low
 
 Auto-update fires ~500ms after activation on every workspace open. First-action experience is faster if we wait until VS Code is idle.
 
@@ -257,7 +257,7 @@ Single file, single function, doing webview lifecycle + theme/opener discovery +
 ---
 
 ### CB-10 · Wrap every command callback in try/catch with error toast
-**Status:** TODO  ·  **Effort:** S (1–2 hrs)  ·  **Risk:** very low
+**Status:** DONE (v0.2.23)  ·  **Effort:** S (1–2 hrs)  ·  **Risk:** very low
 
 We did this for the two preview commands in v0.2.9 and immediately learned the real bug. There are ~20 other commands in extension.ts; most do `void someAsyncFn()` with no error path.
 
