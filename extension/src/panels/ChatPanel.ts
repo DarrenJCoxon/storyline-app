@@ -544,10 +544,21 @@ export class ChatPanel {
   private async applyEmittedPatches(aiText: string, stageId: string): Promise<void> {
     if (!this.store) return
     const patch = extractJsonBlock(aiText)
-    if (!patch) return
+
+    // Drift safeguard: as conversations lengthen the AI sometimes wraps a
+    // stage in pure prose ("Great, captured — ready to move on?") and
+    // forgets the JSON save block. If state already meets the gate from
+    // earlier partial captures, we still want to advance instead of
+    // getting stuck. `mode` is the one stage that requires an explicit
+    // save block — never auto-advance from there.
+    if (!patch && stageId === 'mode') return
 
     let normalizedPatch: Partial<ProjectState>
-    if (stageId === 'mode' && (patch as Record<string, unknown>).mode) {
+    if (!patch) {
+      // Empty patch — proceed through the gate check below; if state
+      // already passes, advance silently.
+      normalizedPatch = {}
+    } else if (stageId === 'mode' && (patch as Record<string, unknown>).mode) {
       const modeBlock = (patch as { mode: { value?: string } }).mode
       const value = modeBlock?.value === 'nonfiction' ? 'nonfiction' : 'fiction'
       normalizedPatch = { mode: value } as Partial<ProjectState>
@@ -598,6 +609,12 @@ export class ChatPanel {
     if (stageId !== 'mode') {
       const gate = gateStageSave(stageId, newState)
       if (!gate.complete) {
+        // No JSON in this turn AND gate doesn't pass yet — the writer is
+        // mid-conversation, not trying to save. Stay quiet (don't surface
+        // a saveGated card, don't re-write the partial doc/memory for
+        // unchanged state).
+        if (!patch) return
+
         logWarn('[Storyline] Save gated — incomplete fields for', stageId, ':', gate.missing)
         this.post({ type: 'saveGated', stageId, missing: gate.missing })
         // Stage not yet complete — stay on the same stage. But keep docs and
@@ -624,13 +641,18 @@ export class ChatPanel {
 
     // Await the memory push so we can surface the result to the webview.
     // pushToMemory itself never throws — it returns { method, error? }.
-    pushToMemory(stageId, normalizedPatch).then(result => {
-      logInfo(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
-      this.post({ type: 'memoryStored', stageId, method: result.method, error: result.error })
-    }).catch(err => logWarn('[Storyline] pushToMemory threw', err))
+    // Skip when we're auto-advancing without a patch — there's nothing new
+    // to record; memory was already pushed on the partial save that filled
+    // the last required field.
+    if (patch) {
+      pushToMemory(stageId, normalizedPatch).then(result => {
+        logInfo(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
+        this.post({ type: 'memoryStored', stageId, method: result.method, error: result.error })
+      }).catch(err => logWarn('[Storyline] pushToMemory threw', err))
+    }
 
     const stageName = stageOrderFor(finalState).find(s => s.id === stageId)?.name ?? stageId
-    logInfo(`[Storyline] stage SAVED: ${stageId} (${stageName}) — state.json updated`)
+    logInfo(`[Storyline] stage ${patch ? 'SAVED' : 'AUTO-ADVANCE'}: ${stageId} (${stageName}) — state.json updated`)
     this.post({
       type: 'stageComplete',
       stageId,

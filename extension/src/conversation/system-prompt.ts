@@ -1,5 +1,5 @@
 import type { ProjectState } from '@storyline/core'
-import { getStageGuide, getNfStageGuide, getPersonaForStage } from '@storyline/core'
+import { getStageGuide, getNfStageGuide, getPersonaForStage, gateStageSave } from '@storyline/core'
 import { getFictionSkill, getNonfictionSkill, getExtensionPath } from './skill-loader.js'
 import { collectWikiArticles } from '../wiki/article-injector.js'
 import { buildPinnedNotesBlock } from '../sidebar/research-pins.js'
@@ -81,6 +81,16 @@ export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBl
 
   const stateBlock = '```json\n' + JSON.stringify(stateForStage(stageId, state), null, 2) + '\n```'
 
+  // Stage-close cue. Long conversations cause the AI to drift into
+  // pure-prose wrap-ups ("Great, captured — ready to move on?") without
+  // emitting the JSON save block, leaving the stage stuck. When the
+  // gate already passes, tell it explicitly so it knows to either emit
+  // the save block now or, if it had something more to add, do so
+  // before doing so. The runtime will auto-advance on the next turn if
+  // the AI still doesn't emit JSON, but a clear nudge here keeps the
+  // save-block discipline visible.
+  const stageCloseCue = buildStageCloseCue(stageId, state)
+
   // Trigger-based reference docs — only side-loaded when the active stage
   // actually needs them. Mirrors the original harness's CLI pattern where
   // /storyline calls `stage-info` (gets the brief) and then opens specific
@@ -102,7 +112,7 @@ ${wikiBlock ? '\n' + wikiBlock + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + 
 ## Current state (output of \`next\`)
 
 ${stateBlock}
-${triggerDocs ? '\n---\n\n' + triggerDocs : ''}
+${stageCloseCue ? '\n' + stageCloseCue + '\n' : ''}${triggerDocs ? '\n---\n\n' + triggerDocs : ''}
 `
 
   const full = [EXTENSION_OVERRIDE, skill, stageContext].filter(Boolean).join('\n\n')
@@ -276,6 +286,30 @@ function readSideDoc(rel: string): string | null {
     if (!ext) return null
     return fs.readFileSync(path.join(ext, rel), 'utf-8')
   } catch { return null }
+}
+
+/**
+ * If the active stage already meets every required field but isn't yet
+ * marked complete, surface that to the AI so it stops drifting. Returns
+ * empty string when the gate hasn't passed yet, when the stage is `mode`
+ * (which uses its own gate), or when the stage was already advanced.
+ */
+function buildStageCloseCue(stageId: string, state: ProjectState): string {
+  if (stageId === 'mode') return ''
+  if (state.stages?.[stageId]?.completed) return ''
+  const gate = gateStageSave(stageId, state)
+  if (!gate.complete) return ''
+  return [
+    '## ⚠️ Stage-close cue',
+    '',
+    `Every required field for **${stageId}** is now captured in state. The next turn must emit the save block:`,
+    '',
+    '```json',
+    `{ "${stageId}": { …all stage fields you have captured, even if previously saved partially… } }`,
+    '```',
+    '',
+    'Do NOT keep gathering more for this stage unless the writer explicitly asks for it. Confirm what\'s been captured in one short sentence, emit the JSON block, and let the runtime advance to the next stage. If you reply in pure prose without the JSON block, the runtime will auto-advance on the next turn — but emitting the block is cleaner and gives you control over the final captured shape.',
+  ].join('\n')
 }
 
 /**
