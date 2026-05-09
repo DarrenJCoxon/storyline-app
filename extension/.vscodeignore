@@ -1,15 +1,19 @@
 # Source — bundled into dist/extension.js, dist/webview/*
 src/**
 webview/**
-# lib/ ships verbatim — compile-runner.ts dynamic-imports its modules
-# at runtime (assembler.js, epub.js, etc.). Don't ignore.
+# CB-01b: extension/lib/ no longer exists. Runtime modules live in
+# packages/runtime/ and are bundled into dist/extension.js by esbuild.
+# The .vscodeignore now only whitelists deps that genuinely need to
+# ship as real on-disk files — native modules (sharp + @img/*),
+# binaries spawned as subprocesses (odd-flow), and assets read from
+# disk at runtime (pagedjs polyfill, markdown-it-attrs).
 node_modules/**
-!node_modules/sharp/**
-# Sharp v0.33+ keeps platform-specific native bindings in @img/sharp-*
+# Sharp v0.33+ keeps platform-specific native bindings in @img/sharp-*.
 # Both the JS wrapper (sharp-<platform>) and the libvips binary
 # (sharp-libvips-<platform>) MUST ship — without them sharp's import
 # throws and we silently fall back to writing the un-resized model
 # output (which can be square instead of the requested 6×9).
+!node_modules/sharp/**
 !node_modules/@img/**
 !node_modules/detect-libc/**
 !node_modules/semver/**
@@ -28,32 +32,16 @@ node_modules/**
 !node_modules/zod/**
 !node_modules/sql.js/**
 !node_modules/@noble/**
-# pagedjs polyfill — read from disk by lib/compile/print-pdf.js and
-# injected into the Puppeteer page for PDF pagination. Without this
+# pagedjs polyfill — read from disk by packages/runtime/compile/print-pdf.js
+# and injected into the Puppeteer page for PDF pagination. Without this
 # the print-PDF compile fails with ENOENT on paged.polyfill.min.js.
 !node_modules/pagedjs/**
-# markdown-it-attrs — imported by lib/compile/markdown-to-html.js to
-# parse picture-book `{.bleed .recto}` class syntax. Without it,
-# compile throws "Cannot find package 'markdown-it-attrs'".
+# markdown-it-attrs — required at runtime by markdown-to-html for the
+# picture-book `{.bleed .recto}` class syntax parser. esbuild does
+# bundle it, but the runtime parser instantiates it via its package
+# entry point so the require() resolves at the runtime path too —
+# safer to keep it shipping as a real package.
 !node_modules/markdown-it-attrs/**
-# Runtime deps for extension/lib/ (dynamic-imported by compile-runner
-# and live-preview). esbuild can't see through dynamic import() so
-# these MUST ship as real node_modules packages — without them the
-# live preview button and the compile pipeline fail at runtime with
-# ERR_MODULE_NOT_FOUND on a fresh install. Synced from
-# extension/package.json runtime deps + their direct transitives.
-!node_modules/fs-extra/**
-!node_modules/graceful-fs/**
-!node_modules/jsonfile/**
-!node_modules/universalify/**
-!node_modules/chalk/**
-!node_modules/markdown-it/**
-!node_modules/argparse/**
-!node_modules/entities/**
-!node_modules/linkify-it/**
-!node_modules/mdurl/**
-!node_modules/punycode.js/**
-!node_modules/uc.micro/**
 
 # Tooling and configs
 tsconfig.json

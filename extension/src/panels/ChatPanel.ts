@@ -25,7 +25,7 @@ import { compileSeriesArticles, compareProtagonistToSeriesArticle } from '../wik
 import { LicenceManager } from '../auth/licence.js'
 import { offerReactivation } from '../auth/reactivate-prompt.js'
 import { promptOnCreditsExhausted } from '../onboarding/licence-prompt.js'
-import { updateCreditBalance } from '../credits/credit-display.js'
+import { updateCreditBalance, refreshAndDisplayCredits } from '../credits/credit-display.js'
 // Free-tier keys are minted server-side per install and all begin with
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
 const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
@@ -1173,6 +1173,14 @@ export class ChatPanel {
 
     this.post({ type: 'streamEnd' })
     this.turnHistory.append(stageId, { role: 'assistant', content: full })
+
+    // Tick the credit counter down after every successful chat turn
+    // (managed-provider only — BYOK/Ollama don't use credits). One /validate
+    // call per turn is cheap and the user sees the indicator move in real
+    // time. Fire-and-forget; transient failures keep the last-known balance.
+    if (this.provider?.id === 'managed') {
+      void refreshAndDisplayCredits(this.context, getBackendUrl())
+    }
     return full
   }
 

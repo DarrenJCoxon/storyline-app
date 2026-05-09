@@ -705,7 +705,7 @@ function activateInner(context: vscode.ExtensionContext): void {
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore – lib/*.js are plain JS with no declaration files
-      const { runDoctor, formatDoctorReport } = await import('../../lib/doctor.js')
+      const { runDoctor, formatDoctorReport } = await import('@storyline/runtime/doctor.js')
       const report = await runDoctor(state, projectDir)
 
       const panel = vscode.window.createWebviewPanel('storyline.doctor', 'Storyline Doctor', vscode.ViewColumn.Beside, { enableScripts: false })
@@ -781,7 +781,7 @@ function activateInner(context: vscode.ExtensionContext): void {
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore – lib/*.js are plain JS with no declaration files
-      const { scanManuscriptNotes, formatNotesReport } = await import('../../lib/manuscript/notes.js')
+      const { scanManuscriptNotes, formatNotesReport } = await import('@storyline/runtime/manuscript/notes.js')
       const notes = await scanManuscriptNotes(projectDir)
       const report = formatNotesReport(notes)
 
@@ -798,7 +798,7 @@ function activateInner(context: vscode.ExtensionContext): void {
         async () => {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore – lib/*.js are plain JS with no declaration files
-          const { snapshotManuscript } = await import('../../lib/manuscript/snapshot.js')
+          const { snapshotManuscript } = await import('@storyline/runtime/manuscript/snapshot.js')
           const snapshot = await snapshotManuscript(projectDir)
           vscode.window.showInformationMessage(
             `Snapshot: ${snapshot.chapterCount} chapters, ${snapshot.totalWords.toLocaleString()} words`
@@ -819,7 +819,7 @@ function activateInner(context: vscode.ExtensionContext): void {
         async () => {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore – lib/*.js are plain JS with no declaration files
-          const { compareManuscriptToPlan } = await import('../../lib/manuscript/compare.js')
+          const { compareManuscriptToPlan } = await import('@storyline/runtime/manuscript/compare.js')
           const report = await compareManuscriptToPlan(state, projectDir)
           const panel = vscode.window.createWebviewPanel('storyline.compare', 'Storyline: Compare to Plan', vscode.ViewColumn.Beside, { enableScripts: false })
           const findings = report.findings.map((f: Record<string,unknown>) => `${f.severity === 'error' ? '✗' : f.severity === 'warning' ? '⚠' : 'ℹ'} ${f.message}`).join('\n')

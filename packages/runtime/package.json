@@ -1,0 +1,19 @@
+{
+  "name": "@storyline/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Storyline runtime — compile pipeline, doctor, manuscript ops, and AI/output helpers shared by the VS Code extension and the standalone CLI. CB-01b in docs/backlog/codebase-improvements.md.",
+  "main": "./index.js",
+  "types": "./types.d.ts",
+  "scripts": {
+    "test": "echo 'no tests yet — runtime is exercised through extension/src/__tests__'"
+  },
+  "dependencies": {
+    "@lesjoursfr/html-to-epub": "^4.4.0",
+    "chalk": "^5.6.2",
+    "fs-extra": "^11.3.4",
+    "markdown-it": "^14.1.0",
+    "markdown-it-attrs": "^4.3.1"
+  }
+}

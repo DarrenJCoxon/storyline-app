@@ -45,7 +45,11 @@ The canonical `lib/` is sync'd into `extension/lib/` by `scripts/sync-extension-
 
 ### CB-01b · Extract `lib/` into a published workspace package
 
-**Status:** TODO · **Effort:** L (1–2 days) · **Risk:** medium
+**Status:** DONE (extension-v0.2.28) · **Effort:** L (1–2 days) · **Risk:** medium
+
+**Outcome:** Created `packages/runtime/` workspace package as a copy of `lib/`. Extension imports via `@storyline/runtime/<subpath>.js` — esbuild inlines the runtime modules and their deps (chalk, fs-extra, markdown-it, etc.) into `dist/extension.js`. Deleted `extension/lib/` shadow copy and `scripts/sync-extension-lib.mjs`. Trimmed `.vscodeignore` — no more whitelist for code-only deps; only file-on-disk deps stay (sharp + native bindings, pagedjs polyfill, odd-flow CLI, markdown-it-attrs). Bundle is 8.4MB but the .vsix drops by ~5MB of duplicated lib/ + deduped node_modules.
+
+`bin/storyline.js` (the CLI) still imports from root `lib/` — that tree stays as the CLI's home for now. Future cleanup (CB-01c) could symlink root `lib/` to `packages/runtime/` to make a single canonical home, but the divergence risk is much lower now that the extension no longer needs a per-build sync.
 
 After CB-01a, the remaining shadow copy ships \~13 lib/ files that the extension dynamic-imports at runtime: the entire compile pipeline (`compile/*.js` — 30 files), `doctor.js`, and `manuscript/{notes,snapshot,compare}.js`. These need to remain as on-disk files because esbuild can't statically resolve dynamic imports across package boundaries.
 

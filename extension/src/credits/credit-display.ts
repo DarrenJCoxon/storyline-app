@@ -3,8 +3,13 @@
 import type * as vscode from 'vscode'
 
 /** Credit count below which we surface the low-credit warning toast and
- *  paint the status-bar item yellow. */
+ *  paint the status-bar item yellow/orange. */
 export const LOW_THRESHOLD = 50
+
+/** Below this we paint the status-bar item red so the user can't miss it.
+ *  Same colour as exhausted (0) — at this point the conversation is one
+ *  or two more turns from running out and requiring a top-up. */
+export const CRITICAL_THRESHOLD = 10
 
 /** Once the user has been warned, the toast stays muted until balance
  *  climbs back above this re-arm threshold (typically via a top-up). The
@@ -65,7 +70,12 @@ export async function updateCreditBalance(
     ? 'Storyline: credits exhausted. Click to top up.'
     : `Storyline: ${balance.toLocaleString()} credits remaining. Click to top up.`
 
-  if (balance === 0) {
+  // Three colour tiers — drawn from VS Code theme tokens so the contrast
+  // stays correct in dark, light, and high-contrast themes:
+  //   0–10 credits  → errorBackground   (red)
+  //   11–50 credits → warningBackground (orange/yellow)
+  //   >50 credits   → default
+  if (balance <= CRITICAL_THRESHOLD) {
     statusBar.backgroundColor = new vscodeRuntime.ThemeColor('statusBarItem.errorBackground')
   } else if (balance <= LOW_THRESHOLD) {
     statusBar.backgroundColor = new vscodeRuntime.ThemeColor('statusBarItem.warningBackground')

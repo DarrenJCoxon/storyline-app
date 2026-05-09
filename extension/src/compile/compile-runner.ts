@@ -23,11 +23,14 @@ function toMessages(items: unknown[]): string[] {
 }
 
 export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
-  // Dynamic ESM import — lib/ ships inside the extension (extension/lib/),
-  // alongside dist/ at the install root. After esbuild bundles to
-  // dist/extension.js, __dirname is the dist/ folder, so lib lives at ../lib.
-  const libBase = path.resolve(__dirname, '..', 'lib', 'compile')
-
+  // CB-01b: dynamic imports now go through @storyline/runtime — the
+  // canonical home of the compile pipeline. The package's `./*.js`
+  // export rule maps these subpaths straight to packages/runtime/src/
+  // files. No more shadow-copy in extension/lib/ + no more sync script.
+  // @storyline/runtime is plain JS with no per-module .d.ts; the cast at
+  // the bottom of this Promise.all gives us the structural types we
+  // actually use.
+  /* eslint-disable @typescript-eslint/ban-ts-comment */
   const [
     { assemble },
     { generateFrontMatter },
@@ -38,14 +41,22 @@ export async function runCompile(opts: CompileOptions): Promise<CompileResult> {
     { packagePrintPdf },
     { distributeOutputs },
   ] = await Promise.all([
-    import(path.join(libBase, 'assembler.js')),
-    import(path.join(libBase, 'front-matter-generator.js')),
-    import(path.join(libBase, 'preflight.js')),
-    import(path.join(libBase, 'markdown-to-html.js')),
-    import(path.join(libBase, 'book-style.js')),
-    import(path.join(libBase, 'epub.js')),
-    import(path.join(libBase, 'print-pdf.js')),
-    import(path.join(libBase, 'distribution.js')),
+    // @ts-ignore — runtime modules ship without per-file declarations
+    import('@storyline/runtime/compile/assembler.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/front-matter-generator.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/preflight.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/markdown-to-html.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/book-style.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/epub.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/print-pdf.js'),
+    // @ts-ignore
+    import('@storyline/runtime/compile/distribution.js'),
   ]) as [
     { assemble: Phase },
     { generateFrontMatter: Phase },
