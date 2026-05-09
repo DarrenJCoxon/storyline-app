@@ -959,7 +959,7 @@ export class ChatPanel {
     if (requests.length === 0) return false
 
     const parts: string[] = []
-    for (const relPath of requests) {
+    for (const { path: relPath, offset = 0 } of requests) {
       if (path.isAbsolute(relPath) || relPath.split('/').includes('..')) {
         logWarn('[Storyline] file_read rejected (unsafe path):', relPath)
         continue
@@ -970,15 +970,58 @@ export class ChatPanel {
         continue
       }
       try {
-        const raw = fs.readFileSync(absPath, 'utf-8')
-        // Cap per-file injection to 30 KB so chained reads can't blow the
-        // 256 KB backend limit when the file content lands in the messages array.
-        const FILE_READ_MAX_BYTES = 30_720
-        const content = Buffer.byteLength(raw, 'utf8') > FILE_READ_MAX_BYTES
-          ? raw.slice(0, FILE_READ_MAX_BYTES) + '\n\n*(truncated — file too large)*'
-          : raw
-        parts.push(`[File: ${relPath}]\n\n${content}`)
-        logInfo('[Storyline] file_read injected:', relPath, `(depth=${depth})`)
+        // Heavy research formats (PDF / DOCX / EPUB) live as binary on
+        // disk — reading them directly returns garbled bytes. The
+        // research file-parser pre-warms a plain-text cache at
+        // .storyline/research-cache/research_<basename>.txt; redirect
+        // there transparently so the AI can request research/foo.pdf
+        // and get the extracted prose. .md/.txt/.markdown read through
+        // unchanged.
+        const ext = path.extname(relPath).toLowerCase()
+        let readPath = absPath
+        if (relPath.startsWith('research/') && (ext === '.pdf' || ext === '.docx' || ext === '.epub')) {
+          const base = path.basename(relPath)
+          const cacheFile = path.join(projectDir, '.storyline', 'research-cache', `research_${base}.txt`)
+          if (fs.existsSync(cacheFile)) {
+            readPath = cacheFile
+          } else {
+            parts.push(`[File: ${relPath}]\n\n(Heavy-format research file is still being indexed. Try again in a few seconds, or open the research panel to trigger a re-parse.)`)
+            logWarn('[Storyline] file_read: research cache missing for', relPath)
+            continue
+          }
+        }
+        const raw = fs.readFileSync(readPath, 'utf-8')
+        // Cap per-read injection so chained reads can't blow the 256 KB
+        // backend limit when the content lands in the messages array. With
+        // MAX_READ_DEPTH=3 chunked reads, the AI can fetch up to ~180 KB
+        // of a single research file across three turns — enough to read a
+        // whole textbook chapter, interview transcript, or comp-title sample.
+        const FILE_READ_MAX_BYTES = 60_000
+        const totalBytes = Buffer.byteLength(raw, 'utf8')
+        const startByte = Math.min(offset, totalBytes)
+        const endByte = Math.min(startByte + FILE_READ_MAX_BYTES, totalBytes)
+        // raw.slice operates on JS code units — close enough for ASCII-heavy
+        // research text. UTF-8 multi-byte boundaries can produce a single
+        // mojibake char at the slice edge, which the AI ignores cleanly.
+        const slice = raw.slice(startByte, endByte)
+        let footer = ''
+        if (endByte < totalBytes) {
+          // Tell the AI EXACTLY how to fetch the next chunk — no guessing
+          // about offset, no "file too large" dead-end. The runtime will
+          // honour the offset on the next turn, up to MAX_READ_DEPTH chained
+          // reads from the same response.
+          footer = `\n\n*(showing bytes ${startByte}–${endByte} of ${totalBytes}. To read more, request:\n` +
+            '```json\n' +
+            JSON.stringify({ file_read: { path: relPath, offset: endByte } }) +
+            '\n```\n)*'
+        } else if (startByte > 0) {
+          footer = `\n\n*(end of file — bytes ${startByte}–${endByte} of ${totalBytes})*`
+        }
+        const header = startByte > 0
+          ? `[File: ${relPath}, bytes ${startByte}–${endByte}]`
+          : `[File: ${relPath}]`
+        parts.push(`${header}\n\n${slice}${footer}`)
+        logInfo('[Storyline] file_read injected:', relPath, `(depth=${depth}, ${startByte}–${endByte} / ${totalBytes})`)
       } catch (err) {
         parts.push(`[File: ${relPath}]\n\n(File not found or unreadable)`)
         logWarn('[Storyline] file_read failed:', relPath, err)

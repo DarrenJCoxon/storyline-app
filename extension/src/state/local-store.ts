@@ -78,17 +78,45 @@ export function extractFileWrites(text: string): FileWrite[] {
   return results
 }
 
-/** Extract file-read requests from AI text. Supports `{ "file_read": "path" }` or `{ "file_read": ["p1","p2"] }`. */
-export function extractFileReadRequests(text: string): string[] {
+/**
+ * A single file-read request from the AI. `offset` is the byte position to
+ * start reading from — used for chunked reads of large research files
+ * (PDF/DOCX transcripts that don't fit in one shot).
+ */
+export interface FileReadRequest {
+  path: string
+  offset?: number
+}
+
+/**
+ * Extract file-read requests from AI text. Supports four shapes:
+ *   { "file_read": "path" }
+ *   { "file_read": ["p1", "p2"] }
+ *   { "file_read": { "path": "p", "offset": 60000 } }
+ *   { "file_read": [{ "path": "p", "offset": 60000 }, "p2"] }
+ * Plain strings get an implicit offset of 0.
+ */
+export function extractFileReadRequests(text: string): FileReadRequest[] {
   const match = text.match(/```json\s*([\s\S]*?)```/)
   if (!match) return []
   try {
     const parsed = JSON.parse(match[1].trim()) as Record<string, unknown>
     const req = parsed['file_read']
     if (!req) return []
-    if (typeof req === 'string') return [req]
-    if (Array.isArray(req)) return req.filter((r): r is string => typeof r === 'string')
+    return normaliseReadRequests(req)
   } catch { /* ignore */ }
+  return []
+}
+
+function normaliseReadRequests(req: unknown): FileReadRequest[] {
+  if (typeof req === 'string') return [{ path: req }]
+  if (Array.isArray(req)) return req.flatMap(normaliseReadRequests)
+  if (req && typeof req === 'object') {
+    const r = req as Record<string, unknown>
+    if (typeof r.path !== 'string') return []
+    const offset = typeof r.offset === 'number' && r.offset >= 0 ? Math.floor(r.offset) : 0
+    return [{ path: r.path, offset }]
+  }
   return []
 }
 
