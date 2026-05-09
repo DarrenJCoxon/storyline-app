@@ -45,9 +45,12 @@ const DRIFTED_BEAT_IDS = ['beat11DarkNightOfTheSoul', 'beat12BreakIntoThree'];
 // ── D1: BEAT_NAMES tables in three rendering files ───────────────────────────
 
 describe('Drift D1 — BEAT_NAMES tables use canonical schema IDs', () => {
+  // CB-01b: extension/lib/ no longer exists. The shadow copy was extracted
+  // into the @storyline/runtime workspace package, so the canonical
+  // chapter-doc.js for the extension lives at packages/runtime/output/.
   const tablesToCheck = [
     'lib/output/chapter-doc.js',
-    'extension/lib/output/chapter-doc.js',
+    'packages/runtime/output/chapter-doc.js',
     'extension/src/editor/chapter-cards.ts',
   ];
 
