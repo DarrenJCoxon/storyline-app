@@ -1,17 +1,19 @@
 // Sync canonical lib/ into the extension's two embedded copies.
 //
-// The extension ships its own copy of lib/ (extension/lib/) which the
-// compile pipeline dynamic-imports at runtime, AND a separate copy of
-// the chapter-opener CSS (extension/resources/chapter-openers/) which
-// the live-preview command loads. Without this sync, edits to the
-// canonical lib/ in the project root silently miss the extension —
-// you ship a vsix that runs stale code.
+// Background: the extension dynamic-imports a small set of lib/ files
+// at runtime (compile pipeline, doctor, manuscript ops). esbuild can't
+// statically resolve dynamic imports across package boundaries, so
+// those .js files must ship as actual files inside the .vsix install.
+// Everything else the extension needs from lib/ is either ported to
+// @storyline/core (bundled via esbuild) or unused. This script keeps
+// the two trees in lockstep until CB-01 fully eliminates the shadow
+// copy by extracting lib/ into a published workspace package.
 //
 // Wired into extension/package.json's build:dist so every `npm run
 // package` (and therefore every `npm run ship`) starts by mirroring
 // the latest source.
 
-import { cpSync, existsSync } from 'fs'
+import { cpSync, existsSync, rmSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -19,7 +21,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const targets = [
   {
-    label: 'extension/lib (compile pipeline + AI/critique/output helpers)',
+    label: 'extension/lib (runtime-loaded compile pipeline + helpers)',
     src: resolve(root, 'lib'),
     dst: resolve(root, 'extension', 'lib'),
   },
@@ -45,6 +47,12 @@ for (const { label, src, dst } of targets) {
     console.error(`[sync-extension-lib] missing source: ${src}`)
     process.exit(1)
   }
+  // Wipe the destination first so deletions in the canonical source
+  // propagate. Without this, files removed from lib/ linger in
+  // extension/lib/ and ship in the VSIX as stale code — exactly the
+  // class of bug that nearly caught the v0.2.19 stage-doc patch.
+  // Delete-then-copy ensures the destination is a true mirror.
+  rmSync(dst, { recursive: true, force: true })
   cpSync(src, dst, { recursive: true })
   console.log(`[sync-extension-lib] ${label}`)
   console.log(`[sync-extension-lib]   ${src}`)

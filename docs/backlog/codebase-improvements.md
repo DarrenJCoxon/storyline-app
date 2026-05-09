@@ -9,7 +9,7 @@ Status legend: `TODO` `IN-PROGRESS` `DONE` `BLOCKED` `WONTFIX`
 ## Tier 1 — structural debt (highest leverage)
 
 ### CB-01 · Eliminate the `lib/` → `extension/lib/` shadow copy
-**Status:** TODO  ·  **Effort:** L (1–2 days)  ·  **Risk:** medium
+**Status:** PARTIAL (v0.2.22 — see CB-01b for the full elimination)  ·  **Effort:** L (1–2 days)  ·  **Risk:** medium
 
 The canonical `lib/` is sync'd into `extension/lib/` by `scripts/sync-extension-lib.mjs`. Every change must be made in two places or the next sync silently clobbers it (this caused the v0.2.10–12 thrash and today's stage-doc bug). The `.vscodeignore` whitelist for `fs-extra`/`chalk`/`markdown-it` exists only because lib runs as dynamic ES modules at runtime instead of being bundled.
 
@@ -31,6 +31,32 @@ The canonical `lib/` is sync'd into `extension/lib/` by `scripts/sync-extension-
 - `extension/esbuild.config.mjs` (verify externals)
 
 **Depends on:** none. Blocks CB-02.
+
+**Outcome (v0.2.22):**
+- Switched the highest-impact dynamic import (`master-doc.js`) from `lib/` to `@storyline/core` in extension.ts. Removed a real concurrency hazard: the old code did `process.chdir(projectDir)` on the extension host to compensate for `lib/output/master-doc.js`'s `process.cwd()` antipattern (CB-02), which interleaves dangerously with any other parallel command.
+- `scripts/sync-extension-lib.mjs` now delete-then-copies. Without this, files removed from canonical `lib/` would linger as stale code in `extension/lib/` and ship in the VSIX. This kills the "two copies that diverge" bug class for files that DO get pruned from `lib/`.
+- The remaining ~13 dynamic imports of `lib/` files (compile pipeline, doctor, manuscript ops) still work as-is and are tracked under CB-01b. Their full elimination requires extracting `lib/` into a separate published workspace package and converting the dynamic imports into static esbuild-bundled imports.
+
+---
+
+### CB-01b · Extract `lib/` into a published workspace package
+**Status:** TODO  ·  **Effort:** L (1–2 days)  ·  **Risk:** medium
+
+After CB-01a, the remaining shadow copy ships ~13 lib/ files that the extension dynamic-imports at runtime: the entire compile pipeline (`compile/*.js` — 30 files), `doctor.js`, and `manuscript/{notes,snapshot,compare}.js`. These need to remain as on-disk files because esbuild can't statically resolve dynamic imports across package boundaries.
+
+**Approach:** create `packages/runtime/` as a published workspace package (alongside `@storyline/core`):
+1. Move all of `lib/` into `packages/runtime/src/`
+2. Convert dynamic imports in `extension.ts` and `compile-runner.ts` to `await import('@storyline/runtime/...')` — esbuild can bundle these AND code-split them into separate chunks (`splitting: true`) so activation cost stays low
+3. Delete `extension/lib/`, `scripts/sync-extension-lib.mjs`, and the `.vscodeignore` whitelist for runtime deps that were only there because lib/ ran un-bundled
+
+**Acceptance:**
+- `extension/lib/` no longer exists
+- `sync-extension-lib.mjs` deleted
+- `.vscodeignore` no longer whitelists `fs-extra`, `chalk`, `markdown-it`, etc.
+- `bin/storyline.js` (the Claude Code CLI skill) updated to import from `@storyline/runtime` too — single source of truth for both extension and CLI
+- VSIX size drops measurably (no duplicated lib/ + esbuild can dedupe shared deps)
+
+**Depends on:** CB-01a (already shipped via v0.2.22).
 
 ---
 

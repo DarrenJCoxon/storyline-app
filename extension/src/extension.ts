@@ -705,18 +705,16 @@ function activateInner(context: vscode.ExtensionContext): void {
       await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: 'Storyline: generating master document…' },
         async () => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore – lib/*.js are plain JS with no declaration files
-          const { generateMasterDocument } = await import('../../lib/output/master-doc.js')
-          const origCwd = process.cwd()
-          try {
-            process.chdir(projectDir)
-            const result = await generateMasterDocument(state)
-            vscode.window.showInformationMessage(`Master document generated: ${result.path}`)
-            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.path))
-          } finally {
-            process.chdir(origCwd)
-          }
+          // CB-01: switched from `lib/output/master-doc.js` (which used
+          // process.cwd() and required us to chdir the whole extension
+          // host) to the bundled @storyline/core version that takes
+          // projectPath as an explicit parameter. Removes a real
+          // concurrency hazard — two parallel commands can no longer
+          // race on process.cwd().
+          const { generateMasterDocument } = await import('@storyline/core')
+          const result = await generateMasterDocument(state, projectDir)
+          vscode.window.showInformationMessage(`Master document generated: ${result.path}`)
+          vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.path))
         }
       )
     }),
