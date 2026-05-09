@@ -334,7 +334,12 @@ function activateInner(context: vscode.ExtensionContext): void {
   // five status bar entries.
   if (hasProject) {
     const planningStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-    planningStatusBar.text = '$(storyline-mark) Storyline'
+    // Use built-in $(book) codicon as a fallback — the custom $(storyline-mark)
+    // icon font occasionally fails to load on first activation after install,
+    // which made the status bar item render as just " Storyline" with no
+    // visible glyph (and on some themes that renders as nothing). The book
+    // codicon is bundled with VS Code so it's always available.
+    planningStatusBar.text = '$(rocket) Storyline'
     planningStatusBar.tooltip = 'Open Storyline Planning Chat'
     planningStatusBar.command = 'storyline.openPlanning'
     planningStatusBar.show()
@@ -372,8 +377,10 @@ function activateInner(context: vscode.ExtensionContext): void {
     // Notes). Initial value is seeded from the activation-time validate()
     // and refreshed on every chat-turn / image-gen / refund.
     initCreditDisplay(context)
+    logInfo('[Storyline] activate: 5 status bar items registered (planning/preview/research/compile/notes) + credit display')
     bootLog('activate: status bar items registered')
   } else {
+    logInfo('[Storyline] activate: status bar items skipped (non-Storyline workspace)')
     bootLog('activate: status bar items skipped (non-Storyline workspace)')
   }
 
