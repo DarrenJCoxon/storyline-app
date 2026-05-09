@@ -1,6 +1,6 @@
 [package]
 name = "storyline-installer"
-version = "0.2.24"
+version = "0.2.42"
 description = "Storyline Installer"
 edition = "2021"
 
