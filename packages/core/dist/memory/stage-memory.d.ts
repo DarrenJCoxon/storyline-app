@@ -1,5 +1,5 @@
 export declare function buildMemoryEntries(stageId: any, state: any): any;
-export declare function appendMemoryLog(entries: any): Promise<{
+export declare function appendMemoryLog(entries: any, projectDir?: string): Promise<{
     logPath: null;
     entriesWithIds: never[];
 } | {

@@ -3,6 +3,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { deriveCurrentStage, stageOrderFor, type ProjectState, runStoryTraps, detectSeriesPotential, getDownstreamImpacts, writeStageDoc, gateStageSave, seedManuscriptFromPlan, getWritingPlan, generatePromisePayoffLedger, findFictionPromiseGaps, generateStoryBible, generateCharacterArcMatrix, generateNfMasterDocument, generateAcademicMasterDocument, generateResearchTodo, generateClaimEvidenceLedger, generateFigureRegistry, seedSyllabiFolder, inferPipelineFromCategory } from '@storyline/core'
 import { writeAllChapterCards } from '../editor/chapter-cards.js'
+import { transcribeAudio } from '../transcribe-helper.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { getActiveChapterRelPath } from '../editor/active-chapter.js'
@@ -29,7 +30,7 @@ import { updateCreditBalance } from '../credits/credit-display.js'
 // SL-FREE- (legacy shared key SL-FREE-0000-0000-FREE also matches).
 const isFreeKey = (key: string | undefined): boolean => !!key && key.startsWith('SL-FREE-')
 import { ManagedProvider } from '../ai/managed-provider.js'
-import { logInfo, logWarn, logError } from '../diagnostic-log.js'
+import { logInfo, logVerbose, logWarn, logError } from '../diagnostic-log.js'
 import type { AIProvider, Message } from '../ai/provider.js'
 import { getQualityMode } from '../ai/quality-config.js'
 
@@ -132,7 +133,7 @@ export class ChatPanel {
       }
 
       const storedKey = await this.licenceManager.getLicenceKey()
-      logInfo('[Storyline] ChatPanel.init: stored key prefix =', storedKey?.slice(0, 12) ?? '(none)')
+      logVerbose('[Storyline] ChatPanel.init: stored key prefix =', storedKey?.slice(0, 12) ?? '(none)')
       // Trust the cached validate from the activation flow — useFree (and
       // the toast / deep-link paths) all run validate({}) just before opening
       // chat. Re-validating here would force a backend round-trip that races
@@ -140,7 +141,7 @@ export class ChatPanel {
       // activation was confirmed seconds ago and the in-panel /chat retry
       // logic can absorb any remaining colo lag.
       const licenceInfo = await this.licenceManager.validate({ useCache: true })
-      logInfo('[Storyline] ChatPanel.init: validate =', licenceInfo)
+      logVerbose('[Storyline] ChatPanel.init: validate =', licenceInfo)
       this.provider = await this.resolveProvider(licenceInfo)
 
       // If validation returned invalid AND the user has a stored key, the key
@@ -515,34 +516,14 @@ export class ChatPanel {
       this.post({ type: 'transcribeError', message: 'No licence key — activate Storyline first.' })
       return
     }
-
     const state = this.store ? await this.store.read() : null
     const projectContext = state ? this.buildProjectContext(state) : ''
 
-    try {
-      const body: Record<string, string> = { licenceKey, audioBase64, mimeType }
-      if (projectContext) body.projectContext = projectContext
-
-      const res = await fetch(`${getBackendUrl()}/transcribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        this.post({ type: 'transcribeError', message: `Transcription failed (${res.status})${text ? ': ' + text : ''}` })
-        return
-      }
-
-      const data = await res.json() as { text?: string; error?: string }
-      if (data.text) {
-        this.post({ type: 'transcribeResult', text: data.text })
-      } else {
-        this.post({ type: 'transcribeError', message: data.error ?? 'Transcription returned no text.' })
-      }
-    } catch (err) {
-      this.post({ type: 'transcribeError', message: err instanceof Error ? err.message : String(err) })
+    const result = await transcribeAudio(getBackendUrl(), { licenceKey, audioBase64, mimeType, projectContext })
+    if (result.ok) {
+      this.post({ type: 'transcribeResult', text: result.text })
+    } else {
+      this.post({ type: 'transcribeError', message: result.error })
     }
   }
 

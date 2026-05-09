@@ -9,10 +9,17 @@ import { build } from 'esbuild'
 // would be an even earlier hang (e.g. dlopen of a native module the
 // runtime tries to load before user JS runs).
 //
+// CB-17: gated behind STORYLINE_BOOT_LOG=1. The require-tracing hook
+// was indispensable while we were chasing the Windows DPAPI hang but on
+// a stable build it does ~30 sync appendFileSync calls per activation
+// for a log file no one reads. Off-by-default; flip the env var when
+// chasing a new activation issue.
+//
 // Self-contained — uses only Node built-ins via require so it can't
 // itself fail to initialise.
 const bootBanner = `"use strict";
 (function(){
+  if (process.env.STORYLINE_BOOT_LOG !== '1') return;
   try {
     var __fs = require('fs');
     var __os = require('os');

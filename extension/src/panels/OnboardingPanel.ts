@@ -6,6 +6,7 @@ import { LicenceManager } from '../auth/licence.js'
 import { issueFreePlan } from '../auth/free-plan-issue.js'
 import { BYOKProvider } from '../ai/byok-provider.js'
 import { OllamaProvider } from '../ai/ollama-provider.js'
+import { logVerbose, logError } from '../diagnostic-log.js'
 
 const BACKEND_URL = 'https://api.storyline.my'
 
@@ -155,12 +156,12 @@ export class OnboardingPanel {
 
       case 'validateLicence': {
         const key = (msg.key as string).trim()
-        console.log('[Storyline] validateLicence: handler entered, keyPrefix=', key.slice(0, 12))
+        logVerbose('[Storyline] validateLicence: handler entered, keyPrefix=', key.slice(0, 12))
         try {
           await this.licenceManager.setLicenceKey(key)
-          console.log('[Storyline] validateLicence: setLicenceKey resolved')
+          logVerbose('[Storyline] validateLicence: setLicenceKey resolved')
           const info = await this.licenceManager.validate({})
-          console.log('[Storyline] validateLicence: validate result', info)
+          logVerbose('[Storyline] validateLicence: validate result', info)
           if (info.valid) {
             this.post({ type: 'validateResult', success: true, creditBalance: info.creditBalance })
           } else {
@@ -168,7 +169,7 @@ export class OnboardingPanel {
             this.post({ type: 'validateResult', success: false, error: 'Invalid or expired licence key.' })
           }
         } catch (err) {
-          console.error('[Storyline] validateLicence: threw', err)
+          logError('[Storyline] validateLicence: threw', err)
           // DO NOT clear the licence key here. Catch fires for both network
           // failures AND for unexpected exceptions inside validate(). On a
           // network blip we want to keep the just-pasted key so the user
@@ -227,14 +228,14 @@ export class OnboardingPanel {
         // the welcome doc, so the user lands straight in chat with usage
         // instructions visible. Same end state as the toast notification
         // path in licence-prompt.ts.
-        console.log('[Storyline] useFree: handler entered')
+        logVerbose('[Storyline] useFree: handler entered')
         try {
-          console.log('[Storyline] useFree: calling /free-plan/issue at', BACKEND_URL)
+          logVerbose('[Storyline] useFree: calling /free-plan/issue at', BACKEND_URL)
           const issued = await issueFreePlan(BACKEND_URL)
-          console.log('[Storyline] useFree: issued', issued.licenceKey, 'credits=', issued.creditBalance)
+          logVerbose('[Storyline] useFree: issued', issued.licenceKey, 'credits=', issued.creditBalance)
           await this.licenceManager.setLicenceKey(issued.licenceKey)
           const info = await this.licenceManager.validate({})
-          console.log('[Storyline] useFree: validate result', info)
+          logVerbose('[Storyline] useFree: validate result', info)
           if (info.valid) {
             await this.context.globalState.update('storyline.freePlan', { active: true })
             this.post({ type: 'validateResult', success: true, creditBalance: info.creditBalance })
@@ -257,7 +258,7 @@ export class OnboardingPanel {
           // a previously-activated free key, etc.) is untouched. Wiping it
           // here would punish users who clicked Start Free by accident
           // when rate-limited.
-          console.error('[Storyline] useFree: failed', err)
+          logError('[Storyline] useFree: failed', err)
           const raw = err instanceof Error ? err.message : String(err)
           const message = /429/.test(raw)
             ? 'Free plan limit reached for this network. Please try again later or enter a licence key.'

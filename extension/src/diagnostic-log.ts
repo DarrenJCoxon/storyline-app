@@ -43,6 +43,26 @@ export function logInfo(message: string, ...rest: unknown[]): void {
   channel?.appendLine(line)
 }
 
+/**
+ * CB-16 — opt-in verbose logging. Used for chatty per-init lines that
+ * are helpful when debugging support cases but noisy on every workspace
+ * open (e.g. "stored key prefix = SL-FREE-…", "validate = {valid:true,
+ * type:'free', creditBalance:145}", "/chat POST url=… key=SL-FREE-…
+ * stage=mode"). These don't reach the console or output channel unless
+ * the user has set STORYLINE_VERBOSE=1 in their environment.
+ *
+ * The Output → Storyline channel is for user-meaningful events (errors,
+ * stage saves, update offers); verbose noise belongs in DevTools when
+ * deliberately enabled.
+ */
+const VERBOSE = process.env.STORYLINE_VERBOSE === '1'
+export function logVerbose(message: string, ...rest: unknown[]): void {
+  if (!VERBOSE) return
+  const line = format(message, rest)
+  console.log(line)
+  channel?.appendLine(line)
+}
+
 export function logWarn(message: string, ...rest: unknown[]): void {
   const line = format(message, rest)
   console.warn(line)

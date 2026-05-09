@@ -7,6 +7,8 @@ import { classifyDocumentRole } from '../editor/manuscript-path.js'
 import { getChapterTitle, setChapterTitle, humanizeFilename } from '../editor/chapter-titles.js'
 import { setActiveChapterRelPath } from '../editor/active-chapter.js'
 import { logWarn } from '../diagnostic-log.js'
+import { transcribeAudio } from '../transcribe-helper.js'
+import { LicenceManager } from '../auth/licence.js'
 
 const AUTOSAVE_IDLE_MS = 1500
 
@@ -309,6 +311,58 @@ export class EditorPanel {
 
       if (msg.type === 'openIllustrations') {
         await vscode.commands.executeCommand('storyline.illustrations')
+        return
+      }
+
+      // CB-12: voice dictation in the editor. Webview captures audio via
+      // MediaRecorder, posts here as base64 + mimeType. We forward to
+      // /transcribe and post the result back; webview inserts at cursor.
+      if (msg.type === 'transcribeAudio'
+          && typeof msg.audioBase64 === 'string'
+          && typeof msg.mimeType === 'string') {
+        const backendUrl = vscode.workspace.getConfiguration('storyline')
+          .get<string>('backendUrl', 'https://api.storyline.my')
+          .replace(/\/$/, '')
+        const licenceManager = new LicenceManager(this.context, backendUrl)
+        const licenceKey = await licenceManager.getLicenceKey()
+        if (!licenceKey) {
+          panel.webview.postMessage({ type: 'transcribeError', message: 'No licence key — activate Storyline first.' })
+          return
+        }
+        const result = await transcribeAudio(backendUrl, {
+          licenceKey,
+          audioBase64: msg.audioBase64,
+          mimeType: msg.mimeType,
+        })
+        if (result.ok) {
+          panel.webview.postMessage({ type: 'transcribeResult', text: result.text })
+        } else {
+          panel.webview.postMessage({ type: 'transcribeError', message: result.error })
+        }
+        return
+      }
+
+      // CB-12 (cont): permission-denied toast with deep-link to OS settings.
+      // Mirrors ChatPanel's handler — kept inline here rather than extracted
+      // because the surface is small and panels evolve at different rates.
+      if (msg.type === 'micPermissionDenied') {
+        const platform = process.platform
+        const settingsUrl =
+          platform === 'darwin' ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+          : platform === 'win32' ? 'ms-settings:privacy-microphone'
+          : 'about:blank'
+        const action = platform === 'linux' ? undefined : 'Open System Settings'
+        const message = platform === 'darwin'
+          ? 'Microphone access is blocked. Open System Settings → Privacy & Security → Microphone, enable Visual Studio Code, then restart VS Code.'
+          : platform === 'win32'
+          ? 'Microphone access is blocked. Open Windows Settings → Privacy & security → Microphone, enable apps, then restart VS Code.'
+          : 'Microphone access is blocked. Enable mic access for VS Code in your system settings, then restart VS Code.'
+        const picked = action
+          ? await vscode.window.showErrorMessage(message, action)
+          : (vscode.window.showErrorMessage(message), undefined)
+        if (picked === action && action) {
+          await vscode.env.openExternal(vscode.Uri.parse(settingsUrl))
+        }
         return
       }
 

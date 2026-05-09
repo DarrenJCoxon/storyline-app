@@ -20,7 +20,8 @@ import { Takeaway } from './extensions/Takeaway.js'
 import { Letter } from './extensions/Letter.js'
 import { vscode } from './vscode.js'
 import { debounce } from './debounce.js'
-import { Image as ImageIcon, AlignVerticalJustifyCenter, Type } from 'lucide-react'
+import { Image as ImageIcon, AlignVerticalJustifyCenter, Type, Mic } from 'lucide-react'
+import { useEditorVoice } from './useEditorVoice.js'
 
 type SaveStatus = 'saved' | 'pending' | 'saving' | 'failed'
 type Font = 'serif' | 'sans'
@@ -418,6 +419,23 @@ export function Editor(): JSX.Element | null {
     }
   }, [editor])
 
+  // CB-12: voice dictation. Inline error state lives next to the toolbar
+  // so transient failures don't need a panel-host toast. NotAllowed
+  // permission errors DO go to the host (deep-link to OS settings) via
+  // the postMessage call inside useEditorVoice.
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!voiceError) return
+    const t = setTimeout(() => setVoiceError(null), 4000)
+    return () => clearTimeout(t)
+  }, [voiceError])
+  const voice = useEditorVoice({
+    editor,
+    onError: setVoiceError,
+    onPermissionDenied: () => vscode.postMessage({ type: 'micPermissionDenied' }),
+    postMessage: msg => vscode.postMessage(msg),
+  })
+
   if (!editor) return null
 
   const btn = (active: boolean) => `toolbar-btn${active ? ' active' : ''}`
@@ -477,8 +495,39 @@ export function Editor(): JSX.Element | null {
           >
             <ImageIcon size={14} strokeWidth={1.8} />
           </button>
+
+          {/* CB-12: voice dictation button. Push-to-talk: pointer-down
+              starts recording, pointer-up stops + transcribes. Click
+              also works for shorter dictations (toggle). Microphone
+              capture happens entirely in the webview via MediaRecorder,
+              so no system tooling (sox/ffmpeg) is required. */}
+          <button
+            className={`topbar-icon-btn${voice.state !== 'idle' ? ' active' : ''}${voice.state === 'recording' ? ' editor-mic--recording' : ''}`}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              if (voice.state === 'idle') void voice.startRecording()
+              else if (voice.state === 'recording') voice.stopAndTranscribe()
+            }}
+            onPointerUp={() => {
+              if (voice.state === 'recording') voice.stopAndTranscribe()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && voice.state !== 'idle') {
+                e.preventDefault()
+                voice.cancelRecording()
+              }
+            }}
+            title={voice.state === 'recording' ? 'Recording — release to transcribe (Esc to cancel)' : voice.state === 'transcribing' ? 'Transcribing…' : 'Hold to dictate'}
+            aria-label="Dictate"
+            aria-pressed={voice.state === 'recording'}
+          >
+            <Mic size={14} strokeWidth={1.8} />
+          </button>
         </div>
       </div>
+      {voiceError && (
+        <div className="editor-voice-error" role="status">{voiceError}</div>
+      )}
 
       <BubbleMenu
         editor={editor}

@@ -10,10 +10,18 @@ import * as path from 'path'
  *
  * Every call must be cheap and crash-proof: a failure to write the boot log
  * must never block activation.
+ *
+ * CB-17 — opt-in by default. The boot log was indispensable while we were
+ * tracking down the Windows DPAPI hang, but on a stable build it writes a
+ * file every workspace open with no consumer reading it. Now gated behind
+ * STORYLINE_BOOT_LOG=1. Set the env var to re-enable when chasing a new
+ * activation issue. Off-by-default avoids leaving forensic traces in user
+ * home dirs and saves 5–10 sync writes per activation.
  */
 
 let logPath: string | null = null
 let bootStart = 0
+const BOOT_LOG_ENABLED = process.env.STORYLINE_BOOT_LOG === '1'
 
 function resolvePath(): string {
   if (process.platform === 'win32') {
@@ -24,6 +32,10 @@ function resolvePath(): string {
 }
 
 export function bootLogInit(): void {
+  if (!BOOT_LOG_ENABLED) {
+    logPath = null
+    return
+  }
   try {
     bootStart = Date.now()
     logPath = resolvePath()

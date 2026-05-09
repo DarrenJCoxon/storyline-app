@@ -341,23 +341,31 @@ function nfList(items) {
         return '';
     return items.map(i => `- ${i}\n`).join('') + '\n';
 }
+// IMPORTANT — these renderers must read the same `key`s the LLM emits
+// (defined as `questions[].key` in packages/core/src/ai/stage-guides-nf-*.ts).
+// Drift produces empty markdown bodies even when state is fully populated.
+// CB-04b's static drift test (extension/src/__tests__/nf-renderer-drift.test.ts)
+// fails the build if any required key isn't reflected here.
 const nfRenderers = {
     'dna-category'(state) {
         const s = nfStage(state, 'dna-category');
         let md = heading('Category & Market Positioning');
-        md += nfLine('Category', s.category);
-        md += nfLine('Sub-category', s.subCategory);
-        md += nfLine('Audience', s.audience);
-        md += nfLine('Market gap', s.marketGap);
+        md += nfLine('Subject', s.subject);
+        md += nfLine('Book type', s.bookType);
+        md += nfLine('Primary category', s.primaryCategory);
+        md += nfLine('Amazon sub-category', s.amazonSubcategory);
+        md += nfLine('Shelf description', s.shelfDescription);
+        md += nfLine('Competitor title', s.competitorTitle);
         return md;
     },
     'dna-reader'(state) {
         const s = nfStage(state, 'dna-reader');
         let md = heading('Reader Avatar');
-        md += nfLine('Reader description', s.readerDescription);
-        md += nfLine('Reader situation', s.readerSituation);
-        md += nfLine('Reader goal', s.readerGoal);
-        md += nfLine('Reader fear', s.readerFear);
+        md += nfLine('Avatar name', s.avatarName);
+        md += nfLine('Demographics', s.demographics);
+        md += nfLine('Already tried', s.alreadyTried);
+        md += nfLine('Biggest fear', s.biggestFear);
+        md += nfLine('Deepest wish', s.deepestWish);
         return md;
     },
     'dna-transform'(state) {
@@ -365,23 +373,24 @@ const nfRenderers = {
         let md = heading('Reader Transformation');
         md += nfLine('Before state', s.beforeState);
         md += nfLine('After state', s.afterState);
-        md += nfLine('Transformation mechanism', s.transformationMechanism);
+        md += nfLine('Transformation sentence', s.transformationSentence);
         return md;
     },
     'dna-idea'(state) {
         const s = nfStage(state, 'dna-idea');
         let md = heading('The One Big Idea');
         md += nfLine('Big idea', s.bigIdea);
-        md += nfLine('Why this idea', s.whyThisIdea);
-        md += nfLine('Counter-intuitive element', s.counterIntuitive);
+        md += nfLine('Why different from comp', s.whyDifferent);
+        md += nfLine('One-sentence idea', s.ideaSentence);
         return md;
     },
     'dna-author'(state) {
         const s = nfStage(state, 'dna-author');
         let md = heading('Author Angle & Authority');
-        md += nfLine('Author angle', s.authorAngle);
-        md += nfLine('Credibility', s.credibility);
+        md += nfLine('Credibility source', s.credibilitySource);
         md += nfLine('Unique access', s.uniqueAccess);
+        md += nfLine('Personal stake', s.personalStake);
+        md += nfLine('Potential weakness', s.potentialWeakness);
         return md;
     },
     'dna-promise'(state) {
@@ -389,7 +398,7 @@ const nfRenderers = {
         let md = heading('Core Promise & Subtitle Engineering');
         md += nfLine('Core promise', s.corePromise);
         md += nfLine('Subtitle draft', s.subtitleDraft);
-        md += nfLine('Measurable outcome', s.measurableOutcome);
+        md += nfLine('Alt subtitle', s.subtitleAlt);
         return md;
     },
     'dna-comps'(state) {
@@ -399,48 +408,52 @@ const nfRenderers = {
             md += heading('Comparable Titles', 3);
             md += nfList(s.comps);
         }
-        md += nfLine('Positioning statement', s.positioningStatement);
+        md += nfLine('Market gap', s.marketGap);
         return md;
     },
     'dna-voice'(state) {
         const s = nfStage(state, 'dna-voice');
         let md = heading('Voice & Tone');
-        md += nfLine('Voice', s.voice);
-        md += nfLine('Tone', s.tone);
-        md += nfLine('Style notes', s.styleNotes);
+        md += nfLine('Voice register', s.voiceRegister);
+        md += nfLine('Tone descriptors', s.toneDescriptors);
+        md += nfLine('Voice example (closest)', s.voiceExample);
+        md += nfLine('Voice not-this', s.voiceNotThis);
         return md;
     },
     'dna-evidence'(state) {
         const s = nfStage(state, 'dna-evidence');
         let md = heading('Evidence Philosophy');
-        md += nfLine('Evidence approach', s.evidenceApproach);
-        md += nfLine('Primary sources', s.primarySources);
-        md += nfLine('Research gaps', s.researchGaps);
+        md += nfLine('Evidence types', s.evidenceTypes);
+        md += nfLine('Primary research', s.primaryResearch);
+        md += nfLine('Sourcing rigor', s.sourcingRigor);
+        md += nfLine('Evidence weakness', s.evidenceWeakness);
         return md;
     },
     'dna-commercial'(state) {
         const s = nfStage(state, 'dna-commercial');
         let md = heading('Commercial Model');
-        md += nfLine('Revenue model', s.revenueModel);
-        md += nfLine('Distribution', s.distribution);
-        md += nfLine('Launch strategy', s.launchStrategy);
+        md += nfLine('Primary goal for the book', s.bookPrimaryGoal);
+        md += nfLine('Beyond the book', s.beyondBook);
+        md += nfLine('Target audience / channel', s.targetAudience);
+        md += nfLine('Success in 12 months', s.successIn12Months);
         return md;
     },
     'dna-title'(state) {
         const s = nfStage(state, 'dna-title');
         let md = heading('Working Title Pressure-Test');
         md += nfLine('Working title', s.workingTitle);
-        md += nfLine('Title rationale', s.titleRationale);
-        md += nfLine('Alternatives', s.alternatives);
+        md += nfLine('Does the title do its job?', s.titleDoesJob);
+        md += nfLine('Alternative titles', s.altTitles);
+        md += nfLine('Title risk', s.titleRisk);
         return md;
     },
     'dna-consolidate'(state) {
         const s = nfStage(state, 'dna-consolidate');
         let md = heading('Book DNA Consolidation');
-        md += nfLine('Final title', s.finalTitle);
-        md += nfLine('Core promise', s.corePromise);
-        md += nfLine('Transformation', s.transformation);
-        md += nfLine('Pipeline', s.pipeline);
+        md += nfLine('Elevator pitch', s.elevatorPitch);
+        md += nfLine('Confirmed pipeline', s.confirmedPipeline);
+        md += nfLine('Biggest risk', s.biggestRisk);
+        md += nfLine('One thing to fix', s.oneThingToFix);
         return md;
     },
     // Pipeline A
@@ -448,6 +461,9 @@ const nfRenderers = {
         const s = nfStage(state, 'pa-thesis');
         let md = heading('Core Thesis');
         md += nfLine('Thesis', s.thesis);
+        md += nfLine('Reader belief before', s.thesisBefore);
+        md += nfLine('Reader belief after', s.thesisAfter);
+        md += nfLine('Thesis sentence', s.thesisSentence);
         md += nfLine('Supporting argument', s.supportingArgument);
         return md;
     },
@@ -456,6 +472,9 @@ const nfRenderers = {
         let md = heading('Framework Design');
         md += nfLine('Model name', s.modelName);
         md += nfLine('Framework description', s.frameworkDescription);
+        md += nfLine('Framework logic', s.frameworkLogic);
+        md += nfLine('Sub-mode (argument-led / braid)', s.subMode);
+        md += nfLine('Cover accent', s.coverAccent);
         if (Array.isArray(s.steps)) {
             md += heading('Steps / Phases', 3);
             md += nfList(s.steps);
@@ -470,6 +489,8 @@ const nfRenderers = {
         const s = nfStage(state, 'pa-chapters');
         const chapters = Array.isArray(s.chapters) ? s.chapters : [];
         let md = heading('Chapter Plan');
+        md += nfLine('Total chapter count', s.chapterCount);
+        md += nfLine('Total word count estimate', s.totalWordCountEstimate);
         for (const ch of chapters) {
             const num = ch.number ?? ch.chapterNumber ?? '?';
             const title = ch.title ?? ch.chapterTitle ?? `Chapter ${num}`;
@@ -497,6 +518,8 @@ const nfRenderers = {
         const s = nfStage(state, 'pb-chapters');
         const chapters = Array.isArray(s.chapters) ? s.chapters : [];
         let md = heading('Chapter Plan');
+        md += nfLine('Momentum note', s.momentumNote);
+        md += nfLine('Total word count estimate', s.totalWordCountEstimate);
         for (const ch of chapters) {
             const num = ch.number ?? '?';
             const title = ch.title ?? `Chapter ${num}`;
@@ -522,6 +545,8 @@ const nfRenderers = {
         const s = nfStage(state, 'pc-lessons');
         const lessons = Array.isArray(s.lessons) ? s.lessons : [];
         let md = heading('Lesson / Chapter Plan');
+        md += nfLine('Lesson pacing', s.lessonPacing);
+        md += nfLine('Longest lesson', s.longestLesson);
         for (const ch of lessons) {
             const num = ch.number ?? '?';
             const title = ch.lessonTitle ?? ch.title ?? `Lesson ${num}`;

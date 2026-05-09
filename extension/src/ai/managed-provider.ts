@@ -1,6 +1,6 @@
 import type { AIProvider, Message, ChatOptions } from './provider.js'
 import { reportError } from './error-reporter.js'
-import { logInfo, logError } from '../diagnostic-log.js'
+import { logInfo, logVerbose, logError } from '../diagnostic-log.js'
 
 /**
  * Calls our Cloudflare Worker `/chat` endpoint.
@@ -28,9 +28,9 @@ export class ManagedProvider implements AIProvider {
     // activation flow) already saw it. If we get a 401 on a SL-FREE-* key,
     // wait briefly and retry once — that absorbs the propagation window.
     const isFree = licenceKey.startsWith('SL-FREE-')
-    logInfo(`[Storyline] /chat POST url=${this.backendUrl}/chat key=${licenceKey.slice(0, 12)}… stage=${stageId}`)
+    logVerbose(`[Storyline] /chat POST url=${this.backendUrl}/chat key=${licenceKey.slice(0, 12)}… stage=${stageId}`)
     let response = await this.postChat(licenceKey, messages, stageId, options.systemPrompt)
-    logInfo(`[Storyline] /chat status=${response.status}`)
+    logVerbose(`[Storyline] /chat status=${response.status}`)
     if (response.status === 401 && isFree) {
       logInfo('[Storyline] /chat 401 on free key — KV propagation race, retrying in 3s')
       await new Promise(r => setTimeout(r, 3000))

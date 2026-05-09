@@ -79,28 +79,6 @@ Remaining survey results (NOT bugs): `lib/state/store.js`, `lib/engine.js`, and 
 
 The structural fix — porting all of lib/ to TypeScript and making `projectDir` a required compile-time parameter — is folded into CB-01b.
 
-
-
-**Status:** TODO · **Effort:** M (4–6 hrs) · **Risk:** medium
-
-33 `process.cwd()` calls in lib/. Today's stage-doc bug was one. The same bug almost certainly exists in:
-
-- `lib/output/master-doc.js:8` — `resolve(process.cwd(), 'planning')` — affects "Generate Master Document" command
-- `lib/state/store.js:63` — `resolve(process.cwd(), '.storyline')` — likely papered over by extension using `LocalStore` not this
-- `lib/memory/stage-memory.js:319` — `resolve(process.cwd(), '.storyline')` — log dir
-- `lib/memory/odd-flow-push.js:48` — odd-flow CLI lookup (already shadowed by `state/memory.ts`)
-
-**Approach:** convert each .js to .ts as part of CB-01's package move. Make `projectDir` an explicit required parameter on every function that does I/O. TypeScript will fail the build if any call site forgets it.
-
-**Acceptance:**
-
-- `grep -rn "process.cwd()" lib/` returns 0 hits in any function that does file I/O
-- All I/O functions in lib accept `projectDir: string` as first or second argument
-- Compile-time error if any caller forgets it
-- "Storyline: Generate Master Document" produces a file in the project, not in VS Code's cwd
-
-**Depends on:** CB-01 (do them together — porting to TS is the natural moment).
-
 * * *
 
 ### CB-03 · Decompose `ChatPanel.ts` (1400 lines)
@@ -347,7 +325,7 @@ The AI never re-reads stage docs after writing them. If user manually edits `pla
 
 ### CB-12 · Voice-first writing — dictate into chapters
 
-**Status:** TODO · **Effort:** M (1 day) · **Risk:** low
+**Status:** DONE (extension-v0.2.26) · **Effort:** M (1 day) · **Risk:** low
 
 Webview MediaRecorder is already in for the planning chat (v0.2.14). Extending it to the chapter editor unlocks "I can write while walking the dog" — a real differentiator.
 
@@ -421,33 +399,41 @@ Already discussed: machineId guard prevents devs (and the user) from getting a f
 
 ### CB-16 · Suppress dev-noise log lines
 
-**Status:** TODO · **Effort:** XS (15 min) · **Risk:** very low
+**Status:** DONE (extension-v0.2.26) · **Effort:** XS (15 min) · **Risk:** very low
 
 `ChatPanel.init: stored key prefix = SL-FREE-A397` and similar in DevTools console. Gate behind a `STORYLINE_VERBOSE=1` env var.
+
+**Outcome:** New `logVerbose` helper in `extension/src/diagnostic-log.ts`. Off unless `STORYLINE_VERBOSE=1`. Migrated the chatty per-init lines in OnboardingPanel + ChatPanel from raw `console.log` to `logVerbose`. DevTools console is quiet for users on the production build.
 
 * * *
 
 ### CB-17 · Decouple boot log from production builds
 
-**Status:** TODO · **Effort:** S (1–2 hrs) · **Risk:** low
+**Status:** DONE (extension-v0.2.26) · **Effort:** S (1–2 hrs) · **Risk:** low
 
 The `__storylineBootLog` writes a file every activation. Useful when debugging Windows hangs — overhead the rest of the time. Gate behind a setting (default off in production VSIXs, on in dev).
+
+**Outcome:** Both gates wired up: `extension/src/utils/boot-log.ts` no-ops unless `STORYLINE_BOOT_LOG=1`, AND the synchronous esbuild banner in `extension/esbuild.config.mjs` checks the same env var before installing the module-load tracer. Off-by-default everywhere — re-enable when chasing a new activation issue.
 
 * * *
 
 ### CB-18 · Webview shared design system
 
-**Status:** TODO · **Effort:** M (4–6 hrs) · **Risk:** low
+**Status:** WONTFIX (after survey) · **Effort:** M (4–6 hrs) · **Risk:** low
 
 Each webview has its own `tokens.css` with subtle variants. Lift into a single `extension/webview/src/shared/tokens.css` consumed by all entry points. The `bootstrapStorylineTheme` util we built in v0.2.16 is the natural anchor.
+
+**Outcome:** Survey showed less duplication than the original ticket assumed. Three patterns intentionally coexist: branded panels (planning) with full Storyline tokens + light variant, native VS Code panels (compile/cover/illustrations) using `var(--vscode-*)` directly, and lightweight aliasing (research/manuscript). Total duplication is ~5 lines across two files; consolidating would add an import statement to save 5 lines — net negative. Closing without action.
 
 * * *
 
 ### CB-19 · README + ARCHITECTURE.md for human contributors
 
-**Status:** TODO · **Effort:** S (1–2 hrs) · **Risk:** very low
+**Status:** DONE (extension-v0.2.26) · **Effort:** S (1–2 hrs) · **Risk:** very low
 
 CLAUDE.md is good for AI agents. There's no overview for a human dropping into the repo for the first time. 25+ top-level dirs deserve a map.
+
+**Outcome:** New `docs/ARCHITECTURE.md` covers the four-products-in-one-repo overview, top-level directory map, build/release pipeline (including the new extension-v* tag scheme), the stage-save data flow (the canonical path most contributors land on), activation rules, the lib/ shadow-copy explanation with CB-01b roadmap, errors+observability (safeCommand + reportException + logVerbose + boot log), testing setup, and conventions worth knowing before editing.
 
 * * *
 
