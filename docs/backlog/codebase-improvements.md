@@ -448,6 +448,22 @@ CLAUDE.md is good for AI agents. There's no overview for a human dropping into t
 
 * * *
 
+### CB-20 · Multi-format research file parsing (PDF, DOCX, EPUB)
+
+**Status:** DONE (extension-v0.2.30) · **Effort:** S–M (2–3 hrs) · **Risk:** low
+
+User request: writers drop PDFs, Word docs, EPUBs into `research/` and expect the AI to read them. Until v0.2.30 the extension only recognised `.md/.markdown` — every other format was silently invisible to the planning AI even when sitting in the folder.
+
+**Outcome:**
+- New `extension/src/research/file-parser.ts` recognises `.md/.markdown/.txt/.pdf/.docx/.epub`. Heavy formats are parsed via lazy-imported `pdf-parse` (PDF), `mammoth` (DOCX), and a hand-rolled ZIP+XHTML reader (EPUB — no extra dep). Output is plain text.
+- Cache lives at `.storyline/research-cache/research_<filename>.txt`. Invalidated by source mtime; re-parsed on change.
+- New `extension/src/research/prewarm.ts` — runs at activation (under the `hasProject` gate) and on every change to a binary file in `research/`. Populates the cache in the background so the synchronous system-prompt builder can include the text.
+- `system-prompt.ts` `collectResearchContext` reads MD/TXT inline + reads the cache files for PDF/DOCX/EPUB. Same per-file + total budget as before.
+- ResearchViewProvider sidebar lists every supported format. Binary entries get a "PDF/DOCX/EPUB document — content extracted on demand for AI ingestion" preview so the writer can see at a glance what's loaded.
+- `.vscodeignore` whitelists `pdf-parse`, `pdfjs-dist`, `mammoth`, and their transitives so the parsers work in the production VSIX.
+
+* * *
+
 ## How to use this backlog
 
 - Pick from top of Tier 1 first; work down

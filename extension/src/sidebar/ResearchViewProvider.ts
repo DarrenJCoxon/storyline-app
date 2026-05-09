@@ -15,7 +15,7 @@ export type ResearchCategories = Record<string, ResearchNote[]>
 function humanize(slug: string): string {
   return slug
     .replace(/[-_]/g, ' ')
-    .replace(/\.(md|markdown)$/i, '')
+    .replace(/\.(md|markdown|txt|pdf|docx|epub)$/i, '')
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
@@ -30,6 +30,12 @@ function isReadme(filename: string): boolean {
   return /^readme\.(md|markdown)$/i.test(filename)
 }
 
+// CB-20: research files are no longer .md only. PDFs, DOCX exports,
+// EPUBs are also accepted — the file-parser produces plain text from
+// each, the AI can read them just like markdown. Filename filter
+// reflects every supported format.
+const SUPPORTED_RESEARCH_RX = /\.(md|markdown|txt|pdf|docx|epub)$/i
+
 function loadNotes(root: string): ResearchNote[] {
   const researchDir = path.join(root, 'research')
   const notes: ResearchNote[] = []
@@ -42,40 +48,58 @@ function loadNotes(root: string): ResearchNote[] {
       const catDir = path.join(researchDir, cat.name)
       try {
         const files = fs.readdirSync(catDir)
-          .filter(f => /\.(md|markdown)$/i.test(f) && !isReadme(f))
+          .filter(f => SUPPORTED_RESEARCH_RX.test(f) && !isReadme(f))
           .sort()
         for (const file of files) {
           const relPath = path.join('research', cat.name, file)
-          let content = ''
-          try { content = fs.readFileSync(path.join(root, relPath), 'utf-8') } catch { /* */ }
-          notes.push({
-            relPath,
-            category: cat.name,
-            title: humanize(file),
-            bodyPreview: bodyPreview(content),
-          })
+          notes.push(buildNote(root, relPath, cat.name, file))
         }
       } catch { /* empty or unreadable category dir */ }
     }
 
     // Scan flat files directly in research/ (excluding READMEs), group under "general"
     const flatFiles = entries
-      .filter(e => e.isFile() && /\.(md|markdown)$/i.test(e.name) && !isReadme(e.name))
+      .filter(e => e.isFile() && SUPPORTED_RESEARCH_RX.test(e.name) && !isReadme(e.name))
       .map(e => e.name)
       .sort()
     for (const file of flatFiles) {
       const relPath = path.join('research', file)
-      let content = ''
-      try { content = fs.readFileSync(path.join(root, relPath), 'utf-8') } catch { /* */ }
-      notes.push({
-        relPath,
-        category: 'general',
-        title: humanize(file),
-        bodyPreview: bodyPreview(content),
-      })
+      notes.push(buildNote(root, relPath, 'general', file))
     }
   } catch { /* research dir doesn't exist yet */ }
   return notes
+}
+
+/**
+ * Build a single ResearchNote. For markdown-family files the body is
+ * a slice of the source. For PDF/DOCX/EPUB the source itself isn't
+ * readable, so the preview is a placeholder + format tag — the actual
+ * text is materialised on demand by collectResearchForStage via
+ * file-parser.parseResearchFile (which caches under .storyline/
+ * research-cache/).
+ */
+function buildNote(root: string, relPath: string, category: string, file: string): ResearchNote {
+  const ext = path.extname(file).toLowerCase()
+  const isText = ext === '.md' || ext === '.markdown' || ext === '.txt'
+  if (isText) {
+    let content = ''
+    try { content = fs.readFileSync(path.join(root, relPath), 'utf-8') } catch { /* */ }
+    return {
+      relPath,
+      category,
+      title: humanize(file),
+      bodyPreview: bodyPreview(content),
+    }
+  }
+  // Binary formats: tag the preview with the format so the writer can
+  // see at a glance which entries are PDFs / DOCX / EPUBs in the list.
+  const tag = ext.replace('.', '').toUpperCase()
+  return {
+    relPath,
+    category,
+    title: humanize(file),
+    bodyPreview: `${tag} document — content extracted on demand for AI ingestion`,
+  }
 }
 
 function groupByCategory(notes: ResearchNote[]): ResearchCategories {
@@ -97,7 +121,8 @@ export class ResearchViewProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly context: vscode.ExtensionContext,
   ) {
-    this.watcher = vscode.workspace.createFileSystemWatcher('**/research/**/*.{md,markdown}')
+    // CB-20: watch every supported research format, not just markdown.
+    this.watcher = vscode.workspace.createFileSystemWatcher('**/research/**/*.{md,markdown,txt,pdf,docx,epub}')
     this.watcher.onDidChange(() => this.refresh())
     this.watcher.onDidCreate(() => this.refresh())
     this.watcher.onDidDelete(() => this.refresh())

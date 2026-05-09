@@ -212,8 +212,13 @@ function collectResearchContext(projectPath: string | null): string {
   let files: string[]
   try {
     files = fs.readdirSync(dir)
+      // CB-20: PDF/DOCX/EPUB join the markdown set. The actual text
+      // extraction is async (pdf-parse / mammoth / EPUB unzip), so we
+      // route through the cache at .storyline/research-cache/<rel>.txt
+      // — populated by prewarmResearchCache (called from activate when
+      // a project is opened) and refreshed on every sidebar load.
       .filter(f =>
-        /\.(md|markdown|txt)$/i.test(f) &&
+        /\.(md|markdown|txt|pdf|docx|epub)$/i.test(f) &&
         f.toLowerCase() !== 'readme.md' &&
         !f.startsWith('_'),    // underscore-prefix = inactive; sits in the folder but isn't loaded
       )
@@ -227,15 +232,28 @@ function collectResearchContext(projectPath: string | null): string {
 
   for (const f of files) {
     if (remaining <= 0) { skipped.push(f); continue }
+    const ext = path.extname(f).toLowerCase()
+    const isText = ext === '.md' || ext === '.markdown' || ext === '.txt'
     let content: string
     try {
-      content = fs.readFileSync(path.join(dir, f), 'utf-8').trim()
+      if (isText) {
+        content = fs.readFileSync(path.join(dir, f), 'utf-8').trim()
+      } else {
+        // Heavy formats: read the prewarm cache. If the cache file
+        // doesn't exist yet (e.g. the user just dropped the file in
+        // and the prewarm hasn't run), skip — the next workspace open
+        // or sidebar refresh will populate it.
+        const cacheFile = path.join(projectPath, '.storyline', 'research-cache', `research_${f}.txt`)
+        if (!fs.existsSync(cacheFile)) { skipped.push(f); continue }
+        content = fs.readFileSync(cacheFile, 'utf-8').trim()
+      }
     } catch { continue }
     if (!content) continue
     const allow = Math.min(content.length, RESEARCH_PER_FILE_BYTES, remaining)
     const slice = content.slice(0, allow)
     const truncated = slice.length < content.length
-    parts.push(`### ${f}${truncated ? '  *(truncated)*' : ''}\n\n${slice}`)
+    const tag = isText ? '' : `  *(${ext.replace('.', '').toUpperCase()} — extracted text)*`
+    parts.push(`### ${f}${tag}${truncated ? '  *(truncated)*' : ''}\n\n${slice}`)
     remaining -= slice.length
   }
 

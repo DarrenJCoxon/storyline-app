@@ -42,6 +42,24 @@ node_modules/**
 # entry point so the require() resolves at the runtime path too —
 # safer to keep it shipping as a real package.
 !node_modules/markdown-it-attrs/**
+# CB-20: research file parsers — pdf-parse + mammoth read PDF/DOCX
+# drops in research/ into plain text the system prompt can include.
+# pdf-parse depends on pdfjs-dist (the Mozilla PDF.js core), which is
+# loaded via require() at runtime so it must ship as real files. mammoth
+# is dynamic-imported and esbuild bundles its top-level entry, but its
+# transitive opt-in deps (xmlbuilder, jszip) still resolve via require
+# under the hood — easier to just whitelist.
+!node_modules/pdf-parse/**
+!node_modules/pdfjs-dist/**
+!node_modules/mammoth/**
+!node_modules/jszip/**
+!node_modules/xmlbuilder/**
+!node_modules/@xmldom/**
+!node_modules/lop/**
+!node_modules/duck/**
+!node_modules/option/**
+!node_modules/underscore/**
+!node_modules/dingbat-to-unicode/**
 
 # Tooling and configs
 tsconfig.json

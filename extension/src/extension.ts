@@ -30,6 +30,7 @@ import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from
 import { LocalStore } from './state/local-store.js'
 import { registerStageMdWatcher, resetStageDoc } from './state/stage-md-watcher.js'
 import { saveAsVersion, listVersions } from './manuscript/versions.js'
+import { registerResearchPrewarm } from './research/prewarm.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
@@ -987,6 +988,12 @@ function activateInner(context: vscode.ExtensionContext): void {
     // user (once per session) that they'll be overwritten. Provides
     // storyline.resetStageDoc to regenerate a stage doc from state.
     registerStageMdWatcher(context)
+
+    // CB-20: parse PDF/DOCX/EPUB drops into research/ into plain-text
+    // cache files so the synchronous system-prompt builder can include
+    // them in the AI context. First pass fires immediately; the watcher
+    // re-runs whenever the writer adds or replaces a binary file.
+    registerResearchPrewarm(context)
   }
 }
 
