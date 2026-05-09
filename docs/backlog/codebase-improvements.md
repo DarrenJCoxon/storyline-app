@@ -127,7 +127,7 @@ There are ~50 NF stages across DNA + pipelines A/B/C + academic. Each has a guid
 ## Tier 2 — reliability gaps
 
 ### CB-05 · Production error reporting
-**Status:** TODO  ·  **Effort:** S (2–3 hrs)  ·  **Risk:** low
+**Status:** DONE (v0.2.21)  ·  **Effort:** S (2–3 hrs)  ·  **Risk:** low
 
 Right now the only way to know something's broken in production is users emailing. We're flying blind on activation hangs, preview failures, transcription errors.
 
@@ -141,6 +141,14 @@ Don't reach for Sentry yet — your Worker can store errors in KV with a TTL, du
 - `wrangler tail` or simple admin endpoint shows last 100 errors
 
 **Depends on:** none.
+
+**Outcome (v0.2.21):**
+- Backend `/log-error` endpoint already existed (logs structured JSON to Cloudflare Workers Logs, hashes licence keys, 7-day retention). Reused as-is — Logpush → R2 upgrade is a future enhancement when volume justifies.
+- Extension's existing `reportError` (AI-call failures only) extended with `reportException(err, context, extra?)` for generic exceptions with stack traces.
+- New `safeCommand(commandId, handler)` helper (`extension/src/safe-command.ts`) wraps VS Code command registrations with try/catch + toast + reportException. Single-place catch logic for command callbacks; this also folds in the discoverable-paths slice of CB-10.
+- Wired into the four highest-traffic command sites: `openLivePreview`, `openPreview`, `startNew`, `openWelcome`. The bespoke try/catches we shipped in v0.2.9 for the two preview commands are removed (consolidated into safeCommand).
+- `activate()`'s outer catch now reports activation failures via lazy-imported `reportException`, so we'll see machines where the extension fails to start before users email.
+- Remaining ~32 commands not yet wrapped — completing the migration is CB-10.
 
 ---
 

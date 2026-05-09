@@ -89,3 +89,32 @@ export function reportError(opts: ReportErrorOptions): void {
     /* swallow */
   }
 }
+
+/**
+ * Report a generic uncaught exception (command failure, activation
+ * issue, file-system error, etc.) — anything that's NOT a structured
+ * API call failure with a status code.
+ *
+ * Use this from try/catch boundaries we add via `safeCommand` and from
+ * any other top-level error handler. Keeps the same fire-and-forget
+ * contract: never throws, never blocks.
+ *
+ * The `context` field is encoded into the `endpoint` slot on the wire
+ * so existing log dashboards keep working — typical values:
+ *   - 'cmd:storyline.openLivePreview'
+ *   - 'cmd:storyline.compileEpub'
+ *   - 'activate'
+ *   - 'webview:planning'
+ */
+export function reportException(err: unknown, context: string, extra?: { licenceKey?: string; stageId?: string }): void {
+  const message = err instanceof Error
+    ? `${err.message}\n${err.stack ? err.stack.split('\n').slice(0, 8).join('\n') : ''}`
+    : String(err)
+  reportError({
+    endpoint: context,
+    statusCode: 0,
+    message,
+    licenceKey: extra?.licenceKey,
+    stageId: extra?.stageId,
+  })
+}

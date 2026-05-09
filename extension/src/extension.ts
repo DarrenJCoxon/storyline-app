@@ -16,6 +16,7 @@ import { FilesTreeProvider, FileNode } from './sidebar/FilesTreeProvider.js'
 import { PurchasesPanel } from './panels/PurchasesPanel.js'
 import { openLivePreview } from './preview/live-preview-command.js'
 import { openPreview } from './preview/preview-command.js'
+import { safeCommand } from './safe-command.js'
 import { WordCountStatusBar } from './editor/word-count.js'
 import { shouldShowOnboarding } from './onboarding/first-run.js'
 import { checkLicencePrompt } from './onboarding/licence-prompt.js'
@@ -153,6 +154,12 @@ export function activate(context: vscode.ExtensionContext): void {
     bootLog('activate: returned cleanly')
   } catch (err) {
     bootLogError('activate: synchronous throw', err)
+    // CB-05: report the activation failure to production error logs so
+    // we know the extension is failing to start on certain machines.
+    // Imported lazily to avoid a top-level cycle with safe-command.
+    void import('./ai/error-reporter.js')
+      .then(({ reportException }) => reportException(err, 'activate'))
+      .catch(() => { /* swallow */ })
     throw err
   }
 }
@@ -380,7 +387,10 @@ function activateInner(context: vscode.ExtensionContext): void {
   )
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('storyline.startNew', async () => {
+    // CB-05: startNew is the discoverable entry point for new users — any
+    // exception here breaks the very first interaction. safeCommand
+    // surfaces it as a toast + ships the stack to /log-error.
+    safeCommand('storyline.startNew', async () => {
       // Always-available entry point. Two paths:
       //
       //   (a) A folder is already open. Hand off to OnboardingPanel which
@@ -459,7 +469,7 @@ function activateInner(context: vscode.ExtensionContext): void {
       await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(projectDir), false)
     }),
 
-    vscode.commands.registerCommand('storyline.openWelcome', () => {
+    safeCommand('storyline.openWelcome', () => {
       // The welcome panel auto-shows once after activation but had no way
       // back. Register it so users can re-open from the command palette
       // when they want to revisit the getting-started steps.
@@ -558,25 +568,12 @@ function activateInner(context: vscode.ExtensionContext): void {
       ResearchPanel.show(context, context.extensionUri, editorPanel)
     }),
 
-    vscode.commands.registerCommand('storyline.openLivePreview', async () => {
-      try {
-        await openLivePreview(context, editorPanel)
-      } catch (e) {
-        const msg = e instanceof Error ? `${e.message}${e.stack ? '\n' + e.stack.split('\n').slice(0, 3).join('\n') : ''}` : String(e)
-        console.error('[storyline.openLivePreview] failed:', e)
-        void vscode.window.showErrorMessage(`Live Preview failed: ${msg}`)
-      }
-    }),
-
-    vscode.commands.registerCommand('storyline.openPreview', async () => {
-      try {
-        await openPreview()
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        console.error('[storyline.openPreview] failed:', e)
-        void vscode.window.showErrorMessage(`Print Preview failed: ${msg}`)
-      }
-    }),
+    // CB-05/CB-10: safeCommand wraps the handler with try/catch + toast
+    // + reportException — replaces the bespoke try/catch we shipped in
+    // v0.2.9 for these two commands. Other commands will be migrated
+    // incrementally; the high-traffic discoverability paths land first.
+    safeCommand('storyline.openLivePreview', () => openLivePreview(context, editorPanel)),
+    safeCommand('storyline.openPreview', () => openPreview()),
 
     vscode.commands.registerCommand('storyline.openOutputFolder', () => {
       const folder = vscode.workspace.workspaceFolders?.[0]
