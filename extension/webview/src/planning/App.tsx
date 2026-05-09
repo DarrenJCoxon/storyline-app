@@ -89,6 +89,7 @@ type Action =
   | { type: 'STAGE_COMPLETE'; stageId: string; stageName: string; statePath: string }
   | { type: 'STAGE_ADVANCE'; stages: StageInfo[] }
   | { type: 'TOGGLE_RAIL' }
+  | { type: 'EXPAND_RAIL' }
   | { type: 'CREDITS_EXHAUSTED' }
   | { type: 'ERROR'; message: string }
   | { type: 'FINDINGS_CARD'; findings: StoryTrapFinding[] }
@@ -204,6 +205,9 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'TOGGLE_RAIL':
       return { ...state, railCollapsed: !state.railCollapsed }
+
+    case 'EXPAND_RAIL':
+      return { ...state, railCollapsed: false }
 
     case 'CREDITS_EXHAUSTED':
       return { ...state, creditsExhausted: true, streamingId: null }
@@ -465,6 +469,12 @@ export function App() {
         creditsEarned: m.creditsEarned,
         capRemaining: m.capRemaining,
       })),
+      on<{ stageId: string }>('navigateToStage', m => {
+        dispatch({ type: 'EXPAND_RAIL' })
+        setTimeout(() => {
+          document.getElementById(`stage-rail-${m.stageId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }, 250)
+      }),
     ]
     return () => offs.forEach(off => off())
   }, [on])

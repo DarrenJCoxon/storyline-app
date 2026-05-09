@@ -82,6 +82,7 @@ export function StageRail({ stages, collapsed, onToggle, activeStage }: Props) {
           {stages.map((stage, i) => (
             <div
               key={stage.id}
+              id={`stage-rail-${stage.id}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',

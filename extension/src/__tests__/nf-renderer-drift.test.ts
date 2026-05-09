@@ -46,6 +46,7 @@ import {
   PIPELINE_A_GUIDES,
   PIPELINE_B_GUIDES,
   PIPELINE_C_GUIDES,
+  ACADEMIC_GUIDES,
   type ProjectState,
 } from '@storyline/core'
 
@@ -131,12 +132,43 @@ async function auditGuideCollection(
 }
 
 describe('NF stage renderer ↔ guide drift (CB-04b)', () => {
+  // Coverage assertion — every stage in every NF pipeline must produce
+  // an MD file when state has data. Catches the class of bug where a
+  // stage silently no-ops (no specific renderer, no fallback) and the
+  // writer's planning/stages/<id>.md never appears.
+  it('every NF stage with data produces an MD (no silent skips)', async () => {
+    const collections: Record<string, Record<string, GuideShape>> = {
+      dna: NF_DNA_GUIDES as unknown as Record<string, GuideShape>,
+      pa:  PIPELINE_A_GUIDES as unknown as Record<string, GuideShape>,
+      pb:  PIPELINE_B_GUIDES as unknown as Record<string, GuideShape>,
+      pc:  PIPELINE_C_GUIDES as unknown as Record<string, GuideShape>,
+      ac:  ACADEMIC_GUIDES as unknown as Record<string, GuideShape>,
+    }
+    const skipped: string[] = []
+    for (const [label, guides] of Object.entries(collections)) {
+      for (const stageId of Object.keys(guides)) {
+        const keys = flatScalarKeys(guides[stageId])
+        if (keys.length === 0) continue
+        const { rendered } = await checkStageDrift(stageId, keys)
+        if (!rendered) skipped.push(`${label}/${stageId}`)
+      }
+    }
+    if (skipped.length > 0) {
+      throw new Error(
+        `${skipped.length} stage(s) produced no MD even with state data:\n  ${skipped.join('\n  ')}\n\n` +
+        `These stages are silently skipped by writeStageDoc — add a renderer or check the generic fallback in stage-doc.ts.`,
+      )
+    }
+    expect(skipped).toEqual([])
+  })
+
   it('every flat scalar question key reaches the rendered markdown', async () => {
     const drift: DriftReport[] = [
       ...await auditGuideCollection('dna', NF_DNA_GUIDES as unknown as Record<string, GuideShape>),
       ...await auditGuideCollection('pa',  PIPELINE_A_GUIDES as unknown as Record<string, GuideShape>),
       ...await auditGuideCollection('pb',  PIPELINE_B_GUIDES as unknown as Record<string, GuideShape>),
       ...await auditGuideCollection('pc',  PIPELINE_C_GUIDES as unknown as Record<string, GuideShape>),
+      ...await auditGuideCollection('ac',  ACADEMIC_GUIDES as unknown as Record<string, GuideShape>),
     ]
 
     if (drift.length > 0) {

@@ -186,12 +186,34 @@ describe('stage save → state.json + planning/stages/<id>.md', () => {
     expect(md).toContain('Six-Week Reset')
   })
 
-  it('writeStageDoc returns null (no file) when the stageId has no renderer', async () => {
-    const aiText = '```json\n' + JSON.stringify({ mode: { value: 'fiction' } }) + '\n```'
-    // `mode` is a transient stage with no markdown renderer — should be skipped.
-    const result = await writeStageDoc('mode', { mode: 'fiction' } as ProjectState, projectDir)
+  it('writeStageDoc returns null (no file) when state has no captured data for the stage', async () => {
+    // Empty state for an unknown stage id — generic fallback finds nothing
+    // to render and returns null (the "nothing captured yet" signal). No
+    // stub MD is written, so existing files aren't clobbered with empties.
+    const result = await writeStageDoc('totally-unknown-stage', {} as ProjectState, projectDir)
     expect(result).toBeNull()
-    expect(fs.existsSync(path.join(projectDir, 'planning', 'stages', 'mode.md'))).toBe(false)
+    expect(fs.existsSync(path.join(projectDir, 'planning', 'stages', 'totally-unknown-stage.md'))).toBe(false)
+  })
+
+  it('writeStageDoc uses the generic fallback for stages without a bespoke renderer', async () => {
+    // `pa-objections` has no entry in nfRenderers but the writer's data
+    // should still appear in the MD so they have a record of what they
+    // captured. Generic fallback walks state[stageId] (or nfStages[stageId])
+    // and emits its keys as bold-label entries.
+    const state = {
+      mode: 'nonfiction',
+      nfStages: {
+        'pa-objections': {
+          topObjection: 'But I do not have time to journal',
+          rebuttal: 'Five minutes a day, evidence-based',
+        },
+      },
+    } as unknown as ProjectState
+    const result = await writeStageDoc('pa-objections', state, projectDir)
+    expect(result).not.toBeNull()
+    const md = fs.readFileSync(result!, 'utf-8')
+    expect(md).toContain('But I do not have time to journal')
+    expect(md).toContain('Five minutes a day, evidence-based')
   })
 
   it('does not advance the stage marker when gateStageSave reports incomplete', async () => {

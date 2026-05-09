@@ -28,7 +28,7 @@ import { issueFreePlan } from './auth/free-plan-issue.js'
 import { initDiagnosticLog, logInfo, showLog } from './diagnostic-log.js'
 import { initCreditDisplay, refreshAndDisplayCredits, updateCreditBalance } from './credits/credit-display.js'
 import { LocalStore } from './state/local-store.js'
-import { registerStageMdWatcher, resetStageDoc } from './state/stage-md-watcher.js'
+import { registerStageMdWatcher, resetStageDoc, backfillAllStageDocs } from './state/stage-md-watcher.js'
 import { saveAsVersion, listVersions } from './manuscript/versions.js'
 import { registerResearchPrewarm } from './research/prewarm.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
@@ -609,6 +609,14 @@ function activateInner(context: vscode.ExtensionContext): void {
     // edit. Optional first argument is the stageId (passed by the
     // watcher); when called from the palette it prompts for one.
     safeCommand('storyline.resetStageDoc', (stageId?: string) => resetStageDoc(stageId)),
+
+    // Walks the active stage order and writes planning/stages/<id>.md for
+    // every stage that has captured data — used to repair projects where
+    // some stage MDs are missing because earlier writes silently no-op'd
+    // (no specific renderer + no generic fallback). Now safe to run any
+    // time: stages without data are skipped, stages with data are
+    // refreshed from state.json.
+    safeCommand('storyline.backfillStageDocs', () => backfillAllStageDocs()),
 
     // CB-13: writer-language manuscript versioning. saveAsVersion
     // snapshots the current state under a writer-named tag (e.g.

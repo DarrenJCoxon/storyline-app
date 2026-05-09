@@ -23,7 +23,7 @@
 
 import * as vscode from 'vscode'
 import * as path from 'path'
-import { writeStageDoc } from '@storyline/core'
+import { writeStageDoc, stageOrderFor } from '@storyline/core'
 import { LocalStore } from './local-store.js'
 import { logInfo, logWarn } from '../diagnostic-log.js'
 
@@ -139,10 +139,72 @@ export async function resetStageDoc(stageIdHint?: string): Promise<void> {
       markStageDocSelfWrite(written)
       void vscode.window.showInformationMessage(`Regenerated planning/stages/${stageId}.md from state.`)
     } else {
-      void vscode.window.showWarningMessage(`No renderer for stage "${stageId}" — nothing to reset.`)
+      void vscode.window.showWarningMessage(`No data captured for stage "${stageId}" yet — nothing to write.`)
     }
   } catch (err) {
     logWarn('[Storyline] resetStageDoc failed:', err)
     void vscode.window.showErrorMessage(`Couldn't reset stage doc: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+/**
+ * Walk the active mode/pipeline's stage order and write planning/stages/<id>.md
+ * for every stage that has captured data in state.json. Stages without data
+ * are skipped (writeStageDoc returns null). Used to repair a project where
+ * stage MDs went missing — earlier writeStageDoc only fired during the AI
+ * save path and silently no-op'd for stages without bespoke renderers.
+ *
+ * Reports a summary toast: how many were written, how many had no data,
+ * how many failed.
+ */
+export async function backfillAllStageDocs(): Promise<void> {
+  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!folder) {
+    void vscode.window.showWarningMessage('Open a Storyline project before backfilling stage docs.')
+    return
+  }
+  const store = LocalStore.fromWorkspace()
+  if (!store) {
+    void vscode.window.showWarningMessage('No .storyline/state.json found in this workspace.')
+    return
+  }
+
+  let state: Awaited<ReturnType<typeof store.read>>
+  try {
+    state = await store.read()
+  } catch (err) {
+    logWarn('[Storyline] backfillAllStageDocs: failed to read state', err)
+    void vscode.window.showErrorMessage(`Couldn't read state.json: ${err instanceof Error ? err.message : String(err)}`)
+    return
+  }
+
+  const order = stageOrderFor(state)
+  let wrote = 0
+  let skipped = 0
+  let failed = 0
+  const failures: string[] = []
+
+  for (const stage of order) {
+    try {
+      const written = await writeStageDoc(stage.id, state, folder)
+      if (written) {
+        markStageDocSelfWrite(written)
+        wrote++
+      } else {
+        skipped++
+      }
+    } catch (err) {
+      failed++
+      failures.push(stage.id)
+      logWarn(`[Storyline] backfill: writeStageDoc failed for ${stage.id}`, err)
+    }
+  }
+
+  logInfo(`[Storyline] backfillAllStageDocs: wrote=${wrote} skipped=${skipped} failed=${failed}`)
+  const summary = `Stage docs backfilled — ${wrote} written, ${skipped} skipped (no data), ${failed} failed${failures.length ? ` (${failures.join(', ')})` : ''}.`
+  if (failed > 0) {
+    void vscode.window.showWarningMessage(summary)
+  } else {
+    void vscode.window.showInformationMessage(summary)
   }
 }

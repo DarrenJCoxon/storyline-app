@@ -16,6 +16,8 @@ export default defineConfig({
         compile:       resolve(__dirname, 'compile.html'),
         cover:         resolve(__dirname, 'cover.html'),
         illustrations: resolve(__dirname, 'illustrations.html'),
+        manuscript:    resolve(__dirname, 'manuscript.html'),
+        research:      resolve(__dirname, 'research.html'),
       },
       output: {
         entryFileNames: '[name].js',
