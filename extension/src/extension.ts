@@ -143,6 +143,13 @@ function shouldRouteToRichEditor(uri: vscode.Uri): boolean {
   if (!/\.(md|markdown)$/i.test(uri.fsPath)) return false
   const folder = vscode.workspace.workspaceFolders?.[0]
   if (!folder) return false
+  // CB-08-followup: only reroute markdowns inside an actual Storyline
+  // project. Without this gate, opening any random markdown file under
+  // a directory called manuscript/ / planning/ / research/ / docs/ in
+  // a non-Storyline workspace got hijacked into the TipTap rich editor
+  // — and the editor's first save attempt surfaced an "unsaved changes"
+  // toast on a file the user hadn't even meant to edit.
+  if (!fs.existsSync(path.join(folder.uri.fsPath, '.storyline', 'state.json'))) return false
   const rel = vscode.workspace.asRelativePath(uri, false)
   return RICH_EDITOR_PREFIXES.some(p => rel.startsWith(p))
 }
@@ -315,47 +322,57 @@ function activateInner(context: vscode.ExtensionContext): void {
 
   void statusBar.start(context)
 
-  const planningStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-  planningStatusBar.text = '$(storyline) Storyline'
-  planningStatusBar.tooltip = 'Open Storyline Planning Chat'
-  planningStatusBar.command = 'storyline.openPlanning'
-  planningStatusBar.show()
-  context.subscriptions.push(planningStatusBar)
+  // CB-08-followup: status bar items are project-scoped. If there's no
+  // .storyline/state.json in this workspace the user wasn't doing
+  // anything Storyline-related — don't pollute their status bar with
+  // five Storyline buttons. Without this gate, ANY VS Code window
+  // where the extension activated (including ones where it activated
+  // because VS Code restored the Storyline sidebar tab) showed all
+  // five status bar entries.
+  if (hasProject) {
+    const planningStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
+    planningStatusBar.text = '$(storyline) Storyline'
+    planningStatusBar.tooltip = 'Open Storyline Planning Chat'
+    planningStatusBar.command = 'storyline.openPlanning'
+    planningStatusBar.show()
+    context.subscriptions.push(planningStatusBar)
 
-  const previewStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99)
-  previewStatusBar.text = '$(eye) Preview'
-  previewStatusBar.tooltip = 'Open Live Chapter Preview (paperback / iPad / Kindle)'
-  previewStatusBar.command = 'storyline.openLivePreview'
-  previewStatusBar.show()
-  context.subscriptions.push(previewStatusBar)
+    const previewStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99)
+    previewStatusBar.text = '$(eye) Preview'
+    previewStatusBar.tooltip = 'Open Live Chapter Preview (paperback / iPad / Kindle)'
+    previewStatusBar.command = 'storyline.openLivePreview'
+    previewStatusBar.show()
+    context.subscriptions.push(previewStatusBar)
 
-  const researchStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98)
-  researchStatusBar.text = '$(library) Research'
-  researchStatusBar.tooltip = 'Open Research panel — capture and link sources to chapters'
-  researchStatusBar.command = 'storyline.research'
-  researchStatusBar.show()
-  context.subscriptions.push(researchStatusBar)
+    const researchStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98)
+    researchStatusBar.text = '$(library) Research'
+    researchStatusBar.tooltip = 'Open Research panel — capture and link sources to chapters'
+    researchStatusBar.command = 'storyline.research'
+    researchStatusBar.show()
+    context.subscriptions.push(researchStatusBar)
 
-  const compileStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97)
-  compileStatusBar.text = '$(book) Compile'
-  compileStatusBar.tooltip = 'Open Compile panel — export manuscript to EPUB or PDF'
-  compileStatusBar.command = 'storyline.compileEpub'
-  compileStatusBar.show()
-  context.subscriptions.push(compileStatusBar)
+    const compileStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97)
+    compileStatusBar.text = '$(book) Compile'
+    compileStatusBar.tooltip = 'Open Compile panel — export manuscript to EPUB or PDF'
+    compileStatusBar.command = 'storyline.compileEpub'
+    compileStatusBar.show()
+    context.subscriptions.push(compileStatusBar)
 
-  const notesStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 96)
-  notesStatusBar.text = '$(note) Notes'
-  notesStatusBar.tooltip = 'View inline manuscript notes'
-  notesStatusBar.command = 'storyline.notes'
-  notesStatusBar.show()
-  context.subscriptions.push(notesStatusBar)
+    const notesStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 96)
+    notesStatusBar.text = '$(note) Notes'
+    notesStatusBar.tooltip = 'View inline manuscript notes'
+    notesStatusBar.command = 'storyline.notes'
+    notesStatusBar.show()
+    context.subscriptions.push(notesStatusBar)
 
-  // Right-aligned credit indicator at priority 95 (just to the left of
-  // Notes). Initial value is seeded from the activation-time validate()
-  // and refreshed on every chat-turn / image-gen / refund.
-  initCreditDisplay(context)
-
-  bootLog('activate: status bar items registered')
+    // Right-aligned credit indicator at priority 95 (just to the left of
+    // Notes). Initial value is seeded from the activation-time validate()
+    // and refreshed on every chat-turn / image-gen / refund.
+    initCreditDisplay(context)
+    bootLog('activate: status bar items registered')
+  } else {
+    bootLog('activate: status bar items skipped (non-Storyline workspace)')
+  }
 
   // Auto-reroute manuscript/ markdown files to the rich TipTap editor.
   // Workspace-scoped: only fires when this is a Storyline project (the
@@ -887,39 +904,50 @@ function activateInner(context: vscode.ExtensionContext): void {
     bootLog('activate: no workspace, skipping github subsystem')
   }
 
-  // First-run check — async, non-blocking
-  bootLog('activate: dispatching shouldShowOnboarding')
-  shouldShowOnboarding(context).then(async show => {
-    bootLog('async: shouldShowOnboarding resolved', show ? 'true' : 'false')
-    if (show) {
-      OnboardingPanel.show(context, context.extensionUri, {
-        onScaffolded: () => void initLayout(context),
-      })
-    } else {
-      void initLayout(context)
-    }
-  }).catch(e => bootLogError('shouldShowOnboarding', e))
+  // CB-08-followup: every async startup task below is project-scoped.
+  // Onboarding only makes sense if the user is in (or just landed in) a
+  // Storyline workspace; same for the licence prompt and credit refresh.
+  // The auto-update check is global, but pinning it to Storyline
+  // workspaces keeps non-Storyline VS Code instances genuinely silent.
+  // Without this gate the extension activated, fired the licence
+  // prompt + credit refresh + update check, and then went dormant —
+  // user-visible noise in workspaces that have nothing to do with us.
+  if (hasProject) {
+    bootLog('activate: dispatching shouldShowOnboarding')
+    shouldShowOnboarding(context).then(async show => {
+      bootLog('async: shouldShowOnboarding resolved', show ? 'true' : 'false')
+      if (show) {
+        OnboardingPanel.show(context, context.extensionUri, {
+          onScaffolded: () => void initLayout(context),
+        })
+      } else {
+        void initLayout(context)
+      }
+    }).catch(e => bootLogError('shouldShowOnboarding', e))
 
-  // Update check — once per 24h, non-blocking, deferred 30s after
-  // activation so the user's first interaction (open chapter, click chat,
-  // run a stage save) isn't competing with a background network call.
-  // CB-06 from docs/backlog/codebase-improvements.md.
-  bootLog('activate: scheduling deferred checkForUpdate (30s)')
-  const updateTimer = setTimeout(() => {
-    bootLog('activate: dispatching deferred checkForUpdate')
-    Promise.resolve(checkForUpdate(context)).catch(e => bootLogError('checkForUpdate', e))
-  }, 30_000)
-  context.subscriptions.push({ dispose: () => clearTimeout(updateTimer) })
+    // Update check — once per 24h, non-blocking, deferred 30s after
+    // activation so the user's first interaction (open chapter, click chat,
+    // run a stage save) isn't competing with a background network call.
+    // CB-06 from docs/backlog/codebase-improvements.md.
+    bootLog('activate: scheduling deferred checkForUpdate (30s)')
+    const updateTimer = setTimeout(() => {
+      bootLog('activate: dispatching deferred checkForUpdate')
+      Promise.resolve(checkForUpdate(context)).catch(e => bootLogError('checkForUpdate', e))
+    }, 30_000)
+    context.subscriptions.push({ dispose: () => clearTimeout(updateTimer) })
 
-  // Licence prompt — show on startup if no key or snooze expired
-  bootLog('activate: dispatching checkLicencePrompt')
-  Promise.resolve(checkLicencePrompt(context, getBackendUrl())).catch(e => bootLogError('checkLicencePrompt', e))
+    // Licence prompt — show on startup if no key or snooze expired
+    bootLog('activate: dispatching checkLicencePrompt')
+    Promise.resolve(checkLicencePrompt(context, getBackendUrl())).catch(e => bootLogError('checkLicencePrompt', e))
 
-  // Seed the credit status bar from /validate so users see their balance
-  // without needing to send a chat turn first. Silent on failure — the
-  // status bar is hidden until validate succeeds rather than showing
-  // an inaccurate value.
-  Promise.resolve(refreshAndDisplayCredits(context, getBackendUrl())).catch(e => bootLogError('refreshAndDisplayCredits', e))
+    // Seed the credit status bar from /validate so users see their balance
+    // without needing to send a chat turn first. Silent on failure — the
+    // status bar is hidden until validate succeeds rather than showing
+    // an inaccurate value.
+    Promise.resolve(refreshAndDisplayCredits(context, getBackendUrl())).catch(e => bootLogError('refreshAndDisplayCredits', e))
+  } else {
+    bootLog('activate: skipping onboarding/update/licence/credits (non-Storyline workspace)')
+  }
 
   // Force the Storyline sidebar (Files view) to be the visible one whenever
   // a Storyline project is opened. Other extensions sometimes claim focus

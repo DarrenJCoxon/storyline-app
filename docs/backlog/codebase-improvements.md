@@ -419,11 +419,11 @@ The `__storylineBootLog` writes a file every activation. Useful when debugging W
 
 ### CB-18 · Webview shared design system
 
-**Status:** WONTFIX (after survey) · **Effort:** M (4–6 hrs) · **Risk:** low
+**Status:** DONE (extension-v0.2.26) · **Effort:** M (4–6 hrs) · **Risk:** low
 
 Each webview has its own `tokens.css` with subtle variants. Lift into a single `extension/webview/src/shared/tokens.css` consumed by all entry points. The `bootstrapStorylineTheme` util we built in v0.2.16 is the natural anchor.
 
-**Outcome:** Survey showed less duplication than the original ticket assumed. Three patterns intentionally coexist: branded panels (planning) with full Storyline tokens + light variant, native VS Code panels (compile/cover/illustrations) using `var(--vscode-*)` directly, and lightweight aliasing (research/manuscript). Total duplication is ~5 lines across two files; consolidating would add an import statement to save 5 lines — net negative. Closing without action.
+**Outcome:** Survey showed three intentional design languages: branded panels (planning) with full Storyline gold-on-charcoal tokens + light variant, native VS Code panels (compile/cover/illustrations/editor) using `var(--vscode-*)` directly, and lightweight aliasing (research/manuscript). Lifted the duplicated `:root` block from research/manuscript into `extension/webview/src/shared/tokens.css` — both webviews now `@import` it. Manuscript layers its `--active-bg` extension on top. Future branded webviews get a one-import on-ramp; the other patterns stay unchanged.
 
 * * *
 

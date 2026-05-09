@@ -1,0 +1,44 @@
+/*
+ * CB-18 — Shared Storyline design tokens.
+ *
+ * Lifts the common `--accent` + VS Code-fallback variables that
+ * `research/styles.css` and `manuscript/styles.css` were each defining
+ * inline. Each webview that needs Storyline branding (gold accent on
+ * VS Code-themed surfaces) imports this once at the top of its
+ * stylesheet:
+ *
+ *     @import '../shared/tokens.css';
+ *
+ * Webviews with their own bespoke token system (e.g. planning's full
+ * dark/light brand palette in planning/tokens.css) don't import this —
+ * they're a different design language. Webviews that are pure
+ * VS Code-native (compile, cover, illustrations, editor) don't need
+ * this either.
+ *
+ * Why duplicate-then-lift instead of starting here: the original
+ * inline definitions had subtle per-webview differences (e.g.
+ * --active-bg only in manuscript). Anything common goes here; specific
+ * extensions stay per-webview.
+ */
+
+:root {
+  /* Storyline brand — single accent across all branded webviews. */
+  --accent:       #C9A84C;
+  --accent-sub:   rgba(201, 168, 76, 0.10);
+
+  /* VS Code surfaces with sensible dark fallbacks for when the
+     extension host hasn't injected the variables yet (rare race on
+     first paint — usually they're set before user JS runs). */
+  --bg:           var(--vscode-sideBar-background,    #1e1e1e);
+  --text:         var(--vscode-sideBar-foreground,    #cccccc);
+  --text-muted:   var(--vscode-descriptionForeground, #888888);
+  --sep:          var(--vscode-widget-border,         rgba(128, 128, 128, 0.15));
+  --hover-bg:     var(--vscode-list-hoverBackground,  rgba(255, 255, 255, 0.05));
+  --input-bg:     var(--vscode-input-background,      rgba(255, 255, 255, 0.07));
+  --input-border: var(--vscode-input-border,          rgba(128, 128, 128, 0.30));
+
+  /* Typography also follows VS Code so the panels feel like part of
+     the editor, not a separate app embedded in it. */
+  --font-ui:      var(--vscode-font-family, system-ui, sans-serif);
+  --font-size:    var(--vscode-font-size,   12px);
+}
