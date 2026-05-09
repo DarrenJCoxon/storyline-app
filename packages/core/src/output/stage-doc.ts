@@ -413,11 +413,16 @@ const nfRenderers: Record<string, (state: ProjectState) => string> = {
     return md
   },
   'dna-promise'(state) {
+    // Renderer fields must match stage-guides-nf-dna.ts['dna-promise'].
+    // Drift from the guide silently produces empty markdown bodies — the
+    // bug CB-04's test caught: it asked for `measurableOutcome` (never
+    // emitted) instead of `subtitleAlt` (asked of the LLM but never
+    // surfaced). Keep these in lockstep with the guide.
     const s = nfStage(state, 'dna-promise')
     let md = heading('Core Promise & Subtitle Engineering')
     md += nfLine('Core promise', s.corePromise)
     md += nfLine('Subtitle draft', s.subtitleDraft)
-    md += nfLine('Measurable outcome', s.measurableOutcome)
+    md += nfLine('Alt subtitle', s.subtitleAlt)
     return md
   },
   'dna-comps'(state) {

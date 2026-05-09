@@ -1,0 +1,357 @@
+# Storyline codebase improvement backlog
+
+Source: senior-eng review, 2026-05-09. Tickets are sized for one focused PR each. Pick from the top of each tier.
+
+Status legend: `TODO` `IN-PROGRESS` `DONE` `BLOCKED` `WONTFIX`
+
+---
+
+## Tier 1 — structural debt (highest leverage)
+
+### CB-01 · Eliminate the `lib/` → `extension/lib/` shadow copy
+**Status:** TODO  ·  **Effort:** L (1–2 days)  ·  **Risk:** medium
+
+The canonical `lib/` is sync'd into `extension/lib/` by `scripts/sync-extension-lib.mjs`. Every change must be made in two places or the next sync silently clobbers it (this caused the v0.2.10–12 thrash and today's stage-doc bug). The `.vscodeignore` whitelist for `fs-extra`/`chalk`/`markdown-it` exists only because lib runs as dynamic ES modules at runtime instead of being bundled.
+
+**Approach:** publish `lib/` as a workspace package (`@storyline/runtime`) alongside `@storyline/core`. Extension imports it via package.json dep. esbuild bundles it (and its deps) into `dist/extension.js` like any other dep. Move it to `devDependencies` in extension so vsce's `npm list --production` skips it (same trick we used for `@storyline/core`).
+
+**Acceptance:**
+- `scripts/sync-extension-lib.mjs` is deleted
+- `extension/lib/` no longer exists
+- `.vscodeignore` no longer needs whitelist entries for `fs-extra`/`chalk`/`markdown-it`/`graceful-fs`/`jsonfile`/`universalify`/`argparse`/`entities`/`linkify-it`/`mdurl`/`punycode.js`/`uc.micro`
+- `unzip -l storyline.vsix | grep node_modules` shows only `sharp`, `@img/*`, `pagedjs`, `markdown-it-attrs`, `odd-flow`, `@noble`, `sql.js` (the actually-required runtime deps)
+- All existing functionality still works: live preview, compile, master doc generation, stage saves
+- VSIX size drops noticeably
+
+**Files involved:**
+- `scripts/sync-extension-lib.mjs` (delete)
+- `lib/` (move/refactor)
+- `extension/package.json` (deps)
+- `extension/.vscodeignore` (simplify)
+- `extension/esbuild.config.mjs` (verify externals)
+
+**Depends on:** none. Blocks CB-02.
+
+---
+
+### CB-02 · Audit and fix `process.cwd()` antipattern across `lib/`
+**Status:** TODO  ·  **Effort:** M (4–6 hrs)  ·  **Risk:** medium
+
+33 `process.cwd()` calls in lib/. Today's stage-doc bug was one. The same bug almost certainly exists in:
+- `lib/output/master-doc.js:8` — `resolve(process.cwd(), 'planning')` — affects "Generate Master Document" command
+- `lib/state/store.js:63` — `resolve(process.cwd(), '.storyline')` — likely papered over by extension using `LocalStore` not this
+- `lib/memory/stage-memory.js:319` — `resolve(process.cwd(), '.storyline')` — log dir
+- `lib/memory/odd-flow-push.js:48` — odd-flow CLI lookup (already shadowed by `state/memory.ts`)
+
+**Approach:** convert each .js to .ts as part of CB-01's package move. Make `projectDir` an explicit required parameter on every function that does I/O. TypeScript will fail the build if any call site forgets it.
+
+**Acceptance:**
+- `grep -rn "process.cwd()" lib/` returns 0 hits in any function that does file I/O
+- All I/O functions in lib accept `projectDir: string` as first or second argument
+- Compile-time error if any caller forgets it
+- "Storyline: Generate Master Document" produces a file in the project, not in VS Code's cwd
+
+**Depends on:** CB-01 (do them together — porting to TS is the natural moment).
+
+---
+
+### CB-03 · Decompose `ChatPanel.ts` (1400 lines)
+**Status:** TODO  ·  **Effort:** L (1–2 days)  ·  **Risk:** medium
+
+ChatPanel does webview lifecycle + message routing + state management + AI streaming + command orchestration + file writes + memory pushes + gating + NF/fiction routing in one class. Today's stage-doc bug lived here — the right boundary would have made it obvious.
+
+**Approach:** decompose into focused services with explicit interfaces:
+- `ChatPanel` — webview lifecycle only (~200 lines)
+- `MessageRouter` — the giant handleMessage switch (~250 lines)
+- `StagePersistence` — applyEmittedPatches + writeStageDoc + pushToMemory + gating (~250 lines, the hot zone)
+- `AIStreaming` — SSE handling, token counting, cancellation (~200 lines)
+- `ProjectArtefactRegenerator` — chapter cards, master docs, promise-payoff, story bible, character matrix (~250 lines)
+
+Each gets a unit test.
+
+**Acceptance:**
+- No file in `extension/src/panels/` exceeds 400 lines
+- ChatPanel's tests don't need to mock the entire planning pipeline to test message routing
+- StagePersistence has its own unit test asserting markdown lands in the project (covers CB-04)
+
+**Depends on:** none, but CB-04 piggybacks naturally.
+
+---
+
+### CB-04 · End-to-end test for the fiction stage-save flow
+**Status:** DONE (v0.2.20)  ·  **Effort:** M (3–4 hrs)  ·  **Risk:** low
+
+The bug we shipped in v0.2.18 (stage docs not landing in project) would have been caught by ~5 lines of test. The product's most critical flow has zero coverage.
+
+**Approach:** integration test that scaffolds a temp project, simulates a stage save by feeding a fake AI JSON patch through `applyEmittedPatches`, asserts:
+1. `state.json` updated
+2. `planning/stages/<id>.md` exists in the project (not anywhere else)
+3. `.storyline/memory.jsonl` contains the patch
+4. Stage marker advanced when complete, NOT advanced when gate-blocked
+
+Cover at least 3 fiction stages (`genre`, `protagonist`, `beatSheet`) and 2 NF stages (`dna-promise`, `pa-thesis`). Run in CI.
+
+**Acceptance:**
+- New test file `extension/src/__tests__/stage-save-flow.test.ts`
+- CI fails if `writeStageDoc` regression hits
+- Test runs in <5s
+
+**Depends on:** ideally after CB-03 (StagePersistence is easier to test than ChatPanel monolith), but can be done before with mocks.
+
+**Outcome (v0.2.20):** Test landed at `extension/src/__tests__/stage-save-flow.test.ts` with 8 cases. Caught a real production bug in the process: the `dna-promise` renderer was reading `measurableOutcome` (never emitted by the LLM) instead of `subtitleAlt` (in the stage guide but never surfaced). Fix shipped alongside the test. See CB-04b for the broader audit.
+
+---
+
+### CB-04b · Audit NF renderer field-name drift from stage guides
+**Status:** TODO  ·  **Effort:** M (3–4 hrs)  ·  **Risk:** low
+
+CB-04 found one case (`dna-promise`) where the renderer in `packages/core/src/output/stage-doc.ts` was reading state keys that didn't match the questions defined in `packages/core/src/ai/stage-guides-nf-dna.ts`. The renderer outputs nothing for missing keys, so the markdown body looks half-empty even though the LLM provided every field.
+
+There are ~50 NF stages across DNA + pipelines A/B/C + academic. Each has a guide-questions list and a renderer; they need to stay in lockstep. The fix is mechanical:
+
+1. For each NF stage, list the `key` from each `questions[]` entry in the guide
+2. List every `s.<field>` read in the corresponding `nfRenderers[id](state)` body
+3. For each mismatch:
+   - Field in guide but not in renderer → add an `nfLine`/`nfList` entry
+   - Field in renderer but not in guide → remove (or update the guide if it's a real omission)
+
+**Acceptance:**
+- Add a single static test that imports both the guides and the renderers, walks every stage, and asserts the field sets agree (or are explicitly whitelisted as renderer-only / guide-only).
+- All NF stage docs round-trip the LLM-emitted patches into non-empty markdown bodies.
+- Pin via the same test framework as CB-04.
+
+**Depends on:** CB-04 (uses the same test scaffold).
+
+---
+
+## Tier 2 — reliability gaps
+
+### CB-05 · Production error reporting
+**Status:** TODO  ·  **Effort:** S (2–3 hrs)  ·  **Risk:** low
+
+Right now the only way to know something's broken in production is users emailing. We're flying blind on activation hangs, preview failures, transcription errors.
+
+**Approach:** add a single `POST /errors` endpoint to the Worker backend that accepts `{ message, stack, version, platform, command, licenceKeyHash }`. Extension's `logError` wrapper sends to it (sampling at 100% for now; throttle later). Display a digest in `wrangler tail` or pipe to a simple dashboard.
+
+Don't reach for Sentry yet — your Worker can store errors in KV with a TTL, dump to a `/admin/errors` view. Keep it simple until volume justifies more.
+
+**Acceptance:**
+- `POST /errors` endpoint with rate-limit (existing infra) and licenceKey hash for de-anonymised aggregation
+- Extension-side `reportError(err, context)` helper called from try/catch boundaries that we already have (preview commands, install_storyline, ChatPanel handlers)
+- `wrangler tail` or simple admin endpoint shows last 100 errors
+
+**Depends on:** none.
+
+---
+
+### CB-06 · Defer auto-update check 30s after activation
+**Status:** TODO  ·  **Effort:** XS (30 min)  ·  **Risk:** very low
+
+Auto-update fires ~500ms after activation on every workspace open. First-action experience is faster if we wait until VS Code is idle.
+
+**Approach:** wrap the existing auto-update kick-off in `setTimeout(..., 30_000)` and skip if the workspace is closed before the timer fires.
+
+**Acceptance:**
+- Boot log shows "auto-update: deferred"
+- Update check runs after 30s
+- Closing VS Code within 30s cancels the timer
+
+**Depends on:** none.
+
+---
+
+### CB-07 · Decouple installer + extension versioning
+**Status:** TODO  ·  **Effort:** M (4–6 hrs)  ·  **Risk:** medium
+
+Today, every typo fix in the extension triggers a full DMG+MSI rebuild and forces users to redownload ~110MB. The installer should fetch the latest VSIX dynamically instead of bundling a specific version.
+
+**Approach:**
+- Installer no longer bundles `storyline.vsix` as a Tauri resource
+- On `install_storyline`, after VS Code is in place, the installer downloads the latest `storyline.vsix` from GitHub Releases (similar pattern to the VS Code download flow)
+- Extension repo + extension package.json versioning becomes independent of installer/Tauri/Cargo
+- Installer release cadence drops to "actually changed installer code" (rare)
+
+**Acceptance:**
+- `extension/package.json` can bump independently of installer
+- Pushing a tag matching `extension-v*` triggers a VSIX-only release workflow
+- Installer fetches latest VSIX at install time
+- Existing users on old installers still work (since VS Code itself updates extensions)
+
+**Depends on:** none, but coordinate with CB-08 (release workflow split).
+
+---
+
+### CB-08 · Split CI release workflows
+**Status:** TODO  ·  **Effort:** S (2 hrs)  ·  **Risk:** low
+
+Currently every `v*` tag rebuilds everything. After CB-07 there should be:
+- `v*` (e.g. `v0.3.0`) — full installer + extension release
+- `extension-v*` (e.g. `extension-v0.2.21`) — VSIX-only release, much faster CI
+- `installer-v*` (e.g. `installer-v0.3.0`) — installer-only release
+
+**Acceptance:**
+- Three workflow files or one with branched jobs
+- Extension-only release in <2min (no Rust compile, no notarisation, no Windows build)
+
+**Depends on:** CB-07.
+
+---
+
+## Tier 3 — code quality + UX polish
+
+### CB-09 · Decompose `live-preview-command.ts` (2625 lines)
+**Status:** TODO  ·  **Effort:** L (1–2 days)  ·  **Risk:** medium-high
+
+Single file, single function, doing webview lifecycle + theme/opener discovery + CSS loading + markdown rendering + picture-book pipeline + scene-break handling + style picker + paged.js wiring + post-message routing + chapter-change debouncing.
+
+**Approach:** roughly 8 files:
+- `live-preview-command.ts` — entry point (~150 lines)
+- `theme-discovery.ts` — discoverThemes / discoverOpeners (~150 lines)
+- `css-loader.ts` — loadAllStylesCss + the compile pipeline plumbing (~200 lines)
+- `webview-html.ts` — buildWebviewHtml (~250 lines)
+- `markdown-renderer.ts` — createRenderer + the picture-book vs prose branches (~400 lines)
+- `chapter-watcher.ts` — file-system watching + active-doc resolution (~150 lines)
+- `style-picker-bridge.ts` — postMessage handlers for the in-preview style picker (~200 lines)
+- `font-loader.ts` — buildPreviewFontCss (~100 lines)
+
+**Acceptance:**
+- No file >400 lines
+- Each module has its own unit tests (smaller surface = testable)
+
+**Depends on:** none, but big — schedule when no preview features in flight.
+
+---
+
+### CB-10 · Wrap every command callback in try/catch with error toast
+**Status:** TODO  ·  **Effort:** S (1–2 hrs)  ·  **Risk:** very low
+
+We did this for the two preview commands in v0.2.9 and immediately learned the real bug. There are ~20 other commands in extension.ts; most do `void someAsyncFn()` with no error path.
+
+**Approach:** introduce a `safeCommand(name, fn)` helper that wraps the registration with try/catch + showErrorMessage + reportError (when CB-05 lands). Replace all `vscode.commands.registerCommand(...)` calls with it.
+
+**Acceptance:**
+- No bare `void` on an async command callback in extension.ts
+- Any command that throws shows a toast with the actual error
+- Errors auto-route to CB-05's reporting
+
+**Depends on:** independently useful; pairs with CB-05.
+
+---
+
+### CB-11 · Live consistency watcher
+**Status:** TODO  ·  **Effort:** L (2–3 days)  ·  **Risk:** medium
+
+The AI never re-reads stage docs after writing them. If user manually edits `planning/stages/protagonist.md` or `planning/stages/beatSheet.md`, those edits never feed back. The infra exists (memory + state + critique-wiring) — the missing piece is a watcher that detects edits, parses them back into state, flags contradictions.
+
+**Approach:**
+- File-system watcher on `planning/stages/*.md` and `planning/chapters/*.md`
+- On edit, run a "round-trip" parse to reconstruct the patch, diff against state.json
+- If non-trivial divergence, queue a critique pass that reads ALL stages and flags any pair that contradicts (e.g., protagonist WANT vs scene N goal)
+- Surface contradictions as VS Code diagnostics on the offending line
+
+**Acceptance:**
+- Editing a stage MD updates state.json after a debounce
+- Cross-stage contradictions show as VS Code "Problems" panel entries
+- Doesn't fire on every keystroke (debounce 2s + git-mtime check)
+
+**Depends on:** CB-04 (the test framework helps validate this).
+
+---
+
+### CB-12 · Voice-first writing — dictate into chapters
+**Status:** TODO  ·  **Effort:** M (1 day)  ·  **Risk:** low
+
+Webview MediaRecorder is already in for the planning chat (v0.2.14). Extending it to the chapter editor unlocks "I can write while walking the dog" — a real differentiator.
+
+**Approach:**
+- Same MediaRecorder pattern in the editor webview
+- Mic button in the editor toolbar
+- On stop, transcribe + insert at cursor
+- Optional: live partial transcription via Whisper streaming (separate ticket)
+
+**Acceptance:**
+- Mic button in editor toolbar
+- Hold to record, release to transcribe-and-insert
+- Same permission flow as planning chat (uses CB-?? deep-link pattern)
+
+**Depends on:** none.
+
+---
+
+### CB-13 · Manuscript versioning via Git, surfaced in writer-language
+**Status:** TODO  ·  **Effort:** L (1 week+)  ·  **Risk:** medium
+
+GitHub auto-sync exists. Lean into it as a writer-facing feature: "Save as version 2" creates a branch, "Try a different ending" branches at the climax, "Compare endings" diffs two branches with prose-aware diff.
+
+**Approach:**
+- New "Versions" sidebar view (separate from Files)
+- "Save as version" command → creates `version/<name>` branch with AI-generated commit message describing the changes since last save
+- "Compare versions" → opens a side-by-side prose diff (not unified-diff format — paragraph-aware)
+
+**Acceptance:**
+- Writer never sees the word "branch" or "commit"
+- Versions discoverable from sidebar without command palette
+- AI commit messages explain plot changes, not file changes
+
+**Depends on:** none.
+
+---
+
+### CB-14 · Marketplace for templates (themes, openers, prompt packs)
+**Status:** TODO  ·  **Effort:** XL (2+ weeks)  ·  **Risk:** medium
+
+Infrastructure exists: `book-styles/`, `chapter-openers/`, planning prompts. Other writers will want to share. Could be a free community thing or charge.
+
+**Approach:** out of scope for this backlog; ticket is a placeholder for product strategy.
+
+**Depends on:** product decision before engineering.
+
+---
+
+## Tier 4 — small wins (do when context-switching)
+
+### CB-15 · Free-plan dev reset endpoint
+**Status:** TODO  ·  **Effort:** XS (30 min)  ·  **Risk:** very low
+
+Already discussed: machineId guard prevents devs (and the user) from getting a fresh 150 credits during testing. Add `/free-plan/reset?token=<dev-token>` that wipes the `mid:<id>` mapping. Wire into `scripts/reset-storyline.sh`.
+
+**Acceptance:**
+- Dev token check (env var or hardcoded for dev backend only)
+- Reset script calls it after wiping local state
+
+---
+
+### CB-16 · Suppress dev-noise log lines
+**Status:** TODO  ·  **Effort:** XS (15 min)  ·  **Risk:** very low
+
+`ChatPanel.init: stored key prefix = SL-FREE-A397` and similar in DevTools console. Gate behind a `STORYLINE_VERBOSE=1` env var.
+
+---
+
+### CB-17 · Decouple boot log from production builds
+**Status:** TODO  ·  **Effort:** S (1–2 hrs)  ·  **Risk:** low
+
+The `__storylineBootLog` writes a file every activation. Useful when debugging Windows hangs — overhead the rest of the time. Gate behind a setting (default off in production VSIXs, on in dev).
+
+---
+
+### CB-18 · Webview shared design system
+**Status:** TODO  ·  **Effort:** M (4–6 hrs)  ·  **Risk:** low
+
+Each webview has its own `tokens.css` with subtle variants. Lift into a single `extension/webview/src/shared/tokens.css` consumed by all entry points. The `bootstrapStorylineTheme` util we built in v0.2.16 is the natural anchor.
+
+---
+
+### CB-19 · README + ARCHITECTURE.md for human contributors
+**Status:** TODO  ·  **Effort:** S (1–2 hrs)  ·  **Risk:** very low
+
+CLAUDE.md is good for AI agents. There's no overview for a human dropping into the repo for the first time. 25+ top-level dirs deserve a map.
+
+---
+
+## How to use this backlog
+
+- Pick from top of Tier 1 first; work down
+- Each ticket is one PR
+- Update status inline (TODO → IN-PROGRESS → DONE)
+- Add new tickets at the bottom of the relevant tier with the next CB-NN number
