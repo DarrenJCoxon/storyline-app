@@ -1,13 +1,21 @@
 // Resolve installer download URLs from the GitHub Releases API at request
-// time so a new release tag (e.g. v0.2.4 → Storyline.Installer_0.2.4_*.dmg)
-// is picked up automatically — no site code change, no version constant
-// to keep in sync with installer/src-tauri/tauri.conf.json.
+// time. We can't rely on /releases/latest alone because we ship two kinds
+// of release tag:
+//   - `v*`           — full installer build with DMG/MSI/VSIX assets
+//   - `extension-v*` — VSIX-only fast-iteration release (no installer)
+//
+// Both are now published as non-prereleases (so the GitHub "Latest" badge
+// tracks whichever is genuinely most recent), but only the `v*` ones
+// have the installer assets the homepage download buttons need. Walk
+// /releases (newest first by published_at) and pick the most recent
+// release that has at least one installer asset; ignore extension-only
+// releases that don't.
 //
 // Cached for 10 minutes via Next.js fetch revalidate, so this is one API
 // call per region per 10 min, well inside GitHub's unauthenticated limit.
 
 const REPO = 'DarrenJCoxon/storyline-app'
-const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
+const RELEASES_PAGE = `https://github.com/${REPO}/releases`
 
 export type Downloads = {
   macAppleSilicon: { label: string; url: string }
@@ -16,7 +24,12 @@ export type Downloads = {
 }
 
 type Asset = { name: string; browser_download_url: string }
-type Release = { assets?: Asset[] }
+type Release = {
+  tag_name?: string
+  published_at?: string
+  prerelease?: boolean
+  assets?: Asset[]
+}
 
 const LABELS = {
   macAppleSilicon: 'Mac (Apple Silicon — M1, M2, M3, M4)',
@@ -30,15 +43,35 @@ function pickAsset(assets: Asset[], match: (name: string) => boolean): string | 
   return assets.find(a => match(a.name))?.browser_download_url ?? null
 }
 
+function hasInstallerAsset(assets: Asset[]): boolean {
+  return assets.some(a =>
+    a.name.endsWith('_aarch64.dmg') ||
+    a.name.endsWith('_x64.dmg') ||
+    a.name.endsWith('_x64-setup.exe'),
+  )
+}
+
 export async function getDownloads(): Promise<Downloads> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=20`, {
       next: { revalidate: 600 },
       headers: { Accept: 'application/vnd.github+json' },
     })
     if (!res.ok) throw new Error(`GitHub API ${res.status}`)
-    const release = (await res.json()) as Release
-    const assets = release.assets ?? []
+    const releases = (await res.json()) as Release[]
+    if (!Array.isArray(releases)) throw new Error('releases response wasn\'t an array')
+
+    // Sort by published_at desc — GitHub groups non-prereleases above
+    // prereleases otherwise, which can hide a newer release behind an
+    // older one in API order. Then pick the first release that has at
+    // least one installer asset.
+    const sorted = [...releases].sort((a, b) => {
+      const ta = a.published_at ? Date.parse(a.published_at) : 0
+      const tb = b.published_at ? Date.parse(b.published_at) : 0
+      return tb - ta
+    })
+    const installerRelease = sorted.find(r => hasInstallerAsset(r.assets ?? []))
+    const assets = installerRelease?.assets ?? []
 
     const aarch64 = pickAsset(assets, n => n.endsWith('_aarch64.dmg'))
     const x64dmg  = pickAsset(assets, n => n.endsWith('_x64.dmg'))

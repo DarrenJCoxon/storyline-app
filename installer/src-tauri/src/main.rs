@@ -397,15 +397,32 @@ fn download_latest_vsix(_app: &tauri::AppHandle) -> Result<std::path::PathBuf, S
         .map_err(|e| format!("could not read releases response: {e}"))?;
     let _ = std::fs::remove_file(&json_path);
 
-    // Parse the response and find the first storyline.vsix asset URL.
+    // Parse the response and find the most recent storyline.vsix asset URL.
     // Using serde_json since it's already pulled in transitively.
+    //
+    // The earlier version of this code walked the array in API order
+    // expecting newest-first, but GitHub's /releases endpoint actually
+    // groups non-prereleases above prereleases (each group sorted by
+    // created_at desc). So when an extension-v* prerelease was published
+    // after the most recent v* full release, it sat below v* in the
+    // array — the walk picked the older v* VSIX silently. Sort by
+    // published_at desc explicitly before walking so we always find the
+    // genuinely most-recent VSIX regardless of prerelease grouping.
     let releases: serde_json::Value = serde_json::from_str(&body)
         .map_err(|e| format!("releases response wasn't JSON: {e}"))?;
     let releases_arr = releases.as_array()
         .ok_or_else(|| "releases response wasn't an array".to_string())?;
 
+    let mut sorted: Vec<&serde_json::Value> = releases_arr.iter().collect();
+    sorted.sort_by(|a, b| {
+        let pa = a.get("published_at").and_then(|v| v.as_str()).unwrap_or("");
+        let pb = b.get("published_at").and_then(|v| v.as_str()).unwrap_or("");
+        // ISO 8601 timestamps sort lexicographically — newest first means desc.
+        pb.cmp(pa)
+    });
+
     let mut vsix_url: Option<String> = None;
-    for release in releases_arr {
+    for release in sorted {
         if let Some(assets) = release.get("assets").and_then(|a| a.as_array()) {
             for asset in assets {
                 let name = asset.get("name").and_then(|n| n.as_str()).unwrap_or("");

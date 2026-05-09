@@ -4,17 +4,22 @@ name: Release Extension Only
 # (e.g. `extension-v0.3.0`) to trigger this workflow. Builds and
 # publishes just the VSIX — no DMG, no MSI, no Tauri build.
 #
-# The release is marked `prerelease: true` so it doesn't override the
-# repository's "latest" pointer (which the homepage uses to find the
-# DMG). The installer's CB-07 download path walks ALL releases via the
-# GitHub API, so it picks up the new VSIX from this prerelease too.
+# Originally these releases were marked `prerelease: true` so they
+# wouldn't override the repository's "Latest" pointer. That backfired:
+# GitHub's /releases API groups non-prereleases above prereleases, so
+# the installer's walk-and-pick-first VSIX logic silently kept finding
+# the older non-prerelease v* VSIX even when a newer extension-v*
+# prerelease existed. Releases now ship as non-prereleases, getDownloads.ts
+# walks past releases without installer assets to find the most recent
+# one with DMG/MSI for the homepage, and the auto-updater + installer
+# both sort by published_at desc explicitly.
 #
 # Use this for typo fixes, renderer bugs, prompt tweaks, etc. — any
 # change that doesn't touch the installer Rust code, the marketing
 # site, or the Tauri config.
 #
-# For full releases (installer + extension), keep using the `v*` tag
-# scheme which fires .github/workflows/release.yml.
+# For full releases (installer + extension with new DMG/MSI), keep
+# using the `v*` tag scheme which fires .github/workflows/release.yml.
 
 on:
   push:
@@ -67,11 +72,13 @@ jobs:
           name: storyline-vsix
           path: extension/storyline.vsix
 
-      # Publish the release. prerelease:true keeps the DMG-serving
-      # /releases/latest pointer pinned to the most recent full v*
-      # release. The installer's GitHub-API walk finds VSIXs from
-      # both prerelease and stable tags, so it picks this up.
-      - name: Create GitHub Release (prerelease)
+      # Publish as non-prerelease so the GitHub "Latest" badge reflects
+      # the actual most-recent release. getDownloads.ts walks past
+      # VSIX-only releases to find the most recent one with installer
+      # DMG/MSI for the homepage; the in-extension auto-updater and
+      # installer's download_latest_vsix both sort by published_at desc
+      # explicitly so they find this release first.
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -86,5 +93,5 @@ jobs:
             "Install Storyline" or update the extension, they get
             this VSIX.
           draft: false
-          prerelease: true
+          prerelease: false
           files: extension/storyline.vsix

@@ -55,6 +55,8 @@ export function disposeUpdateStatusBar(): void {
 
 interface GitHubRelease {
   tag_name: string
+  published_at?: string
+  prerelease?: boolean
   assets: Array<{ name: string; browser_download_url: string }>
 }
 
@@ -111,23 +113,27 @@ function downloadFile(url: string, dest: string): Promise<void> {
 
 async function getLatestRelease(): Promise<GitHubRelease | null> {
   try {
-    // CB-07/CB-08: walk the full releases list (includes prereleases) so
-    // we pick up extension-only releases tagged `extension-v*`, which are
-    // marked prerelease:true so they don't override the homepage's DMG
-    // pointer at /releases/latest. Without this walk, users with the
-    // extension already installed would never see VSIX-only releases via
-    // auto-update — they'd have to manually re-run the installer.
-    //
-    // We pick the FIRST release in the list (sorted by published_at desc
-    // by GitHub) that has a storyline.vsix asset. That's the most recent
-    // VSIX we should be offering, regardless of tag scheme.
+    // CB-07/CB-08: walk the full releases list so we pick up extension-only
+    // releases tagged `extension-v*`. Earlier comments here claimed GitHub
+    // sorts /releases by published_at descending — empirically that's
+    // wrong: the API returns all NON-prereleases first (sorted by
+    // created_at desc), then all prereleases. So when extension-v0.2.40
+    // (prerelease) was newer than v0.2.24 (non-prerelease), the buggy
+    // walk-and-pick-first picked v0.2.24's older VSIX. Always sort by
+    // published_at desc explicitly before walking — defensive against
+    // both the prerelease grouping and any future API ordering changes.
     const json = await httpsGetString(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=20`)
     const releases = JSON.parse(json) as GitHubRelease[]
     if (!Array.isArray(releases)) {
       logInfo('[Storyline] auto-update: releases response wasn\'t an array (rate limited?)')
       return null
     }
-    for (const r of releases) {
+    const sorted = [...releases].sort((a, b) => {
+      const ta = a.published_at ? Date.parse(a.published_at) : 0
+      const tb = b.published_at ? Date.parse(b.published_at) : 0
+      return tb - ta
+    })
+    for (const r of sorted) {
       const hasVsix = (r.assets ?? []).some(a => a.name === 'storyline.vsix')
       if (hasVsix && r.tag_name) return r
     }
