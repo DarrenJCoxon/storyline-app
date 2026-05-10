@@ -38,6 +38,9 @@ export interface Env {
   POSTMARK_API_KEY?: string
   TURNSTILE_SECRET_KEY?: string
   TURNSTILE_SITE_KEY?: string
+  /** When set to '1', /embed returns deterministic fake vectors instead
+   *  of calling OpenAI. Used by unit tests so they don't burn API budget. */
+  STORYLINE_EMBED_FIXTURE?: string
 }
 
 export interface IllustrateRequest {

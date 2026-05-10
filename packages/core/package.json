@@ -9,6 +9,11 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./nuvector": {
+      "types": "./dist/nuvector.d.ts",
+      "require": "./dist/nuvector.js",
+      "default": "./dist/nuvector.js"
     }
   },
   "scripts": {
@@ -21,6 +26,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
+    "@nusoft/nuvector": "^0.1.5",
     "@types/fs-extra": "^11.0.4",
     "fs-extra": "^11.3.4"
   }

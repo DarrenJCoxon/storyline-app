@@ -174,6 +174,11 @@ export {
 
 // Memory helpers (used by research index + critique layer)
 export { appendMemoryLog } from './memory/stage-memory.js'
+
+// NuVector semantic memory lives at `@storyline/core/nuvector` — a separate
+// subpath so the native NuVector binary is not pulled into the extension's
+// esbuild graph unless a caller explicitly opts in. NT-05 will be the first
+// consumer.
 export type { TrapResult, TrapSeverity } from './ai/story-traps.js'
 export { runStoryTraps } from './ai/story-traps.js'
 export type { Persona, QualityCheck } from './ai/coaching-personas.js'
