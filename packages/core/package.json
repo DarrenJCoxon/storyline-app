@@ -14,6 +14,11 @@
       "types": "./dist/nuvector.d.ts",
       "require": "./dist/nuvector.js",
       "default": "./dist/nuvector.js"
+    },
+    "./dist/nuvector.js": {
+      "types": "./dist/nuvector.d.ts",
+      "require": "./dist/nuvector.js",
+      "default": "./dist/nuvector.js"
     }
   },
   "scripts": {

@@ -80,11 +80,27 @@ await build({
   outfile: 'dist/extension.js',
   // `vscode` is provided by the host. `sharp` is a native module loaded via
   // dynamic await import() from illustration code only — keep it external so
-  // its native binaries resolve at runtime from node_modules. Everything else
-  // (chalk, fs-extra, isomorphic-git, etc.) MUST be bundled — vsce package
-  // is invoked with --no-dependencies in the release workflow, so external
-  // deps throw "Cannot find module" at activation on a fresh user machine.
-  external: ['vscode', 'sharp'],
+  // its native binaries resolve at runtime from node_modules. The
+  // `@nusoft/nuvector*` packages are also native (NAPI Rust binaries for
+  // local-file vector storage) — same pattern: external + ship inside the
+  // VSIX's node_modules tree. Everything else (chalk, fs-extra,
+  // isomorphic-git, etc.) MUST be bundled — vsce package is invoked with
+  // --no-dependencies in the release workflow, so non-native external deps
+  // throw "Cannot find module" at activation on a fresh user machine.
+  external: [
+    'vscode',
+    'sharp',
+    '@nusoft/nuvector',
+    '@nusoft/nuvector-node',
+    '@nusoft/nuvector-node-darwin-arm64',
+    '@nusoft/nuvector-node-darwin-x64',
+    '@nusoft/nuvector-node-linux-arm64-gnu',
+    '@nusoft/nuvector-node-linux-arm64-musl',
+    '@nusoft/nuvector-node-linux-x64-gnu',
+    '@nusoft/nuvector-node-linux-x64-musl',
+    '@nusoft/nuvector-node-win32-arm64-msvc',
+    '@nusoft/nuvector-node-win32-x64-msvc',
+  ],
   // Workspace deps in ../packages/core and ../lib import fs-extra/chalk via
   // require()/import. esbuild resolves those from the importing file's
   // location and won't find them in extension/node_modules without this

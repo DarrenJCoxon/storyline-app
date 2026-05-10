@@ -186,7 +186,20 @@ Indexing the manuscript means every chunk gets sent to OpenAI's US servers. That
 
 ### NT-05 · Embed-on-save for every document source in the project
 
-**Status:** TODO · **Effort:** L (2–3 days) · **Risk:** medium
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** L (2–3 days) · **Risk:** medium
+
+**Shipped:**
+
+- Bundling: marked `@nusoft/nuvector` and all platform-specific `@nusoft/nuvector-node-*` siblings external in `extension/esbuild.config.mjs` (matches the existing `sharp` pattern). `@nusoft/nuvector` added as a direct dep of `extension/package.json` so vsce-package ships the resolved native binary in the VSIX's `node_modules`.
+- `SemanticMemoryService` class at `extension/src/state/semantic-memory-service.ts` (~250 lines): owns the local NuVector store handle (lazy open, single dispose), exposes typed `upsert`/`deleteByIds`/`search`. SHA-256 content hashing skips re-embedding when text is unchanged. Every public method short-circuits when `storyline.semanticMemory.enabled` is `false` and live-reads the config so toggle changes take effect immediately. Errors are logged via `diagnostic-log` and never thrown to callers — saves never block on indexing.
+- `WorkerEmbedClient` calls the NT-02 `/embed` endpoint with the active licence key.
+- Service wired into `activate()` in `extension/src/extension.ts` via `initSemanticMemoryService(context)`; disposed cleanly through `context.subscriptions.push({ dispose })`.
+- **Stage saves** (`extension/src/state/memory.ts`): `pushToMemory` now fire-and-forgets a NuVector upsert in parallel with the existing odd-flow + jsonl writes. Maps to schema doc §5.2 (`nuwiki_section`, `documentType: 'storyline_stage'`).
+- **Research items** (`extension/src/panels/ResearchPanel.ts`): add → upsert chunk; remove → delete chunk by id. Reads the item file through the new `parseFrontmatter` + `renderResearchItemAsText` helpers; reliability tier maps to NuVector's `confidence` per schema doc §5.3.
+- **Chapter prose** (new `extension/src/state/chapter-semantic-watcher.ts`): `vscode.workspace.createFileSystemWatcher('manuscript/**/*.md')` with 5s per-file debounce. On change, embeds the whole-chapter chunk (Layer 1) plus one Layer 2 chunk per scene marker (`#`/`##` heading or `***` rule). Chapter deletes drop the Layer 1 chunk; scene-level cleanup is deferred to NT-08's edge sweep.
+- Subpath export hardened: `@storyline/core/package.json` now exposes both `./nuvector` and `./dist/nuvector.js` so vite/vitest's strict exports check accepts the deep import the extension uses (working around `moduleResolution: node` not reading `exports`).
+- 10 new service tests cover: disabled = no-op; first upsert + identical re-upsert dedup; content change re-embeds; embed throw → `failed`/'embed-failed'; malformed embedding shape → `failed`/'bad-embedding-shape'; search disabled → null; search round-trip via local store; delete clears hash so re-upsert embeds again; persistence across `dispose` + reopen; live config toggle takes effect on the next call.
+- 110/110 extension tests passing (was 100 before NT-05); typecheck clean; esbuild bundle still 9.0mb with a single retained `@nusoft` reference (the runtime `require()` for the externalised package).
 
 The seam: every meaningful write to the project's data model flows into the knowledge graph. Per the 2026-05-10 framing, that means **every** document source — not just stage docs and chapters:
 

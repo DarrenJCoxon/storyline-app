@@ -7,6 +7,10 @@ import {
   ITEM_SUBTYPES, RELIABILITY_TIERS, VERIFICATION_STATES,
 } from '@storyline/core'
 import type { EditorPanel } from './EditorPanel.js'
+import {
+  upsertResearchItemToSemanticMemory,
+  deleteResearchItemFromSemanticMemory,
+} from '../state/memory.js'
 
 interface ResearchItem {
   id: string
@@ -117,6 +121,8 @@ export class ResearchPanel {
           }
           await (rebuildIndex as unknown as (dir: string) => Promise<unknown>)(projectDir)
           await (syncResearchToMemory as unknown as (dir: string) => Promise<unknown>)(projectDir)
+          // NT-05: parallel push to semantic memory (no-op when disabled).
+          void upsertResearchItemToSemanticMemory(projectDir, item.id).catch(() => { /* logged inside */ })
           await this.refresh()
           vscode.window.showInformationMessage(`Research item added: ${item.title}`)
         } catch (err) {
@@ -146,6 +152,8 @@ export class ResearchPanel {
           try {
             await (removeItem as unknown as (dir: string, id: string) => Promise<unknown>)(projectDir, id)
             await (rebuildIndex as unknown as (dir: string) => Promise<unknown>)(projectDir)
+            // NT-05: drop the chunk from semantic memory too.
+            void deleteResearchItemFromSemanticMemory(id).catch(() => { /* logged inside */ })
             await this.refresh()
           } catch (err) {
             vscode.window.showErrorMessage(`Remove failed — ${err instanceof Error ? err.message : String(err)}`)
