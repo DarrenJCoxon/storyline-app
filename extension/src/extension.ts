@@ -323,7 +323,14 @@ function activateInner(context: vscode.ExtensionContext): void {
   )
   bootLog('activate: FilesTreeProvider registered')
 
-  void statusBar.start(context)
+  // WordCountStatusBar is project-scoped — its `$(book) Manuscript` item
+  // shows total/active manuscript word count, which only makes sense in
+  // a Storyline workspace. Without this gate it appeared in any VS Code
+  // window with a folder open (any time the extension host inherited
+  // activation from another open Storyline workspace).
+  if (hasProject) {
+    void statusBar.start(context)
+  }
 
   // CB-08-followup: status bar items are project-scoped. If there's no
   // .storyline/state.json in this workspace the user wasn't doing
@@ -921,9 +928,17 @@ function activateInner(context: vscode.ExtensionContext): void {
 
   bootLog('activate: command registrations complete')
 
-  // GitHub auto-sync subsystem
+  // GitHub auto-sync subsystem — project-scoped (hasProject), not just
+  // workspace-scoped. Earlier the gate was `if (workspaceUri)` so the
+  // "Storyline: connect GitHub" status bar item appeared in EVERY VS Code
+  // window with any folder open, even ones that had nothing to do with
+  // Storyline. The activation event `workspaceContains:.storyline/state.json`
+  // is matched globally if any open Storyline workspace causes the
+  // extension host to load the bundle, after which other windows that
+  // share the host (or were opened in parallel) inherited the activation
+  // and surfaced the unrelated status bar item.
   const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri
-  if (workspaceUri) {
+  if (workspaceUri && hasProject) {
     bootLog('activate: github subsystem starting')
     const githubAuth = new GitHubAuth(context)
     const githubSync = new GitHubSyncService(workspaceUri, githubAuth)
@@ -931,11 +946,13 @@ function activateInner(context: vscode.ExtensionContext): void {
     registerGitHubCommands(context, githubAuth, githubSync, githubStatusBar)
     context.subscriptions.push(githubSync, githubStatusBar)
     bootLog('activate: github subsystem registered')
+    logInfo('[Storyline] activate: github subsystem registered (project workspace)')
 
     // Silently offer connect on first open (only if user hasn't dismissed)
     maybeOfferConnect(context, githubAuth, githubSync).catch(e => bootLogError('maybeOfferConnect', e))
   } else {
-    bootLog('activate: no workspace, skipping github subsystem')
+    bootLog('activate: skipping github subsystem (non-Storyline workspace or no folder)')
+    logInfo('[Storyline] activate: skipping github subsystem (non-Storyline workspace)')
   }
 
   // CB-08-followup: every async startup task below is project-scoped.
