@@ -117,7 +117,9 @@ Single chokepoint for every embedding call. Wrong place to skimp on engineering 
 
 ### NT-03 · Storyline → NuVector schema design document
 
-**Status:** TODO · **Effort:** M (3–4 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** M (3–4 hrs) · **Risk:** low
+
+**Shipped:** [`docs/design/nuos-memory-schema.md`](../design/nuos-memory-schema.md). 10 sections covering: every document source in the project (book metadata, all 14 fiction stages, all NF stages across pipelines A/B/C/Academic, beats, chapters, scenes, characters, research items, plot threads, decisions); chunk ID convention `book:<bookId>/<kind>:<localPath>` generalising the existing research-linker format; tenant strategy (`default` for single-book, `series:<id>` for series mode per OQ-4); NuVector kind mapping (NuWiki-shaped — `nuwiki_article_summary`/`nuwiki_section`/`nuwiki_citation` — to keep WU 004's layered search APIs accessible when they ship); per-layer metadata schemas; typed-edge taxonomy for NT-08 (`references-character`, `pays-off-setup`, `contradicts`, `supersedes-decision`, `mirrors-theme`, `links-to-research`, `evidence-for`, `derived-from`); markdown frontmatter dual-write; worked example walking a 3-chapter project through chunks, edges, and sample retrieval; v1 retrieval strategy via `retrieveContext` + kind filters (since `searchKnowledge` and graph traversal are deferred to NuVector WU 004/005); three open decisions deferred (long-scene chunking, NER provider, decision freshness). Cross-referenced from `docs/ARCHITECTURE.md`.
 
 Before any embedding-on-save logic, lock the schema. NuVector's four layers (article summary → section → citation → backlink graph) need to map onto Storyline's natural hierarchy.
 
@@ -145,7 +147,19 @@ Before any embedding-on-save logic, lock the schema. NuVector's four layers (art
 
 ### NT-04 · User-facing opt-in with privacy disclosure
 
-**Status:** TODO · **Effort:** S (2–3 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** S (2–3 hrs) · **Risk:** low
+
+**Shipped:**
+
+- Three settings on `extension/package.json`'s `contributes.configuration`:
+  - `storyline.semanticMemory.enabled` (boolean, default `false`) — the master switch every NT-05+ feature checks before sending text to OpenAI
+  - `storyline.semanticMemory.firstRunDialogShown` (boolean, default `false`, internal) — gate so we don't pester on every save after a user declines
+  - `storyline.series.id` (string, default `""`) — series identifier per OQ-4; consumed by the tenant derivation
+- New helper module [`extension/src/state/semantic-memory.ts`](../../extension/src/state/semantic-memory.ts) exposing `readSemanticMemoryConfig()`, `ensureOptIn()` (the gate every NT-05+ feature must pass), `deriveTenant()` / `slugifySeriesId()` (pure, fully tested), and `resetOptInDialog()` for completeness. Imports only `vscode`, never `@storyline/core/nuvector` — keeps the native binary out of the bundle until NT-05.
+- Modal first-run dialog with two buttons (Enable / Not now); plain-English explanation that text is sent to OpenAI for embedding only, vectors stay local, OpenAI does not train on this data, and disable + delete are always available.
+- 15 unit tests cover slugify edge cases, tenant derivation in both modes, config reads, all four ensureOptIn outcomes (already-enabled, already-declined, enable, decline including silent dismissal), and reset.
+- PRIVACY.md §2.4 added — full disclosure of what's sent, when, retention model, lawful basis (consent), and how to disable / delete. §3 ("What we never collect") nuanced to flag the prose carve-out when semantic memory is on.
+- 100/100 extension tests passing; typecheck clean; esbuild bundle still 9.0mb (no native binary contamination).
 
 Indexing the manuscript means every chunk gets sent to OpenAI's US servers. That's a real privacy decision the writer must consciously make.
 

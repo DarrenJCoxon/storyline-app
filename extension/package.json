@@ -331,6 +331,21 @@
           ],
           "default": "balanced",
           "description": "AI critique quality tier. economy = faster/cheaper, balanced = default, premium = deeper critique."
+        },
+        "storyline.semanticMemory.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable semantic memory: searchable knowledge graph of your project (planning, manuscript, research). When enabled, your draft is sent to OpenAI to build a 1536-dim embedding index. The vectors are stored locally in .storyline/memory.nv and never leave your machine. OpenAI does not train on this data. Off by default — turn on from the first-run dialog or here."
+        },
+        "storyline.semanticMemory.firstRunDialogShown": {
+          "type": "boolean",
+          "default": false,
+          "description": "Internal — whether the semantic-memory opt-in dialog has been shown for this workspace. Don't edit by hand."
+        },
+        "storyline.series.id": {
+          "type": "string",
+          "default": "",
+          "description": "Optional series identifier (e.g. 'the-blackwood-saga'). When set, this project's semantic memory is shared with sibling projects that have the same series ID, so book 2 can reference book 1's characters and scenes. Leave blank for standalone books."
         }
       }
     },
