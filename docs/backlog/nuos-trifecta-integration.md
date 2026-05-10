@@ -271,7 +271,22 @@ Existing projects (and any project that ever opted out then opted back in) need 
 
 ### NT-07 · Semantic search — chat slash command + sidebar webview
 
-**Status:** TODO · **Effort:** L (1–2 days) · **Risk:** low
+**Status:** PARTIAL — NT-07a DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`); NT-07b deferred · **Effort:** L (1–2 days) · **Risk:** low
+
+**Shipped (NT-07a — command-palette search):**
+
+- New module `extension/src/state/semantic-memory-search.ts`. `searchSemanticMemoryCommand()` is the user flow: ensureOptIn → input box ("Search your project — by meaning, not keyword") → progress notification while embedding + retrieving → `vscode.window.showQuickPick` rendering top 10 results with human labels (`Chapter 5, scene 2`, `Planning — protagonist`, `Research — itm-7f3a`), score percentages, and a one-line preview from the chunk text.
+- `resolveChunkIdToTarget(chunkId, projectRoot)` is the chunk-id → file mapper, exported for reuse: scene chunks → manuscript file (matches `01.md`, `01-opening.md`, `chapter-1.md`); chapter chunks → manuscript file; research chunks → `.storyline/research/<id>.md`; stage chunks → `planning/stages/<id>.md` with fallback to `state.json`. Strips the `book:<id>/` prefix and tolerates back-compat ids without the prefix.
+- Selecting a result opens the file via `vscode.workspace.openTextDocument` + `showTextDocument`; missing-source case shows a helpful warning instead of a hard error.
+- Command registered as `storyline.searchSemanticMemory` ("Storyline: Search Semantic Memory" with `$(search)` icon) and wired through `safeCommand`.
+- 9 resolver tests cover unknown chunk shapes, scene/chapter/research/stage paths, chapter-prefix variants, missing-file fallbacks, state.json fallback, no-prefix back-compat.
+- 125/125 extension tests passing; typecheck + bundle clean.
+
+**Deferred (NT-07b):**
+
+- In-chat `/find <query>` slash command in the planning chat — same plumbing as the palette command, plus a small extension to the chat command parser. Worth its own ticket since it touches the chat panel surface.
+- Sidebar webview "Storyline: Memory" with persistent search input + result list + Cmd+Shift+M shortcut. Webview HTML/CSS/JS work — out of scope for this push.
+- Click-through navigation to a specific line within a chapter (NT-07a opens the file but doesn't seek to the matching scene). Needs a per-scene byte-offset cache on upsert.
 
 The first thing the writer experiences. "Find scenes about X" returns ranked results with previews.
 

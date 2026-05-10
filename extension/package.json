@@ -255,6 +255,11 @@
       {
         "command": "storyline.reindexSemanticMemory",
         "title": "Storyline: Re-index Semantic Memory"
+      },
+      {
+        "command": "storyline.searchSemanticMemory",
+        "title": "Storyline: Search Semantic Memory",
+        "icon": "$(search)"
       }
     ],
     "icons": {
