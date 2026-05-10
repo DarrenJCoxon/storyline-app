@@ -7,6 +7,8 @@ import { transcribeAudio } from '../transcribe-helper.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { buildSemanticContextBlock } from '../conversation/semantic-context.js'
+import { appendDecision, inferKind } from '../state/decisions.js'
+import { bookScopePrefix } from '../state/semantic-memory.js'
 import { getActiveChapterRelPath } from '../editor/active-chapter.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import { compressTurnsForApi } from '../conversation/turn-compressor.js'
@@ -550,6 +552,10 @@ export class ChatPanel {
 
   private async applyEmittedPatches(aiText: string, stageId: string): Promise<void> {
     if (!this.store) return
+    // NT-12: snapshot the stage slice before any merge so we can emit
+    // a decision record after the save lands.
+    const prevState = await this.store.read()
+    const beforeSlice = sliceForStage(prevState as unknown as Record<string, unknown>, stageId)
     const patch = extractJsonBlock(aiText)
 
     // Drift safeguard: as conversations lengthen the AI sometimes wraps a
@@ -656,6 +662,23 @@ export class ChatPanel {
         logInfo(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
         this.post({ type: 'memoryStored', stageId, method: result.method, error: result.error })
       }).catch(err => logWarn('[Storyline] pushToMemory threw', err))
+
+      // NT-12: emit a decision record. Diff the stage slice; skip when the
+      // change is whitespace-only / no-op to avoid log clutter.
+      const projectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (projectRoot) {
+        const afterSlice = sliceForStage(finalState as unknown as Record<string, unknown>, stageId)
+        if (!isTrivialDiff(beforeSlice, afterSlice)) {
+          void appendDecision(projectRoot, {
+            stage: stageId,
+            kind: inferKind(beforeSlice, afterSlice),
+            before: beforeSlice,
+            after: afterSlice,
+            why: extractWhyFromAiText(aiText),
+            touchedChunks: [`${bookScopePrefix()}/stage:${stageId}`],
+          }).catch(() => { /* logged inside */ })
+        }
+      }
     }
 
     const stageName = stageOrderFor(finalState).find(s => s.id === stageId)?.name ?? stageId
@@ -1487,5 +1510,42 @@ export class ChatPanel {
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+// ─── NT-12 decision-emission helpers ────────────────────────────────────────
+
+function sliceForStage(state: Record<string, unknown>, stageId: string): Record<string, unknown> | null {
+  const value = state[stageId]
+  if (value == null) return null
+  if (typeof value !== 'object') return { value } as Record<string, unknown>
+  return { [stageId]: value }
+}
+
+function isTrivialDiff(before: Record<string, unknown> | null, after: Record<string, unknown> | null): boolean {
+  if (before == null && after == null) return true
+  return canonicalJson(before) === canonicalJson(after)
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || value === undefined) return 'null'
+  if (typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  const keys = Object.keys(value as Record<string, unknown>).sort()
+  const entries = keys.map(k => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`)
+  return `{${entries.join(',')}}`
+}
+
+const WHY_MAX_CHARS = 800
+
+/**
+ * Pull the AI's reasoning prose from a chat-turn text — everything that
+ * isn't the JSON save block. Truncated for storage; full prose stays in
+ * the chat history.
+ */
+function extractWhyFromAiText(aiText: string): string {
+  if (!aiText) return ''
+  const stripped = aiText.replace(/```json[\s\S]*?```/g, '').replace(/```[\s\S]*?```/g, '').trim()
+  if (stripped.length === 0) return ''
+  return stripped.length > WHY_MAX_CHARS ? `${stripped.slice(0, WHY_MAX_CHARS)}…` : stripped
 }
 

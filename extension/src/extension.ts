@@ -41,6 +41,8 @@ import { registerChapterSemanticWatcher } from './state/chapter-semantic-watcher
 import { reindexSemanticMemoryCommand } from './state/semantic-memory-reindex.js'
 import { searchSemanticMemoryCommand } from './state/semantic-memory-search.js'
 import { registerSemanticMemoryCodeLens } from './state/semantic-memory-codelens.js'
+import { whyDecisionSearchCommand } from './state/decisions-search.js'
+import { showDecisionTimelineCommand } from './state/decisions-timeline.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
@@ -1053,6 +1055,8 @@ function activateInner(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
       safeCommand('storyline.reindexSemanticMemory', () => reindexSemanticMemoryCommand()),
       safeCommand('storyline.searchSemanticMemory', () => searchSemanticMemoryCommand()),
+      safeCommand('storyline.whyDecisionSearch', () => whyDecisionSearchCommand()),
+      safeCommand('storyline.showDecisionTimeline', () => showDecisionTimelineCommand()),
     )
   }
 }

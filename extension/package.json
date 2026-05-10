@@ -260,6 +260,16 @@
         "command": "storyline.searchSemanticMemory",
         "title": "Storyline: Search Semantic Memory",
         "icon": "$(search)"
+      },
+      {
+        "command": "storyline.whyDecisionSearch",
+        "title": "Storyline: Why — Search Decisions",
+        "icon": "$(question)"
+      },
+      {
+        "command": "storyline.showDecisionTimeline",
+        "title": "Storyline: Decision Timeline",
+        "icon": "$(history)"
       }
     ],
     "icons": {
