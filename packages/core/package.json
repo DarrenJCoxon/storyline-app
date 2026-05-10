@@ -9,6 +9,16 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./nuvector": {
+      "types": "./dist/nuvector.d.ts",
+      "require": "./dist/nuvector.js",
+      "default": "./dist/nuvector.js"
+    },
+    "./dist/nuvector.js": {
+      "types": "./dist/nuvector.d.ts",
+      "require": "./dist/nuvector.js",
+      "default": "./dist/nuvector.js"
     }
   },
   "scripts": {
@@ -22,6 +32,7 @@
   },
   "dependencies": {
     "@types/fs-extra": "^11.0.4",
-    "fs-extra": "^11.3.4"
+    "fs-extra": "^11.3.4",
+    "vectra": "^0.14.0"
   }
 }

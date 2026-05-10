@@ -6,6 +6,10 @@ import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { transcribeAudio } from '../transcribe-helper.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
+import { buildSemanticContextBlock } from '../conversation/semantic-context.js'
+import { appendDecision, inferKind } from '../state/decisions.js'
+import { bookScopePrefix, readSemanticMemoryConfig } from '../state/semantic-memory.js'
+import { getSemanticMemoryService } from '../state/semantic-memory-service.js'
 import { getActiveChapterRelPath } from '../editor/active-chapter.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import { compressTurnsForApi } from '../conversation/turn-compressor.js'
@@ -417,6 +421,17 @@ export class ChatPanel {
   private async handleUserMessage(text: string): Promise<void> {
     if (!this.provider || !this.store) return
 
+    // NT-07b: in-chat /find slash command. Intercept before any AI call —
+    // the writer is asking the local index, not the model. Output goes
+    // straight to the chat as an assistant turn so it scrolls naturally.
+    if (text.trim().startsWith('/find ')) {
+      const query = text.trim().slice('/find '.length).trim()
+      if (query.length > 0) {
+        await this.handleFindSlashCommand(query)
+        return
+      }
+    }
+
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
     if (!currentStage) {
@@ -434,8 +449,11 @@ export class ChatPanel {
       if (projectDir) seedSyllabiFolder(projectDir)
     }
 
-    const memoryBlock = await retrieveRelevantMemory(currentStage.id)
-    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(currentStage.id),
+      this.semanticContextFor(currentStage.id),
+    ])
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
     const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -467,8 +485,11 @@ export class ChatPanel {
     const savePrompt = 'Please emit the save block for this stage now.'
     this.turnHistory.append(currentStage.id, { role: 'user', content: savePrompt })
 
-    const memoryBlock = await retrieveRelevantMemory(currentStage.id)
-    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(currentStage.id),
+      this.semanticContextFor(currentStage.id),
+    ])
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
     const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -543,6 +564,10 @@ export class ChatPanel {
 
   private async applyEmittedPatches(aiText: string, stageId: string): Promise<void> {
     if (!this.store) return
+    // NT-12: snapshot the stage slice before any merge so we can emit
+    // a decision record after the save lands.
+    const prevState = await this.store.read()
+    const beforeSlice = sliceForStage(prevState as unknown as Record<string, unknown>, stageId)
     const patch = extractJsonBlock(aiText)
 
     // Drift safeguard: as conversations lengthen the AI sometimes wraps a
@@ -649,6 +674,23 @@ export class ChatPanel {
         logInfo(`[Storyline] memory: ${stageId} → ${result.method}${result.error ? ' (' + result.error + ')' : ''}`)
         this.post({ type: 'memoryStored', stageId, method: result.method, error: result.error })
       }).catch(err => logWarn('[Storyline] pushToMemory threw', err))
+
+      // NT-12: emit a decision record. Diff the stage slice; skip when the
+      // change is whitespace-only / no-op to avoid log clutter.
+      const projectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      if (projectRoot) {
+        const afterSlice = sliceForStage(finalState as unknown as Record<string, unknown>, stageId)
+        if (!isTrivialDiff(beforeSlice, afterSlice)) {
+          void appendDecision(projectRoot, {
+            stage: stageId,
+            kind: inferKind(beforeSlice, afterSlice),
+            before: beforeSlice,
+            after: afterSlice,
+            why: extractWhyFromAiText(aiText),
+            touchedChunks: [`${bookScopePrefix()}/stage:${stageId}`],
+          }).catch(() => { /* logged inside */ })
+        }
+      }
     }
 
     const stageName = stageOrderFor(finalState).find(s => s.id === stageId)?.name ?? stageId
@@ -1035,8 +1077,11 @@ export class ChatPanel {
     const injected = parts.join('\n\n---\n\n')
     this.turnHistory.append(stageId, { role: 'user', content: injected })
 
-    const memoryBlock = await retrieveRelevantMemory(stageId)
-    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(stageId),
+      this.semanticContextFor(stageId),
+    ])
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
     const messages = await this.buildMessages(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     if (this.streamCancelled) return true
@@ -1100,8 +1145,11 @@ export class ChatPanel {
       return
     }
 
-    const memoryBlock = await retrieveRelevantMemory(stageId)
-    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(stageId),
+      this.semanticContextFor(stageId),
+    ])
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
 
     // OpenRouter / OpenAI-compatible APIs reject zero-message requests, so
     // every kickoff carries a synthetic user turn that nudges the harness
@@ -1141,6 +1189,74 @@ export class ChatPanel {
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     // Save the AI's opener to the display log (synthetic kickoff is intentionally excluded).
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
+  }
+
+  /**
+   * NT-07b: handle the in-chat /find slash command. Pulls top hits
+   * from semantic memory and renders them as an assistant turn so the
+   * writer sees results inline without leaving the planning chat.
+   * Doesn't use any AI tokens — pure local retrieval.
+   */
+  private async handleFindSlashCommand(query: string): Promise<void> {
+    this.turnHistory.appendDisplay({ role: 'user', content: `/find ${query}` })
+    this.post({ type: 'userMessage', text: `/find ${query}` })
+
+    const cfg = readSemanticMemoryConfig()
+    if (!cfg.enabled) {
+      const reply = '_Semantic memory is off — enable it in `storyline.semanticMemory.enabled` to search by meaning._'
+      this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+      this.post({ type: 'streamChunk', chunk: reply })
+      this.post({ type: 'streamComplete' })
+      return
+    }
+
+    const service = getSemanticMemoryService()
+    if (!service) {
+      const reply = '_Semantic memory service not ready yet — try again in a moment._'
+      this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+      this.post({ type: 'streamChunk', chunk: reply })
+      this.post({ type: 'streamComplete' })
+      return
+    }
+
+    const pack = await service.search(query, { topK: 8 })
+    if (!pack || pack.items.length === 0) {
+      const reply = `_No matches for "${query}". Try a broader query, or run **Storyline: Re-index Semantic Memory** if you've enabled the feature recently._`
+      this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+      this.post({ type: 'streamChunk', chunk: reply })
+      this.post({ type: 'streamComplete' })
+      return
+    }
+
+    const lines: string[] = [`**Top matches for "${query}":**`, '']
+    for (const it of pack.items.slice(0, 6)) {
+      const heading = humanLabelForChunk(it.ref)
+      const score = `${(it.score * 100).toFixed(0)}%`
+      const preview = (it.text ?? it.summary ?? '').replace(/\s+/g, ' ').trim().slice(0, 200)
+      lines.push(`- **${heading}** (${score}) — ${preview}${preview.length === 200 ? '…' : ''}`)
+    }
+    const reply = lines.join('\n')
+    this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+    this.post({ type: 'streamChunk', chunk: reply })
+    this.post({ type: 'streamComplete' })
+  }
+
+  /**
+   * NT-21: build the per-turn semantic context block. Uses the most
+   * recent user message in this stage as the retrieval query (falls back
+   * to stage-level retrieval for synthetic / empty messages). Returns ''
+   * cleanly when semantic memory is disabled.
+   */
+  private async semanticContextFor(stageId: string): Promise<string> {
+    const turns = this.turnHistory.getForStage(stageId)
+    let lastUserMessage = ''
+    for (let i = turns.length - 1; i >= 0; i--) {
+      if (turns[i].role === 'user' && turns[i].content) {
+        lastUserMessage = turns[i].content
+        break
+      }
+    }
+    return buildSemanticContextBlock({ userMessage: lastUserMessage, stageId })
   }
 
   /**
@@ -1456,5 +1572,55 @@ export class ChatPanel {
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+function humanLabelForChunk(chunkId: string): string {
+  const stripped = chunkId.replace(/^book:[^/]+\//, '')
+  const sceneMatch = /^scene:ch(\d+)-s(\d+)$/.exec(stripped)
+  if (sceneMatch) return `Chapter ${sceneMatch[1]}, scene ${sceneMatch[2]}`
+  const chapterMatch = /^chapter:(\d+)$/.exec(stripped)
+  if (chapterMatch) return `Chapter ${chapterMatch[1]}`
+  const stageMatch = /^stage:(.+)$/.exec(stripped)
+  if (stageMatch) return `Planning — ${stageMatch[1]}`
+  const researchMatch = /^research:(.+)$/.exec(stripped)
+  if (researchMatch) return `Research — ${researchMatch[1]}`
+  return stripped
+}
+
+// ─── NT-12 decision-emission helpers ────────────────────────────────────────
+
+function sliceForStage(state: Record<string, unknown>, stageId: string): Record<string, unknown> | null {
+  const value = state[stageId]
+  if (value == null) return null
+  if (typeof value !== 'object') return { value } as Record<string, unknown>
+  return { [stageId]: value }
+}
+
+function isTrivialDiff(before: Record<string, unknown> | null, after: Record<string, unknown> | null): boolean {
+  if (before == null && after == null) return true
+  return canonicalJson(before) === canonicalJson(after)
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || value === undefined) return 'null'
+  if (typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  const keys = Object.keys(value as Record<string, unknown>).sort()
+  const entries = keys.map(k => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`)
+  return `{${entries.join(',')}}`
+}
+
+const WHY_MAX_CHARS = 800
+
+/**
+ * Pull the AI's reasoning prose from a chat-turn text — everything that
+ * isn't the JSON save block. Truncated for storage; full prose stays in
+ * the chat history.
+ */
+function extractWhyFromAiText(aiText: string): string {
+  if (!aiText) return ''
+  const stripped = aiText.replace(/```json[\s\S]*?```/g, '').replace(/```[\s\S]*?```/g, '').trim()
+  if (stripped.length === 0) return ''
+  return stripped.length > WHY_MAX_CHARS ? `${stripped.slice(0, WHY_MAX_CHARS)}…` : stripped
 }
 

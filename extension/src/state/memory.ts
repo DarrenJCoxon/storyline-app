@@ -3,6 +3,8 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import { spawn } from 'child_process'
+import { getSemanticMemoryService } from './semantic-memory-service.js'
+import { bookScopePrefix, getBookScopeId } from './semantic-memory.js'
 
 // Resolve the bundled odd-flow CLI path relative to this compiled module.
 // In dev: <repo>/extension/dist/state/memory.js → ../../node_modules/odd-flow/bin/cli.js
@@ -36,6 +38,12 @@ export async function pushToMemory(
   if (!projectDir) return { method: 'skipped', error: 'no workspace' }
 
   const namespace = projectNamespace(projectDir)
+
+  // NT-05: parallel write to NuVector semantic memory. Fire-and-forget
+  // (never blocks the save), no-ops cleanly when the writer hasn't opted
+  // in. The markdown audit trail and odd-flow remain the operational
+  // sources of truth — the vector index is best-effort search overlay.
+  void upsertStageToSemanticMemory(stageId, patch).catch(() => { /* logged inside */ })
 
   try {
     await runOddFlowStore(projectDir, namespace, stageId, patch)
@@ -412,4 +420,195 @@ async function appendMemoryLog(
     synced: false,
   })
   await fs.appendFile(logPath, entry + '\n', 'utf-8')
+}
+
+/**
+ * NT-05: push a stage save into the local NuVector semantic memory.
+ * Fire-and-forget — failures are logged inside the service. Returns
+ * the upsert status so reindex can report accurate counts.
+ *
+ * Exported so NT-06's reindex can rebuild stage chunks from the current
+ * state in bulk; the live save path keeps using the local wrapper above.
+ */
+export async function upsertStageToSemanticMemory(
+  stageId: string,
+  patch: Record<string, unknown>,
+): Promise<{ status: string } | null> {
+  const service = getSemanticMemoryService()
+  if (!service) return { status: 'no-service' }
+  const text = renderStagePatchAsText(stageId, patch)
+  if (!text) return { status: 'empty-text' }
+  const bookId = getBookScopeId()
+  const bookScope = bookScopePrefix()
+  return service.upsert({
+    id: `${bookScope}/stage:${stageId}`,
+    kind: 'nuwiki_section',
+    text,
+    metadata: {
+      // NuVector NuWiki shape — see docs/design/nuos-memory-schema.md §5.2.
+      articleId: `${bookScope}/book:summary`,
+      documentType: 'storyline_stage',
+      subject: { kind: 'stage', id: stageId },
+      version: new Date().toISOString(),
+      sectionKey: stageId,
+      sectionHeading: stageId,
+      citationCount: 0,
+      parentArticleSummary: '',
+      position: 0,
+      // Storyline extensions
+      bookId,
+      stageId,
+      kind: 'planning',
+    },
+  })
+}
+
+/**
+ * NT-05: push a research item into the semantic memory. Reads the item
+ * file directly so callers don't have to provide the rendered text.
+ * Fire-and-forget — no failure surfaces to the writer.
+ */
+export async function upsertResearchItemToSemanticMemory(
+  projectDir: string,
+  itemId: string,
+): Promise<void> {
+  const service = getSemanticMemoryService()
+  if (!service) return
+  const itemPath = path.join(projectDir, '.storyline', 'research', `${itemId}.md`)
+  let raw: string
+  try {
+    raw = await fs.readFile(itemPath, 'utf-8')
+  } catch {
+    // Item file vanished or never landed — nothing to embed.
+    return
+  }
+  const { meta, body } = parseFrontmatter(raw)
+  const text = renderResearchItemAsText(itemId, meta, body)
+  const bookId = getBookScopeId()
+  const bookScope = bookScopePrefix()
+  await service.upsert({
+    id: `${bookScope}/research:${itemId}`,
+    kind: 'nuwiki_citation',
+    text,
+    metadata: {
+      // schema doc §5.3 — research item shape
+      articleId: `${bookScope}/book:summary`,
+      documentType: 'storyline_research',
+      subject: { kind: 'research', id: itemId },
+      version: typeof meta.updatedAt === 'string' ? meta.updatedAt : new Date().toISOString(),
+      citationId: `research:${itemId}`,
+      sourceRef: {
+        kind: 'document',
+        ref: typeof meta.source === 'string' ? meta.source : itemPath,
+      },
+      confidence: confidenceForReliability(meta.reliability),
+      sectionKey: 'research',
+      bookId,
+      subtype: meta.subtype ?? 'note',
+      reliabilityTier: meta.reliability ?? null,
+      verificationState: meta.verification ?? null,
+      legacyLinks: Array.isArray(meta.links) ? meta.links : [],
+    },
+  })
+}
+
+/**
+ * NT-05: drop a research item from the semantic memory after removal.
+ */
+export async function deleteResearchItemFromSemanticMemory(itemId: string): Promise<void> {
+  const service = getSemanticMemoryService()
+  if (!service) return
+  await service.deleteByIds([`${bookScopePrefix()}/research:${itemId}`])
+}
+
+/**
+ * NT-08: emit a `links-to-research` edge when the existing research
+ * linker creates a research-item-to-target link. The link itself stays
+ * in the item's frontmatter (existing behaviour); this gives the edge
+ * first-class graph membership so retrieval can find "everything that
+ * links to research item X" or "all research backing chapter 5".
+ *
+ * `target` follows the existing linker format: `chapter:N` /
+ * `scene:chN-sM` / `stage:X` / `claim:Y`.
+ */
+export async function emitResearchLinkEdge(itemId: string, target: string): Promise<void> {
+  const service = getSemanticMemoryService()
+  if (!service) return
+  // Translate the legacy linker target shape into NuVector chunk ids.
+  const targetChunkId = legacyLinkerTargetToChunkId(target)
+  if (!targetChunkId) return
+  await service.addEdge({
+    from: targetChunkId,
+    to: `book:default/research:${itemId}`,
+    kind: 'links-to-research',
+    createdBy: 'linker',
+  })
+}
+
+function legacyLinkerTargetToChunkId(target: string): string | null {
+  // chapter:5 → book:<scope>/chapter:5  (scope = 'default' or series-derived bookId)
+  // scene:ch5-s2 → book:<scope>/scene:ch5-s2
+  // stage:protagonist → book:<scope>/stage:protagonist
+  // claim:abc → book:<scope>/claim:abc (no live mapping today, but reserve the path)
+  const m = /^(chapter|scene|stage|claim):(.+)$/.exec(target)
+  if (!m) return null
+  return `${bookScopePrefix()}/${m[1]}:${m[2]}`
+}
+
+/** Lightweight YAML frontmatter parser — bounded to flat key/value + simple lists. */
+function parseFrontmatter(raw: string): { meta: Record<string, unknown>; body: string } {
+  const fmMatch = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(raw)
+  if (!fmMatch) return { meta: {}, body: raw }
+  const meta: Record<string, unknown> = {}
+  for (const line of fmMatch[1].split(/\n/)) {
+    const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line)
+    if (!m) continue
+    const key = m[1]
+    const valueRaw = m[2].trim()
+    if (valueRaw.startsWith('[') && valueRaw.endsWith(']')) {
+      meta[key] = valueRaw
+        .slice(1, -1)
+        .split(',')
+        .map(s => s.trim().replace(/^['"]|['"]$/g, ''))
+        .filter(s => s.length > 0)
+    } else {
+      meta[key] = valueRaw.replace(/^['"]|['"]$/g, '')
+    }
+  }
+  return { meta, body: fmMatch[2] }
+}
+
+function renderResearchItemAsText(
+  itemId: string,
+  meta: Record<string, unknown>,
+  body: string,
+): string {
+  const title = typeof meta.title === 'string' ? meta.title : itemId
+  return `# ${title}\n\n${body.trim()}`
+}
+
+function confidenceForReliability(tier: unknown): number {
+  switch (tier) {
+    case 'primary': return 1.0
+    case 'peer-reviewed': return 0.9
+    case 'secondary': return 0.7
+    case 'anecdotal': return 0.5
+    default: return 0.6
+  }
+}
+
+/**
+ * Render a stage's patch as a single text block suitable for embedding.
+ * Strategy: prepend the stage id, then JSON-stringify the patch with
+ * 2-space indentation. The shape isn't user-facing — the embedding
+ * captures semantic content; structure helps the model relate similar
+ * patterns across stages.
+ */
+function renderStagePatchAsText(stageId: string, patch: Record<string, unknown>): string {
+  try {
+    const body = JSON.stringify(patch, null, 2)
+    return `# ${stageId}\n\n${body}`
+  } catch {
+    return ''
+  }
 }

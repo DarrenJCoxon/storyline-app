@@ -7,6 +7,11 @@ import {
   ITEM_SUBTYPES, RELIABILITY_TIERS, VERIFICATION_STATES,
 } from '@storyline/core'
 import type { EditorPanel } from './EditorPanel.js'
+import {
+  upsertResearchItemToSemanticMemory,
+  deleteResearchItemFromSemanticMemory,
+  emitResearchLinkEdge,
+} from '../state/memory.js'
 
 interface ResearchItem {
   id: string
@@ -113,10 +118,15 @@ export class ResearchPanel {
             sources: msg.sources ?? [],
           })
           if (msg.linkTarget && typeof msg.linkTarget === 'string' && msg.linkTarget.trim()) {
-            await (addLink as unknown as (dir: string, id: string, target: string) => Promise<unknown>)(projectDir, item.id, msg.linkTarget.trim())
+            const target = msg.linkTarget.trim()
+            await (addLink as unknown as (dir: string, id: string, target: string) => Promise<unknown>)(projectDir, item.id, target)
+            // NT-08: mirror the legacy frontmatter link as a typed edge.
+            void emitResearchLinkEdge(item.id, target).catch(() => { /* logged inside */ })
           }
           await (rebuildIndex as unknown as (dir: string) => Promise<unknown>)(projectDir)
           await (syncResearchToMemory as unknown as (dir: string) => Promise<unknown>)(projectDir)
+          // NT-05: parallel push to semantic memory (no-op when disabled).
+          void upsertResearchItemToSemanticMemory(projectDir, item.id).catch(() => { /* logged inside */ })
           await this.refresh()
           vscode.window.showInformationMessage(`Research item added: ${item.title}`)
         } catch (err) {
@@ -146,6 +156,8 @@ export class ResearchPanel {
           try {
             await (removeItem as unknown as (dir: string, id: string) => Promise<unknown>)(projectDir, id)
             await (rebuildIndex as unknown as (dir: string) => Promise<unknown>)(projectDir)
+            // NT-05: drop the chunk from semantic memory too.
+            void deleteResearchItemFromSemanticMemory(id).catch(() => { /* logged inside */ })
             await this.refresh()
           } catch (err) {
             vscode.window.showErrorMessage(`Remove failed — ${err instanceof Error ? err.message : String(err)}`)
@@ -160,6 +172,8 @@ export class ResearchPanel {
         try {
           await (addLink as unknown as (dir: string, id: string, target: string) => Promise<unknown>)(projectDir, id, target)
           await (rebuildIndex as unknown as (dir: string) => Promise<unknown>)(projectDir)
+          // NT-08: emit the typed edge so retrieval sees the new link.
+          void emitResearchLinkEdge(id, target).catch(() => { /* logged inside */ })
           await this.refresh()
         } catch (err) {
           vscode.window.showErrorMessage(`Link failed — ${err instanceof Error ? err.message : String(err)}`)

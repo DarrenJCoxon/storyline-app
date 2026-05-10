@@ -4,6 +4,7 @@ import { handleFreePlanIssue } from './free-plan.js'
 import { handleFreePlanReset } from './free-plan-reset.js'
 import { handleChat, handleAdminStats } from './chat.js'
 import { handleCritique } from './critique.js'
+import { handleEmbed } from './embed.js'
 import { handleIllustrate } from './illustrate.js'
 import { handleStripeWebhook } from './stripe-webhook.js'
 import { handleTranscribe } from './transcribe.js'
@@ -69,6 +70,8 @@ export default {
         return handleChat(req, env)
       case '/critique':
         return handleCritique(req, env)
+      case '/embed':
+        return handleEmbed(req, env)
       case '/illustrate':
         return handleIllustrate(req, env)
       case '/transcribe':

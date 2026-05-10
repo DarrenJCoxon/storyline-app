@@ -21,12 +21,12 @@ Plus a fifth thing — a Claude Code CLI skill (`bin/storyline.js` + `skill/`, `
 | `extension/src/` | Extension host code (runs in Node). `panels/` (webview-backed UI), `state/`, `auth/`, `ai/`, `update/`, `editor/`, `compile/`, `wiki/`, `onboarding/`, `github/`. |
 | `extension/webview/src/` | Each subdir is a separate webview with its own Vite entry: `planning/`, `editor/`, `compile/`, `cover/`, `illustrations/`, `research/`, `manuscript/`, `onboarding/`. |
 | `extension/lib/` | Synced copy of `lib/` for runtime dynamic-import. CB-01a hardened the sync; CB-01b will eliminate it. |
-| `packages/core/` | TypeScript workspace package — pure domain logic (stage guides, state transitions, output renderers, critique, research subsystem). Bundled into the extension by esbuild. |
+| `packages/core/` | TypeScript workspace package — pure domain logic (stage guides, state transitions, output renderers, critique, research subsystem). Bundled into the extension by esbuild. The `@storyline/core/nuvector` subpath holds the local-file vector store wrapper (NT-01) — kept out of the default index so the native NuVector binary isn't pulled into the extension's bundle until NT-05 wires it. |
 | `lib/` | Canonical JS source for the compile pipeline + memory + state-store helpers. Used by the CLI directly and by the extension via the synced `extension/lib/` copy. |
 | `installer/` | Tauri installer. `src/` is React (welcome → progress → done flow), `src-tauri/src/main.rs` is the Rust that spawns curl, ditto, code-CLI calls. |
-| `backend/` | Cloudflare Worker. `src/index.ts` routes; one file per endpoint; `__tests__/` covers credits, refunds, free plan, critique, etc. |
+| `backend/` | Cloudflare Worker. `src/index.ts` routes; one file per endpoint; `__tests__/` covers credits, refunds, free plan, critique, embedding, etc. `embeddings/openai.ts` is the OpenAI `text-embedding-3-small` adapter shared by `/embed` (NT-02). |
 | `site/` | Next.js marketing site. `app/` is the App Router tree. |
-| `docs/` | Markdown docs. `docs/backlog/` is the engineering backlog. `docs/roadmap/` is the product side. |
+| `docs/` | Markdown docs. `docs/backlog/` is the engineering backlog. `docs/roadmap/` is the product side. `docs/design/nuos-memory-schema.md` defines the Storyline → NuVector chunk mapping that NT-05 onwards depends on. |
 | `bin/storyline.js` + `skill*/` | Claude Code `/storyline` CLI skill bundle. |
 | `scripts/` | Dev utilities. `reset-storyline.sh`, `sync-extension-lib.mjs`, etc. |
 | `tauri/` | Older Tauri scaffold; mostly historical, kept until installer/ supersedes fully. |

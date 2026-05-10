@@ -31,6 +31,28 @@ import { LocalStore } from './state/local-store.js'
 import { registerStageMdWatcher, resetStageDoc, backfillAllStageDocs, autoRefreshStaleStageDocs } from './state/stage-md-watcher.js'
 import { saveAsVersion, listVersions } from './manuscript/versions.js'
 import { registerResearchPrewarm } from './research/prewarm.js'
+import {
+  SemanticMemoryService,
+  WorkerEmbedClient,
+  setSemanticMemoryService,
+} from './state/semantic-memory-service.js'
+import { readSemanticMemoryConfig } from './state/semantic-memory.js'
+import { registerChapterSemanticWatcher } from './state/chapter-semantic-watcher.js'
+import { reindexSemanticMemoryCommand } from './state/semantic-memory-reindex.js'
+import { searchSemanticMemoryCommand } from './state/semantic-memory-search.js'
+import { registerSemanticMemoryCodeLens } from './state/semantic-memory-codelens.js'
+import { whyDecisionSearchCommand } from './state/decisions-search.js'
+import { showDecisionTimelineCommand } from './state/decisions-timeline.js'
+import { registerSemanticMemoryStatusBar } from './state/semantic-memory-statusbar.js'
+import {
+  exportSemanticMemoryCommand,
+  importSemanticMemoryCommand,
+} from './state/semantic-memory-snapshot.js'
+import {
+  enableSemanticMemoryCommand,
+  disableSemanticMemoryCommand,
+} from './state/semantic-memory-toggle.js'
+import { diagnoseSemanticMemoryCommand } from './state/semantic-memory-diagnose.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
@@ -1032,7 +1054,45 @@ function activateInner(context: vscode.ExtensionContext): void {
     // them in the AI context. First pass fires immediately; the watcher
     // re-runs whenever the writer adds or replaces a binary file.
     registerResearchPrewarm(context)
+
+    // NT-05: stand up the semantic-memory service. Lazy by design — opens
+    // the NuVector store only on first upsert/search, no-ops cleanly when
+    // storyline.semanticMemory.enabled is false. Save hooks reach for it
+    // via getSemanticMemoryService().
+    initSemanticMemoryService(context)
+    registerChapterSemanticWatcher(context)
+    registerSemanticMemoryCodeLens(context)
+    registerSemanticMemoryStatusBar(context)
+    context.subscriptions.push(
+      safeCommand('storyline.reindexSemanticMemory', () => reindexSemanticMemoryCommand()),
+      safeCommand('storyline.searchSemanticMemory', () => searchSemanticMemoryCommand()),
+      safeCommand('storyline.whyDecisionSearch', () => whyDecisionSearchCommand()),
+      safeCommand('storyline.showDecisionTimeline', () => showDecisionTimelineCommand()),
+      safeCommand('storyline.exportSemanticMemory', () => exportSemanticMemoryCommand()),
+      safeCommand('storyline.importSemanticMemory', () => importSemanticMemoryCommand()),
+      safeCommand('storyline.enableSemanticMemory', () => enableSemanticMemoryCommand()),
+      safeCommand('storyline.disableSemanticMemory', () => disableSemanticMemoryCommand()),
+      safeCommand('storyline.diagnoseSemanticMemory', () => diagnoseSemanticMemoryCommand()),
+    )
   }
+}
+
+function initSemanticMemoryService(context: vscode.ExtensionContext): void {
+  const folder = vscode.workspace.workspaceFolders?.[0]
+  if (!folder) return
+  const projectRoot = folder.uri.fsPath
+  const backendUrl = getBackendUrl()
+  const licenceManager = new LicenceManager(context, backendUrl)
+  const client = new WorkerEmbedClient(backendUrl, () => licenceManager.getLicenceKey())
+  const service = new SemanticMemoryService({
+    client,
+    projectRoot,
+    readConfig: readSemanticMemoryConfig,
+  })
+  setSemanticMemoryService(service)
+  context.subscriptions.push({
+    dispose: () => { void service.dispose() },
+  })
 }
 
 export function deactivate(): void {

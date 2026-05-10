@@ -57,7 +57,16 @@ Everything else — depth, conversational pacing, question coverage, gates, crit
 ---
 `
 
-export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBlock?: string, activeChapterRelPath?: string): string {
+import { projectManifestBlock } from './project-manifest.js'
+
+export function buildSystemPrompt(
+  stageId: string,
+  state: ProjectState,
+  memoryBlock?: string,
+  activeChapterRelPath?: string,
+  /** NT-21: top-K NuVector hits relevant to the writer's most recent message. */
+  semanticContextBlock?: string,
+): string {
   // Stage 0: mode gate — runs before anything else if mode hasn't been confirmed yet.
   // The mode gate is self-contained — no harness, no CLI startup protocol
   // needed (the original startup-protocol.md is CLI-flavoured and only
@@ -79,6 +88,11 @@ export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBl
   // original harness — the full guide as JSON plus persona overlay and
   // currentState. The skill above already tells the AI how to use this.
   const stageInfoBlock = buildStageInfoBlock(stageId, state)
+
+  // NT-20: lightweight project manifest. Lives in EVERY prompt regardless
+  // of stage so the AI never has to guess what files exist where. Costs
+  // ~1-15 KB depending on project size — well under the 160 KB cap.
+  const manifestBlock = projectManifestBlock(state._meta?.projectPath ?? null)
 
   const stateBlock = '```json\n' + JSON.stringify(stateForStage(stageId, state), null, 2) + '\n```'
 
@@ -109,7 +123,7 @@ export function buildSystemPrompt(stageId: string, state: ProjectState, memoryBl
 ## stageInfo (output of \`stage-info ${stageId}\`)
 
 ${stageInfoBlock}
-${wikiBlock ? '\n' + wikiBlock + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
+${manifestBlock ? '\n' + manifestBlock + '\n' : ''}${semanticContextBlock ? '\n' + semanticContextBlock + '\n' : ''}${wikiBlock ? '\n' + wikiBlock + '\n' : ''}${memoryBlock ? '\n' + memoryBlock + '\n' : ''}
 ## Current state (output of \`next\`)
 
 ${stateBlock}
@@ -403,8 +417,14 @@ function hasPersonaBeenIntroduced(currentStageId: string, state: ProjectState): 
 // NF stages:      all bookDna + nfStages (after null stripping) — DNA context
 //                 is load-bearing for every pipeline stage.
 
+// NT-20: chapterOutline and sceneOutline are always-relevant project shape.
+// The transcript bug (2026-05-10) showed the AI inventing a duplicate
+// chapter because chapterOutline wasn't in the slice for the active stage.
+// These are small enough to always carry; the compactJson pass strips them
+// to nothing in early projects where they haven't been populated yet.
 const ALWAYS_INCLUDE: ReadonlyArray<string> = [
   'mode', 'pipeline', 'subMode', 'bookType', 'stages',
+  'chapterOutline', 'sceneOutline',
 ]
 
 const FICTION_STAGE_FIELDS: Readonly<Record<string, ReadonlyArray<string>>> = {

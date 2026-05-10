@@ -60,7 +60,42 @@ bodies, licence keys, or personal information in error reports.
 Lawful basis: legitimate interest (Article 6(1)(f)) — keeping the service
 working.
 
-### 2.4. Usage analytics
+### 2.4. Semantic memory indexing (optional, off by default)
+
+Storyline can build a **semantic memory** of your project so you can search
+your manuscript by meaning rather than keyword and link related scenes,
+characters, and research items. This feature is **off by default** and is
+controlled by the setting `storyline.semanticMemory.enabled`.
+
+When you enable it, the following happens:
+
+- The text of your planning state, manuscript chapters, scenes, and research
+  items is sent to **OpenAI's Embeddings API** (`text-embedding-3-small`) so
+  it can be converted into 1536-dimension vectors. OpenAI does not train on
+  data sent to its API. Their policy: <https://openai.com/policies/api-data-usage-policies>.
+- The resulting vectors are stored **locally** in your project at
+  `.storyline/memory.nv`. They never leave your machine.
+- Embeddings are recomputed only when content changes (diff-aware), so
+  enabling the feature does not cause repeated re-uploads of unchanged text.
+- A daily token budget (10 million tokens / licence / day) caps the worst
+  case if a key is ever leaked or scripted.
+
+You can:
+
+- **Disable the feature** at any time by toggling
+  `storyline.semanticMemory.enabled` to `false`. With it off, no further
+  text is sent and no further indexing occurs.
+- **Delete the local index** by removing `.storyline/memory.nv` (a
+  one-click command will ship in a forthcoming release). Deletion is
+  immediate and complete — no copies live on our servers.
+- **Use a series identifier** (`storyline.series.id`) to share an index
+  across sibling projects in the same series. The index is still local to
+  each project; only the namespace is shared so cross-book search works.
+
+Lawful basis: consent (Article 6(1)(a) UK GDPR). You give explicit consent
+through the first-run dialog the first time the feature is invoked.
+
+### 2.5. Usage analytics
 
 We do not run third-party analytics, behavioural tracking, advertising
 trackers, or session replay tools. We do log the IP address attached to each
@@ -71,7 +106,9 @@ Lawful basis: legitimate interest (Article 6(1)(f)) — preventing abuse.
 
 ## 3. What we never collect
 
-- Your manuscript prose.
+- Your manuscript prose, **unless you turn on semantic memory (§2.4)** — in
+  which case the prose is sent to OpenAI for embedding only, and the
+  resulting vectors are stored locally on your machine.
 - Your local files outside the `.storyline` planning folder.
 - Your microphone audio, except for the brief moment you record a voice note
   for transcription, which is streamed to OpenAI and not retained by us.
