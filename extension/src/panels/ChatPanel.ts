@@ -6,6 +6,7 @@ import { writeAllChapterCards } from '../editor/chapter-cards.js'
 import { transcribeAudio } from '../transcribe-helper.js'
 import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
+import { buildSemanticContextBlock } from '../conversation/semantic-context.js'
 import { getActiveChapterRelPath } from '../editor/active-chapter.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import { compressTurnsForApi } from '../conversation/turn-compressor.js'
@@ -434,8 +435,11 @@ export class ChatPanel {
       if (projectDir) seedSyllabiFolder(projectDir)
     }
 
-    const memoryBlock = await retrieveRelevantMemory(currentStage.id)
-    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(currentStage.id),
+      this.semanticContextFor(currentStage.id),
+    ])
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
     const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -467,8 +471,11 @@ export class ChatPanel {
     const savePrompt = 'Please emit the save block for this stage now.'
     this.turnHistory.append(currentStage.id, { role: 'user', content: savePrompt })
 
-    const memoryBlock = await retrieveRelevantMemory(currentStage.id)
-    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(currentStage.id),
+      this.semanticContextFor(currentStage.id),
+    ])
+    const systemPrompt = buildSystemPrompt(currentStage.id, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
     const messages = await this.buildMessages(currentStage.id)
 
     const full = await this.streamResponse(currentStage.id, systemPrompt, messages, state)
@@ -1035,8 +1042,11 @@ export class ChatPanel {
     const injected = parts.join('\n\n---\n\n')
     this.turnHistory.append(stageId, { role: 'user', content: injected })
 
-    const memoryBlock = await retrieveRelevantMemory(stageId)
-    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(stageId),
+      this.semanticContextFor(stageId),
+    ])
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
     const messages = await this.buildMessages(stageId)
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     if (this.streamCancelled) return true
@@ -1100,8 +1110,11 @@ export class ChatPanel {
       return
     }
 
-    const memoryBlock = await retrieveRelevantMemory(stageId)
-    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath())
+    const [memoryBlock, semanticBlock] = await Promise.all([
+      retrieveRelevantMemory(stageId),
+      this.semanticContextFor(stageId),
+    ])
+    const systemPrompt = buildSystemPrompt(stageId, state, memoryBlock, getActiveChapterRelPath(), semanticBlock)
 
     // OpenRouter / OpenAI-compatible APIs reject zero-message requests, so
     // every kickoff carries a synthetic user turn that nudges the harness
@@ -1141,6 +1154,24 @@ export class ChatPanel {
     const full = await this.streamResponse(stageId, systemPrompt, messages, state)
     // Save the AI's opener to the display log (synthetic kickoff is intentionally excluded).
     if (full) this.turnHistory.appendDisplay({ role: 'assistant', content: full })
+  }
+
+  /**
+   * NT-21: build the per-turn semantic context block. Uses the most
+   * recent user message in this stage as the retrieval query (falls back
+   * to stage-level retrieval for synthetic / empty messages). Returns ''
+   * cleanly when semantic memory is disabled.
+   */
+  private async semanticContextFor(stageId: string): Promise<string> {
+    const turns = this.turnHistory.getForStage(stageId)
+    let lastUserMessage = ''
+    for (let i = turns.length - 1; i >= 0; i--) {
+      if (turns[i].role === 'user' && turns[i].content) {
+        lastUserMessage = turns[i].content
+        break
+      }
+    }
+    return buildSemanticContextBlock({ userMessage: lastUserMessage, stageId })
   }
 
   /**
