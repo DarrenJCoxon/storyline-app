@@ -38,6 +38,7 @@ import {
 } from './state/semantic-memory-service.js'
 import { readSemanticMemoryConfig } from './state/semantic-memory.js'
 import { registerChapterSemanticWatcher } from './state/chapter-semantic-watcher.js'
+import { reindexSemanticMemoryCommand } from './state/semantic-memory-reindex.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
@@ -1046,6 +1047,9 @@ function activateInner(context: vscode.ExtensionContext): void {
     // via getSemanticMemoryService().
     initSemanticMemoryService(context)
     registerChapterSemanticWatcher(context)
+    context.subscriptions.push(
+      safeCommand('storyline.reindexSemanticMemory', () => reindexSemanticMemoryCommand()),
+    )
   }
 }
 

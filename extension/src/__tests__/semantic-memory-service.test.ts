@@ -42,15 +42,7 @@ function rmrf(p: string): void {
   fs.rmSync(p, { recursive: true, force: true })
 }
 
-interface ServiceHarness {
-  service: SemanticMemoryService
-  embedSpy: ReturnType<typeof vi.fn>
-  projectRoot: string
-  cleanup: () => Promise<void>
-  setEnabled: (enabled: boolean) => void
-}
-
-function makeService(opts: { initiallyEnabled?: boolean } = {}): ServiceHarness {
+function makeService(opts: { initiallyEnabled?: boolean } = {}) {
   const projectRoot = tmpProject()
   let cfg = opts.initiallyEnabled === false ? DISABLED_CFG : ENABLED_CFG
   const embedSpy = vi.fn(async (texts: string[]) => texts.map((t, i) => fakeEmbedding(t.length + i)))
@@ -97,7 +89,7 @@ const baseChunk = {
 }
 
 describe('SemanticMemoryService (NT-05)', () => {
-  let harness: ServiceHarness | null = null
+  let harness: ReturnType<typeof makeService> | null = null
 
   beforeEach(() => {
     logVerboseMock.mockClear()

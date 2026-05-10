@@ -251,6 +251,10 @@
         "command": "storyline.files.newFileHere",
         "title": "New File in This Folder",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "storyline.reindexSemanticMemory",
+        "title": "Storyline: Re-index Semantic Memory"
       }
     ],
     "icons": {

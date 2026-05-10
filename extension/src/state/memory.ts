@@ -426,8 +426,11 @@ async function appendMemoryLog(
  * Fire-and-forget — failures are logged inside the service and never
  * surface to the caller. Skipped silently when semantic memory is
  * disabled or no service singleton is registered yet.
+ *
+ * Exported so NT-06's reindex can rebuild stage chunks from the current
+ * state in bulk; the live save path keeps using the local wrapper above.
  */
-async function upsertStageToSemanticMemory(
+export async function upsertStageToSemanticMemory(
   stageId: string,
   patch: Record<string, unknown>,
 ): Promise<void> {

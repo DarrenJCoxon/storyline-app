@@ -230,7 +230,22 @@ Deletions are a first-class concern: when a scene is cut, a research item is rem
 
 ### NT-06 · Backfill command: `storyline memory reindex`
 
-**Status:** TODO · **Effort:** S (2–3 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** S (2–3 hrs) · **Risk:** low
+
+**Shipped:**
+
+- New module `extension/src/state/semantic-memory-reindex.ts` with three public entry points:
+  - `estimateReindex(projectRoot)` — cheap pre-flight: walks state.json, manuscript/, and .storyline/research/ via filesystem stat (no embeddings), returns `{ stages, chapters, research, estimatedTokens, estimatedCostUsd }` at the published OpenAI `text-embedding-3-small` rate ($0.02 / 1M tokens, ~0.25 tokens/char heuristic).
+  - `runReindex(projectRoot, progress, token)` — drives the backfill with `vscode.window.withProgress` increments per item. Uses the same upsert helpers as the live save hooks (`upsertStageToSemanticMemory`, `embedChapterFile`, `upsertResearchItemToSemanticMemory`) so the rebuilt index is byte-identical to live indexing. Honours cancellation tokens.
+  - `reindexSemanticMemoryCommand()` — the user-facing flow: runs `ensureOptIn()` first, shows a modal confirmation with `"NN stage(s), MM chapter(s), KK research item(s). ~Xk tokens — about $Y."`, runs with a cancellable progress notification, reports outcome.
+- Idempotent by construction: the SemanticMemoryService's content-hash dedup means a second reindex with no content changes returns 100% `skipped-unchanged` results. Re-running after a schema change retriggers an embed because text changes.
+- Stage entries with empty data (default `{}` / `[]`) are silently skipped so default-state stages don't pollute the index.
+- Three NT-05 helpers (`upsertStageToSemanticMemory`, `embedChapterFile`) promoted from private to public so the reindex shares logic with the live save hooks rather than duplicating it.
+- Command registered as `storyline.reindexSemanticMemory` in `extension/package.json` (Command Palette title: `Storyline: Re-index Semantic Memory`) and wired through `safeCommand` in activation.
+- 6 walker tests cover empty project, stage filtering (empty objects/arrays skipped), chapter file detection (only `.md`), research item detection, sane cost estimate at the published rate, missing-directory tolerance.
+- 116/116 extension tests passing; typecheck + bundle clean.
+
+**Deferred:** the CLI subcommand `storyline memory reindex` (`bin/storyline.js`). The CLI doesn't have access to the extension's secret-store-resolved licence key, so a CLI version needs its own auth flow. The extension command covers the primary user need; the CLI version moves to a follow-up ticket if writers ask for it.
 
 Existing projects (and any project that ever opted out then opted back in) need a way to populate NuVector from current state. Also useful after a schema change in NT-03.
 

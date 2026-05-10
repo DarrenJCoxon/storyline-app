@@ -46,7 +46,11 @@ export function registerChapterSemanticWatcher(context: vscode.ExtensionContext)
   )
 }
 
-async function embedChapterFile(uri: vscode.Uri): Promise<void> {
+/**
+ * Embed a single chapter file into the semantic memory. Public so NT-06's
+ * reindex command can drive it directly for bulk backfill.
+ */
+export async function embedChapterFile(uri: vscode.Uri): Promise<void> {
   const service = getSemanticMemoryService()
   if (!service) return
 
