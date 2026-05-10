@@ -424,9 +424,8 @@ async function appendMemoryLog(
 
 /**
  * NT-05: push a stage save into the local NuVector semantic memory.
- * Fire-and-forget — failures are logged inside the service and never
- * surface to the caller. Skipped silently when semantic memory is
- * disabled or no service singleton is registered yet.
+ * Fire-and-forget — failures are logged inside the service. Returns
+ * the upsert status so reindex can report accurate counts.
  *
  * Exported so NT-06's reindex can rebuild stage chunks from the current
  * state in bulk; the live save path keeps using the local wrapper above.
@@ -434,14 +433,14 @@ async function appendMemoryLog(
 export async function upsertStageToSemanticMemory(
   stageId: string,
   patch: Record<string, unknown>,
-): Promise<void> {
+): Promise<{ status: string } | null> {
   const service = getSemanticMemoryService()
-  if (!service) return
+  if (!service) return { status: 'no-service' }
   const text = renderStagePatchAsText(stageId, patch)
-  if (!text) return
+  if (!text) return { status: 'empty-text' }
   const bookId = getBookScopeId()
   const bookScope = bookScopePrefix()
-  await service.upsert({
+  return service.upsert({
     id: `${bookScope}/stage:${stageId}`,
     kind: 'nuwiki_section',
     text,

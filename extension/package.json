@@ -2,7 +2,7 @@
   "name": "storyline-extension",
   "displayName": "Storyline",
   "description": "AI-powered planning and writing environment for novelists — Save the Cat structure, multi-provider AI, EPUB/PDF compile.",
-  "version": "0.2.45",
+  "version": "0.2.51",
   "publisher": "darrenjcoxon",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -283,6 +283,20 @@
       {
         "command": "storyline.importSemanticMemory",
         "title": "Storyline: Import Semantic Memory"
+      },
+      {
+        "command": "storyline.enableSemanticMemory",
+        "title": "Storyline: Enable Semantic Memory",
+        "icon": "$(database)"
+      },
+      {
+        "command": "storyline.disableSemanticMemory",
+        "title": "Storyline: Disable Semantic Memory"
+      },
+      {
+        "command": "storyline.diagnoseSemanticMemory",
+        "title": "Storyline: Diagnose Semantic Memory",
+        "icon": "$(beaker)"
       }
     ],
     "icons": {
@@ -437,7 +451,6 @@
   },
   "dependencies": {
     "@noble/ed25519": "^3.1.0",
-    "@nusoft/nuvector": "^0.1.5",
     "chalk": "^5.6.2",
     "fs-extra": "^11.3.4",
     "isomorphic-git": "^1.37.5",

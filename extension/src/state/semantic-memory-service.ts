@@ -166,7 +166,7 @@ export class SemanticMemoryService {
     }
 
     this.hashCache.set(chunk.id, contentHash)
-    logVerbose(`[Storyline] semantic-memory upserted ${chunk.id} (${chunk.text.length} chars)`)
+    logInfo(`[Storyline] semantic-memory upserted ${chunk.id} (${chunk.text.length} chars)`)
     return { status: 'upserted' }
   }
 
@@ -392,32 +392,52 @@ export class WorkerEmbedClient implements BackendClient {
     if (!licenceKey) throw new Error('no-licence-key')
 
     const url = `${this.backendUrl.replace(/\/+$/, '')}/embed`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ licenceKey, texts }),
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`/embed ${res.status}: ${body.slice(0, 200)}`)
-    }
-    const json = (await res.json()) as {
-      embeddings: number[][]
-      budgetUsed?: number
-      budgetLimit?: number
-    }
-    if (!json.embeddings || !Array.isArray(json.embeddings)) {
-      throw new Error('/embed: malformed response')
-    }
-    // NT-15: surface the daily budget snapshot for the status bar.
-    if (typeof json.budgetUsed === 'number' && typeof json.budgetLimit === 'number') {
-      publishBudget({
-        used: json.budgetUsed,
-        limit: json.budgetLimit,
-        capturedAt: new Date().toISOString(),
+    // Retry-with-backoff on 429 / 5xx. The Worker's per-key rate limit is
+    // generous (600 req/min) but reindex of a big project + auto-saves
+    // landing concurrently can still spike. Clean retry keeps a single
+    // chunk's embed from failing the whole flow.
+    const MAX_ATTEMPTS = 4
+    const BASE_BACKOFF_MS = 500
+    let lastBody = ''
+    let lastStatus = 0
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenceKey, texts }),
       })
+      if (res.ok) {
+        const json = (await res.json()) as {
+          embeddings: number[][]
+          budgetUsed?: number
+          budgetLimit?: number
+        }
+        if (!json.embeddings || !Array.isArray(json.embeddings)) {
+          throw new Error('/embed: malformed response')
+        }
+        if (typeof json.budgetUsed === 'number' && typeof json.budgetLimit === 'number') {
+          publishBudget({
+            used: json.budgetUsed,
+            limit: json.budgetLimit,
+            capturedAt: new Date().toISOString(),
+          })
+        }
+        return json.embeddings
+      }
+      lastStatus = res.status
+      lastBody = await res.text().catch(() => '')
+      const retryable = res.status === 429 || (res.status >= 500 && res.status < 600)
+      if (!retryable) break
+      if (attempt === MAX_ATTEMPTS - 1) break
+      // Honour Retry-After when present; otherwise exponential backoff
+      // with jitter capped at ~8s (4 attempts × 2 = up to ~7.5s).
+      const retryAfterHeader = res.headers.get('Retry-After')
+      const retryAfterMs = retryAfterHeader
+        ? Math.min(parseInt(retryAfterHeader, 10) * 1000, 60_000)
+        : BASE_BACKOFF_MS * Math.pow(2, attempt) + Math.floor(Math.random() * 200)
+      await new Promise(r => setTimeout(r, retryAfterMs))
     }
-    return json.embeddings
+    throw new Error(`/embed ${lastStatus}: ${lastBody.slice(0, 200)}`)
   }
 }
 

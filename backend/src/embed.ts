@@ -89,14 +89,18 @@ export async function handleEmbed(req: Request, env: Env): Promise<Response> {
     }
   }
 
+  // Embedding rate limits — substantially higher than /chat because each
+  // call is cheap and the daily token budget already caps cost abuse. The
+  // bottleneck a reindex hits otherwise is one embed call per chunk for
+  // a project with hundreds of chunks.
   const [rlKey, rlIp] = await Promise.all([
     checkRateLimit(req, env, {
       prefix: 'rl:embed:key',
-      max: 60,
+      max: 600,
       windowSecs: 60,
       id: body.licenceKey,
     }),
-    checkRateLimit(req, env, { prefix: 'rl:embed:ip', max: 200, windowSecs: 60 }),
+    checkRateLimit(req, env, { prefix: 'rl:embed:ip', max: 1200, windowSecs: 60 }),
   ])
   if (rlKey.limited || rlIp.limited) {
     return rateLimitedResponse(Math.max(rlKey.retryAfter, rlIp.retryAfter))

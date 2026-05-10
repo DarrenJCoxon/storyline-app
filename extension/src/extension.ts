@@ -48,6 +48,11 @@ import {
   exportSemanticMemoryCommand,
   importSemanticMemoryCommand,
 } from './state/semantic-memory-snapshot.js'
+import {
+  enableSemanticMemoryCommand,
+  disableSemanticMemoryCommand,
+} from './state/semantic-memory-toggle.js'
+import { diagnoseSemanticMemoryCommand } from './state/semantic-memory-diagnose.js'
 import { checkForUpdate, disposeUpdateStatusBar } from './update/auto-updater.js'
 import { secretsDelete } from './utils/secrets-timeout.js'
 import { bootLogInit, bootLog, bootLogError, bootLogPath } from './utils/boot-log.js'
@@ -1065,6 +1070,9 @@ function activateInner(context: vscode.ExtensionContext): void {
       safeCommand('storyline.showDecisionTimeline', () => showDecisionTimelineCommand()),
       safeCommand('storyline.exportSemanticMemory', () => exportSemanticMemoryCommand()),
       safeCommand('storyline.importSemanticMemory', () => importSemanticMemoryCommand()),
+      safeCommand('storyline.enableSemanticMemory', () => enableSemanticMemoryCommand()),
+      safeCommand('storyline.disableSemanticMemory', () => disableSemanticMemoryCommand()),
+      safeCommand('storyline.diagnoseSemanticMemory', () => diagnoseSemanticMemoryCommand()),
     )
   }
 }

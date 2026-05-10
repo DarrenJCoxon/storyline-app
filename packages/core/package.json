@@ -31,8 +31,8 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@nusoft/nuvector": "^0.1.5",
     "@types/fs-extra": "^11.0.4",
-    "fs-extra": "^11.3.4"
+    "fs-extra": "^11.3.4",
+    "vectra": "^0.14.0"
   }
 }

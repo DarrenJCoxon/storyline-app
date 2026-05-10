@@ -80,26 +80,27 @@ await build({
   outfile: 'dist/extension.js',
   // `vscode` is provided by the host. `sharp` is a native module loaded via
   // dynamic await import() from illustration code only — keep it external so
-  // its native binaries resolve at runtime from node_modules. The
-  // `@nusoft/nuvector*` packages are also native (NAPI Rust binaries for
-  // local-file vector storage) — same pattern: external + ship inside the
-  // VSIX's node_modules tree. Everything else (chalk, fs-extra,
-  // isomorphic-git, etc.) MUST be bundled — vsce package is invoked with
-  // --no-dependencies in the release workflow, so non-native external deps
-  // throw "Cannot find module" at activation on a fresh user machine.
+  // its native binaries resolve at runtime from node_modules. Everything else
+  // (chalk, fs-extra, isomorphic-git, vectra, etc.) MUST be bundled — vsce
+  // package is invoked with --no-dependencies in the release workflow, so
+  // non-native external deps throw "Cannot find module" at activation on a
+  // fresh user machine.
+  //
+  // (Historical: NT-01..21 originally used @nusoft/nuvector — a Rust NAPI
+  //  binary — for the semantic-memory store. The binary exit-code-5'd inside
+  //  VS Code's Electron-bundled Node despite working in standalone Node,
+  //  forcing a swap to vectra. vectra is pure JS, bundles cleanly, and
+  //  doesn't need external treatment.)
   external: [
     'vscode',
     'sharp',
-    '@nusoft/nuvector',
-    '@nusoft/nuvector-node',
-    '@nusoft/nuvector-node-darwin-arm64',
-    '@nusoft/nuvector-node-darwin-x64',
-    '@nusoft/nuvector-node-linux-arm64-gnu',
-    '@nusoft/nuvector-node-linux-arm64-musl',
-    '@nusoft/nuvector-node-linux-x64-gnu',
-    '@nusoft/nuvector-node-linux-x64-musl',
-    '@nusoft/nuvector-node-win32-arm64-msvc',
-    '@nusoft/nuvector-node-win32-x64-msvc',
+    // vectra ships an optional TransformersEmbeddings module that requires
+    // @huggingface/transformers (heavy ML dep). We use OpenAI embeddings via
+    // our own client, never construct a TransformersEmbeddings instance, so
+    // the require is dead code — but esbuild still needs the resolution to
+    // succeed. Marking external lets the unused require live in the bundle
+    // without Hugging Face being installed.
+    '@huggingface/transformers',
   ],
   // Workspace deps in ../packages/core and ../lib import fs-extra/chalk via
   // require()/import. esbuild resolves those from the importing file's

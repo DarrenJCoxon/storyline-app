@@ -5,7 +5,7 @@ import { upsertStageToSemanticMemory, upsertResearchItemToSemanticMemory } from 
 import { embedChapterFile } from './chapter-semantic-watcher.js'
 import { getSemanticMemoryService } from './semantic-memory-service.js'
 import { ensureOptIn, readSemanticMemoryConfig } from './semantic-memory.js'
-import { logInfo, logError } from '../diagnostic-log.js'
+import { logInfo, logError, logWarn } from '../diagnostic-log.js'
 
 /**
  * NT-06 — reindex command. Walks every embeddable document in the
@@ -95,16 +95,23 @@ export async function runReindex(
   if (totalSteps === 0) return result
   const stepIncrement = 100 / totalSteps
 
+  const tally = (status: string | null | undefined): void => {
+    if (status === 'upserted') result.upserted += 1
+    else if (status === 'skipped-unchanged') result.skippedUnchanged += 1
+    else result.failed += 1
+  }
+
   // Stages.
   for (const { stageId, patch } of stagePatches) {
     if (token.isCancellationRequested) return result
     progress.report({ message: `Stage: ${stageId}`, increment: stepIncrement })
     try {
-      await upsertStageToSemanticMemory(stageId, patch)
-      result.upserted += 1
+      const r = await upsertStageToSemanticMemory(stageId, patch)
+      tally(r?.status)
+      logInfo(`[Storyline] reindex stage ${stageId}: ${r?.status ?? 'unknown'}`)
     } catch (err) {
       result.failed += 1
-      logError(`[Storyline] reindex stage ${stageId} failed: ${err instanceof Error ? err.message : err}`)
+      logError(`[Storyline] reindex stage ${stageId} threw: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -114,10 +121,15 @@ export async function runReindex(
     progress.report({ message: `Chapter: ${path.basename(file)}`, increment: stepIncrement })
     try {
       await embedChapterFile(vscode.Uri.file(file))
+      // embedChapterFile fans out to multiple scene upserts and doesn't
+      // currently surface per-scene results — treat the whole chapter as
+      // one tick. Upsert success/failure for each scene chunk shows in
+      // the per-chunk logs from semantic-memory-service.
       result.upserted += 1
+      logInfo(`[Storyline] reindex chapter ${path.basename(file)}: dispatched`)
     } catch (err) {
       result.failed += 1
-      logError(`[Storyline] reindex chapter ${file} failed: ${err instanceof Error ? err.message : err}`)
+      logError(`[Storyline] reindex chapter ${file} threw: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -128,9 +140,10 @@ export async function runReindex(
     try {
       await upsertResearchItemToSemanticMemory(projectRoot, id)
       result.upserted += 1
+      logInfo(`[Storyline] reindex research ${id}: dispatched`)
     } catch (err) {
       result.failed += 1
-      logError(`[Storyline] reindex research ${id} failed: ${err instanceof Error ? err.message : err}`)
+      logError(`[Storyline] reindex research ${id} threw: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -145,15 +158,19 @@ export async function runReindex(
  * reindex with a progress notification, reports outcome.
  */
 export async function reindexSemanticMemoryCommand(): Promise<void> {
+  logInfo('[Storyline] reindex command invoked')
   const folder = vscode.workspace.workspaceFolders?.[0]
   if (!folder) {
+    logWarn('[Storyline] reindex: no workspace folder open')
     void vscode.window.showWarningMessage('Reindex needs an open Storyline project.')
     return
   }
   const projectRoot = folder.uri.fsPath
+  logInfo(`[Storyline] reindex: projectRoot=${projectRoot}`)
 
   // Make sure the writer has opted in (or wants to now).
   const outcome = await ensureOptIn()
+  logInfo(`[Storyline] reindex: ensureOptIn outcome=${outcome}`)
   if (outcome === 'declined' || outcome === 'already-declined') {
     void vscode.window.showInformationMessage(
       'Semantic memory is off — enable it in settings (storyline.semanticMemory.enabled) before reindexing.',
@@ -161,19 +178,25 @@ export async function reindexSemanticMemoryCommand(): Promise<void> {
     return
   }
   const cfg = readSemanticMemoryConfig()
-  if (!cfg.enabled) return
+  if (!cfg.enabled) {
+    logWarn(`[Storyline] reindex: cfg.enabled=false despite ensureOptIn outcome=${outcome} — aborting`)
+    return
+  }
 
   // Confirm with cost estimate.
   let estimate: ReindexEstimate
   try {
     estimate = await estimateReindex(projectRoot)
   } catch (err) {
+    logError(`[Storyline] reindex: estimate failed: ${err instanceof Error ? err.message : err}`)
     void vscode.window.showErrorMessage(
       `Could not estimate reindex cost — ${err instanceof Error ? err.message : err}`,
     )
     return
   }
+  logInfo(`[Storyline] reindex estimate: stages=${estimate.stages} chapters=${estimate.chapters} research=${estimate.research} tokens=${estimate.estimatedTokens}`)
   if (estimate.stages === 0 && estimate.chapters === 0 && estimate.research === 0) {
+    logWarn('[Storyline] reindex: nothing to reindex — empty walk results')
     void vscode.window.showInformationMessage(
       'Nothing to reindex — no completed stages, chapters, or research items found.',
     )
@@ -191,6 +214,7 @@ export async function reindexSemanticMemoryCommand(): Promise<void> {
     'Reindex',
     'Cancel',
   )
+  logInfo(`[Storyline] reindex: confirmation=${confirm ?? 'dismissed'}`)
   if (confirm !== 'Reindex') return
 
   const result = await vscode.window.withProgress(
@@ -203,7 +227,7 @@ export async function reindexSemanticMemoryCommand(): Promise<void> {
   )
 
   void vscode.window.showInformationMessage(
-    `Reindex complete — ${result.upserted} upserted, ${result.failed} failed.`,
+    `Reindex complete — ${result.upserted} upserted, ${result.skippedUnchanged} unchanged, ${result.failed} failed.`,
   )
 }
 
