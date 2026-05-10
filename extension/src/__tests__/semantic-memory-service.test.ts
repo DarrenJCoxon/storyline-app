@@ -201,4 +201,42 @@ describe('SemanticMemoryService (NT-05)', () => {
     r = await harness.service.upsert(baseChunk)
     expect(r.status).toBe('upserted')
   })
+
+  // ── NT-08: typed edges ─────────────────────────────────────────────────
+
+  it('addEdge stores a typed edge and removeEdge drops it', async () => {
+    harness = makeService()
+    const r = await harness.service.addEdge({
+      from: 'book:default/scene:ch5-s2',
+      to: 'book:default/character:marlowe',
+      kind: 'references-character',
+      why: 'Mentioned in line 7',
+    })
+    expect(r.status).toBe('upserted')
+    // Edges don't go through the embed path.
+    expect(harness.embedSpy).not.toHaveBeenCalled()
+
+    await harness.service.removeEdge(
+      'book:default/scene:ch5-s2',
+      'book:default/character:marlowe',
+      'references-character',
+    )
+    // Re-add succeeds (idempotent on the {from,to,kind} triple).
+    const r2 = await harness.service.addEdge({
+      from: 'book:default/scene:ch5-s2',
+      to: 'book:default/character:marlowe',
+      kind: 'references-character',
+    })
+    expect(r2.status).toBe('upserted')
+  })
+
+  it('addEdge skips when semantic memory is disabled', async () => {
+    harness = makeService({ initiallyEnabled: false })
+    const r = await harness.service.addEdge({
+      from: 'a',
+      to: 'b',
+      kind: 'references-character',
+    })
+    expect(r.status).toBe('skipped-disabled')
+  })
 })

@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import { getSemanticMemoryService } from './semantic-memory-service.js'
+import { bookScopePrefix, getBookScopeId } from './semantic-memory.js'
 import { logVerbose } from '../diagnostic-log.js'
 
 /**
@@ -68,14 +69,17 @@ export async function embedChapterFile(uri: vscode.Uri): Promise<void> {
   const chapterNumber = parseChapterNumber(relPath)
   if (chapterNumber == null) return
 
+  const bookId = getBookScopeId()
+  const bookScope = bookScopePrefix()
+
   // Whole-chapter chunk (Layer 1).
   await service.upsert({
-    id: `book:default/chapter:${chapterNumber}`,
+    id: `${bookScope}/chapter:${chapterNumber}`,
     kind: 'nuwiki_article_summary',
     text: raw,
     metadata: {
       // schema doc §5.1
-      articleId: `book:default/chapter:${chapterNumber}`,
+      articleId: `${bookScope}/chapter:${chapterNumber}`,
       documentType: 'storyline_chapter',
       subject: { kind: 'chapter', id: String(chapterNumber) },
       version: new Date().toISOString(),
@@ -84,7 +88,7 @@ export async function embedChapterFile(uri: vscode.Uri): Promise<void> {
       isFresh: true,
       backlinks: { inboundCount: 0, outboundCount: 0 },
       summaryTokenLength: Math.ceil(raw.length / 4),
-      bookId: 'default',
+      bookId,
       mode: 'fiction',
       chapterNumber,
       estimatedWords: estimateWords(raw),
@@ -92,7 +96,7 @@ export async function embedChapterFile(uri: vscode.Uri): Promise<void> {
   })
 
   // Scene chunks (Layer 2) — one per scene marker if present.
-  const scenes = splitIntoScenes(raw, chapterNumber)
+  const scenes = splitIntoScenes(raw, chapterNumber, bookScope)
   for (const scene of scenes) {
     await service.upsert({
       id: scene.id,
@@ -100,7 +104,7 @@ export async function embedChapterFile(uri: vscode.Uri): Promise<void> {
       text: scene.text,
       metadata: {
         // schema doc §5.2
-        articleId: `book:default/chapter:${chapterNumber}`,
+        articleId: `${bookScope}/chapter:${chapterNumber}`,
         documentType: 'storyline_scene',
         subject: { kind: 'scene', id: scene.localId },
         version: new Date().toISOString(),
@@ -109,7 +113,7 @@ export async function embedChapterFile(uri: vscode.Uri): Promise<void> {
         citationCount: 0,
         parentArticleSummary: '',
         position: scene.position,
-        bookId: 'default',
+        bookId,
         chapterNumber,
         sceneNumber: scene.position,
         wordCount: estimateWords(scene.text),
@@ -133,7 +137,7 @@ async function onChapterDeleted(uri: vscode.Uri): Promise<void> {
   // whole-chapter chunk and let any subsequent re-create rebuild scenes.
   // Stale scene chunks under this chapter are tolerable until NT-08's
   // edge cleanup pass; a future enhancement can sweep them on delete.
-  await service.deleteByIds([`book:default/chapter:${chapterNumber}`])
+  await service.deleteByIds([`${bookScopePrefix()}/chapter:${chapterNumber}`])
 }
 
 function parseChapterNumber(relPath: string): number | null {
@@ -159,7 +163,7 @@ interface SceneChunk {
  * `# `, `## `, or `***` / `* * *` on a line of their own. A chapter
  * with no markers becomes one scene.
  */
-function splitIntoScenes(raw: string, chapterNumber: number): SceneChunk[] {
+function splitIntoScenes(raw: string, chapterNumber: number, bookScope: string): SceneChunk[] {
   const lines = raw.split(/\r?\n/)
   const out: SceneChunk[] = []
   let buf: string[] = []
@@ -171,7 +175,7 @@ function splitIntoScenes(raw: string, chapterNumber: number): SceneChunk[] {
     if (text.length === 0) return
     const localId = `ch${chapterNumber}-s${pos}`
     out.push({
-      id: `book:default/scene:${localId}`,
+      id: `${bookScope}/scene:${localId}`,
       localId,
       position: pos,
       text,

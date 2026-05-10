@@ -39,6 +39,38 @@ import { logVerbose, logInfo, logError } from '../diagnostic-log.js'
  *   the source of truth; the index is best-effort.
  */
 
+/**
+ * NT-08: typed edge taxonomy. Mirrors docs/design/nuos-memory-schema.md §6.
+ * Open-ended `string` to allow callers to use NuVector's base LinkType
+ * names (mentions, contradicts, derived_from, etc.) when needed.
+ */
+export type EdgeKind =
+  | 'references-character'
+  | 'pays-off-setup'
+  | 'contradicts'
+  | 'supersedes-decision'
+  | 'mirrors-theme'
+  | 'links-to-research'
+  | 'evidence-for'
+  | 'derived-from'
+  | string
+
+export interface EdgeInput {
+  from: string
+  to: string
+  kind: EdgeKind
+  why?: string
+  createdBy?: 'manual' | 'auto' | 'critique' | 'linker'
+}
+
+function edgeId(from: string, to: string, kind: EdgeKind): string {
+  return `edge:${kind}:${from}=>${to}`
+}
+
+function renderEdgeText(e: EdgeInput): string {
+  return `${e.kind}: ${e.from} → ${e.to}${e.why ? ` (${e.why})` : ''}`
+}
+
 interface ChunkInput {
   /** Stable chunk id following docs/design/nuos-memory-schema.md §2. */
   id: string
@@ -183,6 +215,65 @@ export class SemanticMemoryService {
       const msg = err instanceof Error ? err.message : String(err)
       logError(`[Storyline] semantic-memory retrieve failed: ${msg}`)
       return null
+    }
+  }
+
+  /**
+   * NT-08: add a typed edge between two chunks. Edges are stored as
+   * `document_chunk` records with `documentType: 'storyline_edge'` —
+   * NuVector v0.1.5's graph traversal API is deferred to WU 005, so
+   * we model edges as queryable records until then. Idempotent: an
+   * edge with the same {from, to, kind} replaces the previous one.
+   */
+  async addEdge(input: EdgeInput): Promise<UpsertResult> {
+    const cfg = this.deps.readConfig()
+    if (!cfg.enabled) return { status: 'skipped-disabled' }
+    const store = await this.openStoreIfNeeded(cfg.tenant)
+    if (!store) return { status: 'failed', reason: 'store-unavailable' }
+
+    const id = edgeId(input.from, input.to, input.kind)
+    const text = renderEdgeText(input)
+
+    try {
+      await store.upsert({
+        id,
+        kind: 'document_chunk',
+        // Edges don't need real embeddings — they're never retrieved by
+        // similarity, only by metadata filter. A zero vector is the
+        // cheapest valid input.
+        embedding: new Float32Array(STORYLINE_EMBEDDING_DIMENSIONS),
+        text,
+        metadata: {
+          documentType: 'storyline_edge',
+          from: input.from,
+          to: input.to,
+          edgeKind: input.kind,
+          why: input.why ?? null,
+          createdAt: new Date().toISOString(),
+          createdBy: input.createdBy ?? 'manual',
+        },
+        tenant: cfg.tenant,
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logError(`[Storyline] semantic-memory addEdge failed (${id}): ${msg}`)
+      return { status: 'failed', reason: 'upsert-failed' }
+    }
+    logVerbose(`[Storyline] semantic-memory edge ${input.kind}: ${input.from} → ${input.to}`)
+    return { status: 'upserted' }
+  }
+
+  /** Remove a specific edge by triple. Idempotent (non-existent edge → no-op). */
+  async removeEdge(from: string, to: string, kind: EdgeKind): Promise<void> {
+    const cfg = this.deps.readConfig()
+    if (!cfg.enabled) return
+    const store = await this.openStoreIfNeeded(cfg.tenant)
+    if (!store) return
+    try {
+      await store.delete({ ids: [edgeId(from, to, kind)], reason: 'cleanup' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logError(`[Storyline] semantic-memory removeEdge failed: ${msg}`)
     }
   }
 

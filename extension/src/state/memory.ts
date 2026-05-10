@@ -4,6 +4,7 @@ import * as fs from 'fs/promises'
 import { existsSync } from 'fs'
 import { spawn } from 'child_process'
 import { getSemanticMemoryService } from './semantic-memory-service.js'
+import { bookScopePrefix, getBookScopeId } from './semantic-memory.js'
 
 // Resolve the bundled odd-flow CLI path relative to this compiled module.
 // In dev: <repo>/extension/dist/state/memory.js → ../../node_modules/odd-flow/bin/cli.js
@@ -438,13 +439,15 @@ export async function upsertStageToSemanticMemory(
   if (!service) return
   const text = renderStagePatchAsText(stageId, patch)
   if (!text) return
+  const bookId = getBookScopeId()
+  const bookScope = bookScopePrefix()
   await service.upsert({
-    id: `book:default/stage:${stageId}`,
+    id: `${bookScope}/stage:${stageId}`,
     kind: 'nuwiki_section',
     text,
     metadata: {
       // NuVector NuWiki shape — see docs/design/nuos-memory-schema.md §5.2.
-      articleId: 'book:default/book:summary',
+      articleId: `${bookScope}/book:summary`,
       documentType: 'storyline_stage',
       subject: { kind: 'stage', id: stageId },
       version: new Date().toISOString(),
@@ -454,7 +457,7 @@ export async function upsertStageToSemanticMemory(
       parentArticleSummary: '',
       position: 0,
       // Storyline extensions
-      bookId: 'default',
+      bookId,
       stageId,
       kind: 'planning',
     },
@@ -482,13 +485,15 @@ export async function upsertResearchItemToSemanticMemory(
   }
   const { meta, body } = parseFrontmatter(raw)
   const text = renderResearchItemAsText(itemId, meta, body)
+  const bookId = getBookScopeId()
+  const bookScope = bookScopePrefix()
   await service.upsert({
-    id: `book:default/research:${itemId}`,
+    id: `${bookScope}/research:${itemId}`,
     kind: 'nuwiki_citation',
     text,
     metadata: {
       // schema doc §5.3 — research item shape
-      articleId: 'book:default/book:summary',
+      articleId: `${bookScope}/book:summary`,
       documentType: 'storyline_research',
       subject: { kind: 'research', id: itemId },
       version: typeof meta.updatedAt === 'string' ? meta.updatedAt : new Date().toISOString(),
@@ -499,7 +504,7 @@ export async function upsertResearchItemToSemanticMemory(
       },
       confidence: confidenceForReliability(meta.reliability),
       sectionKey: 'research',
-      bookId: 'default',
+      bookId,
       subtype: meta.subtype ?? 'note',
       reliabilityTier: meta.reliability ?? null,
       verificationState: meta.verification ?? null,
@@ -514,7 +519,41 @@ export async function upsertResearchItemToSemanticMemory(
 export async function deleteResearchItemFromSemanticMemory(itemId: string): Promise<void> {
   const service = getSemanticMemoryService()
   if (!service) return
-  await service.deleteByIds([`book:default/research:${itemId}`])
+  await service.deleteByIds([`${bookScopePrefix()}/research:${itemId}`])
+}
+
+/**
+ * NT-08: emit a `links-to-research` edge when the existing research
+ * linker creates a research-item-to-target link. The link itself stays
+ * in the item's frontmatter (existing behaviour); this gives the edge
+ * first-class graph membership so retrieval can find "everything that
+ * links to research item X" or "all research backing chapter 5".
+ *
+ * `target` follows the existing linker format: `chapter:N` /
+ * `scene:chN-sM` / `stage:X` / `claim:Y`.
+ */
+export async function emitResearchLinkEdge(itemId: string, target: string): Promise<void> {
+  const service = getSemanticMemoryService()
+  if (!service) return
+  // Translate the legacy linker target shape into NuVector chunk ids.
+  const targetChunkId = legacyLinkerTargetToChunkId(target)
+  if (!targetChunkId) return
+  await service.addEdge({
+    from: targetChunkId,
+    to: `book:default/research:${itemId}`,
+    kind: 'links-to-research',
+    createdBy: 'linker',
+  })
+}
+
+function legacyLinkerTargetToChunkId(target: string): string | null {
+  // chapter:5 → book:<scope>/chapter:5  (scope = 'default' or series-derived bookId)
+  // scene:ch5-s2 → book:<scope>/scene:ch5-s2
+  // stage:protagonist → book:<scope>/stage:protagonist
+  // claim:abc → book:<scope>/claim:abc (no live mapping today, but reserve the path)
+  const m = /^(chapter|scene|stage|claim):(.+)$/.exec(target)
+  if (!m) return null
+  return `${bookScopePrefix()}/${m[1]}:${m[2]}`
 }
 
 /** Lightweight YAML frontmatter parser — bounded to flat key/value + simple lists. */

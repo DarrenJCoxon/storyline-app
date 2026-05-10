@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import * as path from 'node:path'
 
 /**
  * Semantic-memory opt-in gate (NT-04).
@@ -107,4 +108,35 @@ export async function ensureOptIn(): Promise<OptInOutcome> {
 export async function resetOptInDialog(): Promise<void> {
   const cfg = vscode.workspace.getConfiguration()
   await cfg.update(CFG_DIALOG_SHOWN, false, vscode.ConfigurationTarget.Workspace)
+}
+
+/**
+ * NT-10: derive the bookId for chunk-id construction. In single-book
+ * mode this is always `default`. In series mode it's the slugified
+ * project directory name so sibling projects in the same series can
+ * share a tenant without their chunk ids colliding.
+ */
+export function getBookScopeId(): string {
+  const cfg = readSemanticMemoryConfig()
+  if (!cfg.seriesId) return 'default'
+  const folder = vscode.workspace.workspaceFolders?.[0]
+  if (!folder) return 'default'
+  return slugifyBookId(path.basename(folder.uri.fsPath))
+}
+
+/**
+ * Convenience: the prefix every chunk id gets. Always shaped `book:<id>`
+ * so a future tenant migration doesn't need a chunk-id rewrite.
+ */
+export function bookScopePrefix(): string {
+  return `book:${getBookScopeId()}`
+}
+
+function slugifyBookId(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+  return slug.length > 0 ? slug : 'untitled-book'
 }
