@@ -17,6 +17,7 @@ import {
   type ContextPack,
 } from '@storyline/core/dist/nuvector.js'
 import { readSemanticMemoryConfig, type SemanticMemoryConfig } from './semantic-memory.js'
+import { isRedactionEnabled, redactProperNouns, unredact } from './pii-redaction.js'
 import { logVerbose, logInfo, logError } from '../diagnostic-log.js'
 
 /**
@@ -117,7 +118,14 @@ export class SemanticMemoryService {
     const cfg = this.deps.readConfig()
     if (!cfg.enabled) return { status: 'skipped-disabled' }
 
-    const contentHash = hashContent(chunk.text)
+    // NT-16: redact proper nouns before anything leaves the machine.
+    // The hash is computed over the redacted text so the dedup cache
+    // stays consistent across redaction-toggle flips.
+    const textForEmbedding = isRedactionEnabled()
+      ? redactProperNouns(chunk.text, this.deps.projectRoot).redactedText
+      : chunk.text
+
+    const contentHash = hashContent(textForEmbedding)
     if (this.hashCache.get(chunk.id) === contentHash) {
       return { status: 'skipped-unchanged' }
     }
@@ -127,7 +135,7 @@ export class SemanticMemoryService {
 
     let embeddings: number[][]
     try {
-      embeddings = await this.deps.client.embed([chunk.text])
+      embeddings = await this.deps.client.embed([textForEmbedding])
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       logError(`[Storyline] semantic-memory embed failed for ${chunk.id}: ${msg}`)
@@ -144,7 +152,10 @@ export class SemanticMemoryService {
         id: chunk.id,
         kind: chunk.kind,
         embedding: new Float32Array(embeddings[0]),
-        text: chunk.text,
+        // Store the redacted text in the index so retrieval can never
+        // surface the real names back. unredact() at search time
+        // reverse-translates for display.
+        text: textForEmbedding,
         metadata: { ...chunk.metadata, contentHash },
         tenant: cfg.tenant,
       })
@@ -192,9 +203,15 @@ export class SemanticMemoryService {
     const store = await this.openStoreIfNeeded(cfg.tenant)
     if (!store) return null
 
+    // NT-16: redact the query too, otherwise the writer's "what does
+    // John Smith do in chapter 5?" would never match a redacted index.
+    const queryForEmbedding = isRedactionEnabled()
+      ? redactProperNouns(query, this.deps.projectRoot).redactedText
+      : query
+
     let embeddings: number[][]
     try {
-      embeddings = await this.deps.client.embed([query])
+      embeddings = await this.deps.client.embed([queryForEmbedding])
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       logError(`[Storyline] semantic-memory search embed failed: ${msg}`)
@@ -209,13 +226,23 @@ export class SemanticMemoryService {
       filters: opts.kindFilter ? { kind: opts.kindFilter } : undefined,
     }
 
+    let pack: ContextPack
     try {
-      return await store.retrieveContext(retrievalQuery)
+      pack = await store.retrieveContext(retrievalQuery)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       logError(`[Storyline] semantic-memory retrieve failed: ${msg}`)
       return null
     }
+    // NT-16: reverse-translate any pseudonyms in the visible text so
+    // the writer sees real names in search results.
+    if (isRedactionEnabled()) {
+      for (const item of pack.items) {
+        if (item.text) item.text = unredact(item.text, this.deps.projectRoot)
+        if (item.summary) item.summary = unredact(item.summary, this.deps.projectRoot)
+      }
+    }
+    return pack
   }
 
   /**
@@ -321,6 +348,34 @@ function hashContent(text: string): string {
   return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16)
 }
 
+/** NT-15: budget snapshot the Worker returns on every /embed response. */
+export interface EmbedBudgetSnapshot {
+  used: number
+  limit: number
+  /** ISO date the snapshot was captured. Used to discard stale day-old data. */
+  capturedAt: string
+}
+
+/** Module-level latest budget. Updated after every successful /embed call. */
+let _latestBudget: EmbedBudgetSnapshot | null = null
+const _budgetListeners = new Set<(snap: EmbedBudgetSnapshot) => void>()
+
+export function getLatestEmbedBudget(): EmbedBudgetSnapshot | null {
+  return _latestBudget
+}
+
+export function onEmbedBudgetChange(handler: (snap: EmbedBudgetSnapshot) => void): () => void {
+  _budgetListeners.add(handler)
+  return () => _budgetListeners.delete(handler)
+}
+
+function publishBudget(snap: EmbedBudgetSnapshot): void {
+  _latestBudget = snap
+  for (const h of _budgetListeners) {
+    try { h(snap) } catch { /* listener bug shouldn't break embedding */ }
+  }
+}
+
 /**
  * Default backend client — talks to the Worker's /embed endpoint using
  * the configured backendUrl + the active licence key.
@@ -346,9 +401,21 @@ export class WorkerEmbedClient implements BackendClient {
       const body = await res.text().catch(() => '')
       throw new Error(`/embed ${res.status}: ${body.slice(0, 200)}`)
     }
-    const json = (await res.json()) as { embeddings: number[][] }
+    const json = (await res.json()) as {
+      embeddings: number[][]
+      budgetUsed?: number
+      budgetLimit?: number
+    }
     if (!json.embeddings || !Array.isArray(json.embeddings)) {
       throw new Error('/embed: malformed response')
+    }
+    // NT-15: surface the daily budget snapshot for the status bar.
+    if (typeof json.budgetUsed === 'number' && typeof json.budgetLimit === 'number') {
+      publishBudget({
+        used: json.budgetUsed,
+        limit: json.budgetLimit,
+        capturedAt: new Date().toISOString(),
+      })
     }
     return json.embeddings
   }

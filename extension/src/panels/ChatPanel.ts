@@ -8,7 +8,8 @@ import { guardFileWrite, confirmWrite } from '../editor/file-write-guard.js'
 import { buildSystemPrompt } from '../conversation/system-prompt.js'
 import { buildSemanticContextBlock } from '../conversation/semantic-context.js'
 import { appendDecision, inferKind } from '../state/decisions.js'
-import { bookScopePrefix } from '../state/semantic-memory.js'
+import { bookScopePrefix, readSemanticMemoryConfig } from '../state/semantic-memory.js'
+import { getSemanticMemoryService } from '../state/semantic-memory-service.js'
 import { getActiveChapterRelPath } from '../editor/active-chapter.js'
 import { TurnHistory } from '../conversation/turn-history.js'
 import { compressTurnsForApi } from '../conversation/turn-compressor.js'
@@ -419,6 +420,17 @@ export class ChatPanel {
 
   private async handleUserMessage(text: string): Promise<void> {
     if (!this.provider || !this.store) return
+
+    // NT-07b: in-chat /find slash command. Intercept before any AI call —
+    // the writer is asking the local index, not the model. Output goes
+    // straight to the chat as an assistant turn so it scrolls naturally.
+    if (text.trim().startsWith('/find ')) {
+      const query = text.trim().slice('/find '.length).trim()
+      if (query.length > 0) {
+        await this.handleFindSlashCommand(query)
+        return
+      }
+    }
 
     const state = await this.store.read()
     const currentStage = deriveCurrentStage(state)
@@ -1180,6 +1192,56 @@ export class ChatPanel {
   }
 
   /**
+   * NT-07b: handle the in-chat /find slash command. Pulls top hits
+   * from semantic memory and renders them as an assistant turn so the
+   * writer sees results inline without leaving the planning chat.
+   * Doesn't use any AI tokens — pure local retrieval.
+   */
+  private async handleFindSlashCommand(query: string): Promise<void> {
+    this.turnHistory.appendDisplay({ role: 'user', content: `/find ${query}` })
+    this.post({ type: 'userMessage', text: `/find ${query}` })
+
+    const cfg = readSemanticMemoryConfig()
+    if (!cfg.enabled) {
+      const reply = '_Semantic memory is off — enable it in `storyline.semanticMemory.enabled` to search by meaning._'
+      this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+      this.post({ type: 'streamChunk', chunk: reply })
+      this.post({ type: 'streamComplete' })
+      return
+    }
+
+    const service = getSemanticMemoryService()
+    if (!service) {
+      const reply = '_Semantic memory service not ready yet — try again in a moment._'
+      this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+      this.post({ type: 'streamChunk', chunk: reply })
+      this.post({ type: 'streamComplete' })
+      return
+    }
+
+    const pack = await service.search(query, { topK: 8 })
+    if (!pack || pack.items.length === 0) {
+      const reply = `_No matches for "${query}". Try a broader query, or run **Storyline: Re-index Semantic Memory** if you've enabled the feature recently._`
+      this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+      this.post({ type: 'streamChunk', chunk: reply })
+      this.post({ type: 'streamComplete' })
+      return
+    }
+
+    const lines: string[] = [`**Top matches for "${query}":**`, '']
+    for (const it of pack.items.slice(0, 6)) {
+      const heading = humanLabelForChunk(it.ref)
+      const score = `${(it.score * 100).toFixed(0)}%`
+      const preview = (it.text ?? it.summary ?? '').replace(/\s+/g, ' ').trim().slice(0, 200)
+      lines.push(`- **${heading}** (${score}) — ${preview}${preview.length === 200 ? '…' : ''}`)
+    }
+    const reply = lines.join('\n')
+    this.turnHistory.appendDisplay({ role: 'assistant', content: reply })
+    this.post({ type: 'streamChunk', chunk: reply })
+    this.post({ type: 'streamComplete' })
+  }
+
+  /**
    * NT-21: build the per-turn semantic context block. Uses the most
    * recent user message in this stage as the retrieval query (falls back
    * to stage-level retrieval for synthetic / empty messages). Returns ''
@@ -1510,6 +1572,19 @@ export class ChatPanel {
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+function humanLabelForChunk(chunkId: string): string {
+  const stripped = chunkId.replace(/^book:[^/]+\//, '')
+  const sceneMatch = /^scene:ch(\d+)-s(\d+)$/.exec(stripped)
+  if (sceneMatch) return `Chapter ${sceneMatch[1]}, scene ${sceneMatch[2]}`
+  const chapterMatch = /^chapter:(\d+)$/.exec(stripped)
+  if (chapterMatch) return `Chapter ${chapterMatch[1]}`
+  const stageMatch = /^stage:(.+)$/.exec(stripped)
+  if (stageMatch) return `Planning — ${stageMatch[1]}`
+  const researchMatch = /^research:(.+)$/.exec(stripped)
+  if (researchMatch) return `Research — ${researchMatch[1]}`
+  return stripped
 }
 
 // ─── NT-12 decision-emission helpers ────────────────────────────────────────

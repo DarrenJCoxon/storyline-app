@@ -270,6 +270,19 @@
         "command": "storyline.showDecisionTimeline",
         "title": "Storyline: Decision Timeline",
         "icon": "$(history)"
+      },
+      {
+        "command": "storyline.showSemanticMemoryBudget",
+        "title": "Storyline: Show Semantic Memory Budget",
+        "icon": "$(database)"
+      },
+      {
+        "command": "storyline.exportSemanticMemory",
+        "title": "Storyline: Export Semantic Memory"
+      },
+      {
+        "command": "storyline.importSemanticMemory",
+        "title": "Storyline: Import Semantic Memory"
       }
     ],
     "icons": {
@@ -365,6 +378,11 @@
           "type": "string",
           "default": "",
           "description": "Optional series identifier (e.g. 'the-blackwood-saga'). When set, this project's semantic memory is shared with sibling projects that have the same series ID, so book 2 can reference book 1's characters and scenes. Leave blank for standalone books."
+        },
+        "storyline.semanticMemory.redactProperNouns": {
+          "type": "boolean",
+          "default": false,
+          "description": "Replace proper nouns (people, places) with stable pseudonyms (PERSON_001, PLACE_002) before sending text to OpenAI for embedding. Useful for memoir, journalism, and any project where names are sensitive. The pseudonym map stays local and reverse-translates search results so you still see real names. Toggling this mid-project requires a reindex."
         }
       }
     },

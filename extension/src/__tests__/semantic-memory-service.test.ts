@@ -10,7 +10,12 @@ const { logVerboseMock, logErrorMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('vscode', () => ({
-  workspace: { workspaceFolders: undefined },
+  workspace: {
+    workspaceFolders: undefined,
+    getConfiguration: () => ({
+      get: () => undefined, // redactProperNouns reads false by default
+    }),
+  },
 }))
 
 vi.mock('../diagnostic-log.js', () => ({
