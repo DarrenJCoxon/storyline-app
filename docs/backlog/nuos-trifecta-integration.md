@@ -271,7 +271,7 @@ Existing projects (and any project that ever opted out then opted back in) need 
 
 ### NT-07 · Semantic search — chat slash command + sidebar webview
 
-**Status:** PARTIAL — NT-07a DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`); NT-07b deferred · **Effort:** L (1–2 days) · **Risk:** low
+**Status:** DONE — NT-07a + NT-07b /find slash command (2026-05-10, branch `feat/nuvector-knowledge-graph`); sidebar webview deferred to follow-up · **Effort:** L (1–2 days) · **Risk:** low
 
 **Shipped (NT-07a — command-palette search):**
 
@@ -312,7 +312,9 @@ The first thing the writer experiences. "Find scenes about X" returns ranked res
 
 ### NT-08 · Extend the research linker schema with first-class typed edges
 
-**Status:** TODO · **Effort:** M (4–6 hrs) · **Risk:** medium
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** M (4–6 hrs) · **Risk:** medium
+
+**Shipped:** addEdge/removeEdge primitives on SemanticMemoryService storing edges as document_chunk records (documentType: 'storyline_edge'), the full schema doc §6 EdgeKind taxonomy (references-character, pays-off-setup, contradicts, supersedes-decision, mirrors-theme, links-to-research, evidence-for, derived-from), and a research-linker bridge (emitResearchLinkEdge) that mirrors legacy frontmatter links into typed graph edges on every ResearchPanel add/link.
 
 Today's `lib/research/linker.js` handles research-item-to-target edges. NuVector's backlink layer (Layer 4 in NT-03) generalises this to any-chunk-to-any-chunk, with edge types.
 
@@ -337,7 +339,9 @@ Today's `lib/research/linker.js` handles research-item-to-target edges. NuVector
 
 ### NT-09 · Auto-suggest links — inline hints when editing a scene
 
-**Status:** TODO · **Effort:** L (1–2 days) · **Risk:** medium
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** L (1–2 days) · **Risk:** medium
+
+**Shipped:** CodeLens `$(lightbulb-sparkle) Suggest links for this chapter` on every manuscript/*.md file. Click → embed the chapter, search topK=8, filter dismissed pairs + score >= 0.6 → quick-pick top 5 → second pick chooses edge kind (Pays off setup / References character / Mirrors theme / Contradicts / Dismiss). Dismissals persist in workspaceState so the same pair never re-surfaces. Per-chapter granularity (per-scene needs AST splitting, deferred).
 
 The payoff feature. While the writer edits a scene, NuVector returns top-K semantically similar passages from elsewhere in the project. Surface them as inline suggestions: *"this scene resembles ch3-s4 (the bar fight) — link as a setup payoff?"*
 
@@ -362,7 +366,9 @@ The payoff feature. While the writer edits a scene, NuVector returns top-K seman
 
 ### NT-10 · Cross-book series support — workspace-scoped indexes
 
-**Status:** TODO · **Effort:** L (1–2 days) · **Risk:** medium
+**Status:** DONE — data layer; UI toggle deferred (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** L (1–2 days) · **Risk:** medium
+
+**Shipped:** `getBookScopeId()` and `bookScopePrefix()` helpers in semantic-memory.ts; every chunk-id construction site (memory.ts stage upsert, memory.ts research upsert, chapter-semantic-watcher.ts whole-chapter + per-scene, semantic-memory-codelens.ts, legacy linker target translator) now uses them — no more hardcoded `book:default/`. Sibling projects with the same `storyline.series.id` share a NuVector tenant and disambiguate via bookId; existing `tenantStrategy: 'strict'` from NT-01 prevents cross-series leakage. "Search whole series" / "current book only" UI toggle deferred to NT-10b — needs a series writer to validate UX choices.
 
 Series writers (book 2 of 5) want to query book 1 from book 2 without the indexes contaminating each other. NuVector supports workspace scoping; we just need to expose it.
 
@@ -389,7 +395,9 @@ Series writers (book 2 of 5) want to query book 1 from book 2 without the indexe
 
 ### NT-11 · Define `decisions.jsonl` schema and typed appender
 
-**Status:** TODO · **Effort:** S (2–3 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** S (2–3 hrs) · **Risk:** low
+
+**Shipped:** `extension/src/state/decisions.ts` exposes DecisionRecord (id, timestamp, stage, kind, before, after, why, embeddedAt, touchedChunks), DecisionKind enum (created/revised/cut/reordered/gated), appendDecision (writes JSONL line + mirrors as document_chunk in NuVector for /why search), readDecisions (tolerates malformed lines, most-recent-first), inferKind heuristic.
 
 Today the only decision-like trail is `.storyline/memory.jsonl` — flat, unstructured, untyped. A first-class decision shape.
 
@@ -414,7 +422,9 @@ Today the only decision-like trail is `.storyline/memory.jsonl` — flat, unstru
 
 ### NT-12 · Wire stage-save flow to emit decision entries
 
-**Status:** TODO · **Effort:** M (4–6 hrs) · **Risk:** medium
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** M (4–6 hrs) · **Risk:** medium
+
+**Shipped:** `applyEmittedPatches` in ChatPanel.ts captures the stage slice before any merge; after the gate passes and the save lands, diffs before/after via canonical JSON; non-trivial diffs emit a decision via appendDecision. Why field is captured by stripping the JSON save block from the AI's chat-turn text (the surrounding prose IS the reasoning — no extra round-trip). touchedChunks references the stage's NuVector chunk id.
 
 Every non-trivial save lands a decision entry. The "why" comes from the AI's reasoning text in the chat; if absent, the writer gets a one-line prompt.
 
@@ -439,7 +449,9 @@ Every non-trivial save lands a decision entry. The "why" comes from the AI's rea
 
 ### NT-13 · Decision search — "why did I cut the B-story callback?"
 
-**Status:** TODO · **Effort:** S (2–3 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** S (2–3 hrs) · **Risk:** low
+
+**Shipped:** `Storyline: Why — Search Decisions` palette command. Input box → service.search topK=20 → filter to documentType: 'storyline_decision' → quick-pick rendering stage/kind/date with why-line preview → opens a markdown view with the decision's diff blocks. Local JSONL substring fallback when NuVector is empty.
 
 Reuses NT-07's semantic search infrastructure with a decision-specific filter.
 
@@ -461,7 +473,9 @@ Reuses NT-07's semantic search infrastructure with a decision-specific filter.
 
 ### NT-14 · Decision timeline view
 
-**Status:** TODO · **Effort:** L (1–2 days) · **Risk:** low
+**Status:** DONE — markdown render; webview view deferred (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** L (1–2 days) · **Risk:** low
+
+**Shipped:** `Storyline: Decision Timeline` palette command renders the full decisions log as a markdown document grouped by date, most-recent first, opened in a regular editor tab. Full webview with vertical timeline + filter chips deferred to follow-up; the markdown render delivers the same audit value without any webview HTML/CSS work.
 
 Chronological visualisation in the sidebar. Lets the writer scrub through how the project's shape changed over time.
 
@@ -488,7 +502,9 @@ Chronological visualisation in the sidebar. Lets the writer scrub through how th
 
 ### NT-15 · Cost tracking and status-bar indicator
 
-**Status:** TODO · **Effort:** S (2–3 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** S (2–3 hrs) · **Risk:** low
+
+**Shipped:** Right-side status bar item `$(database) Memory: idle / $0.X / NN%` reading from a module-level snapshot updated by WorkerEmbedClient on every successful /embed (the endpoint already returns budgetUsed/budgetLimit per NT-02 — no extra round-trips). `onEmbedBudgetChange` listener pattern lets future surfaces subscribe. Click → markdown detail view with tokens used, cost so far, remaining today.
 
 Writers should see, at a glance, what they're spending. Embedding costs are tiny but trust comes from transparency.
 
@@ -511,7 +527,9 @@ Writers should see, at a glance, what they're spending. Embedding costs are tiny
 
 ### NT-16 · Privacy: name-redaction toggle for sensitive projects
 
-**Status:** TODO · **Effort:** M (4–6 hrs) · **Risk:** medium
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** M (4–6 hrs) · **Risk:** medium
+
+**Shipped:** `storyline.semanticMemory.redactProperNouns` setting (default false). Rule-based NER (`extension/src/state/pii-redaction.ts`) — capitalised multi-word phrases first, then non-sentence-initial single-word names with a stop-list — mints stable pseudonyms (PERSON_001, PLACE_002) persisted to `.storyline/pseudonyms.json`. SemanticMemoryService.upsert and .search redact text before /embed and unredact retrieved results so the writer sees real names back. Hash dedup uses redacted text so the cache stays consistent across toggle flips.
 
 Memoir writers, journalists, anyone working on something legally fraught may want to redact names/places before sending text to OpenAI. NuVector's index would still be useful — it just wouldn't contain real names.
 
@@ -535,7 +553,9 @@ Memoir writers, journalists, anyone working on something legally fraught may wan
 
 ### NT-17 · Snapshot/export the semantic memory
 
-**Status:** TODO · **Effort:** S (2–3 hrs) · **Risk:** low
+**Status:** DONE (2026-05-10, branch `feat/nuvector-knowledge-graph`) · **Effort:** S (2–3 hrs) · **Risk:** low
+
+**Shipped:** `Storyline: Export Semantic Memory` (saveDialog → NuVector.snapshot) and `Storyline: Import Semantic Memory` (openDialog with confirmation → NuVector.restore). Default export path `.storyline/nuvector-snapshot-YYYY-MM-DD.json`. Reveal-in-Finder hint after a successful export.
 
 NuVector ships a `snapshot()` API. Surface it as an export command so writers can back up their index alongside the manuscript or migrate to a new machine.
 
